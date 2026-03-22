@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en-CA">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=1280">
+  <title>Spindle — Build Progress</title>
+  <link rel="stylesheet" href="design-system.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { background: var(--bg-panel); }
+
+    .progress-layout {
+      display: grid;
+      grid-template-columns: 1fr 320px;
+      gap: var(--space-6);
+      max-width: 1000px;
+    }
+
+    /* -- Overall progress -- */
+    .overall-progress {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: var(--space-5);
+      margin-bottom: var(--space-5);
+    }
+    .overall-progress__header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: var(--space-3);
+    }
+    .overall-progress__percent {
+      font-family: var(--font-heading);
+      font-size: var(--text-2xl);
+      font-weight: 700;
+    }
+    .overall-progress__phase {
+      font-size: var(--text-sm);
+      color: var(--brand-orange);
+      font-weight: 500;
+    }
+    .overall-progress__bar {
+      height: 10px;
+      background: rgba(255,255,255,0.06);
+      border-radius: 5px;
+      overflow: hidden;
+    }
+    .overall-progress__fill {
+      height: 100%;
+      background: var(--brand-gradient);
+      border-radius: 5px;
+      transition: width 0.5s ease;
+      background-size: 200% 100%;
+      animation: shimmer 2s linear infinite;
+    }
+
+    /* -- Phase steps -- */
+    .phase-list {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-1);
+    }
+
+    .phase-step {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      padding: var(--space-2) var(--space-3);
+      border-radius: var(--radius-md);
+      font-size: var(--text-sm);
+      transition: all var(--transition-fast);
+    }
+
+    .phase-icon {
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .phase-icon--done {
+      background: rgba(46,198,106,0.15);
+      color: var(--colour-success);
+    }
+    .phase-icon--active {
+      background: rgba(255,170,64,0.15);
+      color: var(--brand-orange);
+      animation: portal-pulse 2s ease-in-out infinite;
+    }
+    .phase-icon--pending {
+      background: rgba(255,255,255,0.04);
+      color: var(--text-muted);
+    }
+
+    .phase-step--active {
+      background: rgba(255,170,64,0.04);
+    }
+
+    .phase-name { flex: 1; }
+    .phase-name--done { color: var(--text-secondary); }
+    .phase-name--active { color: var(--brand-orange); font-weight: 500; }
+    .phase-name--pending { color: var(--text-muted); }
+
+    .phase-time {
+      font-family: var(--font-mono);
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+    }
+
+    /* -- Live output -- */
+    .live-output {
+      background: var(--bg-app);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: var(--space-3);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      line-height: 1.6;
+      color: var(--text-muted);
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    .live-output__line--info { color: var(--text-secondary); }
+    .live-output__line--cmd { color: var(--brand-orange); }
+    .live-output__line--ok { color: var(--colour-success); }
+
+    /* -- Spinner -- */
+    .spinner {
+      width: 14px; height: 14px;
+      border: 2px solid rgba(255,170,64,0.2);
+      border-top-color: var(--brand-orange);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    /* -- Sidebar stats -- */
+    .build-stat {
+      display: flex;
+      justify-content: space-between;
+      padding: 4px 0;
+      font-size: var(--text-sm);
+    }
+    .build-stat__label { color: var(--text-muted); }
+    .build-stat__value { color: var(--text-primary); font-weight: 500; }
+  </style>
+</head>
+<body>
+  <div style="padding: var(--space-6); max-width: 1060px;">
+
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Building Disc</h1>
+        <p class="text-muted" style="font-size:var(--text-sm); margin-top:2px;">Final build · DVD-Video NTSC · Started 4 min ago</p>
+      </div>
+      <button class="btn btn--danger">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="4" width="8" height="8" rx="1"/></svg>
+        Cancel Build
+      </button>
+    </div>
+
+    <!-- ═══ Overall Progress ═══ -->
+    <div class="overall-progress">
+      <div class="overall-progress__header">
+        <div>
+          <div class="overall-progress__percent text-gradient">67%</div>
+          <div class="overall-progress__phase">Phase 5 of 10 — Encoding video streams</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:var(--text-sm);color:var(--text-secondary);">Elapsed: 4:12</div>
+          <div style="font-size:var(--text-xs);color:var(--text-muted);">Est. remaining: ~2 min</div>
+        </div>
+      </div>
+      <div class="overall-progress__bar">
+        <div class="overall-progress__fill" style="width:67%;"></div>
+      </div>
+    </div>
+
+    <div class="progress-layout">
+      <!-- ═══ Left: Phases + Output ═══ -->
+      <div>
+        <h3 style="font-size:var(--text-md);margin-bottom:var(--space-3);">Build Phases</h3>
+        <div class="phase-list">
+          <div class="phase-step">
+            <div class="phase-icon phase-icon--done"><svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 6l3 3 5-5"/></svg></div>
+            <span class="phase-name phase-name--done">Validate project</span>
+            <span class="phase-time">0.2s</span>
+          </div>
+          <div class="phase-step">
+            <div class="phase-icon phase-icon--done"><svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 6l3 3 5-5"/></svg></div>
+            <span class="phase-name phase-name--done">Inspect sources</span>
+            <span class="phase-time">1.4s</span>
+          </div>
+          <div class="phase-step">
+            <div class="phase-icon phase-icon--done"><svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 6l3 3 5-5"/></svg></div>
+            <span class="phase-name phase-name--done">Resolve backend</span>
+            <span class="phase-time">0.1s</span>
+          </div>
+          <div class="phase-step">
+            <div class="phase-icon phase-icon--done"><svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 6l3 3 5-5"/></svg></div>
+            <span class="phase-name phase-name--done">Generate intermediates</span>
+            <span class="phase-time">8.3s</span>
+          </div>
+          <div class="phase-step phase-step--active">
+            <div class="phase-icon phase-icon--active"><div class="spinner"></div></div>
+            <span class="phase-name phase-name--active">Encode video streams</span>
+            <span class="phase-time">3:58…</span>
+          </div>
+          <div class="phase-step">
+            <div class="phase-icon phase-icon--pending">6</div>
+            <span class="phase-name phase-name--pending">Compose menus</span>
+          </div>
+          <div class="phase-step">
+            <div class="phase-icon phase-icon--pending">7</div>
+            <span class="phase-name phase-name--pending">Emit definitions</span>
+          </div>
+          <div class="phase-step">
+            <div class="phase-icon phase-icon--pending">8</div>
+            <span class="phase-name phase-name--pending">Author filesystem</span>
+          </div>
+          <div class="phase-step">
+            <div class="phase-icon phase-icon--pending">9</div>
+            <span class="phase-name phase-name--pending">Validate output</span>
+          </div>
+          <div class="phase-step">
+            <div class="phase-icon phase-icon--pending">10</div>
+            <span class="phase-name phase-name--pending">Write build report</span>
+          </div>
+        </div>
+
+        <!-- Live Output -->
+        <h3 style="font-size:var(--text-md);margin:var(--space-5) 0 var(--space-3);">Live Output</h3>
+        <div class="live-output">
+          <div class="live-output__line--cmd">$ ffmpeg -i ceremony_full.mpg -target ntsc-dvd -b:v 6200k …</div>
+          <div class="live-output__line--info">frame= 54200 fps=142 q=2.0 size= 1048576kB time=00:30:08</div>
+          <div class="live-output__line--info">frame= 54400 fps=143 q=2.0 size= 1052672kB time=00:30:15</div>
+          <div class="live-output__line--info">frame= 54600 fps=142 q=2.0 size= 1056768kB time=00:30:22</div>
+          <div class="live-output__line--cmd">  ↳ Encoding Title 2 (Reception) — 68% complete</div>
+          <div class="live-output__line--info">frame= 38200 fps=138 q=2.0 size= 768000kB time=00:21:15</div>
+        </div>
+      </div>
+
+      <!-- ═══ Right: Stats ═══ -->
+      <div>
+        <div class="card" style="margin-bottom:var(--space-4);">
+          <h4 style="margin-bottom:var(--space-3);">Current Operation</h4>
+          <div class="build-stat">
+            <span class="build-stat__label">Tool</span>
+            <span class="build-stat__value mono" style="font-size:var(--text-xs);">ffmpeg</span>
+          </div>
+          <div class="build-stat">
+            <span class="build-stat__label">Title</span>
+            <span class="build-stat__value">Reception (2/3)</span>
+          </div>
+          <div class="build-stat">
+            <span class="build-stat__label">Progress</span>
+            <span class="build-stat__value" style="color:var(--brand-orange);">68%</span>
+          </div>
+          <div class="build-stat">
+            <span class="build-stat__label">FPS</span>
+            <span class="build-stat__value mono">138</span>
+          </div>
+          <div class="progress mt-2 progress--striped">
+            <div class="progress__fill progress__fill--ok" style="width:68%;"></div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom:var(--space-4);">
+          <h4 style="margin-bottom:var(--space-3);">Build Stats</h4>
+          <div class="build-stat">
+            <span class="build-stat__label">Titles Encoded</span>
+            <span class="build-stat__value">1 / 3</span>
+          </div>
+          <div class="build-stat">
+            <span class="build-stat__label">Titles Copied</span>
+            <span class="build-stat__value">1 / 1</span>
+          </div>
+          <div class="build-stat">
+            <span class="build-stat__label">Written</span>
+            <span class="build-stat__value">2.8 GB</span>
+          </div>
+          <div class="build-stat">
+            <span class="build-stat__label">Temp Space</span>
+            <span class="build-stat__value">1.2 GB</span>
+          </div>
+        </div>
+
+        <div class="card">
+          <h4 style="margin-bottom:var(--space-3);">Output</h4>
+          <div class="build-stat">
+            <span class="build-stat__label">Destination</span>
+            <span class="build-stat__value mono" style="font-size:9px;">~/Videos/wedding/build/</span>
+          </div>
+          <div class="build-stat">
+            <span class="build-stat__label">VIDEO_TS/</span>
+            <span class="build-stat__value" style="color:var(--text-muted);">Pending</span>
+          </div>
+          <div class="build-stat">
+            <span class="build-stat__label">ISO</span>
+            <span class="build-stat__value" style="color:var(--text-muted);">Not requested</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

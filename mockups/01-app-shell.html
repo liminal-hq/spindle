@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en-CA">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=1280">
+  <title>Spindle — App Shell</title>
+  <link rel="stylesheet" href="design-system.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <style>
+    /* -- Spindle Logo Mark (inline SVG recreation) -- */
+    .logo-mark {
+      width: 22px;
+      height: 22px;
+      flex-shrink: 0;
+    }
+
+    /* -- Window Controls (GNOME / GTK style) -- */
+    .window-controls {
+      display: flex;
+      gap: 6px;
+      margin-left: auto;
+      -webkit-app-region: no-drag;
+    }
+    .window-btn {
+      width: 24px; height: 24px;
+      border-radius: 50%;
+      border: none;
+      background: rgba(255,255,255,0.08);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: background var(--transition-fast);
+      color: var(--text-secondary);
+    }
+    .window-btn:hover {
+      background: rgba(255,255,255,0.14);
+      color: var(--text-primary);
+    }
+    .window-btn--close:hover {
+      background: #e01b24;
+      color: #fff;
+    }
+
+    /* -- Project selector in topbar -- */
+    .project-selector {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      padding: 4px 10px;
+      border-radius: var(--radius-md);
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border-subtle);
+      font-size: var(--text-sm);
+      color: var(--text-secondary);
+      cursor: pointer;
+      -webkit-app-region: no-drag;
+    }
+    .project-selector:hover {
+      background: rgba(255,255,255,0.07);
+    }
+    .project-selector__name {
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    /* -- Build quick-access in topbar -- */
+    .build-indicator {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      padding: 4px 12px;
+      border-radius: var(--radius-md);
+      font-size: var(--text-xs);
+      font-weight: 600;
+      -webkit-app-region: no-drag;
+    }
+    .build-indicator--idle {
+      background: rgba(46, 198, 106, 0.1);
+      color: var(--colour-success);
+      border: 1px solid rgba(46, 198, 106, 0.2);
+    }
+
+    /* -- Sidebar divider -- */
+    .sidebar__divider {
+      height: 1px;
+      background: var(--border-subtle);
+      margin: var(--space-2) var(--space-4);
+    }
+
+    /* -- Quick-build button in sidebar -- */
+    .sidebar__build-btn {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      margin: var(--space-3) var(--space-4);
+      padding: var(--space-2) var(--space-3);
+      background: linear-gradient(135deg, rgba(255,170,64,0.12), rgba(244,63,94,0.08));
+      border: 1px solid rgba(255,170,64,0.2);
+      border-radius: var(--radius-md);
+      color: var(--brand-orange);
+      font-size: var(--text-sm);
+      font-weight: 600;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+    .sidebar__build-btn:hover {
+      background: linear-gradient(135deg, rgba(255,170,64,0.2), rgba(244,63,94,0.14));
+      box-shadow: 0 0 16px rgba(255,170,64,0.15);
+    }
+
+    /* -- Content placeholder -- */
+    .content-placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: var(--text-muted);
+      gap: var(--space-4);
+    }
+    .content-placeholder__icon {
+      width: 64px;
+      height: 64px;
+      opacity: 0.3;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+
+    <!-- ═══ Top Bar ═══ -->
+    <header class="topbar">
+      <div class="topbar__logo">
+        <!-- Liminal bracket-mark logo -->
+        <svg class="logo-mark" viewBox="0 0 24 24" fill="none">
+          <defs>
+            <linearGradient id="logo-grad" x1="0" y1="0" x2="24" y2="24">
+              <stop offset="0%" stop-color="#CF5D22"/>
+              <stop offset="50%" stop-color="#F19B18"/>
+              <stop offset="100%" stop-color="#ffaa40"/>
+            </linearGradient>
+          </defs>
+          <path d="M4 4 L8 4 L8 6 L6 6 L6 18 L8 18 L8 20 L4 20 Z" stroke="url(#logo-grad)" stroke-width="1.5" fill="none"/>
+          <path d="M20 4 L16 4 L16 6 L18 6 L18 18 L16 18 L16 20 L20 20 Z" stroke="url(#logo-grad)" stroke-width="1.5" fill="none"/>
+          <line x1="12" y1="6" x2="12" y2="18" stroke="url(#logo-grad)" stroke-width="1.5" opacity="0.6"/>
+        </svg>
+        Spindle
+      </div>
+
+      <div class="project-selector">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" opacity="0.5">
+          <circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.5"/>
+          <circle cx="8" cy="8" r="2" fill="currentColor"/>
+        </svg>
+        <span class="project-selector__name">Wedding Highlights DVD</span>
+        <svg width="10" height="6" viewBox="0 0 10 6" fill="none"><path d="M1 1L5 5L9 1" stroke="#7c8796" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </div>
+
+      <div class="topbar__actions">
+        <div class="build-indicator build-indicator--idle">
+          <svg width="10" height="10" viewBox="0 0 10 10"><circle cx="5" cy="5" r="4" fill="#2ec66a"/></svg>
+          Ready to Build
+        </div>
+
+        <button class="btn btn--ghost btn--sm" title="Settings">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="8" cy="8" r="3"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M3.05 12.95l1.41-1.41M11.54 4.46l1.41-1.41"/>
+          </svg>
+        </button>
+
+        <div class="window-controls">
+          <button class="window-btn" title="Minimise">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="2" y1="6" x2="10" y2="6"/></svg>
+          </button>
+          <button class="window-btn" title="Maximise">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="8" height="8" rx="1"/></svg>
+          </button>
+          <button class="window-btn window-btn--close" title="Close">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l6 6M9 3l-6 6"/></svg>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- ═══ Sidebar Navigation ═══ -->
+    <nav class="sidebar">
+      <div class="sidebar__section">
+        <div class="sidebar__label">Project</div>
+        <div class="sidebar__item sidebar__item--active">
+          <svg class="sidebar__item__icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="12" height="12" rx="2"/><line x1="2" y1="6" x2="14" y2="6"/><line x1="6" y1="6" x2="6" y2="14"/></svg>
+          Overview
+        </div>
+        <div class="sidebar__item">
+          <svg class="sidebar__item__icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="12" height="10" rx="1.5"/><path d="M5 3V2M11 3V2"/></svg>
+          Assets
+          <span class="sidebar__item__badge">4</span>
+        </div>
+      </div>
+
+      <div class="sidebar__section">
+        <div class="sidebar__label">Authoring</div>
+        <div class="sidebar__item">
+          <svg class="sidebar__item__icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="12" height="12" rx="1"/><line x1="5" y1="6" x2="11" y2="6"/><line x1="5" y1="10" x2="9" y2="10"/></svg>
+          Titles
+          <span class="sidebar__item__badge">3</span>
+        </div>
+        <div class="sidebar__item">
+          <svg class="sidebar__item__icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="5.5"/><path d="M8 4v4l3 2"/></svg>
+          Chapters
+        </div>
+        <div class="sidebar__item">
+          <svg class="sidebar__item__icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="12" height="12" rx="2"/><rect x="4" y="9" width="3" height="2" rx="0.5"/><rect x="9" y="9" width="3" height="2" rx="0.5"/></svg>
+          Menus
+        </div>
+      </div>
+
+      <div class="sidebar__section">
+        <div class="sidebar__label">Output</div>
+        <div class="sidebar__item">
+          <svg class="sidebar__item__icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="2"/></svg>
+          Planner
+        </div>
+        <div class="sidebar__item">
+          <svg class="sidebar__item__icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 14V8l4-6 4 6v6"/><line x1="4" y1="10" x2="12" y2="10"/></svg>
+          Build
+        </div>
+        <div class="sidebar__item">
+          <svg class="sidebar__item__icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 12h12M2 8h8M2 4h5"/></svg>
+          Logs
+        </div>
+      </div>
+
+      <div style="flex:1"></div>
+      <div class="sidebar__divider"></div>
+
+      <div class="sidebar__build-btn">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="4,2 14,8 4,14"/></svg>
+        Build Disc
+      </div>
+
+      <div class="sidebar__section" style="padding-bottom: var(--space-1);">
+        <div class="sidebar__item">
+          <svg class="sidebar__item__icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="3"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M3.05 12.95l1.41-1.41M11.54 4.46l1.41-1.41"/></svg>
+          Settings
+        </div>
+      </div>
+    </nav>
+
+    <!-- ═══ Main Content Area (placeholder for screen insertion) ═══ -->
+    <main class="main-content">
+      <div class="content-placeholder">
+        <svg class="content-placeholder__icon" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="32" cy="32" r="28"/>
+          <circle cx="32" cy="32" r="12"/>
+          <circle cx="32" cy="32" r="3"/>
+        </svg>
+        <div style="text-align:center">
+          <h3 style="color: var(--text-secondary); margin-bottom: var(--space-1);">Select a screen from the sidebar</h3>
+          <p class="text-muted" style="font-size: var(--text-sm);">Each mockup shows the content that appears in this area</p>
+        </div>
+      </div>
+    </main>
+
+    <!-- ═══ Status Bar ═══ -->
+    <footer class="statusbar">
+      <div class="statusbar__segment">
+        <span class="statusbar__dot"></span>
+        DVD-Video · NTSC
+      </div>
+      <div class="statusbar__segment">
+        DVD-5 (4.7 GB)
+      </div>
+      <div class="statusbar__segment">
+        3 titles · 1 menu
+      </div>
+      <div class="statusbar__segment">
+        <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 14l4-4 3 3 5-7"/></svg>
+        2.1 GB used (44%)
+      </div>
+      <div style="flex:1"></div>
+      <div class="statusbar__segment" style="color: var(--text-muted);">
+        Spindle v0.1.0-dev
+      </div>
+    </footer>
+  </div>
+</body>
+</html>

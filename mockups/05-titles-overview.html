@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en-CA">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=1280">
+  <title>Spindle — Titles Overview</title>
+  <link rel="stylesheet" href="design-system.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { background: var(--bg-panel); }
+
+    .title-list {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-3);
+      max-width: 900px;
+    }
+
+    .title-row {
+      display: grid;
+      grid-template-columns: 40px 1fr 140px 100px 120px 100px 80px;
+      align-items: center;
+      gap: var(--space-3);
+      padding: var(--space-3) var(--space-4);
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+    .title-row:hover {
+      border-color: var(--border-default);
+      background: var(--bg-card-hover);
+      box-shadow: var(--shadow-card);
+    }
+
+    .title-row__number {
+      width: 32px; height: 32px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-heading);
+      font-weight: 700;
+      font-size: var(--text-md);
+    }
+
+    .title-row__name {
+      font-weight: 600;
+      font-size: var(--text-md);
+      color: var(--text-primary);
+    }
+    .title-row__source {
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+      margin-top: 2px;
+      font-family: var(--font-mono);
+    }
+
+    .title-row__streams {
+      display: flex;
+      gap: var(--space-1);
+    }
+
+    .stream-chip {
+      padding: 2px 6px;
+      font-size: 9px;
+      font-weight: 600;
+      border-radius: 4px;
+      letter-spacing: 0.04em;
+    }
+    .stream-chip--v { background: rgba(255,170,64,0.15); color: var(--brand-orange); }
+    .stream-chip--a { background: rgba(96,165,250,0.15); color: var(--brand-blue); }
+    .stream-chip--s { background: rgba(167,139,250,0.15); color: var(--brand-purple); }
+
+    .title-row__profile {
+      font-size: var(--text-xs);
+      color: var(--text-secondary);
+    }
+
+    .title-row__chapters {
+      font-size: var(--text-sm);
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      gap: var(--space-1);
+    }
+
+    .title-row__duration {
+      font-family: var(--font-mono);
+      font-size: var(--text-sm);
+      color: var(--text-secondary);
+    }
+
+    .title-row__actions {
+      display: flex;
+      gap: var(--space-1);
+      opacity: 0;
+      transition: opacity var(--transition-fast);
+    }
+    .title-row:hover .title-row__actions {
+      opacity: 1;
+    }
+
+    /* -- Grouping banner -- */
+    .grouping-banner {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      padding: var(--space-2) var(--space-4);
+      background: rgba(255,170,64,0.04);
+      border: 1px solid rgba(255,170,64,0.1);
+      border-radius: var(--radius-md);
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+      margin-bottom: var(--space-3);
+    }
+    .grouping-banner__label {
+      font-weight: 600;
+      color: var(--brand-orange);
+    }
+
+    /* -- Column headers -- */
+    .title-list__header {
+      display: grid;
+      grid-template-columns: 40px 1fr 140px 100px 120px 100px 80px;
+      gap: var(--space-3);
+      padding: 0 var(--space-4) var(--space-2);
+      font-size: var(--text-xs);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+    }
+
+    /* -- Drag handle -- */
+    .drag-handle {
+      cursor: grab;
+      color: var(--text-muted);
+      opacity: 0;
+      transition: opacity var(--transition-fast);
+    }
+    .title-row:hover .drag-handle {
+      opacity: 0.5;
+    }
+  </style>
+</head>
+<body>
+  <div style="padding: var(--space-6); max-width: 1000px;">
+
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Titles</h1>
+        <p class="text-muted" style="font-size: var(--text-sm); margin-top: 2px;">3 titles · 1 titleset · 95 min 47 sec total</p>
+      </div>
+      <button class="btn btn--primary">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="var(--text-inverse)" stroke-width="1.5"><path d="M8 2v12M2 8h12"/></svg>
+        Add Title
+      </button>
+    </div>
+
+    <!-- Grouping Banner -->
+    <div class="grouping-banner">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="12" height="12" rx="2"/><line x1="6" y1="2" x2="6" y2="14"/></svg>
+      <span class="grouping-banner__label">Titleset 1</span>
+      <span>·</span>
+      <span>DVD-Video allows one titleset in v1 — all titles share video output profile constraints</span>
+    </div>
+
+    <!-- Column Headers -->
+    <div class="title-list__header">
+      <span></span>
+      <span>Title</span>
+      <span>Streams</span>
+      <span>Profile</span>
+      <span>Chapters</span>
+      <span>Duration</span>
+      <span></span>
+    </div>
+
+    <!-- Title List -->
+    <div class="title-list">
+
+      <!-- Title 1 -->
+      <div class="title-row">
+        <div class="title-row__number" style="background: rgba(255,170,64,0.12); color: var(--brand-orange);">1</div>
+        <div>
+          <div class="title-row__name">Ceremony</div>
+          <div class="title-row__source">ceremony_full.mpg</div>
+        </div>
+        <div class="title-row__streams">
+          <span class="stream-chip stream-chip--v">V1</span>
+          <span class="stream-chip stream-chip--a">A2</span>
+        </div>
+        <div class="title-row__profile">
+          <span class="tag">Full D1</span>
+        </div>
+        <div class="title-row__chapters">
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="5.5"/><path d="M8 4v4l3 2"/></svg>
+          6 chapters
+        </div>
+        <div class="title-row__duration">45:12</div>
+        <div class="title-row__actions">
+          <button class="btn btn--ghost btn--sm" title="Edit">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M11 2l3 3-9 9H2v-3z"/></svg>
+          </button>
+          <button class="btn btn--ghost btn--sm" title="Reorder">
+            <svg class="drag-handle" width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><circle cx="6" cy="4" r="1.5"/><circle cx="10" cy="4" r="1.5"/><circle cx="6" cy="8" r="1.5"/><circle cx="10" cy="8" r="1.5"/><circle cx="6" cy="12" r="1.5"/><circle cx="10" cy="12" r="1.5"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Title 2 -->
+      <div class="title-row">
+        <div class="title-row__number" style="background: rgba(244,63,94,0.12); color: var(--brand-pink);">2</div>
+        <div>
+          <div class="title-row__name">Reception</div>
+          <div class="title-row__source">reception_edit_v2.mp4</div>
+        </div>
+        <div class="title-row__streams">
+          <span class="stream-chip stream-chip--v">V1</span>
+          <span class="stream-chip stream-chip--a">A1</span>
+        </div>
+        <div class="title-row__profile">
+          <span class="tag">Full D1</span>
+        </div>
+        <div class="title-row__chapters">
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="5.5"/><path d="M8 4v4l3 2"/></svg>
+          5 chapters
+        </div>
+        <div class="title-row__duration">38:05</div>
+        <div class="title-row__actions">
+          <button class="btn btn--ghost btn--sm" title="Edit">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M11 2l3 3-9 9H2v-3z"/></svg>
+          </button>
+          <button class="btn btn--ghost btn--sm" title="Reorder">
+            <svg class="drag-handle" width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><circle cx="6" cy="4" r="1.5"/><circle cx="10" cy="4" r="1.5"/><circle cx="6" cy="8" r="1.5"/><circle cx="10" cy="8" r="1.5"/><circle cx="6" cy="12" r="1.5"/><circle cx="10" cy="12" r="1.5"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Title 3 -->
+      <div class="title-row">
+        <div class="title-row__number" style="background: rgba(167,139,250,0.12); color: var(--brand-purple);">3</div>
+        <div>
+          <div class="title-row__name">Highlights</div>
+          <div class="title-row__source">highlights_final.mp4</div>
+        </div>
+        <div class="title-row__streams">
+          <span class="stream-chip stream-chip--v">V1</span>
+          <span class="stream-chip stream-chip--a">A1</span>
+          <span class="stream-chip stream-chip--s">S1</span>
+        </div>
+        <div class="title-row__profile">
+          <span class="tag">Full D1</span>
+        </div>
+        <div class="title-row__chapters">
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="5.5"/><path d="M8 4v4l3 2"/></svg>
+          3 chapters
+        </div>
+        <div class="title-row__duration">12:30</div>
+        <div class="title-row__actions">
+          <button class="btn btn--ghost btn--sm" title="Edit">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M11 2l3 3-9 9H2v-3z"/></svg>
+          </button>
+          <button class="btn btn--ghost btn--sm" title="Reorder">
+            <svg class="drag-handle" width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><circle cx="6" cy="4" r="1.5"/><circle cx="10" cy="4" r="1.5"/><circle cx="6" cy="8" r="1.5"/><circle cx="10" cy="8" r="1.5"/><circle cx="6" cy="12" r="1.5"/><circle cx="10" cy="12" r="1.5"/></svg>
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>

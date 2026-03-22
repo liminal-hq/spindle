@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en-CA">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=960">
+  <title>Spindle — UI Mockup Index</title>
+  <link rel="stylesheet" href="design-system.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      background: var(--bg-app);
+      padding: var(--space-8) var(--space-6);
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    .index-header {
+      text-align: center;
+      margin-bottom: var(--space-8);
+    }
+    .index-header h1 {
+      font-family: var(--font-heading);
+      font-size: var(--text-3xl);
+      font-weight: 700;
+      margin-bottom: var(--space-2);
+    }
+    .index-header p {
+      color: var(--text-muted);
+      font-size: var(--text-md);
+    }
+
+    .logo-large {
+      width: 48px; height: 48px;
+      margin: 0 auto var(--space-4);
+      display: block;
+    }
+
+    .section-title {
+      font-family: var(--font-heading);
+      font-size: var(--text-xs);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-muted);
+      margin-bottom: var(--space-3);
+      margin-top: var(--space-6);
+      padding-bottom: var(--space-2);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .screen-list {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-3);
+    }
+
+    .screen-link {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      padding: var(--space-3) var(--space-4);
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      color: var(--text-secondary);
+      text-decoration: none;
+      transition: all var(--transition-fast);
+    }
+    .screen-link:hover {
+      background: var(--bg-card-hover);
+      border-color: var(--border-default);
+      color: var(--text-primary);
+      text-decoration: none;
+      box-shadow: var(--shadow-card);
+      transform: translateY(-1px);
+    }
+
+    .screen-link__num {
+      width: 28px; height: 28px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-mono);
+      font-size: var(--text-xs);
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+    .screen-link__name {
+      font-weight: 500;
+      font-size: var(--text-sm);
+    }
+    .screen-link__desc {
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+      margin-top: 1px;
+    }
+
+    .brand-bar {
+      margin-top: var(--space-8);
+      padding-top: var(--space-6);
+      border-top: 1px solid var(--border-subtle);
+      text-align: center;
+    }
+    .brand-bar__colours {
+      display: flex;
+      justify-content: center;
+      gap: var(--space-2);
+      margin-top: var(--space-3);
+    }
+    .colour-swatch {
+      width: 32px; height: 32px;
+      border-radius: 6px;
+      border: 1px solid var(--border-subtle);
+      position: relative;
+    }
+    .colour-swatch::after {
+      content: attr(data-label);
+      position: absolute;
+      top: 36px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 8px;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="index-header">
+    <!-- Logo -->
+    <svg class="logo-large" viewBox="0 0 48 48" fill="none">
+      <defs>
+        <linearGradient id="lg" x1="0" y1="0" x2="48" y2="48">
+          <stop offset="0%" stop-color="#CF5D22"/>
+          <stop offset="50%" stop-color="#F19B18"/>
+          <stop offset="100%" stop-color="#ffaa40"/>
+        </linearGradient>
+      </defs>
+      <path d="M8 8 L16 8 L16 12 L12 12 L12 36 L16 36 L16 40 L8 40 Z" stroke="url(#lg)" stroke-width="2" fill="none"/>
+      <path d="M40 8 L32 8 L32 12 L36 12 L36 36 L32 36 L32 40 L40 40 Z" stroke="url(#lg)" stroke-width="2" fill="none"/>
+      <line x1="24" y1="12" x2="24" y2="36" stroke="url(#lg)" stroke-width="2" opacity="0.5"/>
+    </svg>
+
+    <h1 class="text-gradient">Spindle UI Mockups</h1>
+    <p>Desktop disc authoring workstation — 19 screens</p>
+    <p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:var(--space-1);">Liminal HQ · Dark mode · Workspace-first design</p>
+  </div>
+
+  <!-- ═══ Application Frame ═══ -->
+  <div class="section-title">Application Frame</div>
+  <div class="screen-list">
+    <a class="screen-link" href="01-app-shell.html">
+      <div class="screen-link__num" style="background:rgba(255,170,64,0.12);color:var(--brand-orange);">01</div>
+      <div>
+        <div class="screen-link__name">App Shell</div>
+        <div class="screen-link__desc">Frame, sidebar nav, topbar, status bar</div>
+      </div>
+    </a>
+    <a class="screen-link" href="02-project-overview.html">
+      <div class="screen-link__num" style="background:rgba(244,63,94,0.12);color:var(--brand-pink);">02</div>
+      <div>
+        <div class="screen-link__name">Project Overview</div>
+        <div class="screen-link__desc">Dashboard, health, capacity, activity</div>
+      </div>
+    </a>
+  </div>
+
+  <!-- ═══ Assets ═══ -->
+  <div class="section-title">Assets</div>
+  <div class="screen-list">
+    <a class="screen-link" href="03-assets.html">
+      <div class="screen-link__num" style="background:rgba(167,139,250,0.12);color:var(--brand-purple);">03</div>
+      <div>
+        <div class="screen-link__name">Assets Library</div>
+        <div class="screen-link__desc">Grid, import, compatibility badges</div>
+      </div>
+    </a>
+    <a class="screen-link" href="04-asset-inspector.html">
+      <div class="screen-link__num" style="background:rgba(34,211,238,0.12);color:var(--brand-cyan);">04</div>
+      <div>
+        <div class="screen-link__name">Asset Inspector</div>
+        <div class="screen-link__desc">Preview, metadata, streams, relink</div>
+      </div>
+    </a>
+  </div>
+
+  <!-- ═══ Authoring ═══ -->
+  <div class="section-title">Authoring</div>
+  <div class="screen-list">
+    <a class="screen-link" href="05-titles-overview.html">
+      <div class="screen-link__num" style="background:rgba(96,165,250,0.12);color:var(--brand-blue);">05</div>
+      <div>
+        <div class="screen-link__name">Titles Overview</div>
+        <div class="screen-link__desc">Ordered list, grouping, streams</div>
+      </div>
+    </a>
+    <a class="screen-link" href="06-title-detail.html">
+      <div class="screen-link__num" style="background:rgba(255,170,64,0.12);color:var(--brand-orange);">06</div>
+      <div>
+        <div class="screen-link__name">Title Detail</div>
+        <div class="screen-link__desc">Streams, chapters, end action, profile</div>
+      </div>
+    </a>
+    <a class="screen-link" href="07-stream-mapping.html">
+      <div class="screen-link__num" style="background:rgba(244,63,94,0.12);color:var(--brand-pink);">07</div>
+      <div>
+        <div class="screen-link__name">Stream Mapping</div>
+        <div class="screen-link__desc">Source → output, copy/re-encode</div>
+      </div>
+    </a>
+    <a class="screen-link" href="08-output-profiles.html">
+      <div class="screen-link__num" style="background:rgba(167,139,250,0.12);color:var(--brand-purple);">08</div>
+      <div>
+        <div class="screen-link__name">Output Profiles</div>
+        <div class="screen-link__desc">Video rasters, audio targets</div>
+      </div>
+    </a>
+    <a class="screen-link" href="09-chapters.html">
+      <div class="screen-link__num" style="background:rgba(34,211,238,0.12);color:var(--brand-cyan);">09</div>
+      <div>
+        <div class="screen-link__name">Chapters</div>
+        <div class="screen-link__desc">Timeline, list, timestamps, preview</div>
+      </div>
+    </a>
+  </div>
+
+  <!-- ═══ Menus ═══ -->
+  <div class="section-title">Menus</div>
+  <div class="screen-list">
+    <a class="screen-link" href="10-menus-overview.html">
+      <div class="screen-link__num" style="background:rgba(96,165,250,0.12);color:var(--brand-blue);">10</div>
+      <div>
+        <div class="screen-link__name">Menus Overview</div>
+        <div class="screen-link__desc">Menu list, previews, nav status</div>
+      </div>
+    </a>
+    <a class="screen-link" href="11-menu-editor.html">
+      <div class="screen-link__num" style="background:rgba(255,170,64,0.12);color:var(--brand-orange);">11</div>
+      <div>
+        <div class="screen-link__name">Menu Editor</div>
+        <div class="screen-link__desc">Canvas, buttons, safe areas, inspector</div>
+      </div>
+    </a>
+    <a class="screen-link" href="12-navigation-preview.html">
+      <div class="screen-link__num" style="background:rgba(244,63,94,0.12);color:var(--brand-pink);">12</div>
+      <div>
+        <div class="screen-link__name">Navigation Preview</div>
+        <div class="screen-link__desc">Remote simulator, focus state, graph</div>
+      </div>
+    </a>
+  </div>
+
+  <!-- ═══ Output ═══ -->
+  <div class="section-title">Output &amp; Build</div>
+  <div class="screen-list">
+    <a class="screen-link" href="13-disc-planner.html">
+      <div class="screen-link__num" style="background:rgba(167,139,250,0.12);color:var(--brand-purple);">13</div>
+      <div>
+        <div class="screen-link__name">Disc Planner</div>
+        <div class="screen-link__desc">Capacity bar, bitrate allocation</div>
+      </div>
+    </a>
+    <a class="screen-link" href="14-build.html">
+      <div class="screen-link__num" style="background:rgba(34,211,238,0.12);color:var(--brand-cyan);">14</div>
+      <div>
+        <div class="screen-link__name">Build Configuration</div>
+        <div class="screen-link__desc">Mode, destination, pre-checks</div>
+      </div>
+    </a>
+    <a class="screen-link" href="15-build-progress.html">
+      <div class="screen-link__num" style="background:rgba(96,165,250,0.12);color:var(--brand-blue);">15</div>
+      <div>
+        <div class="screen-link__name">Build Progress</div>
+        <div class="screen-link__desc">Phases, live output, stats</div>
+      </div>
+    </a>
+    <a class="screen-link" href="16-logs-diagnostics.html">
+      <div class="screen-link__num" style="background:rgba(255,170,64,0.12);color:var(--brand-orange);">16</div>
+      <div>
+        <div class="screen-link__name">Logs &amp; Diagnostics</div>
+        <div class="screen-link__desc">Build log, commands, tool versions</div>
+      </div>
+    </a>
+  </div>
+
+  <!-- ═══ Quality & Maintenance ═══ -->
+  <div class="section-title">Quality &amp; Maintenance</div>
+  <div class="screen-list">
+    <a class="screen-link" href="17-verification.html">
+      <div class="screen-link__num" style="background:rgba(244,63,94,0.12);color:var(--brand-pink);">17</div>
+      <div>
+        <div class="screen-link__name">Verification &amp; QA</div>
+        <div class="screen-link__desc">Post-build checks, score, report</div>
+      </div>
+    </a>
+    <a class="screen-link" href="18-relink-assets.html">
+      <div class="screen-link__num" style="background:rgba(167,139,250,0.12);color:var(--brand-purple);">18</div>
+      <div>
+        <div class="screen-link__name">Missing Assets / Relink</div>
+        <div class="screen-link__desc">Fingerprint matching, candidates</div>
+      </div>
+    </a>
+    <a class="screen-link" href="19-settings.html">
+      <div class="screen-link__num" style="background:rgba(34,211,238,0.12);color:var(--brand-cyan);">19</div>
+      <div>
+        <div class="screen-link__name">Settings &amp; Toolchain</div>
+        <div class="screen-link__desc">Sidecars, capabilities, cache</div>
+      </div>
+    </a>
+  </div>
+
+  <!-- ═══ Brand Colour Reference ═══ -->
+  <div class="brand-bar">
+    <p style="font-size:var(--text-xs);color:var(--text-muted);">Liminal HQ Brand Palette</p>
+    <div class="brand-bar__colours">
+      <div class="colour-swatch" style="background:#ffaa40;" data-label="#ffaa40"></div>
+      <div class="colour-swatch" style="background:#f43f5e;" data-label="#f43f5e"></div>
+      <div class="colour-swatch" style="background:#a78bfa;" data-label="#a78bfa"></div>
+      <div class="colour-swatch" style="background:#22d3ee;" data-label="#22d3ee"></div>
+      <div class="colour-swatch" style="background:#60a5fa;" data-label="#60a5fa"></div>
+      <div class="colour-swatch" style="background:#2ec66a;" data-label="#2ec66a"></div>
+      <div class="colour-swatch" style="background:#fbbf24;" data-label="#fbbf24"></div>
+      <div class="colour-swatch" style="background:#050507;" data-label="#050507"></div>
+      <div class="colour-swatch" style="background:#e0e0e0;" data-label="#e0e0e0"></div>
+    </div>
+    <p style="font-size:9px;color:var(--text-muted);margin-top:var(--space-6);">
+      Fonts: Inter (body) · Space Grotesk (headings) · JetBrains Mono (code)<br>
+      Design system: design-system.css · Canadian English
+    </p>
+  </div>
+
+</body>
+</html>

@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en-CA">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=1280">
+  <title>Spindle — Settings &amp; Toolchain</title>
+  <link rel="stylesheet" href="design-system.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { background: var(--bg-panel); }
+
+    .settings-layout {
+      display: grid;
+      grid-template-columns: 200px 1fr;
+      gap: var(--space-6);
+      max-width: 900px;
+    }
+
+    /* -- Settings nav -- */
+    .settings-nav {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-1);
+    }
+    .settings-nav__item {
+      padding: var(--space-2) var(--space-3);
+      font-size: var(--text-sm);
+      color: var(--text-secondary);
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+    .settings-nav__item:hover {
+      background: rgba(255,255,255,0.04);
+      color: var(--text-primary);
+    }
+    .settings-nav__item--active {
+      background: rgba(255,170,64,0.1);
+      color: var(--brand-orange);
+      font-weight: 500;
+    }
+
+    /* -- Settings sections -- */
+    .settings-section {
+      margin-bottom: var(--space-8);
+    }
+    .settings-section__title {
+      font-family: var(--font-heading);
+      font-size: var(--text-lg);
+      font-weight: 700;
+      margin-bottom: var(--space-1);
+    }
+    .settings-section__desc {
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+      margin-bottom: var(--space-4);
+    }
+
+    /* -- Tool row -- */
+    .tool-row {
+      display: grid;
+      grid-template-columns: 1fr 100px 80px 100px;
+      align-items: center;
+      gap: var(--space-3);
+      padding: var(--space-3) var(--space-4);
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      margin-bottom: var(--space-2);
+    }
+    .tool-row__name {
+      font-weight: 600;
+      font-size: var(--text-sm);
+      color: var(--text-primary);
+    }
+    .tool-row__desc {
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+    }
+    .tool-row__version {
+      font-family: var(--font-mono);
+      font-size: var(--text-xs);
+      color: var(--text-secondary);
+    }
+
+    /* -- Capability list -- */
+    .capability-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-2);
+      margin-top: var(--space-3);
+    }
+
+    /* -- Setting row -- */
+    .setting-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: var(--space-3) 0;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .setting-row:last-child { border-bottom: none; }
+
+    .setting-info {
+      flex: 1;
+    }
+    .setting-info__name {
+      font-size: var(--text-sm);
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+    .setting-info__desc {
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+      margin-top: 1px;
+    }
+
+    /* -- Toggle switch -- */
+    .toggle {
+      width: 36px; height: 20px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.1);
+      position: relative;
+      cursor: pointer;
+      transition: background var(--transition-fast);
+      flex-shrink: 0;
+    }
+    .toggle--on {
+      background: var(--brand-orange);
+    }
+    .toggle::after {
+      content: '';
+      position: absolute;
+      top: 2px; left: 2px;
+      width: 16px; height: 16px;
+      border-radius: 50%;
+      background: white;
+      transition: transform var(--transition-fast);
+    }
+    .toggle--on::after {
+      transform: translateX(16px);
+    }
+
+    /* -- Cache section -- */
+    .cache-bar {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      padding: var(--space-3) var(--space-4);
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      margin-bottom: var(--space-2);
+    }
+    .cache-bar__info { flex: 1; }
+    .cache-bar__name {
+      font-size: var(--text-sm);
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+    .cache-bar__size {
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+    }
+  </style>
+</head>
+<body>
+  <div style="padding: var(--space-6); max-width: 960px;">
+
+    <div class="page-header" style="margin-bottom:var(--space-8);">
+      <h1 class="page-title">Settings</h1>
+    </div>
+
+    <div class="settings-layout">
+
+      <!-- ═══ Settings Nav ═══ -->
+      <nav class="settings-nav">
+        <div class="settings-nav__item settings-nav__item--active">Toolchain</div>
+        <div class="settings-nav__item">General</div>
+        <div class="settings-nav__item">Cache</div>
+        <div class="settings-nav__item">Build Defaults</div>
+        <div class="settings-nav__item">About</div>
+      </nav>
+
+      <!-- ═══ Settings Content ═══ -->
+      <div>
+
+        <!-- Toolchain Section -->
+        <div class="settings-section">
+          <div class="settings-section__title">Toolchain</div>
+          <div class="settings-section__desc">Bundled sidecar binaries used for media processing and disc authoring.</div>
+
+          <div class="tool-row">
+            <div>
+              <div class="tool-row__name">FFmpeg</div>
+              <div class="tool-row__desc">Video/audio encoding, stream copy, format conversion</div>
+            </div>
+            <div class="tool-row__version">8.1.2</div>
+            <span class="badge badge--remux">Bundled</span>
+            <span style="font-size:var(--text-xs);color:var(--colour-success);display:flex;align-items:center;gap:4px;">
+              <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="8" r="6"/><path d="M5 8l2 2 4-4"/></svg>
+              Available
+            </span>
+          </div>
+
+          <div class="tool-row">
+            <div>
+              <div class="tool-row__name">FFprobe</div>
+              <div class="tool-row__desc">Media inspection, metadata extraction, stream analysis</div>
+            </div>
+            <div class="tool-row__version">8.1.2</div>
+            <span class="badge badge--remux">Bundled</span>
+            <span style="font-size:var(--text-xs);color:var(--colour-success);display:flex;align-items:center;gap:4px;">
+              <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="8" r="6"/><path d="M5 8l2 2 4-4"/></svg>
+              Available
+            </span>
+          </div>
+
+          <div class="tool-row">
+            <div>
+              <div class="tool-row__name">dvdauthor</div>
+              <div class="tool-row__desc">DVD-Video filesystem authoring (VIDEO_TS generation)</div>
+            </div>
+            <div class="tool-row__version">0.7.2</div>
+            <span class="badge badge--remux">Bundled</span>
+            <span style="font-size:var(--text-xs);color:var(--colour-success);display:flex;align-items:center;gap:4px;">
+              <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="8" r="6"/><path d="M5 8l2 2 4-4"/></svg>
+              Available
+            </span>
+          </div>
+
+          <div class="tool-row">
+            <div>
+              <div class="tool-row__name">spumux</div>
+              <div class="tool-row__desc">DVD subtitle/highlight multiplexing for menu buttons</div>
+            </div>
+            <div class="tool-row__version">0.7.2</div>
+            <span class="badge badge--remux">Bundled</span>
+            <span style="font-size:var(--text-xs);color:var(--colour-success);display:flex;align-items:center;gap:4px;">
+              <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="8" r="6"/><path d="M5 8l2 2 4-4"/></svg>
+              Available
+            </span>
+          </div>
+
+          <!-- Capabilities -->
+          <div style="margin-top:var(--space-4);">
+            <h4 style="font-size:var(--text-sm);margin-bottom:var(--space-2);">Detected Capabilities</h4>
+            <div class="capability-list">
+              <span class="tag">MPEG-2 Encode</span>
+              <span class="tag">AC-3 Encode</span>
+              <span class="tag">LPCM Encode</span>
+              <span class="tag">MP2 Encode</span>
+              <span class="tag">H.264 Decode</span>
+              <span class="tag">HEVC Decode</span>
+              <span class="tag">Stream Copy</span>
+              <span class="tag">Scale / Filter</span>
+              <span class="tag">Subtitle Mux</span>
+              <span class="tag">DVD Author</span>
+              <span class="tag">Metadata Probe</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- General Settings -->
+        <div class="settings-section">
+          <div class="settings-section__title">General</div>
+
+          <div class="setting-row">
+            <div class="setting-info">
+              <div class="setting-info__name">Allow system-installed tool overrides</div>
+              <div class="setting-info__desc">Use tools from your system PATH instead of bundled sidecars. Advanced users only.</div>
+            </div>
+            <div class="toggle"></div>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-info">
+              <div class="setting-info__name">Show safe-area guides by default</div>
+              <div class="setting-info__desc">Display action-safe and title-safe overlays in the menu editor.</div>
+            </div>
+            <div class="toggle toggle--on"></div>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-info">
+              <div class="setting-info__name">Auto-save interval</div>
+              <div class="setting-info__desc">Automatically save project changes at regular intervals.</div>
+            </div>
+            <select class="input input--select" style="width:100px;padding:3px 28px 3px 8px;font-size:var(--text-xs);">
+              <option>2 minutes</option>
+              <option>5 minutes</option>
+              <option>10 minutes</option>
+              <option>Disabled</option>
+            </select>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-info">
+              <div class="setting-info__name">Default video standard</div>
+              <div class="setting-info__desc">Used when creating new projects.</div>
+            </div>
+            <select class="input input--select" style="width:100px;padding:3px 28px 3px 8px;font-size:var(--text-xs);">
+              <option>NTSC</option>
+              <option>PAL</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Cache Section -->
+        <div class="settings-section">
+          <div class="settings-section__title">Cache</div>
+          <div class="settings-section__desc">Spindle caches inspection results, thumbnails, and intermediates to speed up repeated operations.</div>
+
+          <div class="cache-bar">
+            <div class="cache-bar__info">
+              <div class="cache-bar__name">Inspection Cache</div>
+              <div class="cache-bar__size">12.4 MB · 8 entries</div>
+            </div>
+            <button class="btn btn--sm btn--ghost">Clear</button>
+          </div>
+
+          <div class="cache-bar">
+            <div class="cache-bar__info">
+              <div class="cache-bar__name">Thumbnail Cache</div>
+              <div class="cache-bar__size">48.2 MB · 142 thumbnails</div>
+            </div>
+            <button class="btn btn--sm btn--ghost">Clear</button>
+          </div>
+
+          <div class="cache-bar">
+            <div class="cache-bar__info">
+              <div class="cache-bar__name">Build Intermediates</div>
+              <div class="cache-bar__size">1.2 GB · Last build</div>
+            </div>
+            <button class="btn btn--sm btn--ghost">Clear</button>
+          </div>
+
+          <div class="cache-bar">
+            <div class="cache-bar__info">
+              <div class="cache-bar__name">Capability Snapshots</div>
+              <div class="cache-bar__size">4.1 KB · Current session</div>
+            </div>
+            <button class="btn btn--sm btn--ghost">Refresh</button>
+          </div>
+
+          <div style="margin-top:var(--space-3);display:flex;gap:var(--space-2);">
+            <button class="btn">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+              Clear All Caches
+            </button>
+            <span style="font-size:var(--text-xs);color:var(--text-muted);display:flex;align-items:center;">Total: 1.26 GB</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
