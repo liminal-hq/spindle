@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en-CA">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=1280">
+  <title>Spindle — BD Popup Menu Editor</title>
+  <link rel="stylesheet" href="design-system.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { background: var(--bg-app); overflow: hidden; }
+
+    .bd-editor-layout {
+      display: grid;
+      grid-template-columns: 48px 1fr 280px;
+      height: 100vh;
+    }
+
+    /* -- Toolbar -- */
+    .editor-toolbar {
+      background: var(--bg-sidebar);
+      border-right: 1px solid var(--border-subtle);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: var(--space-3) 0;
+      gap: var(--space-1);
+    }
+    .tool-btn {
+      width: 36px; height: 36px;
+      border-radius: var(--radius-md);
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+    .tool-btn:hover { background: rgba(255,255,255,0.06); color: var(--text-secondary); }
+    .tool-btn--active { background: rgba(96,165,250,0.12); color: var(--brand-blue); }
+    .tool-divider {
+      width: 24px; height: 1px;
+      background: var(--border-subtle);
+      margin: var(--space-2) 0;
+    }
+
+    /* -- Canvas -- */
+    .canvas-area {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .canvas-header {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      padding: var(--space-2) var(--space-4);
+      background: var(--bg-sidebar);
+      border-bottom: 1px solid var(--border-subtle);
+      font-size: var(--text-sm);
+    }
+    .canvas-header__title { font-weight: 600; color: var(--text-primary); }
+    .canvas-header__zoom {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+    }
+
+    .canvas-viewport {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #060608;
+      background-image: radial-gradient(circle at 50% 50%, rgba(96,165,250,0.02) 0%, transparent 70%);
+      padding: var(--space-6);
+    }
+
+    /* -- BD 1080p canvas -- */
+    .bd-canvas {
+      width: 720px;
+      height: 405px;
+      position: relative;
+      border-radius: 4px;
+      overflow: hidden;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+    }
+
+    .bd-canvas__bg {
+      position: absolute;
+      inset: 0;
+      /* Simulated HD video playing behind popup */
+      background: linear-gradient(135deg, #0f1a2e 0%, #1a2540 30%, #0f2030 70%, #0a1520 100%);
+    }
+
+    /* Simulated video "freeze frame" content */
+    .video-content {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: rgba(255,255,255,0.06);
+      font-size: 48px;
+      font-family: var(--font-heading);
+    }
+
+    /* Popup menu overlay — BD popup menus sit at the bottom of the screen,
+       overlaying the playing video. Translucent background. */
+    .popup-overlay {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 120px;
+      background: linear-gradient(to top, rgba(0,0,0,0.85), rgba(0,0,0,0.4), transparent);
+    }
+
+    .popup-bar {
+      position: absolute;
+      bottom: 12px;
+      left: 40px;
+      right: 40px;
+      height: 60px;
+      background: rgba(10,15,25,0.75);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(96,165,250,0.15);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      gap: 8px;
+    }
+
+    .popup-btn {
+      padding: 6px 14px;
+      border-radius: 4px;
+      font-family: var(--font-heading);
+      font-size: 11px;
+      font-weight: 500;
+      color: rgba(255,255,255,0.7);
+      border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(255,255,255,0.04);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      white-space: nowrap;
+    }
+    .popup-btn:hover {
+      background: rgba(255,255,255,0.08);
+    }
+    .popup-btn--focused {
+      border-color: var(--brand-blue);
+      background: rgba(96,165,250,0.15);
+      color: white;
+      box-shadow: 0 0 12px rgba(96,165,250,0.2);
+    }
+    .popup-btn--selected {
+      border-color: var(--brand-blue);
+      background: rgba(96,165,250,0.15);
+      color: var(--brand-blue);
+      box-shadow: 0 0 0 1px var(--brand-blue), 0 0 16px rgba(96,165,250,0.15);
+    }
+
+    .popup-spacer { flex: 1; }
+
+    .popup-divider {
+      width: 1px;
+      height: 28px;
+      background: rgba(255,255,255,0.1);
+    }
+
+    /* -- Top menu indicator -- */
+    .top-menu-hint {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      padding: 4px 10px;
+      background: rgba(0,0,0,0.6);
+      border-radius: 4px;
+      font-size: 9px;
+      color: rgba(255,255,255,0.4);
+    }
+
+    /* -- Menu type tabs in header -- */
+    .menu-type-tabs {
+      display: flex;
+      gap: var(--space-1);
+      margin-left: var(--space-4);
+    }
+    .menu-type-tab {
+      padding: 4px 12px;
+      font-size: var(--text-xs);
+      font-weight: 500;
+      border-radius: var(--radius-md);
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+    .menu-type-tab:hover { color: var(--text-secondary); }
+    .menu-type-tab--active {
+      background: rgba(96,165,250,0.12);
+      color: var(--brand-blue);
+    }
+
+    /* -- Inspector -- */
+    .inspector {
+      background: var(--bg-sidebar);
+      border-left: 1px solid var(--border-subtle);
+      overflow-y: auto;
+      padding: var(--space-4);
+    }
+    .inspector__section { margin-bottom: var(--space-5); }
+    .inspector__section-title {
+      font-size: var(--text-xs);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      margin-bottom: var(--space-3);
+    }
+    .inspector__row {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      margin-bottom: var(--space-2);
+    }
+    .inspector__label {
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+      width: 60px;
+      flex-shrink: 0;
+    }
+
+    .bd-info {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--space-2);
+      padding: var(--space-3);
+      background: rgba(96,165,250,0.05);
+      border: 1px solid rgba(96,165,250,0.1);
+      border-radius: var(--radius-md);
+      font-size: var(--text-xs);
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+  <div class="bd-editor-layout">
+
+    <!-- ═══ Toolbar ═══ -->
+    <div class="editor-toolbar">
+      <button class="tool-btn tool-btn--active" title="Select">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 2l4 12 2-5 5-2z"/></svg>
+      </button>
+      <button class="tool-btn" title="Move">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2v12M2 8h12"/></svg>
+      </button>
+      <button class="tool-btn" title="Add Button">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="5" width="12" height="6" rx="1.5"/><path d="M8 7v2M7 8h2"/></svg>
+      </button>
+      <button class="tool-btn" title="Add Text">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 4h8M8 4v8M6 12h4"/></svg>
+      </button>
+      <div class="tool-divider"></div>
+      <button class="tool-btn" title="Align">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="2" y1="2" x2="2" y2="14"/><rect x="5" y="4" width="8" height="3" rx="0.5"/><rect x="5" y="9" width="6" height="3" rx="0.5"/></svg>
+      </button>
+      <div class="tool-divider"></div>
+      <button class="tool-btn" title="Toggle Popup Visibility">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="9" width="12" height="5" rx="1"/><line x1="4" y1="12" x2="12" y2="12" opacity="0.5"/></svg>
+      </button>
+    </div>
+
+    <!-- ═══ Canvas ═══ -->
+    <div class="canvas-area">
+      <div class="canvas-header">
+        <span class="canvas-header__title" style="color:var(--brand-blue);">Popup Menu</span>
+        <span class="tag">1920 × 1080</span>
+        <span class="text-muted" style="font-size:var(--text-xs);">Overlay · Transparent background</span>
+
+        <div class="menu-type-tabs">
+          <span class="menu-type-tab">Top Menu</span>
+          <span class="menu-type-tab menu-type-tab--active">Popup Menu</span>
+        </div>
+
+        <div class="canvas-header__zoom">
+          <button class="btn btn--ghost btn--sm">−</button>
+          <span>100%</span>
+          <button class="btn btn--ghost btn--sm">+</button>
+        </div>
+      </div>
+
+      <div class="canvas-viewport">
+        <div class="bd-canvas">
+          <!-- Simulated video behind popup -->
+          <div class="bd-canvas__bg"></div>
+          <div class="video-content">▶ VIDEO PLAYING</div>
+
+          <!-- Top menu press hint -->
+          <div class="top-menu-hint">
+            <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="12" height="12" rx="2"/></svg>
+            Press TOP MENU for full menu
+          </div>
+
+          <!-- Popup overlay gradient -->
+          <div class="popup-overlay"></div>
+
+          <!-- Popup menu bar -->
+          <div class="popup-bar">
+            <div class="popup-btn popup-btn--selected">
+              ◀ Prev Chapter
+            </div>
+            <div class="popup-btn popup-btn--focused">
+              ▶ Play / Pause
+            </div>
+            <div class="popup-btn">
+              ▶▶ Next Chapter
+            </div>
+
+            <div class="popup-divider"></div>
+
+            <div class="popup-btn">
+              🔊 Audio: English 5.1
+            </div>
+            <div class="popup-btn">
+              💬 Subtitles: Off
+            </div>
+
+            <div class="popup-spacer"></div>
+
+            <div class="popup-btn">
+              ⬛ Top Menu
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ Inspector ═══ -->
+    <div class="inspector">
+      <div class="bd-info" style="margin-bottom:var(--space-4);">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="var(--brand-blue)" stroke-width="1.5" style="flex-shrink:0;margin-top:1px;"><circle cx="8" cy="8" r="6"/><path d="M8 5v1M8 8v3"/></svg>
+        <span>BD popup menus overlay playing video. The viewer can access this menu during playback without interrupting the title.</span>
+      </div>
+
+      <div class="inspector__section">
+        <div class="inspector__section-title">Selected Button</div>
+        <div class="form-group">
+          <label class="form-label">Label</label>
+          <input class="input" value="Play / Pause" style="font-size:var(--text-sm);">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Action</label>
+          <select class="input input--select" style="font-size:var(--text-sm);">
+            <option>Toggle Playback</option>
+            <option>Previous Chapter</option>
+            <option>Next Chapter</option>
+            <option>Cycle Audio Track</option>
+            <option>Cycle Subtitles</option>
+            <option>Go to Top Menu</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="inspector__section">
+        <div class="inspector__section-title">Popup Behaviour</div>
+
+        <div class="inspector__row">
+          <span class="inspector__label">Trigger</span>
+          <select class="input input--select" style="font-size:var(--text-xs);padding:3px 28px 3px 8px;">
+            <option>POPUP MENU key</option>
+            <option>Always visible</option>
+            <option>Auto-hide after 5s</option>
+          </select>
+        </div>
+        <div class="inspector__row">
+          <span class="inspector__label">Position</span>
+          <select class="input input--select" style="font-size:var(--text-xs);padding:3px 28px 3px 8px;">
+            <option>Bottom overlay</option>
+            <option>Top overlay</option>
+            <option>Side panel</option>
+          </select>
+        </div>
+        <div class="inspector__row">
+          <span class="inspector__label">Opacity</span>
+          <input class="input" value="75%" style="width:60px;text-align:center;font-size:var(--text-xs);padding:3px;">
+        </div>
+      </div>
+
+      <div class="inspector__section">
+        <div class="inspector__section-title">Menu Types</div>
+        <div style="font-size:var(--text-xs);color:var(--text-secondary);margin-bottom:var(--space-2);">
+          BD discs have two menu layers:
+        </div>
+        <div style="padding:var(--space-2) var(--space-3);border:1px solid rgba(96,165,250,0.2);border-radius:var(--radius-sm);margin-bottom:var(--space-2);font-size:var(--text-xs);">
+          <div style="font-weight:600;color:var(--brand-blue);margin-bottom:2px;">Top Menu</div>
+          <div style="color:var(--text-muted);">Full-screen menu accessed via TOP MENU key. Replaces video. Similar to DVD root menu.</div>
+        </div>
+        <div style="padding:var(--space-2) var(--space-3);border:1px solid rgba(96,165,250,0.2);border-radius:var(--radius-sm);font-size:var(--text-xs);background:rgba(96,165,250,0.04);">
+          <div style="font-weight:600;color:var(--brand-blue);margin-bottom:2px;">Popup Menu (editing)</div>
+          <div style="color:var(--text-muted);">Transparent overlay during playback. Quick access to chapters, audio, subtitles without leaving the title.</div>
+        </div>
+      </div>
+
+      <div class="inspector__section">
+        <div class="inspector__section-title">All Buttons</div>
+        <div style="font-size:var(--text-xs);">
+          <div style="display:flex;align-items:center;gap:var(--space-2);padding:4px 6px;border-radius:var(--radius-sm);margin-bottom:2px;color:var(--text-secondary);">
+            <span style="color:var(--text-muted);">1</span> Prev Chapter
+          </div>
+          <div style="display:flex;align-items:center;gap:var(--space-2);padding:4px 6px;background:rgba(96,165,250,0.08);border-radius:var(--radius-sm);margin-bottom:2px;color:var(--brand-blue);font-weight:500;">
+            <span>2</span> Play / Pause
+          </div>
+          <div style="display:flex;align-items:center;gap:var(--space-2);padding:4px 6px;border-radius:var(--radius-sm);margin-bottom:2px;color:var(--text-secondary);">
+            <span style="color:var(--text-muted);">3</span> Next Chapter
+          </div>
+          <div style="display:flex;align-items:center;gap:var(--space-2);padding:4px 6px;border-radius:var(--radius-sm);margin-bottom:2px;color:var(--text-secondary);">
+            <span style="color:var(--text-muted);">4</span> Audio
+          </div>
+          <div style="display:flex;align-items:center;gap:var(--space-2);padding:4px 6px;border-radius:var(--radius-sm);margin-bottom:2px;color:var(--text-secondary);">
+            <span style="color:var(--text-muted);">5</span> Subtitles
+          </div>
+          <div style="display:flex;align-items:center;gap:var(--space-2);padding:4px 6px;border-radius:var(--radius-sm);color:var(--text-secondary);">
+            <span style="color:var(--text-muted);">6</span> Top Menu
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

@@ -30,6 +30,17 @@ Open `index.html` in any modern browser. Each screen links to the shared `design
 | 18 | `18-relink-assets.html` | Missing asset detection with fingerprint matching |
 | 19 | `19-settings.html` | Toolchain versions, capabilities, and cache management |
 
+### Blu-ray Disc Support
+
+| # | File | Screen |
+|---|------|--------|
+| 20 | `20-format-selector.html` | DVD vs Blu-ray format selection during project creation |
+| 21 | `21-bd-output-profiles.html` | HD rasters, H.264/HEVC codec selection, lossless audio targets |
+| 22 | `22-bd-popup-menu.html` | BD popup menu canvas editor with overlay behaviour config |
+| 23 | `23-bd-planner.html` | BD-25/BD-50 capacity planning with high bitrate allocation |
+| 24 | `24-bd-verification.html` | BDMV structure checks, AVC compliance, audio fallback validation |
+| 25 | `25-bd-toolchain.html` | BD backend selector, tsMuxeR, BD menu compiler, architecture diagram |
+
 ## Design System
 
 `design-system.css` contains the full token system:
@@ -44,4 +55,6 @@ Open `index.html` in any modern browser. Each screen links to the shared `design
 - All mockups use Canadian English spelling per Liminal HQ project rules
 - Window controls use GNOME/GTK style (not macOS)
 - Mockups are static HTML — no JavaScript required
-- Screen content maps to the 19 core screens defined in `docs/initial-planning/ui_and_cli_planning.md`
+- Screens 01–19 cover DVD-Video authoring; screens 20–25 add Blu-ray Disc support
+- BD screens use a blue accent colour to visually distinguish from the orange DVD screens
+- Screen content maps to the 19 core screens defined in `docs/initial-planning/ui_and_cli_planning.md`, plus 6 BD-specific screens
