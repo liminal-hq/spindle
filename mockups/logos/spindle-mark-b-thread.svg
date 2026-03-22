@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Spindle Mark B — "Thread & Spindle"
+       A spindle as a weaving/threading tool — a vertical shaft with
+       thread spiralling around it, evoking the idea of "spinning"
+       content together into a disc. More abstract and logo-like. -->
+  <defs>
+    <linearGradient id="shaftGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#F19B18"/>
+      <stop offset="50%" stop-color="#CF5D22"/>
+      <stop offset="100%" stop-color="#5D3147"/>
+    </linearGradient>
+    <linearGradient id="threadGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#F7E2BA" stop-opacity="0.8"/>
+      <stop offset="50%" stop-color="#F19B18" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#CF5D22" stop-opacity="0.4"/>
+    </linearGradient>
+    <linearGradient id="threadGrad2" x1="1" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#CF5D22" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#5D3147" stop-opacity="0.3"/>
+    </linearGradient>
+    <radialGradient id="topGlow" cx="50%" cy="20%" r="50%">
+      <stop offset="0%" stop-color="#F7E2BA" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#0A0A0D" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="512" height="512" fill="#0A0A0D" rx="64"/>
+
+  <!-- Ambient glow -->
+  <rect width="512" height="512" fill="url(#topGlow)" rx="64"/>
+
+  <!-- Spindle shaft — vertical line with tapered ends -->
+  <line x1="256" y1="72" x2="256" y2="440" stroke="url(#shaftGrad)" stroke-width="6" stroke-linecap="round"/>
+
+  <!-- Top cap (whorl) -->
+  <circle cx="256" cy="72" r="14" fill="none" stroke="#F19B18" stroke-width="2.5"/>
+  <circle cx="256" cy="72" r="5" fill="#F7E2BA"/>
+
+  <!-- Bottom point -->
+  <circle cx="256" cy="440" r="4" fill="#5D3147"/>
+
+  <!-- Thread wraps — sinusoidal curves suggesting thread wound around shaft -->
+  <!-- Front-facing threads (in front of shaft) -->
+  <path d="M 256 120 C 340 140, 340 170, 256 190" fill="none" stroke="url(#threadGrad)" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M 256 190 C 340 210, 340 240, 256 260" fill="none" stroke="url(#threadGrad)" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M 256 260 C 340 280, 340 310, 256 330" fill="none" stroke="url(#threadGrad)" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M 256 330 C 340 350, 335 375, 256 390" fill="none" stroke="url(#threadGrad)" stroke-width="2" stroke-linecap="round" opacity="0.7"/>
+
+  <!-- Back-facing threads (behind shaft, dimmer) -->
+  <path d="M 256 120 C 172 140, 172 170, 256 190" fill="none" stroke="url(#threadGrad2)" stroke-width="2" stroke-linecap="round"/>
+  <path d="M 256 190 C 172 210, 172 240, 256 260" fill="none" stroke="url(#threadGrad2)" stroke-width="2" stroke-linecap="round"/>
+  <path d="M 256 260 C 172 280, 172 310, 256 330" fill="none" stroke="url(#threadGrad2)" stroke-width="2" stroke-linecap="round"/>
+  <path d="M 256 330 C 172 350, 175 375, 256 390" fill="none" stroke="url(#threadGrad2)" stroke-width="1.5" stroke-linecap="round" opacity="0.6"/>
+
+  <!-- Loose thread tail coming off the bottom -->
+  <path d="M 256 390 C 280 400, 310 415, 330 410" fill="none" stroke="#CF5D22" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/>
+
+  <!-- Subtle glow where thread meets shaft at key points -->
+  <circle cx="256" cy="120" r="6" fill="#F7E2BA" opacity="0.15"/>
+  <circle cx="256" cy="190" r="6" fill="#F7E2BA" opacity="0.12"/>
+  <circle cx="256" cy="260" r="6" fill="#F7E2BA" opacity="0.1"/>
+  <circle cx="256" cy="330" r="6" fill="#F7E2BA" opacity="0.08"/>
+</svg>

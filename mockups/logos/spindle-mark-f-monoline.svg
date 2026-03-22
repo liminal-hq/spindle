@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Spindle Mark F — "Monoline S"
+       A single continuous stroke forming an "S" that doubles as a
+       spindle silhouette — the letter flows from a disc shape at
+       top through the spindle shaft into a base. Suitable for
+       favicon, app icon, and small-size use. -->
+  <defs>
+    <linearGradient id="monoGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#F7E2BA"/>
+      <stop offset="25%" stop-color="#F19B18"/>
+      <stop offset="60%" stop-color="#CF5D22"/>
+      <stop offset="100%" stop-color="#5D3147"/>
+    </linearGradient>
+    <radialGradient id="monoGlow" cx="50%" cy="35%" r="50%">
+      <stop offset="0%" stop-color="#F7E2BA" stop-opacity="0.1"/>
+      <stop offset="100%" stop-color="#0A0A0D" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="softGlow">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="512" height="512" fill="#0A0A0D" rx="64"/>
+
+  <!-- Glow -->
+  <rect width="512" height="512" fill="url(#monoGlow)" rx="64"/>
+
+  <!-- The "S" / Spindle monoline stroke
+       Top curve arcs right (disc top), middle bar is the shaft,
+       bottom curve arcs left (base). One continuous path. -->
+  <path d="
+    M 180 140
+    C 180 90, 332 90, 332 140
+    C 332 190, 280 200, 256 210
+    C 232 220, 200 230, 200 260
+    L 200 280
+    C 200 300, 232 310, 256 310
+    C 280 310, 312 320, 312 360
+    C 312 410, 180 410, 180 360
+  " fill="none" stroke="url(#monoGrad)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" filter="url(#softGlow)"/>
+
+  <!-- Accent dots at the endpoints -->
+  <circle cx="180" cy="140" r="8" fill="#F7E2BA" opacity="0.7"/>
+  <circle cx="180" cy="360" r="8" fill="#5D3147" opacity="0.7"/>
+
+  <!-- Central spindle point where the S crosses the vertical centre -->
+  <circle cx="256" cy="256" r="5" fill="#F19B18" opacity="0.8"/>
+</svg>

@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Spindle Mark C — "Spiral Track"
+       An Archimedean spiral suggesting a disc's data track, with the
+       spindle centre as the origin. Minimal and geometric. The spiral
+       reads as both a disc groove and a thread being wound. -->
+  <defs>
+    <linearGradient id="spiralGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#5D3147"/>
+      <stop offset="40%" stop-color="#CF5D22"/>
+      <stop offset="75%" stop-color="#F19B18"/>
+      <stop offset="100%" stop-color="#F7E2BA"/>
+    </linearGradient>
+    <radialGradient id="centreGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#F7E2BA" stop-opacity="0.25"/>
+      <stop offset="40%" stop-color="#F19B18" stop-opacity="0.08"/>
+      <stop offset="100%" stop-color="#0A0A0D" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="spindleDot" cx="40%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#F7E2BA"/>
+      <stop offset="100%" stop-color="#F19B18"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="512" height="512" fill="#0A0A0D" rx="64"/>
+
+  <!-- Centre glow -->
+  <circle cx="256" cy="256" r="200" fill="url(#centreGlow)"/>
+
+  <!-- Spiral — an approximation of an Archimedean spiral using cubic beziers.
+       Starts tight at centre, expands outward. -->
+  <path d="
+    M 256 256
+    C 256 244, 268 238, 274 244
+    C 280 250, 280 268, 268 274
+    C 256 280, 238 272, 236 258
+    C 234 244, 244 226, 262 222
+    C 280 218, 298 232, 302 252
+    C 306 272, 294 296, 270 302
+    C 246 308, 222 294, 216 268
+    C 210 242, 226 212, 256 204
+    C 286 196, 316 216, 324 248
+    C 332 280, 312 318, 276 328
+    C 240 338, 204 316, 194 278
+    C 184 240, 208 196, 250 184
+    C 292 172, 338 198, 350 242
+    C 362 286, 332 340, 284 354
+    C 236 368, 188 338, 174 288
+    C 160 238, 190 178, 244 162
+    C 298 146, 358 180, 374 236
+    C 390 292, 352 362, 290 380
+    C 228 398, 166 358, 150 296
+    C 134 234, 172 160, 238 140
+    C 304 120, 382 162, 400 230
+    C 418 298, 372 384, 298 406
+    C 224 428, 148 382, 128 308
+  " fill="none" stroke="url(#spiralGrad)" stroke-width="2.5" stroke-linecap="round"/>
+
+  <!-- Spindle centre point -->
+  <circle cx="256" cy="256" r="8" fill="url(#spindleDot)"/>
+  <circle cx="256" cy="256" r="8" fill="none" stroke="#F7E2BA" stroke-width="0.5" opacity="0.4"/>
+
+  <!-- Highlight -->
+  <circle cx="254" cy="254" r="2" fill="#F7E2BA" opacity="0.7"/>
+</svg>

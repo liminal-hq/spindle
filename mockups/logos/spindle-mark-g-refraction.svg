@@ -1,0 +1,155 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Spindle Mark G — "DVD Refraction"
+       The iridescent underside of a DVD catching light. Radiating
+       prismatic bands fan outward from the spindle hub, shifting
+       through spectral colours the way a real disc does when tilted.
+       Stylised — not photorealistic, but unmistakably "disc". -->
+  <defs>
+    <!-- Prismatic rainbow bands — the signature DVD refraction spectrum -->
+    <linearGradient id="prism1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#5D3147" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#8B2FC9" stop-opacity="0.6"/>
+    </linearGradient>
+    <linearGradient id="prism2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6B3FA0" stop-opacity="0.85"/>
+      <stop offset="100%" stop-color="#3A7BD5" stop-opacity="0.6"/>
+    </linearGradient>
+    <linearGradient id="prism3" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3A7BD5" stop-opacity="0.8"/>
+      <stop offset="100%" stop-color="#22d3ee" stop-opacity="0.55"/>
+    </linearGradient>
+    <linearGradient id="prism4" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#22d3ee" stop-opacity="0.75"/>
+      <stop offset="100%" stop-color="#2ec66a" stop-opacity="0.5"/>
+    </linearGradient>
+    <linearGradient id="prism5" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2ec66a" stop-opacity="0.7"/>
+      <stop offset="100%" stop-color="#F19B18" stop-opacity="0.5"/>
+    </linearGradient>
+    <linearGradient id="prism6" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F19B18" stop-opacity="0.75"/>
+      <stop offset="100%" stop-color="#CF5D22" stop-opacity="0.55"/>
+    </linearGradient>
+    <linearGradient id="prism7" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#CF5D22" stop-opacity="0.8"/>
+      <stop offset="100%" stop-color="#f43f5e" stop-opacity="0.5"/>
+    </linearGradient>
+
+    <!-- Hub gradient -->
+    <radialGradient id="hubGrad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#F7E2BA" stop-opacity="0.4"/>
+      <stop offset="60%" stop-color="#F19B18" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#0A0A0D" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Silver-metallic disc surface base -->
+    <radialGradient id="discSurface" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#2a2a30"/>
+      <stop offset="35%" stop-color="#18181c"/>
+      <stop offset="70%" stop-color="#111114"/>
+      <stop offset="100%" stop-color="#0A0A0D"/>
+    </radialGradient>
+
+    <!-- Light source bloom — the bright patch where light hits -->
+    <radialGradient id="lightHit" cx="38%" cy="35%" r="45%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.08"/>
+      <stop offset="40%" stop-color="#F7E2BA" stop-opacity="0.03"/>
+      <stop offset="100%" stop-color="#0A0A0D" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Spindle point -->
+    <radialGradient id="spindlePoint" cx="40%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#F7E2BA"/>
+      <stop offset="100%" stop-color="#CF5D22"/>
+    </radialGradient>
+
+    <!-- Clipping mask for disc shape -->
+    <clipPath id="discClip">
+      <circle cx="256" cy="256" r="195"/>
+    </clipPath>
+    <clipPath id="discClipInner">
+      <path d="M 256 61 A 195 195 0 1 1 255.99 61 Z M 256 214 A 42 42 0 1 0 256.01 214 Z" clip-rule="evenodd"/>
+    </clipPath>
+  </defs>
+
+  <!-- Background -->
+  <rect width="512" height="512" fill="#0A0A0D" rx="64"/>
+
+  <!-- Disc body — subtle metallic surface -->
+  <circle cx="256" cy="256" r="195" fill="url(#discSurface)"/>
+
+  <!-- === Prismatic refraction bands ===
+       Fan of wedge-shaped sectors radiating from centre, each a
+       different spectral colour. Clipped to the disc ring area. -->
+  <g clip-path="url(#discClipInner)">
+
+    <!-- The refraction fan — wedges spreading from an off-centre light source point.
+         Light hits around upper-left, bands sweep clockwise. -->
+
+    <!-- Band 1 — deep plum/violet -->
+    <path d="M 200 190 L 56 56 L 140 40 L 256 256 Z" fill="url(#prism1)" opacity="0.7"/>
+    <path d="M 200 190 L 140 40 L 240 30 L 256 256 Z" fill="url(#prism1)" opacity="0.5"/>
+
+    <!-- Band 2 — purple/blue -->
+    <path d="M 256 256 L 240 30 L 340 40 L 256 256 Z" fill="url(#prism2)" opacity="0.65"/>
+    <path d="M 256 256 L 340 40 L 430 90 L 256 256 Z" fill="url(#prism2)" opacity="0.45"/>
+
+    <!-- Band 3 — blue/cyan -->
+    <path d="M 256 256 L 430 90 L 475 180 L 256 256 Z" fill="url(#prism3)" opacity="0.6"/>
+    <path d="M 256 256 L 475 180 L 485 280 L 256 256 Z" fill="url(#prism3)" opacity="0.4"/>
+
+    <!-- Band 4 — cyan/green -->
+    <path d="M 256 256 L 485 280 L 460 380 L 256 256 Z" fill="url(#prism4)" opacity="0.55"/>
+    <path d="M 256 256 L 460 380 L 390 450 L 256 256 Z" fill="url(#prism4)" opacity="0.35"/>
+
+    <!-- Band 5 — green/gold -->
+    <path d="M 256 256 L 390 450 L 290 480 L 256 256 Z" fill="url(#prism5)" opacity="0.55"/>
+    <path d="M 256 256 L 290 480 L 200 475 L 256 256 Z" fill="url(#prism5)" opacity="0.4"/>
+
+    <!-- Band 6 — gold/ember -->
+    <path d="M 256 256 L 200 475 L 110 440 L 256 256 Z" fill="url(#prism6)" opacity="0.6"/>
+    <path d="M 256 256 L 110 440 L 55 370 L 256 256 Z" fill="url(#prism6)" opacity="0.4"/>
+
+    <!-- Band 7 — ember/pink -->
+    <path d="M 256 256 L 55 370 L 35 270 L 256 256 Z" fill="url(#prism7)" opacity="0.6"/>
+    <path d="M 256 256 L 35 270 L 45 170 L 256 256 Z" fill="url(#prism7)" opacity="0.45"/>
+
+    <!-- Second-order refraction — fainter overlapping arcs -->
+    <path d="M 256 256 L 45 170 L 56 56 L 200 190 Z" fill="url(#prism1)" opacity="0.35"/>
+
+    <!-- Concentric track grooves catching the light differently -->
+    <circle cx="256" cy="256" r="180" fill="none" stroke="white" stroke-width="0.3" opacity="0.06"/>
+    <circle cx="256" cy="256" r="160" fill="none" stroke="white" stroke-width="0.3" opacity="0.08"/>
+    <circle cx="256" cy="256" r="140" fill="none" stroke="white" stroke-width="0.3" opacity="0.1"/>
+    <circle cx="256" cy="256" r="120" fill="none" stroke="white" stroke-width="0.3" opacity="0.08"/>
+    <circle cx="256" cy="256" r="100" fill="none" stroke="white" stroke-width="0.3" opacity="0.06"/>
+    <circle cx="256" cy="256" r="80" fill="none" stroke="white" stroke-width="0.3" opacity="0.05"/>
+    <circle cx="256" cy="256" r="65" fill="none" stroke="white" stroke-width="0.3" opacity="0.04"/>
+
+    <!-- Bright caustic streaks — the sharpest refraction lines -->
+    <line x1="256" y1="256" x2="120" y2="60" stroke="white" stroke-width="0.5" opacity="0.12"/>
+    <line x1="256" y1="256" x2="200" y2="45" stroke="#a78bfa" stroke-width="0.4" opacity="0.1"/>
+    <line x1="256" y1="256" x2="410" y2="100" stroke="#22d3ee" stroke-width="0.5" opacity="0.1"/>
+    <line x1="256" y1="256" x2="470" y2="300" stroke="#2ec66a" stroke-width="0.4" opacity="0.08"/>
+    <line x1="256" y1="256" x2="350" y2="470" stroke="#F19B18" stroke-width="0.5" opacity="0.1"/>
+    <line x1="256" y1="256" x2="100" y2="430" stroke="#CF5D22" stroke-width="0.4" opacity="0.09"/>
+    <line x1="256" y1="256" x2="40" y2="220" stroke="#f43f5e" stroke-width="0.4" opacity="0.08"/>
+  </g>
+
+  <!-- Light source bloom overlay -->
+  <circle cx="256" cy="256" r="195" fill="url(#lightHit)"/>
+
+  <!-- Outer disc edge — a thin bright ring -->
+  <circle cx="256" cy="256" r="195" fill="none" stroke="white" stroke-width="0.8" opacity="0.1"/>
+  <circle cx="256" cy="256" r="194" fill="none" stroke="#CF5D22" stroke-width="0.3" opacity="0.15"/>
+
+  <!-- Hub ring -->
+  <circle cx="256" cy="256" r="42" fill="#0A0A0D"/>
+  <circle cx="256" cy="256" r="42" fill="url(#hubGrad)"/>
+  <circle cx="256" cy="256" r="42" fill="none" stroke="#F19B18" stroke-width="1.5" opacity="0.4"/>
+
+  <!-- Spindle hole -->
+  <circle cx="256" cy="256" r="10" fill="url(#spindlePoint)"/>
+  <circle cx="256" cy="256" r="10" fill="none" stroke="#F7E2BA" stroke-width="0.8" opacity="0.5"/>
+  <circle cx="254" cy="254" r="2.5" fill="#F7E2BA" opacity="0.6"/>
+</svg>

@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Spindle Mark D — "Liminal Disc"
+       Combines the Liminal HQ bracket identity with a disc motif.
+       The brackets frame a disc cross-section, with the spindle
+       as the central vertical line (echoing the parent mark). -->
+  <defs>
+    <linearGradient id="bracketGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#5D3147"/>
+      <stop offset="50%" stop-color="#CF5D22"/>
+      <stop offset="100%" stop-color="#F19B18"/>
+    </linearGradient>
+    <linearGradient id="discStroke" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#CF5D22" stop-opacity="0.7"/>
+      <stop offset="100%" stop-color="#F19B18" stop-opacity="0.4"/>
+    </linearGradient>
+    <radialGradient id="portalGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#F7E2BA" stop-opacity="0.2"/>
+      <stop offset="50%" stop-color="#F19B18" stop-opacity="0.06"/>
+      <stop offset="100%" stop-color="#0A0A0D" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="spindleLine" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#F7E2BA" stop-opacity="0.8"/>
+      <stop offset="50%" stop-color="#F19B18" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#F7E2BA" stop-opacity="0.8"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="512" height="512" fill="#0A0A0D" rx="64"/>
+
+  <!-- Portal glow -->
+  <circle cx="256" cy="256" r="180" fill="url(#portalGlow)"/>
+
+  <!-- Disc rings -->
+  <circle cx="256" cy="256" r="150" fill="none" stroke="url(#discStroke)" stroke-width="1.5"/>
+  <circle cx="256" cy="256" r="130" fill="none" stroke="url(#discStroke)" stroke-width="0.5" opacity="0.3"/>
+  <circle cx="256" cy="256" r="110" fill="none" stroke="url(#discStroke)" stroke-width="0.5" opacity="0.2"/>
+  <circle cx="256" cy="256" r="90" fill="none" stroke="url(#discStroke)" stroke-width="0.5" opacity="0.15"/>
+  <circle cx="256" cy="256" r="50" fill="none" stroke="url(#discStroke)" stroke-width="1" opacity="0.5"/>
+
+  <!-- Left bracket [ -->
+  <path d="
+    M 120 100
+    L 160 100
+    L 160 120
+    L 140 120
+    L 140 392
+    L 160 392
+    L 160 412
+    L 120 412
+    Z
+  " fill="none" stroke="url(#bracketGrad)" stroke-width="3" stroke-linejoin="round"/>
+
+  <!-- Right bracket ] -->
+  <path d="
+    M 392 100
+    L 352 100
+    L 352 120
+    L 372 120
+    L 372 392
+    L 352 392
+    L 352 412
+    L 392 412
+    Z
+  " fill="none" stroke="url(#bracketGrad)" stroke-width="3" stroke-linejoin="round"/>
+
+  <!-- Central spindle line (the Liminal HQ vertical bar becomes the spindle post) -->
+  <line x1="256" y1="120" x2="256" y2="392" stroke="url(#spindleLine)" stroke-width="3" stroke-linecap="round"/>
+
+  <!-- Spindle centre point where line crosses hub -->
+  <circle cx="256" cy="256" r="10" fill="none" stroke="#F19B18" stroke-width="2"/>
+  <circle cx="256" cy="256" r="4" fill="#F7E2BA"/>
+
+  <!-- Top and bottom spindle caps -->
+  <circle cx="256" cy="120" r="5" fill="#F19B18" opacity="0.6"/>
+  <circle cx="256" cy="392" r="5" fill="#5D3147" opacity="0.6"/>
+</svg>

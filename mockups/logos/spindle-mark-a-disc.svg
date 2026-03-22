@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Spindle Mark A — "Disc on Spindle"
+       A top-down view of an optical disc on a spindle post.
+       Concentric rings with the warm Liminal gradient, a central
+       spindle point, and subtle track grooves. -->
+  <defs>
+    <radialGradient id="discGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#F7E2BA" stop-opacity="0.12"/>
+      <stop offset="60%" stop-color="#F19B18" stop-opacity="0.04"/>
+      <stop offset="100%" stop-color="#0A0A0D" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="warmGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#5D3147"/>
+      <stop offset="45%" stop-color="#CF5D22"/>
+      <stop offset="100%" stop-color="#F19B18"/>
+    </linearGradient>
+    <linearGradient id="warmGradReverse" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#F19B18"/>
+      <stop offset="55%" stop-color="#CF5D22"/>
+      <stop offset="100%" stop-color="#5D3147"/>
+    </linearGradient>
+    <radialGradient id="spindleCenter" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#F7E2BA"/>
+      <stop offset="40%" stop-color="#F19B18"/>
+      <stop offset="100%" stop-color="#CF5D22"/>
+    </radialGradient>
+    <radialGradient id="innerGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#F7E2BA" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#F7E2BA" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="512" height="512" fill="#0A0A0D" rx="64"/>
+
+  <!-- Ambient glow -->
+  <circle cx="256" cy="256" r="220" fill="url(#discGlow)"/>
+
+  <!-- Outer disc ring -->
+  <circle cx="256" cy="256" r="190" fill="none" stroke="url(#warmGrad)" stroke-width="3" opacity="0.5"/>
+
+  <!-- Track grooves — concentric circles suggesting data surface -->
+  <circle cx="256" cy="256" r="170" fill="none" stroke="url(#warmGrad)" stroke-width="0.5" opacity="0.15"/>
+  <circle cx="256" cy="256" r="155" fill="none" stroke="url(#warmGrad)" stroke-width="0.5" opacity="0.12"/>
+  <circle cx="256" cy="256" r="140" fill="none" stroke="url(#warmGrad)" stroke-width="0.5" opacity="0.1"/>
+  <circle cx="256" cy="256" r="125" fill="none" stroke="url(#warmGrad)" stroke-width="0.5" opacity="0.08"/>
+  <circle cx="256" cy="256" r="110" fill="none" stroke="url(#warmGrad)" stroke-width="0.5" opacity="0.12"/>
+  <circle cx="256" cy="256" r="95" fill="none" stroke="url(#warmGrad)" stroke-width="0.5" opacity="0.15"/>
+
+  <!-- Data area ring — the prominent readable area -->
+  <circle cx="256" cy="256" r="175" fill="none" stroke="url(#warmGrad)" stroke-width="1.5" opacity="0.3"/>
+  <circle cx="256" cy="256" r="85" fill="none" stroke="url(#warmGrad)" stroke-width="1.5" opacity="0.3"/>
+
+  <!-- Hub ring (inner clear area boundary) -->
+  <circle cx="256" cy="256" r="60" fill="none" stroke="url(#warmGradReverse)" stroke-width="2.5" opacity="0.7"/>
+
+  <!-- Inner glow around spindle -->
+  <circle cx="256" cy="256" r="40" fill="url(#innerGlow)"/>
+
+  <!-- Spindle post — the central point -->
+  <circle cx="256" cy="256" r="12" fill="url(#spindleCenter)"/>
+  <circle cx="256" cy="256" r="12" fill="none" stroke="#F7E2BA" stroke-width="1" opacity="0.5"/>
+
+  <!-- Spindle highlight dot -->
+  <circle cx="253" cy="253" r="3" fill="#F7E2BA" opacity="0.6"/>
+
+  <!-- Accent arcs suggesting rotation/authoring -->
+  <path d="M 256 66 A 190 190 0 0 1 430 180" fill="none" stroke="url(#warmGrad)" stroke-width="2" stroke-linecap="round" opacity="0.6"/>
+  <path d="M 256 446 A 190 190 0 0 1 82 332" fill="none" stroke="url(#warmGradReverse)" stroke-width="2" stroke-linecap="round" opacity="0.6"/>
+</svg>
