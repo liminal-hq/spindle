@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en-CA">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=1280">
+  <title>Spindle — Project Overview (Blu-ray)</title>
+  <link rel="stylesheet" href="design-system.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { background: var(--bg-panel); }
+
+    .overview-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: auto auto auto;
+      gap: var(--space-4);
+      max-width: 960px;
+    }
+
+    .health-card { grid-column: 1 / -1; }
+
+    .health-items {
+      display: flex;
+      gap: var(--space-6);
+      margin-top: var(--space-3);
+    }
+
+    .health-item {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      font-size: var(--text-sm);
+    }
+
+    .health-icon {
+      width: 20px; height: 20px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 700;
+    }
+    .health-icon--ok   { background: rgba(46,198,106,0.15); color: var(--colour-success); }
+    .health-icon--warn { background: rgba(251,191,36,0.15); color: var(--colour-warning); }
+
+    .stat-value {
+      font-family: var(--font-heading);
+      font-size: var(--text-3xl);
+      font-weight: 700;
+      line-height: 1;
+      margin-bottom: var(--space-1);
+    }
+    .stat-label {
+      font-size: var(--text-sm);
+      color: var(--text-muted);
+    }
+    .stat-row {
+      display: flex;
+      gap: var(--space-6);
+      margin-top: var(--space-3);
+    }
+
+    .capacity-mini { margin-top: var(--space-3); }
+    .capacity-legend {
+      display: flex;
+      gap: var(--space-4);
+      margin-top: var(--space-2);
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+    }
+    .capacity-legend__dot {
+      width: 8px; height: 8px;
+      border-radius: 2px;
+      display: inline-block;
+      margin-right: 4px;
+    }
+
+    .quick-actions {
+      grid-column: 1 / -1;
+      display: flex;
+      gap: var(--space-3);
+      flex-wrap: wrap;
+    }
+    .quick-action {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      padding: var(--space-3) var(--space-4);
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      color: var(--text-secondary);
+      font-size: var(--text-sm);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+    .quick-action:hover {
+      background: var(--bg-card-hover);
+      border-color: var(--border-default);
+      color: var(--text-primary);
+    }
+    .quick-action__icon { color: var(--brand-blue); }
+
+    .activity-list { list-style: none; margin-top: var(--space-3); }
+    .activity-list li {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      padding: var(--space-2) 0;
+      border-bottom: 1px solid var(--border-subtle);
+      font-size: var(--text-sm);
+      color: var(--text-secondary);
+    }
+    .activity-list li:last-child { border-bottom: none; }
+    .activity-time {
+      margin-left: auto;
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+    }
+    .activity-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .warning-item {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--space-2);
+      padding: var(--space-2) 0;
+      font-size: var(--text-sm);
+      color: var(--text-secondary);
+    }
+    .warning-item + .warning-item {
+      border-top: 1px solid var(--border-subtle);
+    }
+    .warning-icon {
+      color: var(--colour-warning);
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .bd-gradient {
+      background: linear-gradient(135deg, #3A7BD5, #22d3ee);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .format-banner {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      padding: var(--space-3) var(--space-4);
+      background: rgba(96,165,250,0.05);
+      border: 1px solid rgba(96,165,250,0.15);
+      border-radius: var(--radius-md);
+      margin-bottom: var(--space-4);
+      font-size: var(--text-sm);
+    }
+  </style>
+</head>
+<body>
+  <div style="padding: var(--space-6); max-width: 1040px;">
+
+    <!-- Page Header -->
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Indie Film Collector's Edition</h1>
+        <p class="text-muted" style="font-size: var(--text-sm); margin-top: var(--space-1);">Blu-ray Disc · 1080p · BD-50 (50 GB) · Last saved 5 min ago</p>
+      </div>
+      <div class="flex gap-2">
+        <button class="btn">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2v12M2 8h12"/></svg>
+          Import Assets
+        </button>
+        <button class="btn btn--primary">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="var(--text-inverse)" stroke-width="1.5"><polygon points="4,2 14,8 4,14"/></svg>
+          Build
+        </button>
+      </div>
+    </div>
+
+    <div class="format-banner">
+      <div style="width:32px;height:32px;border-radius:8px;background:rgba(96,165,250,0.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="var(--brand-blue)" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="2"/></svg>
+      </div>
+      <span style="font-weight:600;color:var(--brand-blue);">Blu-ray Disc</span>
+      <span class="text-muted"> · H.264 AVC · 1080p · BD-50 dual-layer</span>
+    </div>
+
+    <div class="overview-grid">
+
+      <!-- Health Summary -->
+      <div class="card health-card">
+        <div class="card__header">
+          <h3 class="card__title">Project Health</h3>
+          <span class="badge badge--remux">Ready</span>
+        </div>
+        <div class="health-items">
+          <div class="health-item">
+            <div class="health-icon health-icon--ok">✓</div>
+            All assets linked
+          </div>
+          <div class="health-item">
+            <div class="health-icon health-icon--ok">✓</div>
+            4 playlists mapped
+          </div>
+          <div class="health-item">
+            <div class="health-icon health-icon--ok">✓</div>
+            Top & popup menus valid
+          </div>
+          <div class="health-item">
+            <div class="health-icon health-icon--ok">✓</div>
+            BDMV structure valid
+          </div>
+          <div class="health-item">
+            <div class="health-icon health-icon--ok">✓</div>
+            BD toolchain ready
+          </div>
+        </div>
+      </div>
+
+      <!-- Disc Capacity Card -->
+      <div class="card">
+        <div class="card__header">
+          <h3 class="card__title">Disc Capacity</h3>
+          <span class="text-muted" style="font-size:var(--text-xs);">BD-50</span>
+        </div>
+        <div class="stat-value bd-gradient">62%</div>
+        <div class="stat-label">31.2 GB of 50.0 GB used</div>
+
+        <div class="capacity-mini">
+          <div class="capacity-bar">
+            <div class="capacity-bar__segment" style="width:32%; background: var(--brand-blue);">Feature</div>
+            <div class="capacity-bar__segment" style="width:14%; background: var(--brand-cyan);">BTS</div>
+            <div class="capacity-bar__segment" style="width:10%; background: var(--brand-purple);">Extras</div>
+            <div class="capacity-bar__segment" style="width:6%; background: rgba(46,198,106,0.6);font-size:9px;">Audio</div>
+            <div class="capacity-bar__segment" style="width:38%; background: rgba(255,255,255,0.06); color: var(--text-muted);">Free</div>
+          </div>
+          <div class="capacity-legend">
+            <span><span class="capacity-legend__dot" style="background:var(--brand-blue);"></span>Feature Film (16.1 GB)</span>
+            <span><span class="capacity-legend__dot" style="background:var(--brand-cyan);"></span>Behind the Scenes (7.0 GB)</span>
+            <span><span class="capacity-legend__dot" style="background:var(--brand-purple);"></span>Extras (5.1 GB)</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Playlists Summary -->
+      <div class="card">
+        <div class="card__header">
+          <h3 class="card__title">Playlists</h3>
+          <span class="sidebar__item__badge">4</span>
+        </div>
+        <div class="stat-row">
+          <div>
+            <div class="stat-value">4</div>
+            <div class="stat-label">Playlists</div>
+          </div>
+          <div>
+            <div class="stat-value">22</div>
+            <div class="stat-label">Chapters</div>
+          </div>
+          <div>
+            <div class="stat-value">16</div>
+            <div class="stat-label">Streams</div>
+          </div>
+        </div>
+        <ul class="activity-list" style="margin-top: var(--space-4);">
+          <li>
+            <span class="activity-dot" style="background: var(--brand-blue);"></span>
+            Feature Film · 1:48:30 · 1920×1080
+            <span class="badge badge--reencode" style="margin-left:auto;">H.264 AVC</span>
+          </li>
+          <li>
+            <span class="activity-dot" style="background: var(--brand-cyan);"></span>
+            Behind the Scenes · 35:20 · 1920×1080
+            <span class="badge badge--reencode" style="margin-left:auto;">H.264 AVC</span>
+          </li>
+          <li>
+            <span class="activity-dot" style="background: var(--brand-purple);"></span>
+            Theatrical Trailer · 10:25 · 1920×1080
+            <span class="badge badge--remux" style="margin-left:auto;">Remux</span>
+          </li>
+          <li>
+            <span class="activity-dot" style="background: var(--colour-success);"></span>
+            Deleted Scenes · 18:40 · 1920×1080
+            <span class="badge badge--reencode" style="margin-left:auto;">H.264 AVC</span>
+          </li>
+        </ul>
+      </div>
+
+      <!-- Warnings -->
+      <div class="card">
+        <div class="card__header">
+          <h3 class="card__title">Warnings</h3>
+          <span class="badge badge--reencode">1</span>
+        </div>
+        <div class="warning-item">
+          <svg class="warning-icon" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2L1 14h14L8 2z"/><line x1="8" y1="6" x2="8" y2="10"/><circle cx="8" cy="12" r="0.5" fill="currentColor"/></svg>
+          <div>
+            <div style="color:var(--text-primary);">Deleted scenes audio needs AC-3 fallback</div>
+            <div style="font-size:var(--text-xs); color:var(--text-muted); margin-top:2px;">BD spec requires AC-3 secondary audio when primary is DTS-HD MA</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent Activity -->
+      <div class="card">
+        <div class="card__header">
+          <h3 class="card__title">Recent Activity</h3>
+        </div>
+        <ul class="activity-list">
+          <li>
+            <span class="activity-dot" style="background: var(--colour-success);"></span>
+            Added DTS-HD MA track to "Feature Film"
+            <span class="activity-time">5 min ago</span>
+          </li>
+          <li>
+            <span class="activity-dot" style="background: var(--brand-blue);"></span>
+            Imported deleted_scenes_master.mkv
+            <span class="activity-time">20 min ago</span>
+          </li>
+          <li>
+            <span class="activity-dot" style="background: var(--brand-purple);"></span>
+            Configured popup menu overlay
+            <span class="activity-time">1 hr ago</span>
+          </li>
+          <li>
+            <span class="activity-dot" style="background: var(--colour-success);"></span>
+            Created project (Blu-ray BD-50)
+            <span class="activity-time">2 hrs ago</span>
+          </li>
+        </ul>
+      </div>
+
+      <!-- Toolchain Status -->
+      <div class="card">
+        <div class="card__header">
+          <h3 class="card__title">Toolchain</h3>
+          <span class="badge badge--remux">All Available</span>
+        </div>
+        <table style="margin-top: var(--space-2);">
+          <tr>
+            <td style="font-weight:500; color:var(--text-primary);">FFmpeg</td>
+            <td class="mono">8.1.2</td>
+            <td><span class="badge badge--remux">Bundled</span></td>
+          </tr>
+          <tr>
+            <td style="font-weight:500; color:var(--text-primary);">FFprobe</td>
+            <td class="mono">8.1.2</td>
+            <td><span class="badge badge--remux">Bundled</span></td>
+          </tr>
+          <tr>
+            <td style="font-weight:500; color:var(--text-primary);">tsMuxeR</td>
+            <td class="mono">2.6.27</td>
+            <td><span class="badge badge--remux">Bundled</span></td>
+          </tr>
+          <tr>
+            <td style="font-weight:500; color:var(--text-primary);">BD Menu Compiler</td>
+            <td class="mono">1.0.0</td>
+            <td><span class="badge badge--remux">Bundled</span></td>
+          </tr>
+          <tr>
+            <td style="font-weight:500; color:var(--text-primary);">BDMV Author</td>
+            <td class="mono">1.0.0</td>
+            <td><span class="badge badge--remux">Bundled</span></td>
+          </tr>
+        </table>
+      </div>
+
+      <!-- Quick Actions -->
+      <div class="quick-actions">
+        <div class="quick-action">
+          <svg class="quick-action__icon" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2v12M2 8h12"/></svg>
+          Add Playlist
+        </div>
+        <div class="quick-action">
+          <svg class="quick-action__icon" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="12" height="12" rx="2"/><rect x="4" y="9" width="3" height="2" rx="0.5"/></svg>
+          Edit Popup Menu
+        </div>
+        <div class="quick-action">
+          <svg class="quick-action__icon" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="2"/></svg>
+          Review Planner
+        </div>
+        <div class="quick-action">
+          <svg class="quick-action__icon" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="4,2 14,8 4,14"/></svg>
+          Dry Run Build
+        </div>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>
