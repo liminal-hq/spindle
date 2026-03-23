@@ -3,11 +3,12 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: MIT
 
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { useProjectStore } from "../store/project-store";
 import type {
   Menu,
   MenuButton,
+  ButtonBounds,
   PlaybackAction,
   SpindleProjectFile,
 } from "../types/project";
@@ -219,22 +220,10 @@ function MenuEditor({
 
         {/* Visual layout area */}
         <div className="menus__canvas-area">
-          <div className="menus__canvas-bg">
-            {menu.buttons.map((btn) => (
-              <div
-                key={btn.id}
-                className={`menus__canvas-button ${menu.defaultButtonId === btn.id ? "menus__canvas-button--default" : ""}`}
-                style={{
-                  left: `${(btn.bounds.x / 720) * 100}%`,
-                  top: `${(btn.bounds.y / 480) * 100}%`,
-                  width: `${(btn.bounds.width / 720) * 100}%`,
-                  height: `${(btn.bounds.height / 480) * 100}%`,
-                }}
-              >
-                {btn.label}
-              </div>
-            ))}
-          </div>
+          <MenuCanvas
+            menu={menu}
+            onUpdateButton={handleUpdateButton}
+          />
         </div>
       </div>
 
@@ -301,6 +290,90 @@ function MenuEditor({
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+function MenuCanvas({
+  menu,
+  onUpdateButton,
+}: {
+  menu: Menu;
+  onUpdateButton: (buttonId: string, updates: Partial<MenuButton>) => void;
+}) {
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const dragState = useRef<{
+    buttonId: string;
+    startX: number;
+    startY: number;
+    startBounds: ButtonBounds;
+  } | null>(null);
+
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent, btn: MenuButton) => {
+      e.preventDefault();
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+
+      dragState.current = {
+        buttonId: btn.id,
+        startX: e.clientX,
+        startY: e.clientY,
+        startBounds: { ...btn.bounds },
+      };
+
+      const handleMouseMove = (moveEvent: MouseEvent) => {
+        const state = dragState.current;
+        if (!state || !canvas) return;
+
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = 720 / rect.width;
+        const scaleY = 480 / rect.height;
+
+        const dx = (moveEvent.clientX - state.startX) * scaleX;
+        const dy = (moveEvent.clientY - state.startY) * scaleY;
+
+        const newX = Math.max(0, Math.min(720 - state.startBounds.width, state.startBounds.x + dx));
+        const newY = Math.max(0, Math.min(480 - state.startBounds.height, state.startBounds.y + dy));
+
+        onUpdateButton(state.buttonId, {
+          bounds: {
+            ...state.startBounds,
+            x: Math.round(newX),
+            y: Math.round(newY),
+          },
+        });
+      };
+
+      const handleMouseUp = () => {
+        dragState.current = null;
+        document.removeEventListener("mousemove", handleMouseMove);
+        document.removeEventListener("mouseup", handleMouseUp);
+      };
+
+      document.addEventListener("mousemove", handleMouseMove);
+      document.addEventListener("mouseup", handleMouseUp);
+    },
+    [onUpdateButton],
+  );
+
+  return (
+    <div className="menus__canvas-bg" ref={canvasRef}>
+      {menu.buttons.map((btn) => (
+        <div
+          key={btn.id}
+          className={`menus__canvas-button ${menu.defaultButtonId === btn.id ? "menus__canvas-button--default" : ""}`}
+          style={{
+            left: `${(btn.bounds.x / 720) * 100}%`,
+            top: `${(btn.bounds.y / 480) * 100}%`,
+            width: `${(btn.bounds.width / 720) * 100}%`,
+            height: `${(btn.bounds.height / 480) * 100}%`,
+          }}
+          onMouseDown={(e) => handleMouseDown(e, btn)}
+        >
+          {btn.label}
+        </div>
+      ))}
     </div>
   );
 }

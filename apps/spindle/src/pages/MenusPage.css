@@ -106,12 +106,19 @@
   font-size: var(--text-xs);
   font-weight: 600;
   color: var(--text-primary);
-  cursor: pointer;
-  transition: all var(--transition-base);
+  cursor: grab;
+  user-select: none;
+  transition: background var(--transition-base), box-shadow var(--transition-base);
 }
 
 .menus__canvas-button:hover {
   background: rgba(255, 170, 64, 0.25);
+}
+
+.menus__canvas-button:active {
+  cursor: grabbing;
+  background: rgba(255, 170, 64, 0.3);
+  box-shadow: 0 0 12px rgba(255, 170, 64, 0.3);
 }
 
 .menus__canvas-button--default {
