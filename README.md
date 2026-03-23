@@ -12,6 +12,8 @@ This repository is organised as a `pnpm` workspace monorepo with a matching Carg
 
 ## Development
 
+The shared development container currently provides `Node 24.14.0` and `pnpm 10.32.1` through Corepack, and the workspace is aligned to that toolchain.
+
 Install dependencies from the repository root:
 
 ```bash
