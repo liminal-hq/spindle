@@ -13,11 +13,11 @@ import { AssetsPage } from "./pages/AssetsPage";
 import { TitlesPage } from "./pages/TitlesPage";
 import { ChaptersPage } from "./pages/ChaptersPage";
 import { PlannerPage } from "./pages/PlannerPage";
+import { BuildPage } from "./pages/BuildPage";
+import { SettingsPage } from "./pages/SettingsPage";
 import {
   MenusPage,
-  BuildPage,
   LogsPage,
-  SettingsPage,
 } from "./pages/PlaceholderPage";
 import "./design-system.css";
 import "./App.css";
