@@ -236,7 +236,7 @@ export function Topbar() {
 
   return (
     <>
-      <header className={`topbar is-${platformType}`} onContextMenu={handleContextMenu}>
+      <header className={`topbar is-${platformType}`} data-tauri-drag-region onContextMenu={handleContextMenu}>
         {platformType === "mac" && (
           <>
             <MacControls {...controlProps} />
