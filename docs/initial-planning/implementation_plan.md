@@ -493,6 +493,10 @@ Capture enough metadata for later:
 - User can import media and see structured stream information and compatibility flags.
 - Cache invalidation and stale-source detection are grounded in fingerprints rather than only timestamps.
 
+### Implementation status
+
+**Completed.** Assets page with list/detail layout, import via file dialog, FFprobe-based inspection (`inspect.rs`), DVD compatibility assessment (remux/transform/re-encode/unsupported), stream metadata extraction. 6 Rust tests for inspection logic. Lightweight fingerprinting (file size + name hash).
+
 ---
 
 ## Phase 3 — Titles, Groupings, and Track Mapping
@@ -554,6 +558,10 @@ For each title:
 
 - User can turn imported assets into a structured authored project with explicit mappings and authoring choices.
 
+### Implementation status
+
+**Completed.** Titles page with add/remove/reorder, source asset selection with auto-mapping (first video stream, all audio/subtitle streams), video output profile editor (raster + aspect), audio track configuration (output target, copy mode, language), subtitle track editing (label, language, default/forced flags).
+
 ---
 
 ## Phase 4 — Chapter System and Timing Groundwork
@@ -599,6 +607,10 @@ Plan for later diagnostics around:
 ### Exit criteria
 
 - Each title can be chaptered and validated cleanly.
+
+### Implementation status
+
+**Completed.** Chapters page with title selector sidebar, visual timeline bar, editable chapter list with auto-sort by timestamp, timestamp input with H:MM:SS parsing. 11 frontend tests for timestamp formatting and parsing.
 
 ---
 
@@ -658,6 +670,10 @@ Make disc fit/quality planning visible, conservative, and adjustable.
 ### Exit criteria
 
 - User can see whether the project is likely to fit and how chosen tracks and output profiles affect quality.
+
+### Implementation status
+
+**Completed.** Disc Planner page with capacity overview (bar chart, usage stats), bitrate budget calculation, per-title duration/size breakdown with proportional bars, overhead breakdown (safety margin + IFO/NAV estimate), over-capacity warning badges.
 
 ---
 
