@@ -10,11 +10,11 @@ import { Sidebar } from "./components/Sidebar";
 import { Statusbar } from "./components/Statusbar";
 import { OverviewPage } from "./pages/OverviewPage";
 import { AssetsPage } from "./pages/AssetsPage";
+import { TitlesPage } from "./pages/TitlesPage";
+import { ChaptersPage } from "./pages/ChaptersPage";
+import { PlannerPage } from "./pages/PlannerPage";
 import {
-  TitlesPage,
-  ChaptersPage,
   MenusPage,
-  PlannerPage,
   BuildPage,
   LogsPage,
   SettingsPage,
