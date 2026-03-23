@@ -14,6 +14,7 @@ pub fn run() {
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_os::init())
+        .plugin(tauri_plugin_log::Builder::new().build())
         // Spindle plugins
         .plugin(tauri_plugin_spindle_project::init())
         .run(tauri::generate_context!())

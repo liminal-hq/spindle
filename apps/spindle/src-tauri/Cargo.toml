@@ -30,6 +30,8 @@ tauri-plugin-store = "2"
 tauri-plugin-window-state = "2"
 tauri-plugin-shell = "2"
 tauri-plugin-os = "2"
+tauri-plugin-log = "2"
+log = "0.4"
 
 # Spindle plugins (workspace)
 tauri-plugin-spindle-project = { path = "../../../plugins/tauri-plugin-spindle-project" }
