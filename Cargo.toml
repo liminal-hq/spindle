@@ -1,0 +1,3 @@
+[workspace]
+members = ["apps/spindle/src-tauri"]
+resolver = "2"

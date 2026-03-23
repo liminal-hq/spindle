@@ -1,0 +1,10 @@
+{
+  "name": "@liminal-hq/spindle-workspace",
+  "private": true,
+  "packageManager": "pnpm@10.7.1",
+  "scripts": {
+    "build": "pnpm --filter @liminal-hq/spindle build",
+    "dev": "pnpm --filter @liminal-hq/spindle dev",
+    "tauri": "pnpm --filter @liminal-hq/spindle tauri"
+  }
+}
