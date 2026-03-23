@@ -18,24 +18,64 @@ Spindle's architecture separates **shared authored-disc concepts** from **format
 - menu preview rendering
 - (later) BD menu authoring and BDMV structure generation
 
-`libhdmv` is designed as a **standalone Rust workspace** that Spindle consumes via a thin Tauri plugin. This means it can also be used by CLI tools, other applications, or for fuzzing/testing independently of Spindle.
+`libhdmv` is designed as a **standalone Rust workspace** in its own repository that Spindle consumes via a thin Tauri plugin. This means it can also be used by CLI tools, other applications, or for fuzzing/testing independently of Spindle.
+
+### Repository structure
+
+The work spans three repositories with a clean dependency direction:
+
+```
+github.com/liminal-hq/libhdmv              ← standalone Rust workspace (this plan)
+    ↑
+github.com/liminal-hq/tauri-plugin-workspace
+    └─ tauri-plugin-hdmv                    ← thin Tauri command/event surface
+    ↑
+github.com/liminal-hq/spindle              ← Tauri app (consumes the plugin)
+```
+
+**`liminal-hq/libhdmv`** — Pure Rust library. No Tauri dependency. Owns all HDMV parsing, VM execution, IGS/PGS decoding, scene management, and rendering. Can be tested, fuzzed, and consumed from CLI tools independently.
+
+**`liminal-hq/tauri-plugin-workspace` → `tauri-plugin-hdmv`** — Thin integration crate that sits alongside other Liminal Tauri plugins. Depends on `libhdmv`. Owns session lifecycle, JSON serialisation, Tauri permission/capability scoping, and preview image transport. Minimal logic.
+
+**`liminal-hq/spindle`** — The authoring application. Depends on `tauri-plugin-hdmv`. Does not know or care about HDMV bytecodes, IGS segments, or register files — it calls plugin commands and renders results.
+
+### Dependency management during development
+
+Before `libhdmv` is published to crates.io, `tauri-plugin-hdmv` uses a git dependency:
+
+```toml
+# tauri-plugin-workspace/tauri-plugin-hdmv/Cargo.toml
+[dependencies]
+libhdmv = { git = "https://github.com/liminal-hq/libhdmv", branch = "main" }
+```
+
+For local development with sibling checkouts, a `[patch]` override in the plugin workspace root keeps iteration fast:
+
+```toml
+# tauri-plugin-workspace/Cargo.toml
+[patch."https://github.com/liminal-hq/libhdmv"]
+libhdmv = { path = "../libhdmv/crates/libhdmv" }
+```
+
+Similarly, Spindle uses a git dependency on the plugin workspace, with an optional path patch for local development.
+
+### Logical architecture
 
 ```
 Spindle (Tauri app)
   ├─ Shared authoring layer (titles, chapters, menus, planner)
   ├─ DVD backend (dvdauthor, spumux)
   └─ BD backend
-       ├─ tauri-plugin-hdmv (thin Tauri command/event surface)
-       └─ libhdmv workspace (this plan)
-            ├─ bdmv-io
-            ├─ bdmv-parse
-            ├─ hdmv-insn
-            ├─ hdmv-vm
-            ├─ igs
-            ├─ pgs
-            ├─ hdmv-scene
-            ├─ hdmv-render
-            └─ libhdmv (umbrella)
+       └─ tauri-plugin-hdmv ← calls into ──→ libhdmv workspace
+                                                ├─ bdmv-io
+                                                ├─ bdmv-parse
+                                                ├─ hdmv-insn
+                                                ├─ hdmv-vm
+                                                ├─ igs
+                                                ├─ pgs
+                                                ├─ hdmv-scene
+                                                ├─ hdmv-render
+                                                └─ libhdmv (umbrella)
 ```
 
 ---
@@ -265,10 +305,10 @@ NavSession::render_preview_png(&self, max_width: u32) -> Vec<u8>
 
 ### Phase 0 — Workspace scaffold and CI (1 week)
 
-**Goal:** Working Rust workspace with CI, linting, and fuzz infrastructure.
+**Goal:** Working Rust workspace with CI, linting, and fuzz infrastructure in `liminal-hq/libhdmv`.
 
 **Deliverables:**
-- Cargo workspace with all 9 crate stubs
+- New `liminal-hq/libhdmv` repository with Cargo workspace containing all 9 crate stubs
 - CI pipeline: `cargo check`, `cargo test`, `cargo clippy`, `cargo fmt`
 - `cargo-fuzz` targets for `bdmv-parse`, `igs`, `pgs`
 - Fixture directory structure: `testdata/bdmv/`, `testdata/igs/`, `testdata/pgs/`
@@ -435,9 +475,16 @@ NavSession::render_preview_png(&self, max_width: u32) -> Vec<u8>
 
 **Goal:** Expose `libhdmv` to Spindle's React frontend via a Tauri v2 plugin.
 
+This phase spans all three repositories:
+- `liminal-hq/libhdmv` — ensure the umbrella crate's public API is stable and well-documented
+- `liminal-hq/tauri-plugin-workspace` — add `tauri-plugin-hdmv` as a new crate in the existing plugin workspace
+- `liminal-hq/spindle` — consume the plugin and wire it into the BD backend
+
 **Deliverables:**
 
-#### 5a: `tauri-plugin-hdmv` crate
+#### 5a: `tauri-plugin-hdmv` crate (in `liminal-hq/tauri-plugin-workspace`)
+- Add `tauri-plugin-hdmv` crate to the existing Tauri plugin workspace alongside other Liminal plugins
+- Git dependency on `libhdmv` umbrella crate (with `[patch]` override for local development)
 - Session lifecycle: open disc → create session → close session
 - Commands:
   - `hdmv_open_disc(path) → SessionId`
@@ -456,15 +503,23 @@ NavSession::render_preview_png(&self, max_width: u32) -> Vec<u8>
 - Tauri permissions/capabilities for filesystem access scope
 - Session management with cleanup on window close
 
-#### 5b: NPM package (`@liminal-hq/tauri-plugin-hdmv`)
+#### 5b: NPM package (`@liminal-hq/tauri-plugin-hdmv`, in `liminal-hq/tauri-plugin-workspace`)
 - TypeScript bindings generated from Rust command signatures
 - Type-safe wrappers for all commands
 - Event listener setup for async notifications
+- Published alongside or as part of the plugin workspace's NPM packages
 
-#### 5c: Integration with Spindle
+#### 5c: Integration with Spindle (in `liminal-hq/spindle`)
+- Add `tauri-plugin-hdmv` dependency to Spindle's `src-tauri/Cargo.toml` (git dependency on `tauri-plugin-workspace`)
+- Add `@liminal-hq/tauri-plugin-hdmv` to Spindle's frontend dependencies
 - Wire plugin into Spindle's BD backend slot
 - Connect to Navigation Preview screen (mockup 12-bd)
 - Connect to disc inspection views
+
+**Cross-repo coordination:**
+- `libhdmv` must tag a stable release (or pin a commit) before the plugin depends on it in CI
+- The plugin workspace's CI should test against `libhdmv` main to catch breaking changes early
+- Spindle's CI should test against the plugin workspace's main for the same reason
 
 **Testing:**
 - End-to-end: open disc folder → inspect → navigate menu → render preview
@@ -582,32 +637,45 @@ This phase is explicitly deferred until Phases 0–5 are stable. It is documente
 ## 8. Dependency Map
 
 ```
-Phase 0: Workspace scaffold
-    │
-    v
-Phase 1: Parsers + CLI inspector
-    │         (bdmv-io, bdmv-parse, hdmv-insn)
-    │
-    ├────────────────┐
-    v                v
-Phase 2: VM        Phase 3: IGS/PGS decode
-    (hdmv-vm)          (igs, pgs, hdmv-render)
-    │                │
-    └───────┬────────┘
-            v
-Phase 4: Menu scene engine
-    (hdmv-scene, integrates VM + IGS)
-            │
-            v
-Phase 5: Tauri plugin
-    (tauri-plugin-hdmv, Spindle integration)
-            │
-            v
-Phase 6: Authoring (future)
-    (IG compiler, BDMV generator, mux integration)
+┌─────────────────────────────────────────────────────────┐
+│  liminal-hq/libhdmv                                     │
+│                                                         │
+│  Phase 0: Workspace scaffold                            │
+│      │                                                  │
+│      v                                                  │
+│  Phase 1: Parsers + CLI inspector                       │
+│      │         (bdmv-io, bdmv-parse, hdmv-insn)         │
+│      │                                                  │
+│      ├────────────────┐                                 │
+│      v                v                                 │
+│  Phase 2: VM        Phase 3: IGS/PGS decode             │
+│      (hdmv-vm)          (igs, pgs, hdmv-render)         │
+│      │                │                                 │
+│      └───────┬────────┘                                 │
+│              v                                          │
+│  Phase 4: Menu scene engine                             │
+│      (hdmv-scene, integrates VM + IGS)                  │
+│              │                                          │
+│  Phase 6: Authoring (future, also in libhdmv)           │
+│      (IG compiler, BDMV generator, mux integration)     │
+└──────────────┼──────────────────────────────────────────┘
+               │
+┌──────────────v──────────────────────────────────────────┐
+│  liminal-hq/tauri-plugin-workspace                      │
+│                                                         │
+│  Phase 5a: tauri-plugin-hdmv crate                      │
+│  Phase 5b: @liminal-hq/tauri-plugin-hdmv NPM package   │
+└──────────────┼──────────────────────────────────────────┘
+               │
+┌──────────────v──────────────────────────────────────────┐
+│  liminal-hq/spindle                                     │
+│                                                         │
+│  Phase 5c: BD backend integration                       │
+│      (wire plugin into Spindle UI)                      │
+└─────────────────────────────────────────────────────────┘
 ```
 
-Phases 2 and 3 can proceed in parallel once Phase 1 is complete.
+Phases 2 and 3 can proceed in parallel once Phase 1 is complete. Phase 5 spans all three repos.
 
 ---
 
@@ -658,7 +726,9 @@ These estimates assume a single developer working primarily on `libhdmv`. Phases
 
 ## 11. Immediate Next Steps
 
-1. **Create the `libhdmv` workspace** with crate stubs, CI, and fuzz infrastructure (Phase 0).
+1. **Create `liminal-hq/libhdmv` repository** with Cargo workspace, crate stubs, CI, and fuzz infrastructure (Phase 0).
 2. **Implement `index.bdmv` and `MovieObject.bdmv` parsers** with the CLI inspector as the first usable output (Phase 1a–1b).
 3. **Acquire test content** — locate 2–3 decrypted BDMV folders with known menu behaviour for validation.
 4. **Write the SPEC.md behavioural contract** defining the event model, time base (90 kHz), input model, and expected event ordering.
+5. **Confirm `tauri-plugin-workspace` structure** — review the existing workspace layout and plan where `tauri-plugin-hdmv` will sit alongside existing plugins.
+6. **Set up cross-repo CI** — ensure the plugin workspace can test against `libhdmv` main, and Spindle can test against the plugin workspace's main.
