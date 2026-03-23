@@ -5,7 +5,7 @@
 
 import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
-import { open, save } from "@tauri-apps/plugin-dialog";
+import { open, save, confirm } from "@tauri-apps/plugin-dialog";
 import { readTextFile, writeTextFile } from "@tauri-apps/plugin-fs";
 import type {
   SpindleProjectFile,
@@ -59,6 +59,15 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   },
 
   openProject: async () => {
+    // Guard against losing unsaved changes
+    const { isDirty } = get();
+    if (isDirty) {
+      const discard = await confirm(
+        "You have unsaved changes. Discard them and open a different project?",
+      );
+      if (!discard) return;
+    }
+
     const selected = await open({
       multiple: false,
       filters: [{ name: "Spindle Project", extensions: ["spindle"] }],
@@ -230,10 +239,22 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   removeAsset: (assetId) => {
     const { project } = get();
     if (!project) return;
+    // Remove asset and clear any dangling sourceAssetId references in titles
     set({
       project: {
         ...project,
         assets: project.assets.filter((a) => a.id !== assetId),
+        disc: {
+          ...project.disc,
+          titlesets: project.disc.titlesets.map((ts) => ({
+            ...ts,
+            titles: ts.titles.map((t) =>
+              t.sourceAssetId === assetId
+                ? { ...t, sourceAssetId: null, videoMapping: null, audioMappings: [], subtitleMappings: [] }
+                : t,
+            ),
+          })),
+        },
       },
       isDirty: true,
     });

@@ -88,7 +88,7 @@
 .menus__canvas-bg {
   position: relative;
   width: 100%;
-  aspect-ratio: 720 / 480;
+  /* aspect-ratio set dynamically based on NTSC (720×480) or PAL (720×576) */
   background: var(--bg-deep);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);

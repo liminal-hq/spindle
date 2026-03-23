@@ -11,7 +11,12 @@ import type {
   ButtonBounds,
   PlaybackAction,
   SpindleProjectFile,
+  VideoStandard,
 } from "../types/project";
+
+// DVD menu canvas dimensions vary by video standard
+const MENU_WIDTH = 720;
+const MENU_HEIGHT: Record<VideoStandard, number> = { NTSC: 480, PAL: 576 };
 import "./MenusPage.css";
 
 export function MenusPage() {
@@ -106,6 +111,7 @@ export function MenusPage() {
             <MenuEditor
               menu={selectedEntry.menu}
               project={project}
+              canvasHeight={MENU_HEIGHT[disc.standard]}
               onUpdate={(updater) => handleUpdateMenu(selectedEntry.menu.id, updater)}
               onRemove={() => handleRemoveMenu(selectedEntry.menu.id)}
             />
@@ -148,11 +154,13 @@ function EmptyMenusView({ onAdd }: { onAdd: () => void }) {
 function MenuEditor({
   menu,
   project,
+  canvasHeight,
   onUpdate,
   onRemove,
 }: {
   menu: Menu;
   project: SpindleProjectFile;
+  canvasHeight: number;
   onUpdate: (updater: (m: Menu) => Menu) => void;
   onRemove: () => void;
 }) {
@@ -168,7 +176,7 @@ function MenuEditor({
       label: `Button ${menu.buttons.length + 1}`,
       bounds: {
         x: 100 + menu.buttons.length * 20,
-        y: 300 + menu.buttons.length * 20,
+        y: Math.min(300 + menu.buttons.length * 20, canvasHeight - 60),
         width: 200,
         height: 40,
       },
@@ -222,6 +230,7 @@ function MenuEditor({
         <div className="menus__canvas-area">
           <MenuCanvas
             menu={menu}
+            canvasHeight={canvasHeight}
             onUpdateButton={handleUpdateButton}
           />
         </div>
@@ -296,9 +305,11 @@ function MenuEditor({
 
 function MenuCanvas({
   menu,
+  canvasHeight,
   onUpdateButton,
 }: {
   menu: Menu;
+  canvasHeight: number;
   onUpdateButton: (buttonId: string, updates: Partial<MenuButton>) => void;
 }) {
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -327,14 +338,14 @@ function MenuCanvas({
         if (!state || !canvas) return;
 
         const rect = canvas.getBoundingClientRect();
-        const scaleX = 720 / rect.width;
-        const scaleY = 480 / rect.height;
+        const scaleX = MENU_WIDTH / rect.width;
+        const scaleY = canvasHeight / rect.height;
 
         const dx = (moveEvent.clientX - state.startX) * scaleX;
         const dy = (moveEvent.clientY - state.startY) * scaleY;
 
-        const newX = Math.max(0, Math.min(720 - state.startBounds.width, state.startBounds.x + dx));
-        const newY = Math.max(0, Math.min(480 - state.startBounds.height, state.startBounds.y + dy));
+        const newX = Math.max(0, Math.min(MENU_WIDTH - state.startBounds.width, state.startBounds.x + dx));
+        const newY = Math.max(0, Math.min(canvasHeight - state.startBounds.height, state.startBounds.y + dy));
 
         onUpdateButton(state.buttonId, {
           bounds: {
@@ -354,20 +365,24 @@ function MenuCanvas({
       document.addEventListener("mousemove", handleMouseMove);
       document.addEventListener("mouseup", handleMouseUp);
     },
-    [onUpdateButton],
+    [onUpdateButton, canvasHeight],
   );
 
   return (
-    <div className="menus__canvas-bg" ref={canvasRef}>
+    <div
+      className="menus__canvas-bg"
+      ref={canvasRef}
+      style={{ aspectRatio: `${MENU_WIDTH} / ${canvasHeight}` }}
+    >
       {menu.buttons.map((btn) => (
         <div
           key={btn.id}
           className={`menus__canvas-button ${menu.defaultButtonId === btn.id ? "menus__canvas-button--default" : ""}`}
           style={{
-            left: `${(btn.bounds.x / 720) * 100}%`,
-            top: `${(btn.bounds.y / 480) * 100}%`,
-            width: `${(btn.bounds.width / 720) * 100}%`,
-            height: `${(btn.bounds.height / 480) * 100}%`,
+            left: `${(btn.bounds.x / MENU_WIDTH) * 100}%`,
+            top: `${(btn.bounds.y / canvasHeight) * 100}%`,
+            width: `${(btn.bounds.width / MENU_WIDTH) * 100}%`,
+            height: `${(btn.bounds.height / canvasHeight) * 100}%`,
           }}
           onMouseDown={(e) => handleMouseDown(e, btn)}
         >

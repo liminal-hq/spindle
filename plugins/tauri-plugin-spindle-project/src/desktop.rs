@@ -93,19 +93,37 @@ impl<R: Runtime> SpindleProject<R> {
             });
         }
 
-        // Check each title has a source asset
+        // Collect asset IDs for reference checking
+        let asset_ids: std::collections::HashSet<&str> =
+            project.assets.iter().map(|a| a.id.as_str()).collect();
+
+        // Check each title has a valid source asset
         for titleset in &project.disc.titlesets {
             for title in &titleset.titles {
-                if title.source_asset_id.is_none() {
-                    issues.push(ValidationIssue {
-                        severity: IssueSeverity::Error,
-                        code: "title.no-source".to_string(),
-                        message: format!(
-                            "Title \"{}\" has no source asset assigned.",
-                            title.name
-                        ),
-                        context: Some(title.id.clone()),
-                    });
+                match &title.source_asset_id {
+                    None => {
+                        issues.push(ValidationIssue {
+                            severity: IssueSeverity::Error,
+                            code: "title.no-source".to_string(),
+                            message: format!(
+                                "Title \"{}\" has no source asset assigned.",
+                                title.name
+                            ),
+                            context: Some(title.id.clone()),
+                        });
+                    }
+                    Some(asset_id) if !asset_ids.contains(asset_id.as_str()) => {
+                        issues.push(ValidationIssue {
+                            severity: IssueSeverity::Error,
+                            code: "title.dangling-source".to_string(),
+                            message: format!(
+                                "Title \"{}\" references a source asset that no longer exists.",
+                                title.name
+                            ),
+                            context: Some(title.id.clone()),
+                        });
+                    }
+                    _ => {}
                 }
 
                 if title.video_mapping.is_none() {

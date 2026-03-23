@@ -35,17 +35,13 @@ export function PlannerPage() {
     0,
   );
 
-  const totalSourceBytes = titlesWithAssets.reduce(
-    (sum, { asset }) => sum + (asset?.fileSizeBytes ?? 0),
-    0,
-  );
-
   // Safety margin and overhead
   const safetyMarginBytes = project.buildSettings.safetyMarginBytes;
   const estimatedOverheadBytes = 50_000_000; // ~50 MB for IFOs, menus, NAV packs
   const usableBytes = capacityBytes - safetyMarginBytes - estimatedOverheadBytes;
-  const usagePct = totalSourceBytes > 0 ? (totalSourceBytes / capacityBytes) * 100 : 0;
-  const isOverCapacity = totalSourceBytes > usableBytes;
+  // Note: usagePct and isOverCapacity use estimated output size (bitrate × duration),
+  // not source size, because source files will be re-encoded to DVD-compliant MPEG-2.
+  // Source size is only shown as a reference point.
 
   // Per-title bitrate budget — capped to DVD spec limits
   const rawBitsPerSecond =
@@ -59,6 +55,8 @@ export function PlannerPage() {
     totalDurationSecs > 0
       ? (Math.min(rawBitsPerSecond, DVD_MAX_MUX_RATE_BPS) * totalDurationSecs) / 8
       : 0;
+  const usagePct = estimatedOutputBytes > 0 ? (estimatedOutputBytes / capacityBytes) * 100 : 0;
+  const isOverCapacity = estimatedOutputBytes > usableBytes;
 
   return (
     <div className="planner">
@@ -100,10 +98,10 @@ export function PlannerPage() {
             <div className="planner__capacity-stats">
               <div className="planner__stat">
                 <span className="planner__stat-value">
-                  {formatBytes(totalSourceBytes)}
+                  {formatBytes(estimatedOutputBytes)}
                 </span>
                 <span className="planner__stat-label text-muted">
-                  Source size
+                  Est. output size
                 </span>
               </div>
               <div className="planner__stat">
