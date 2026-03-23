@@ -1,6 +1,10 @@
 node_modules/
 .pnpm-store/
 target/
+dist/
+
+# Tauri generated artefacts
+apps/*/src-tauri/gen/
 
 .vscode/*
 !.vscode/extensions.json
