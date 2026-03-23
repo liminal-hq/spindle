@@ -5,10 +5,12 @@
 
 import { useProjectStore } from "../store/project-store";
 import { CAPACITY_LABELS, CAPACITY_BYTES } from "../types/project";
+import type { VideoStandard, CapacityTarget, AllocationStrategy } from "../types/project";
 import "./OverviewPage.css";
 
 export function OverviewPage() {
   const project = useProjectStore((s) => s.project);
+  const updateProject = useProjectStore((s) => s.updateProject);
   const validationIssues = useProjectStore((s) => s.validationIssues);
 
   if (!project) return <NoProjectView />;
@@ -31,7 +33,16 @@ export function OverviewPage() {
   return (
     <div className="overview">
       <div className="page-header">
-        <h1 className="page-title">{project.project.name}</h1>
+        <input
+          className="page-title page-title--editable"
+          value={project.project.name}
+          onChange={(e) =>
+            updateProject((p) => ({
+              ...p,
+              project: { ...p.project, name: e.target.value },
+            }))
+          }
+        />
         <span className="badge badge--neutral">
           {disc.family === "dvd-video" ? "DVD-Video" : disc.family} &middot; {disc.standard}
         </span>
@@ -97,22 +108,83 @@ export function OverviewPage() {
         )}
       </div>
 
-      {/* Quick info */}
-      <div className="overview__meta">
-        <div className="card">
-          <h4 className="card__title">Format</h4>
-          <p className="text-secondary">{disc.standard} &middot; {CAPACITY_LABELS[disc.capacityTarget]}</p>
+      {/* Project settings */}
+      <div className="card overview__settings">
+        <div className="card__header">
+          <h3 className="card__title">Project Settings</h3>
+          <span className="text-muted">
+            Created {new Date(project.project.createdAt).toLocaleDateString()}
+          </span>
         </div>
-        <div className="card">
-          <h4 className="card__title">Created</h4>
-          <p className="text-secondary">{new Date(project.project.createdAt).toLocaleDateString()}</p>
-        </div>
-        <div className="card">
-          <h4 className="card__title">Build Settings</h4>
-          <p className="text-secondary">
-            {project.buildSettings.allocationStrategy.replace("-", " ")}
-            {project.buildSettings.generateIso ? " · ISO enabled" : ""}
-          </p>
+        <div className="overview__settings-grid">
+          <div className="overview__setting">
+            <label className="overview__setting-label">Video Standard</label>
+            <select
+              className="overview__setting-select"
+              value={disc.standard}
+              onChange={(e) =>
+                updateProject((p) => ({
+                  ...p,
+                  disc: { ...p.disc, standard: e.target.value as VideoStandard },
+                }))
+              }
+            >
+              <option value="NTSC">NTSC (29.97 fps, 720×480)</option>
+              <option value="PAL">PAL (25 fps, 720×576)</option>
+            </select>
+          </div>
+          <div className="overview__setting">
+            <label className="overview__setting-label">Capacity Target</label>
+            <select
+              className="overview__setting-select"
+              value={disc.capacityTarget}
+              onChange={(e) =>
+                updateProject((p) => ({
+                  ...p,
+                  disc: { ...p.disc, capacityTarget: e.target.value as CapacityTarget },
+                }))
+              }
+            >
+              <option value="DVD5">{CAPACITY_LABELS.DVD5}</option>
+              <option value="DVD9">{CAPACITY_LABELS.DVD9}</option>
+            </select>
+          </div>
+          <div className="overview__setting">
+            <label className="overview__setting-label">Allocation</label>
+            <select
+              className="overview__setting-select"
+              value={project.buildSettings.allocationStrategy}
+              onChange={(e) =>
+                updateProject((p) => ({
+                  ...p,
+                  buildSettings: {
+                    ...p.buildSettings,
+                    allocationStrategy: e.target.value as AllocationStrategy,
+                  },
+                }))
+              }
+            >
+              <option value="equal-share">Equal share</option>
+              <option value="duration-weighted">Duration weighted</option>
+              <option value="priority-weighted">Priority weighted</option>
+            </select>
+          </div>
+          <div className="overview__setting">
+            <label className="overview__setting-label">ISO Output</label>
+            <label className="overview__setting-checkbox">
+              <input
+                type="checkbox"
+                checked={project.buildSettings.generateIso}
+                onChange={(e) =>
+                  updateProject((p) => ({
+                    ...p,
+                    buildSettings: { ...p.buildSettings, generateIso: e.target.checked },
+                  }))
+                }
+              />
+              Generate ISO image
+            </label>
+          </div>
         </div>
       </div>
     </div>

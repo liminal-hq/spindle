@@ -189,3 +189,81 @@
   transition: width var(--transition-base);
   min-width: 2px;
 }
+
+/* ── Editable project title ──────────────────────────────── */
+
+.page-title--editable {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  padding: var(--space-1) var(--space-2);
+  margin: calc(-1 * var(--space-1)) calc(-1 * var(--space-2));
+  width: 100%;
+  max-width: 480px;
+  transition: border-color var(--transition-base), background var(--transition-base);
+}
+
+.page-title--editable:hover {
+  border-color: var(--border-subtle);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.page-title--editable:focus {
+  outline: none;
+  border-color: var(--border-active);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* ── Project settings card ───────────────────────────────── */
+
+.overview__settings {
+  margin-bottom: var(--space-6);
+}
+
+.overview__settings-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-4);
+}
+
+.overview__setting {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.overview__setting-label {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.overview__setting-select {
+  background: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+  transition: border-color var(--transition-base);
+  cursor: pointer;
+}
+
+.overview__setting-select:hover {
+  border-color: var(--border-default);
+}
+
+.overview__setting-select:focus {
+  outline: none;
+  border-color: var(--border-active);
+}
+
+.overview__setting-checkbox {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
