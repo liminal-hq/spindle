@@ -351,9 +351,20 @@ pub struct ButtonBounds {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", tag = "type")]
 pub enum PlaybackAction {
-    PlayTitle { title_id: String },
-    PlayChapter { title_id: String, chapter_id: String },
-    ShowMenu { menu_id: String },
+    PlayTitle {
+        #[serde(rename = "titleId")]
+        title_id: String,
+    },
+    PlayChapter {
+        #[serde(rename = "titleId")]
+        title_id: String,
+        #[serde(rename = "chapterId")]
+        chapter_id: String,
+    },
+    ShowMenu {
+        #[serde(rename = "menuId")]
+        menu_id: String,
+    },
     Stop,
 }
 
@@ -512,4 +523,145 @@ pub struct ValidationIssue {
     pub code: String,
     pub message: String,
     pub context: Option<String>,
+}
+
+// ── Tests ───────────────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_project_round_trips_through_json() {
+        let project = SpindleProjectFile::default();
+        let json = serde_json::to_string_pretty(&project).unwrap();
+        let parsed: SpindleProjectFile = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(parsed.schema_version, SCHEMA_VERSION);
+        assert_eq!(parsed.project.name, "Untitled Project");
+        assert_eq!(parsed.disc.family, DiscFamily::DvdVideo);
+        assert_eq!(parsed.disc.standard, VideoStandard::Ntsc);
+        assert_eq!(parsed.disc.capacity_target, CapacityTarget::Dvd5);
+        assert_eq!(parsed.disc.titlesets.len(), 1);
+        assert!(parsed.assets.is_empty());
+    }
+
+    #[test]
+    fn project_with_titles_round_trips() {
+        let mut project = SpindleProjectFile::default();
+        project.project.name = "Wedding DVD".to_string();
+
+        let title = Title::new("Ceremony".to_string(), 0);
+        project.disc.titlesets[0].titles.push(title);
+
+        let asset = Asset::new("ceremony.mp4".to_string(), "/media/ceremony.mp4".to_string());
+        project.assets.push(asset);
+
+        let json = serde_json::to_string(&project).unwrap();
+        let parsed: SpindleProjectFile = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(parsed.project.name, "Wedding DVD");
+        assert_eq!(parsed.disc.titlesets[0].titles.len(), 1);
+        assert_eq!(parsed.disc.titlesets[0].titles[0].name, "Ceremony");
+        assert_eq!(parsed.assets.len(), 1);
+        assert_eq!(parsed.assets[0].file_name, "ceremony.mp4");
+    }
+
+    #[test]
+    fn schema_version_is_present_in_json() {
+        let project = SpindleProjectFile::default();
+        let json = serde_json::to_string(&project).unwrap();
+        let raw: serde_json::Value = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(raw["schemaVersion"], SCHEMA_VERSION);
+    }
+
+    #[test]
+    fn disc_family_serialises_as_kebab_case() {
+        let json = serde_json::to_string(&DiscFamily::DvdVideo).unwrap();
+        assert_eq!(json, "\"dvd-video\"");
+    }
+
+    #[test]
+    fn video_standard_serialises_as_uppercase() {
+        assert_eq!(serde_json::to_string(&VideoStandard::Ntsc).unwrap(), "\"NTSC\"");
+        assert_eq!(serde_json::to_string(&VideoStandard::Pal).unwrap(), "\"PAL\"");
+    }
+
+    #[test]
+    fn capacity_target_values_are_correct() {
+        assert_eq!(CapacityTarget::Dvd5.capacity_bytes(), 4_700_000_000);
+        assert_eq!(CapacityTarget::Dvd9.capacity_bytes(), 8_500_000_000);
+    }
+
+    #[test]
+    fn video_raster_resolutions_are_correct() {
+        assert_eq!(VideoRaster::FullD1.resolution(VideoStandard::Ntsc), (720, 480));
+        assert_eq!(VideoRaster::FullD1.resolution(VideoStandard::Pal), (720, 576));
+        assert_eq!(VideoRaster::HalfD1.resolution(VideoStandard::Ntsc), (352, 480));
+        assert_eq!(VideoRaster::QuarterD1.resolution(VideoStandard::Pal), (352, 288));
+    }
+
+    #[test]
+    fn frame_rates_match_standard() {
+        assert!((VideoStandard::Ntsc.frame_rate() - 29.97).abs() < 0.01);
+        assert!((VideoStandard::Pal.frame_rate() - 25.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn playback_action_serialises_as_tagged_union() {
+        let action = PlaybackAction::PlayTitle {
+            title_id: "t1".to_string(),
+        };
+        let json = serde_json::to_string(&action).unwrap();
+        assert!(json.contains("\"type\":\"playTitle\""));
+        assert!(json.contains("\"titleId\":\"t1\""));
+    }
+
+    #[test]
+    fn ids_are_unique() {
+        let t1 = Title::new("A".to_string(), 0);
+        let t2 = Title::new("B".to_string(), 1);
+        assert_ne!(t1.id, t2.id);
+    }
+
+    #[test]
+    fn title_fields_initialise_correctly() {
+        let title = Title::new("Test Title".to_string(), 3);
+        assert_eq!(title.name, "Test Title");
+        assert_eq!(title.order_index, 3);
+        assert!(title.source_asset_id.is_none());
+        assert!(title.video_mapping.is_none());
+        assert!(title.chapters.is_empty());
+        assert!(title.audio_mappings.is_empty());
+    }
+
+    #[test]
+    fn pal_project_round_trips() {
+        let mut project = SpindleProjectFile::default();
+        project.disc.standard = VideoStandard::Pal;
+        project.disc.capacity_target = CapacityTarget::Dvd9;
+
+        let json = serde_json::to_string(&project).unwrap();
+        let parsed: SpindleProjectFile = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(parsed.disc.standard, VideoStandard::Pal);
+        assert_eq!(parsed.disc.capacity_target, CapacityTarget::Dvd9);
+    }
+
+    #[test]
+    fn audio_output_targets_serialise_as_uppercase() {
+        assert_eq!(serde_json::to_string(&AudioOutputTarget::Ac3).unwrap(), "\"AC3\"");
+        assert_eq!(serde_json::to_string(&AudioOutputTarget::Lpcm).unwrap(), "\"LPCM\"");
+        assert_eq!(serde_json::to_string(&AudioOutputTarget::Mp2).unwrap(), "\"MP2\"");
+        assert_eq!(serde_json::to_string(&AudioOutputTarget::Dts).unwrap(), "\"DTS\"");
+    }
+
+    #[test]
+    fn build_settings_default_is_conservative() {
+        let settings = BuildSettings::default();
+        assert!(!settings.generate_iso);
+        assert_eq!(settings.safety_margin_bytes, 50_000_000);
+        assert_eq!(settings.allocation_strategy, AllocationStrategy::DurationWeighted);
+    }
 }
