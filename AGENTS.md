@@ -78,6 +78,10 @@
 
 - **Fix branch naming:** When creating a branch for a fix, use `fix/issue-<number>-<short-description>` (for example, `fix/issue-19-wsl2-deb-runtime`).
 
+## Local Tooling
+
+- **Rust fallback:** If Rust tooling such as `cargo` is not available on the host, prefer using the locally available `ghcr.io/liminal-hq/tauri-dev-desktop:latest` image to run Rust and Tauri commands against the checked-out workspace.
+
 ## Documentation
 
 - **Updates:** When user-facing behaviour, CLI options, or features change, update `README.md` and `SPEC.md`.
