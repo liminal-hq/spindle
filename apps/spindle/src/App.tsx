@@ -9,8 +9,8 @@ import { Topbar } from "./components/Topbar";
 import { Sidebar } from "./components/Sidebar";
 import { Statusbar } from "./components/Statusbar";
 import { OverviewPage } from "./pages/OverviewPage";
+import { AssetsPage } from "./pages/AssetsPage";
 import {
-  AssetsPage,
   TitlesPage,
   ChaptersPage,
   MenusPage,

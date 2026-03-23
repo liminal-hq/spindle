@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-inspect-asset"
+description = "Enables the inspect_asset command without any pre-configured scope."
+commands.allow = ["inspect_asset"]
+
+[[permission]]
+identifier = "deny-inspect-asset"
+description = "Denies the inspect_asset command without any pre-configured scope."
+commands.deny = ["inspect_asset"]

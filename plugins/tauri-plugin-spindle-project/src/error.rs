@@ -21,6 +21,9 @@ pub enum Error {
     #[error("Validation failed: {0}")]
     Validation(String),
 
+    #[error("Media inspection failed: {0}")]
+    Inspection(String),
+
     #[cfg(mobile)]
     #[error(transparent)]
     PluginInvoke(#[from] tauri::plugin::mobile::PluginInvokeError),

@@ -3,6 +3,7 @@ const COMMANDS: &[&str] = &[
     "parse_project",
     "serialise_project",
     "validate_project",
+    "inspect_asset",
 ];
 
 fn main() {

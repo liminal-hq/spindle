@@ -11,6 +11,7 @@ import type {
   SpindleProjectFile,
   CreateProjectRequest,
   ValidationIssue,
+  Asset,
 } from "../types/project";
 
 export interface ProjectState {
@@ -33,6 +34,8 @@ export interface ProjectState {
   closeProject: () => void;
   updateProject: (updater: (project: SpindleProjectFile) => SpindleProjectFile) => void;
   validateProject: () => Promise<void>;
+  importAssets: () => Promise<void>;
+  removeAsset: (assetId: string) => void;
 }
 
 export const useProjectStore = create<ProjectState>((set, get) => ({
@@ -151,5 +154,88 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       { project },
     );
     set({ validationIssues: issues });
+  },
+
+  importAssets: async () => {
+    const { project } = get();
+    if (!project) return;
+
+    const selected = await open({
+      multiple: true,
+      filters: [
+        {
+          name: "Media Files",
+          extensions: [
+            "mpg", "mpeg", "vob", "m2v", "mp4", "mkv", "avi", "mov", "ts",
+            "ac3", "dts", "lpcm", "wav", "mp2", "mp3", "aac",
+            "sub", "idx", "srt", "sup",
+          ],
+        },
+      ],
+    });
+    if (!selected) return;
+
+    const paths = Array.isArray(selected) ? selected : [selected];
+
+    // Create stub assets for each imported file — inspection fills in metadata later
+    const newAssets: Asset[] = paths.map((filePath) => {
+      const fileName = filePath.split(/[/\\]/).pop() ?? filePath;
+      return {
+        id: crypto.randomUUID(),
+        fileName,
+        sourcePath: filePath,
+        fileSizeBytes: null,
+        durationSecs: null,
+        containerFormat: null,
+        videoStreams: [],
+        audioStreams: [],
+        subtitleStreams: [],
+        compatibility: null,
+        fingerprint: null,
+      };
+    });
+
+    set({
+      project: {
+        ...project,
+        assets: [...project.assets, ...newAssets],
+      },
+      isDirty: true,
+    });
+
+    // Trigger inspection for each new asset
+    for (const asset of newAssets) {
+      try {
+        const inspected = await invoke<Asset>(
+          "plugin:spindle-project|inspect_asset",
+          { path: asset.sourcePath },
+        );
+        // Merge inspection results, preserving the ID we assigned
+        const { project: current } = get();
+        if (!current) break;
+        set({
+          project: {
+            ...current,
+            assets: current.assets.map((a) =>
+              a.id === asset.id ? { ...inspected, id: asset.id } : a,
+            ),
+          },
+        });
+      } catch {
+        // Inspection failed — asset stays as stub with null metadata
+      }
+    }
+  },
+
+  removeAsset: (assetId) => {
+    const { project } = get();
+    if (!project) return;
+    set({
+      project: {
+        ...project,
+        assets: project.assets.filter((a) => a.id !== assetId),
+      },
+      isDirty: true,
+    });
   },
 }));

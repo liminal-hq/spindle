@@ -9,7 +9,6 @@ import {
   CAPACITY_BYTES,
   createDefaultProject,
   type SpindleProjectFile,
-  type CapacityTarget,
 } from "./project";
 
 describe("CAPACITY_LABELS", () => {

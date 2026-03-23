@@ -17,6 +17,7 @@ mod mobile;
 
 mod commands;
 mod error;
+mod inspect;
 mod models;
 
 pub use error::{Error, Result};
@@ -45,6 +46,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::parse_project,
             commands::serialise_project,
             commands::validate_project,
+            commands::inspect_asset,
         ])
         .setup(|app, api| {
             #[cfg(mobile)]

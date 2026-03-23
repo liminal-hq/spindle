@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-validate-project"
+description = "Enables the validate_project command without any pre-configured scope."
+commands.allow = ["validate_project"]
+
+[[permission]]
+identifier = "deny-validate-project"
+description = "Denies the validate_project command without any pre-configured scope."
+commands.deny = ["validate_project"]
