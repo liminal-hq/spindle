@@ -1,3 +1,6 @@
 [workspace]
-members = ["apps/spindle/src-tauri"]
+members = [
+    "apps/spindle/src-tauri",
+    "plugins/tauri-plugin-spindle-project",
+]
 resolver = "2"

@@ -1,51 +1,71 @@
-// Renders the base Spindle shell for the desktop authoring workspace.
+// Renders the Spindle desktop workspace shell.
 //
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: MIT
 
+import { useCallback, useEffect, useState } from "react";
+import { useProjectStore } from "./store/project-store";
+import { Topbar } from "./components/Topbar";
+import { Sidebar } from "./components/Sidebar";
+import { Statusbar } from "./components/Statusbar";
+import { OverviewPage } from "./pages/OverviewPage";
+import {
+  AssetsPage,
+  TitlesPage,
+  ChaptersPage,
+  MenusPage,
+  PlannerPage,
+  BuildPage,
+  LogsPage,
+  SettingsPage,
+} from "./pages/PlaceholderPage";
+import "./design-system.css";
 import "./App.css";
 
+const ROUTES: Record<string, () => React.ReactNode> = {
+  "/": () => <OverviewPage />,
+  "/assets": () => <AssetsPage />,
+  "/titles": () => <TitlesPage />,
+  "/chapters": () => <ChaptersPage />,
+  "/menus": () => <MenusPage />,
+  "/planner": () => <PlannerPage />,
+  "/build": () => <BuildPage />,
+  "/logs": () => <LogsPage />,
+  "/settings": () => <SettingsPage />,
+};
+
 function App() {
+  const [currentRoute, setCurrentRoute] = useState("/");
+  const saveProject = useProjectStore((s) => s.saveProject);
+
+  const handleNavigate = useCallback((route: string) => {
+    setCurrentRoute(route);
+  }, []);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+        e.preventDefault();
+        saveProject();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [saveProject]);
+
+  const PageComponent = ROUTES[currentRoute] ?? ROUTES["/"];
+
   return (
-    <main className="app-shell">
-      <section className="hero">
-        <p className="eyebrow">Optical-disc authoring studio</p>
-        <h1>Spindle</h1>
-        <p className="lede">
-          A base Tauri shell for planning, building, and packaging authored
-          DVD and Blu-ray workflows.
-        </p>
-      </section>
-
-      <section className="panel-grid" aria-label="Workspace status">
-        <article className="panel">
-          <p className="panel-label">Workspace</p>
-          <h2>pnpm monorepo</h2>
-          <p>
-            The repository is organised around `apps/*` and `plugins/*` so the
-            desktop shell and future shared packages can grow together.
-          </p>
-        </article>
-
-        <article className="panel">
-          <p className="panel-label">Application shell</p>
-          <h2>Tauri + React + Rust</h2>
-          <p>
-            This starting point keeps the desktop runtime, web UI, and native
-            backend ready for the first authoring features.
-          </p>
-        </article>
-
-        <article className="panel">
-          <p className="panel-label">Next foundations</p>
-          <h2>Project model, inspection, and planning</h2>
-          <p>
-            Upcoming work can layer real project data, media analysis, and disc
-            build orchestration onto this shell without restructuring the repo.
-          </p>
-        </article>
-      </section>
-    </main>
+    <div className="app-shell">
+      <Topbar />
+      <Sidebar currentRoute={currentRoute} onNavigate={handleNavigate} />
+      <main className="main-content">
+        {PageComponent!()}
+      </main>
+      <Statusbar />
+    </div>
   );
 }
 

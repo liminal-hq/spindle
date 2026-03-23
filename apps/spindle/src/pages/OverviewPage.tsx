@@ -1,0 +1,163 @@
+// Project Overview dashboard showing disc health, capacity, and activity.
+//
+// (c) Copyright 2026 Liminal HQ, Scott Morris
+// SPDX-License-Identifier: MIT
+
+import { useProjectStore } from "../store/project-store";
+import { CAPACITY_LABELS, CAPACITY_BYTES } from "../types/project";
+import "./OverviewPage.css";
+
+export function OverviewPage() {
+  const project = useProjectStore((s) => s.project);
+  const validationIssues = useProjectStore((s) => s.validationIssues);
+
+  if (!project) return <NoProjectView />;
+
+  const disc = project.disc;
+  const titleCount = disc.titlesets.reduce((s, ts) => s + ts.titles.length, 0);
+  const assetCount = project.assets.length;
+  const menuCount =
+    disc.globalMenus.length +
+    disc.titlesets.reduce((s, ts) => s + ts.menus.length, 0);
+  const chapterCount = disc.titlesets.reduce(
+    (s, ts) => s + ts.titles.reduce((c, t) => c + t.chapters.length, 0),
+    0,
+  );
+
+  const capacityBytes = CAPACITY_BYTES[disc.capacityTarget];
+  const errorCount = validationIssues.filter((i) => i.severity === "error").length;
+  const warningCount = validationIssues.filter((i) => i.severity === "warning").length;
+
+  return (
+    <div className="overview">
+      <div className="page-header">
+        <h1 className="page-title">{project.project.name}</h1>
+        <span className="badge badge--neutral">
+          {disc.family === "dvd-video" ? "DVD-Video" : disc.family} &middot; {disc.standard}
+        </span>
+      </div>
+
+      {/* Stats grid */}
+      <div className="overview__stats">
+        <StatCard label="Titles" value={titleCount} icon="titles" />
+        <StatCard label="Assets" value={assetCount} icon="assets" />
+        <StatCard label="Menus" value={menuCount} icon="menus" />
+        <StatCard label="Chapters" value={chapterCount} icon="chapters" />
+      </div>
+
+      {/* Capacity card */}
+      <div className="card overview__capacity">
+        <div className="card__header">
+          <h3 className="card__title">Disc Capacity</h3>
+          <span className="text-muted">{CAPACITY_LABELS[disc.capacityTarget]}</span>
+        </div>
+        <div className="capacity-bar">
+          <div
+            className="capacity-bar__segment"
+            style={{
+              width: "0%",
+              background: "var(--brand-gradient)",
+            }}
+          />
+        </div>
+        <div className="overview__capacity-legend">
+          <span className="text-muted">
+            No titles added yet &middot; {formatBytes(capacityBytes)} available
+          </span>
+        </div>
+      </div>
+
+      {/* Validation summary */}
+      <div className="card overview__health">
+        <div className="card__header">
+          <h3 className="card__title">Project Health</h3>
+        </div>
+        {errorCount === 0 && warningCount === 0 && titleCount === 0 && (
+          <p className="text-muted">
+            Add titles and assets to see validation results here.
+          </p>
+        )}
+        {errorCount === 0 && warningCount === 0 && titleCount > 0 && (
+          <p style={{ color: "var(--colour-success)" }}>
+            No issues found. Project looks ready to build.
+          </p>
+        )}
+        {(errorCount > 0 || warningCount > 0) && (
+          <div className="overview__issues">
+            {validationIssues.map((issue, i) => (
+              <div
+                key={i}
+                className={`overview__issue overview__issue--${issue.severity}`}
+              >
+                <span className="overview__issue-dot" />
+                {issue.message}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Quick info */}
+      <div className="overview__meta">
+        <div className="card">
+          <h4 className="card__title">Format</h4>
+          <p className="text-secondary">{disc.standard} &middot; {CAPACITY_LABELS[disc.capacityTarget]}</p>
+        </div>
+        <div className="card">
+          <h4 className="card__title">Created</h4>
+          <p className="text-secondary">{new Date(project.project.createdAt).toLocaleDateString()}</p>
+        </div>
+        <div className="card">
+          <h4 className="card__title">Build Settings</h4>
+          <p className="text-secondary">
+            {project.buildSettings.allocationStrategy.replace("-", " ")}
+            {project.buildSettings.generateIso ? " · ISO enabled" : ""}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Sub-components ──────────────────────────────────────────────────────────
+
+function NoProjectView() {
+  const createProject = useProjectStore((s) => s.createProject);
+  const openProject = useProjectStore((s) => s.openProject);
+
+  const handleNew = () =>
+    createProject({ name: "Untitled Project", standard: "NTSC", capacityTarget: "DVD5" });
+
+  return (
+    <div className="overview__empty">
+      <svg className="overview__empty-icon" viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <circle cx="32" cy="32" r="28" />
+        <circle cx="32" cy="32" r="12" />
+        <circle cx="32" cy="32" r="3" />
+      </svg>
+      <h2>Welcome to Spindle</h2>
+      <p className="text-muted">
+        Optical-disc authoring studio for DVD-Video projects.
+      </p>
+      <div className="overview__empty-actions">
+        <button className="btn btn--primary" onClick={handleNew}>New Project</button>
+        <button className="btn" onClick={openProject}>Open Project</button>
+      </div>
+    </div>
+  );
+}
+
+function StatCard({ label, value }: { label: string; value: number; icon: string }) {
+  return (
+    <div className="card card--glow overview__stat">
+      <div className="overview__stat-value">{value}</div>
+      <div className="overview__stat-label text-muted">{label}</div>
+    </div>
+  );
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes >= 1_000_000_000) return `${(bytes / 1_000_000_000).toFixed(1)} GB`;
+  if (bytes >= 1_000_000) return `${(bytes / 1_000_000).toFixed(1)} MB`;
+  return `${bytes} B`;
+}
