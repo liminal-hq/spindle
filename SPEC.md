@@ -1682,3 +1682,83 @@ The central design idea is:
 
 If built with that philosophy, the application can become a strong modern authoring environment for DVD-Video projects.
 
+---
+
+## 32. Architectural Decisions Record
+
+This section documents key architectural decisions made during implementation.
+
+### 32.1 Plugin architecture
+
+Non-business-logic native extensions use **official Tauri v2 plugins**:
+
+| Plugin | Purpose |
+|--------|---------|
+| `@tauri-apps/plugin-dialog` | Open/save file dialogs |
+| `@tauri-apps/plugin-fs` | Filesystem read/write |
+| `@tauri-apps/plugin-store` | Persistent key-value settings |
+| `@tauri-apps/plugin-window-state` | Window position/size persistence |
+| `@tauri-apps/plugin-shell` | External process execution |
+| `@tauri-apps/plugin-os` | Platform detection |
+| `@tauri-apps/plugin-opener` | Default application launching |
+
+Domain-specific business logic lives in a custom Tauri v2 plugin:
+
+- **`tauri-plugin-spindle-project`** — project schema, serialisation, validation, and creation.
+
+This separation keeps the app thin and pushes all DVD-domain logic into a testable, reusable plugin crate.
+
+### 32.2 Project schema design
+
+The project schema (`SpindleProjectFile`) uses a versioned JSON format with `schemaVersion: 1`. Key design choices:
+
+- **`DiscFamily` enum** (`dvd-video`) — extensible to `bd-video` without schema rewrite.
+- **Titleset-first hierarchy** — `Disc → Titleset[] → Title[]` mirrors real DVD-Video structure.
+- **Explicit track mappings** — video, audio, and subtitle mappings are explicit per-title rather than inferred.
+- **Tagged-union playback actions** — `PlaybackAction` serialises as `{ "type": "playTitle", "titleId": "..." }` for TypeScript compatibility.
+- **Capacity targets** as named variants (`DVD5`, `DVD9`) rather than raw byte values.
+
+### 32.3 State management
+
+Frontend state uses **Zustand** with a single `useProjectStore` that wraps all Tauri plugin invocations. The store handles:
+
+- Project CRUD via `invoke()` to the spindle-project plugin
+- Dirty tracking for unsaved changes
+- Validation issue aggregation
+- File path tracking for save/save-as flows
+
+### 32.4 Cross-platform window controls
+
+Window decorations are disabled (`decorations: false` in `tauri.conf.json`). The `Topbar` component provides platform-specific controls:
+
+- **macOS**: traffic-light buttons (close/minimise/maximise) positioned left.
+- **Windows**: standard caption buttons positioned right.
+- **Linux**: Adwaita-style buttons positioned right.
+
+This pattern is shared with the Threshold application.
+
+### 32.5 Routing
+
+The app uses simple state-based routing (`useState` with a route string) rather than a URL-based router. This is appropriate for a desktop application where:
+
+- There are no URLs to share or bookmark.
+- Navigation is sidebar-driven with a fixed set of pages.
+- Deep-linking is not needed in v1.
+
+The `ROUTES` map in `App.tsx` can be upgraded to a full router if needed later.
+
+### 32.6 Design system
+
+The design system is implemented as CSS custom properties in `design-system.css`, ported from the HTML mockups. It defines:
+
+- Colour palette with brand gradient and semantic colours
+- Typography scale (Inter for body, Space Grotesk for headings, JetBrains Mono for code)
+- Spacing scale, border radii, shadows, and layout dimensions
+- Scrollbar styling and animations
+
+### 32.7 Test strategy
+
+- **Rust**: Unit tests in `models.rs` cover JSON round-trips, serialisation format, domain values, and field initialisation.
+- **Frontend**: Vitest with happy-dom and testing-library. Tests cover type helpers, constants, and project creation defaults.
+- **No Rust toolchain locally**: Rust tests run via Docker (`ghcr.io/liminal-hq/tauri-dev-desktop:latest`).
+

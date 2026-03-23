@@ -394,6 +394,28 @@ Implement serialisable entities for:
 - A project containing placeholder titles, menus, and mappings can be round-tripped without loss.
 - The schema can represent `disc.family = dvd-video` without implying that DVD is the only future target.
 
+### Implementation status
+
+**Completed.** Implemented as `tauri-plugin-spindle-project` with:
+
+- Full Rust data model in `plugins/tauri-plugin-spindle-project/src/models.rs` covering all core structs
+- JSON serialisation with camelCase field naming for TypeScript interop
+- Schema version checking in `desktop.rs` with forward-compatibility error
+- Validation engine checking titlesets, titles, source assets, video mappings, and output profiles
+- 14 Rust unit tests covering round-trips, serialisation format, and domain values
+- Mirrored TypeScript types in `apps/spindle/src/types/project.ts`
+- 14 frontend tests covering type helpers and project creation defaults
+- Zustand store wrapping all plugin invocations with dirty tracking and validation
+
+App shell also delivered alongside Phase 1:
+
+- Cross-platform window controls (Topbar) ported from Threshold
+- Sidebar navigation with all planned page sections
+- Overview dashboard with stats, capacity bar, and project health
+- Placeholder pages for remaining sections
+- Context menu component ported from liminal-notes
+- Design system CSS ported from mockups
+
 ---
 
 ## Phase 2 — Asset Import and Media Inspection
