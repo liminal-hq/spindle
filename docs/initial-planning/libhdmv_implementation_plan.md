@@ -94,6 +94,8 @@ Spindle (Tauri app)
 
 6. **No A/V codec decoding.** Video and audio decoding is delegated to ffmpeg/GStreamer/mpv. `libhdmv` only handles the navigation, control, and graphics overlay layers.
 
+7. **UHD BD from the start in data models.** HDMV itself is identical on standard BD and UHD BD, but the metadata file versions (0300), stream coding types (HEVC 0x24), and extension data (HDR10, Dolby Vision sub-paths) differ. Parsers and enums should accommodate UHD BD structures from day one to avoid refactoring later, even if UHD-specific features are not the initial focus.
+
 ---
 
 ## 4. Crate Architecture
@@ -125,17 +127,25 @@ Spindle (Tauri app)
 - `sound.bdmv` — button sound effects (AUXDATA)
 
 **Design rules:**
-- Signature and version validation (`INDX0100`/`INDX0200`, `MOBJ0100`/`MOBJ0200`, etc.)
-- Accept multiple known versions; surface unknown versions as warnings, not hard failures
+- Signature and version validation (`INDX0100`/`INDX0200`/`INDX0300`, `MOBJ0100`/`MOBJ0200`/`MOBJ0300`, etc.)
+- Accept multiple known versions (0100, 0200, 0300); surface unknown versions as warnings, not hard failures
+- Version-aware field reading: 0300 files contain extension data blocks for HEVC/HDR that 0200 files do not
 - Length-checked reads throughout — never trust file-declared sizes without bounds checking
 - All parsers return `Result<T, ParseError>` with byte-offset context
+- Extension data blocks: parse known extensions, preserve unknown extensions as raw bytes with logging
 
 **Key types:**
-- `DiscIndex` — titles, first play object, top menu object
+- `DiscIndex` — titles, first play object, top menu object, optional HDR flags (0300)
 - `TitleEntry` — object type (HDMV/BD-J), playback type, access flags
 - `MovieObjectFile` — collection of `MovieObject`s, each a sequence of `HdmvCommand`s
-- `Playlist` — PlayItems, playmarks, sub-paths, stream number tables
+- `Playlist` — PlayItems, playmarks, sub-paths, stream number tables, optional extension data (MPLS ext 3.5 for HDR10 static metadata)
 - `ClipInfo` — stream PIDs, codec info, access unit timestamps
+- `StreamCodingInfo` — codec-specific stream metadata, with extended fields for HEVC 0x24 (DynamicRangeType, ColorSpace, HDRPlusFlag)
+- `VideoFormat` — enum including `V2160p` (value 8) for UHD BD alongside standard BD values
+- `StreamCodingType` — enum including `Hevc = 0x24` alongside H.264 (0x1B), MPEG-2 (0x02), VC-1 (0xEA)
+- `DynamicRangeType` — enum: `Sdr`, `Hdr10`, `DolbyVision`
+- `ColorSpace` — enum: `Bt709`, `Bt2020`
+- `SubPathType` — enum with known types (2–8) and `Unknown(u8)` fallback for future/DV-specific values
 
 ### 4.3 `hdmv-insn` — Instruction model
 
@@ -569,6 +579,48 @@ This phase is explicitly deferred until Phases 0–5 are stable. It is documente
 
 ---
 
+### Phase 7 — UHD BD support (3–4 weeks, future)
+
+**Goal:** Extend parsing, authoring, and Spindle integration to support 4K UHD Blu-ray.
+
+This phase builds on the UHD BD-aware data models established in earlier phases. Since parsers already accept 0300 versions and HEVC stream types, this phase focuses on completing the UHD-specific features and integrating them into Spindle's authoring pipeline.
+
+**Deliverables:**
+
+#### 7a: Complete UHD BD parsing
+- MPLS extension 3.5 parser for HDR10 static metadata (mastering display colour volume, content light levels)
+- `StreamCodingInfo` extended field parsing for HEVC 0x24 (DynamicRangeType, ColorSpace, HDRPlusFlag)
+- Dolby Vision enhancement layer SubPath parsing and validation
+- HDR10+ flag detection in stream info
+- UHD BD disc index HDR flags parsing
+
+#### 7b: UHD BD authoring extensions
+- Generate 0300-version control files (`INDX0300`, `MOBJ0300`, `MPLS0300`, `HDMV0300`)
+- Write MPLS extension 3.5 blocks with HDR10 static metadata
+- Generate CLPI entries with HEVC stream coding type 0x24 and extended fields
+- SubPath generation for Dolby Vision enhancement layers
+
+#### 7c: Spindle UHD BD integration
+- BD-66 and BD-100 capacity tiers in the disc planner
+- Higher bitrate ranges (up to 128 Mbit/s for BD-100)
+- HEVC Main 10 output profile with HDR parameters (display primaries, luminance, MaxCLL, MaxFALL)
+- HDR metadata preservation/generation in the toolchain adapter (ffmpeg x265 parameters)
+- Dolby Vision dual-layer workflow (BL + EL + RPU)
+- Integration with Rust ecosystem tools: `hdr10plus_tool` and `dovi_tool` crates for HDR metadata handling
+
+#### 7d: UHD BD validation
+- Verify HEVC stream compliance (Main 10, Level 5.1)
+- Verify HDR10 static metadata presence and validity
+- Verify AC-3 fallback presence (same requirement as standard BD)
+- Verify Dolby Vision backward compatibility (BL must be valid HDR10)
+- BD-66/BD-100 capacity and bitrate limit validation
+
+**Exit criteria:**
+- Can parse and inspect a real UHD BD folder with HDR10/DV content
+- Can author a UHD BD with HEVC video and HDR10 metadata that plays on a UHD BD player
+
+---
+
 ## 6. Validation Strategy
 
 ### Synthetic fixtures (repo-safe)
@@ -658,6 +710,9 @@ This phase is explicitly deferred until Phases 0–5 are stable. It is documente
 │              │                                          │
 │  Phase 6: Authoring (future, also in libhdmv)           │
 │      (IG compiler, BDMV generator, mux integration)     │
+│              │                                          │
+│  Phase 7: UHD BD (future, also in libhdmv)              │
+│      (0300 parsing, HEVC/HDR, DV sub-paths, BD-100)     │
 └──────────────┼──────────────────────────────────────────┘
                │
 ┌──────────────v──────────────────────────────────────────┐
@@ -690,11 +745,13 @@ Phases 2 and 3 can proceed in parallel once Phase 1 is complete. Phase 5 spans a
 | 4 — Menu scene | 2–3 weeks | Phases 2 + 3 | Medium |
 | 5 — Tauri plugin | 2–3 weeks | Phase 4 | Medium-high |
 | 6 — Authoring | 4–6 weeks | Phase 5 stable | Medium-low |
+| 7 — UHD BD | 3–4 weeks | Phase 6 stable | Medium |
 
 **Total to interactive menu preview (Phases 0–5):** ~13–18 weeks
-**Total including authoring (Phase 6):** ~17–24 weeks
+**Total including standard BD authoring (Phase 6):** ~17–24 weeks
+**Total including UHD BD (Phase 7):** ~20–28 weeks
 
-These estimates assume a single developer working primarily on `libhdmv`. Phases 2 and 3 can be parallelised across two developers.
+These estimates assume a single developer working primarily on `libhdmv`. Phases 2 and 3 can be parallelised across two developers. Note that UHD BD parsing support in Phase 1 is minimal incremental effort since the data models are designed for it from the start — Phase 7 is primarily about the authoring/generation side and Spindle integration (HEVC encoding profiles, HDR metadata pipeline, BD-66/BD-100 planner).
 
 ---
 
