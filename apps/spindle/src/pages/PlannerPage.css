@@ -43,6 +43,28 @@
   font-size: var(--text-sm);
 }
 
+.planner__budget-details {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.planner__budget-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: var(--text-sm);
+  padding: var(--space-1) 0;
+}
+
+.planner__budget-row + .planner__budget-row {
+  border-top: 1px solid var(--border-subtle);
+}
+
+.planner__budget-constrained {
+  color: var(--colour-warning);
+}
+
 /* ── Title breakdown ──────────────────────────────────────── */
 
 .planner__titles {

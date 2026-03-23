@@ -8,6 +8,10 @@ import { CAPACITY_LABELS, CAPACITY_BYTES } from "../types/project";
 import type { Title, Asset } from "../types/project";
 import "./PlannerPage.css";
 
+// DVD-Video spec limits (ISO/IEC 13818-1)
+const DVD_MAX_MUX_RATE_BPS = 10_080_000;   // 10.08 Mbps total mux rate
+const DVD_MAX_VIDEO_RATE_BPS = 9_800_000;   // 9.8 Mbps max video ES
+
 export function PlannerPage() {
   const project = useProjectStore((s) => s.project);
 
@@ -43,9 +47,18 @@ export function PlannerPage() {
   const usagePct = totalSourceBytes > 0 ? (totalSourceBytes / capacityBytes) * 100 : 0;
   const isOverCapacity = totalSourceBytes > usableBytes;
 
-  // Per-title bitrate estimates
-  const availableBitsPerSecond =
+  // Per-title bitrate budget — capped to DVD spec limits
+  const rawBitsPerSecond =
     totalDurationSecs > 0 ? ((usableBytes * 8) / totalDurationSecs) : 0;
+  const maxVideoBitrate = Math.min(rawBitsPerSecond, DVD_MAX_VIDEO_RATE_BPS);
+  const availableBitsPerSecond = maxVideoBitrate;
+  const isCapacityConstrained = rawBitsPerSecond < DVD_MAX_VIDEO_RATE_BPS;
+
+  // Estimated output size at the budgeted rate
+  const estimatedOutputBytes =
+    totalDurationSecs > 0
+      ? (Math.min(rawBitsPerSecond, DVD_MAX_MUX_RATE_BPS) * totalDurationSecs) / 8
+      : 0;
 
   return (
     <div className="planner">
@@ -128,11 +141,34 @@ export function PlannerPage() {
                 {project.buildSettings.allocationStrategy.replace("-", " ")}
               </span>
             </div>
-            <p className="planner__budget-summary text-muted">
-              {availableBitsPerSecond > 0
-                ? `Available average bitrate: ${formatBitrate(availableBitsPerSecond)} across ${titlesWithAssets.length} title${titlesWithAssets.length === 1 ? "" : "s"}.`
-                : "Add assets with known durations to calculate bitrate budgets."}
-            </p>
+            {availableBitsPerSecond > 0 ? (
+              <div className="planner__budget-details">
+                <div className="planner__budget-row">
+                  <span>Max video bitrate (DVD spec)</span>
+                  <span>{formatBitrate(DVD_MAX_VIDEO_RATE_BPS)}</span>
+                </div>
+                <div className="planner__budget-row">
+                  <span>Available average video bitrate</span>
+                  <span className={isCapacityConstrained ? "planner__budget-constrained" : ""}>
+                    {formatBitrate(availableBitsPerSecond)}
+                  </span>
+                </div>
+                <div className="planner__budget-row">
+                  <span>Constraint</span>
+                  <span className="text-muted">
+                    {isCapacityConstrained ? "Disc capacity" : "DVD spec limit"}
+                  </span>
+                </div>
+                <div className="planner__budget-row">
+                  <span>Est. output size at budgeted rate</span>
+                  <span>{formatBytes(estimatedOutputBytes)}</span>
+                </div>
+              </div>
+            ) : (
+              <p className="text-muted">
+                Add assets with known durations to calculate bitrate budgets.
+              </p>
+            )}
           </div>
 
           {/* Per-title breakdown */}
