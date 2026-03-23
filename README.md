@@ -8,6 +8,7 @@ This repository is organised as a `pnpm` workspace monorepo with a matching Carg
 
 - `apps/spindle` contains the base desktop app skeleton
 - `plugins` is reserved for workspace packages and plugin experiments
+- `tsconfig.base.json` provides shared TypeScript compiler defaults for workspace packages
 - `docs/initial-planning` contains product and implementation planning notes
 
 ## Development
