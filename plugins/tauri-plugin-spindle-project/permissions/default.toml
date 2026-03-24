@@ -1,0 +1,9 @@
+[default]
+description = "Default permissions for the spindle-project plugin"
+permissions = [
+  "allow-create-project",
+  "allow-parse-project",
+  "allow-serialise-project",
+  "allow-validate-project",
+  "allow-inspect-asset",
+]

@@ -1,0 +1,559 @@
+// Titles page — create titles from assets, map streams, and configure output profiles.
+//
+// (c) Copyright 2026 Liminal HQ, Scott Morris
+// SPDX-License-Identifier: MIT
+
+import { useState } from "react";
+import { useProjectStore } from "../store/project-store";
+import type {
+  Title,
+  Asset,
+  VideoOutputProfile,
+  VideoRaster,
+  AspectMode,
+  AudioOutputTarget,
+  CopyMode,
+  SpindleProjectFile,
+} from "../types/project";
+import "./TitlesPage.css";
+
+export function TitlesPage() {
+  const project = useProjectStore((s) => s.project);
+  const updateProject = useProjectStore((s) => s.updateProject);
+  const [selectedTitleId, setSelectedTitleId] = useState<string | null>(null);
+
+  if (!project) return null;
+
+  const titleset = project.disc.titlesets[0];
+  if (!titleset) return null;
+
+  const titles = titleset.titles;
+  const selectedTitle = titles.find((t) => t.id === selectedTitleId) ?? null;
+
+  const handleAddTitle = () => {
+    const newTitle: Title = {
+      id: crypto.randomUUID(),
+      name: `Title ${titles.length + 1}`,
+      sourceAssetId: null,
+      videoMapping: null,
+      videoOutputProfile: null,
+      audioMappings: [],
+      subtitleMappings: [],
+      chapters: [],
+      endAction: null,
+      orderIndex: titles.length,
+    };
+    updateProject((p) => updateTitleInProject(p, titleset.id, [...titles, newTitle]));
+    setSelectedTitleId(newTitle.id);
+  };
+
+  const handleUpdateTitle = (updated: Title) => {
+    const newTitles = titles.map((t) => (t.id === updated.id ? updated : t));
+    updateProject((p) => updateTitleInProject(p, titleset.id, newTitles));
+  };
+
+  const handleRemoveTitle = (titleId: string) => {
+    const newTitles = titles
+      .filter((t) => t.id !== titleId)
+      .map((t, i) => ({ ...t, orderIndex: i }));
+    updateProject((p) => updateTitleInProject(p, titleset.id, newTitles));
+    if (selectedTitleId === titleId) setSelectedTitleId(null);
+  };
+
+  const handleReorder = (titleId: string, direction: "up" | "down") => {
+    const idx = titles.findIndex((t) => t.id === titleId);
+    if (idx < 0) return;
+    const swapIdx = direction === "up" ? idx - 1 : idx + 1;
+    if (swapIdx < 0 || swapIdx >= titles.length) return;
+    const newTitles = [...titles];
+    [newTitles[idx], newTitles[swapIdx]] = [newTitles[swapIdx], newTitles[idx]];
+    updateProject((p) =>
+      updateTitleInProject(p, titleset.id, newTitles.map((t, i) => ({ ...t, orderIndex: i }))),
+    );
+  };
+
+  return (
+    <div className="titles">
+      <div className="page-header">
+        <h1 className="page-title">Titles</h1>
+        <button className="btn btn--primary" onClick={handleAddTitle}>
+          Add Title
+        </button>
+      </div>
+
+      {titles.length === 0 ? (
+        <EmptyTitlesView onAdd={handleAddTitle} />
+      ) : (
+        <div className="titles__layout">
+          <div className="titles__list">
+            {titles.map((title, idx) => (
+              <TitleRow
+                key={title.id}
+                title={title}
+                index={idx}
+                totalCount={titles.length}
+                asset={project.assets.find((a) => a.id === title.sourceAssetId) ?? null}
+                isSelected={title.id === selectedTitleId}
+                onSelect={() => setSelectedTitleId(title.id)}
+                onMoveUp={() => handleReorder(title.id, "up")}
+                onMoveDown={() => handleReorder(title.id, "down")}
+                onRemove={() => handleRemoveTitle(title.id)}
+              />
+            ))}
+          </div>
+          {selectedTitle && (
+            <TitleEditor
+              title={selectedTitle}
+              assets={project.assets}
+              standard={project.disc.standard}
+              onUpdate={handleUpdateTitle}
+            />
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Helpers ─────────────────────────────────────────────────────────────────
+
+function updateTitleInProject(
+  project: SpindleProjectFile,
+  titlesetId: string,
+  newTitles: Title[],
+): SpindleProjectFile {
+  return {
+    ...project,
+    disc: {
+      ...project.disc,
+      titlesets: project.disc.titlesets.map((ts) =>
+        ts.id === titlesetId ? { ...ts, titles: newTitles } : ts,
+      ),
+    },
+  };
+}
+
+// ── Sub-components ──────────────────────────────────────────────────────────
+
+function EmptyTitlesView({ onAdd }: { onAdd: () => void }) {
+  return (
+    <div className="titles__empty">
+      <svg
+        className="titles__empty-icon"
+        viewBox="0 0 64 64"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      >
+        <rect x="8" y="8" width="48" height="48" rx="4" />
+        <line x1="16" y1="20" x2="48" y2="20" />
+        <line x1="16" y1="32" x2="40" y2="32" />
+        <line x1="16" y1="44" x2="32" y2="44" />
+      </svg>
+      <h2>No titles yet</h2>
+      <p className="text-muted">
+        Add titles to define the playback structure of your disc. Each title
+        maps to a source asset with explicit stream selections.
+      </p>
+      <button className="btn btn--primary" onClick={onAdd}>
+        Add Title
+      </button>
+    </div>
+  );
+}
+
+function TitleRow({
+  title,
+  index,
+  totalCount,
+  asset,
+  isSelected,
+  onSelect,
+  onMoveUp,
+  onMoveDown,
+  onRemove,
+}: {
+  title: Title;
+  index: number;
+  totalCount: number;
+  asset: Asset | null;
+  isSelected: boolean;
+  onSelect: () => void;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+  onRemove: () => void;
+}) {
+  return (
+    <div
+      className={`titles__row card ${isSelected ? "titles__row--selected" : ""}`}
+      onClick={onSelect}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => e.key === "Enter" && onSelect()}
+    >
+      <div className="titles__row-order">
+        <button
+          className="titles__order-btn"
+          disabled={index === 0}
+          onClick={(e) => { e.stopPropagation(); onMoveUp(); }}
+          title="Move up"
+        >
+          ▲
+        </button>
+        <span className="titles__order-num">{index + 1}</span>
+        <button
+          className="titles__order-btn"
+          disabled={index === totalCount - 1}
+          onClick={(e) => { e.stopPropagation(); onMoveDown(); }}
+          title="Move down"
+        >
+          ▼
+        </button>
+      </div>
+      <div className="titles__row-main">
+        <span className="titles__row-name">{title.name}</span>
+        <span className="titles__row-asset text-muted">
+          {asset ? asset.fileName : "No asset assigned"}
+        </span>
+      </div>
+      <div className="titles__row-badges">
+        {title.videoMapping && (
+          <span className="badge badge--neutral">Video</span>
+        )}
+        {title.audioMappings.length > 0 && (
+          <span className="badge badge--neutral">
+            {title.audioMappings.length} Audio
+          </span>
+        )}
+        {title.chapters.length > 0 && (
+          <span className="badge badge--neutral">
+            {title.chapters.length} Ch
+          </span>
+        )}
+        {!title.sourceAssetId && (
+          <span className="badge badge--unsupported">No Source</span>
+        )}
+      </div>
+      <button
+        className="titles__row-remove"
+        onClick={(e) => { e.stopPropagation(); onRemove(); }}
+        title="Remove title"
+      >
+        ×
+      </button>
+    </div>
+  );
+}
+
+function TitleEditor({
+  title,
+  assets,
+  standard,
+  onUpdate,
+}: {
+  title: Title;
+  assets: Asset[];
+  standard: string;
+  onUpdate: (title: Title) => void;
+}) {
+  const selectedAsset = assets.find((a) => a.id === title.sourceAssetId) ?? null;
+
+  const handleAssetChange = (assetId: string) => {
+    const asset = assets.find((a) => a.id === assetId);
+    if (!asset) return;
+
+    // Auto-map first video stream and create audio mappings
+    const videoMapping = asset.videoStreams.length > 0
+      ? { sourceStreamIndex: asset.videoStreams[0].index, copyMode: "copy" as CopyMode }
+      : null;
+
+    const audioMappings = asset.audioStreams.map((as_, i) => ({
+      id: crypto.randomUUID(),
+      sourceStreamIndex: as_.index,
+      outputTarget: "AC3" as AudioOutputTarget,
+      copyMode: (as_.codec === "ac3" ? "copy" : "re-encode") as CopyMode,
+      label: as_.language ?? `Audio ${i + 1}`,
+      language: as_.language ?? "und",
+      orderIndex: i,
+      isDefault: i === 0,
+    }));
+
+    const subtitleMappings = asset.subtitleStreams.map((ss, i) => ({
+      id: crypto.randomUUID(),
+      sourceStreamIndex: ss.index,
+      label: ss.language ?? `Subtitle ${i + 1}`,
+      language: ss.language ?? "und",
+      orderIndex: i,
+      isDefault: i === 0,
+      isForced: false,
+    }));
+
+    // Auto-select a default output profile
+    const videoOutputProfile: VideoOutputProfile = {
+      raster: "full-d1" as VideoRaster,
+      aspect: (asset.videoStreams[0]?.width ?? 720) > 700
+        ? "sixteen-by-nine" as AspectMode
+        : "four-by-three" as AspectMode,
+    };
+
+    onUpdate({
+      ...title,
+      sourceAssetId: assetId,
+      videoMapping,
+      videoOutputProfile,
+      audioMappings,
+      subtitleMappings,
+    });
+  };
+
+  return (
+    <div className="titles__editor card">
+      <div className="card__header">
+        <input
+          className="titles__editor-name"
+          value={title.name}
+          onChange={(e) => onUpdate({ ...title, name: e.target.value })}
+        />
+      </div>
+
+      {/* Source Asset */}
+      <div className="titles__editor-section">
+        <h4 className="titles__editor-heading">Source Asset</h4>
+        <select
+          className="titles__select"
+          value={title.sourceAssetId ?? ""}
+          onChange={(e) => e.target.value && handleAssetChange(e.target.value)}
+        >
+          <option value="">Select an asset…</option>
+          {assets.map((a) => (
+            <option key={a.id} value={a.id}>
+              {a.fileName}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* Video Output Profile */}
+      {title.videoOutputProfile && (
+        <div className="titles__editor-section">
+          <h4 className="titles__editor-heading">Video Output</h4>
+          <div className="titles__editor-row">
+            <label className="titles__field-label">Raster</label>
+            <select
+              className="titles__select"
+              value={title.videoOutputProfile.raster}
+              onChange={(e) =>
+                onUpdate({
+                  ...title,
+                  videoOutputProfile: {
+                    ...title.videoOutputProfile!,
+                    raster: e.target.value as VideoRaster,
+                  },
+                })
+              }
+            >
+              <option value="full-d1">
+                Full D1 ({standard === "NTSC" ? "720×480" : "720×576"})
+              </option>
+              <option value="704-wide">
+                704-wide ({standard === "NTSC" ? "704×480" : "704×576"})
+              </option>
+              <option value="half-d1">
+                Half D1 ({standard === "NTSC" ? "352×480" : "352×576"})
+              </option>
+              <option value="quarter-d1">
+                Quarter D1 ({standard === "NTSC" ? "352×240" : "352×288"})
+              </option>
+            </select>
+          </div>
+          <div className="titles__editor-row">
+            <label className="titles__field-label">Aspect</label>
+            <select
+              className="titles__select"
+              value={title.videoOutputProfile.aspect}
+              onChange={(e) =>
+                onUpdate({
+                  ...title,
+                  videoOutputProfile: {
+                    ...title.videoOutputProfile!,
+                    aspect: e.target.value as AspectMode,
+                  },
+                })
+              }
+            >
+              <option value="four-by-three">4:3</option>
+              <option value="sixteen-by-nine">16:9</option>
+            </select>
+          </div>
+        </div>
+      )}
+
+      {/* Video Stream */}
+      {selectedAsset && selectedAsset.videoStreams.length > 0 && (
+        <div className="titles__editor-section">
+          <h4 className="titles__editor-heading">Video Stream</h4>
+          <select
+            className="titles__select"
+            value={title.videoMapping?.sourceStreamIndex ?? ""}
+            onChange={(e) =>
+              onUpdate({
+                ...title,
+                videoMapping: {
+                  sourceStreamIndex: Number(e.target.value),
+                  copyMode: "copy",
+                },
+              })
+            }
+          >
+            {selectedAsset.videoStreams.map((vs) => (
+              <option key={vs.index} value={vs.index}>
+                #{vs.index} — {vs.codec} {vs.width}×{vs.height}
+                {vs.frameRate ? ` @ ${vs.frameRate.toFixed(2)} fps` : ""}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {/* Audio Mappings */}
+      {title.audioMappings.length > 0 && (
+        <div className="titles__editor-section">
+          <h4 className="titles__editor-heading">Audio Tracks</h4>
+          {title.audioMappings.map((am) => (
+            <div key={am.id} className="titles__track-row">
+              <input
+                className="titles__track-label"
+                value={am.label}
+                onChange={(e) =>
+                  onUpdate({
+                    ...title,
+                    audioMappings: title.audioMappings.map((a) =>
+                      a.id === am.id ? { ...a, label: e.target.value } : a,
+                    ),
+                  })
+                }
+              />
+              <select
+                className="titles__select titles__select--sm"
+                value={am.outputTarget}
+                onChange={(e) =>
+                  onUpdate({
+                    ...title,
+                    audioMappings: title.audioMappings.map((a) =>
+                      a.id === am.id
+                        ? { ...a, outputTarget: e.target.value as AudioOutputTarget }
+                        : a,
+                    ),
+                  })
+                }
+              >
+                <option value="AC3">AC3 (Dolby Digital)</option>
+                <option value="LPCM">LPCM</option>
+                <option value="MP2">MP2</option>
+                <option value="DTS">DTS</option>
+              </select>
+              <select
+                className="titles__select titles__select--sm"
+                value={am.copyMode}
+                onChange={(e) =>
+                  onUpdate({
+                    ...title,
+                    audioMappings: title.audioMappings.map((a) =>
+                      a.id === am.id
+                        ? { ...a, copyMode: e.target.value as CopyMode }
+                        : a,
+                    ),
+                  })
+                }
+              >
+                <option value="copy">Copy</option>
+                <option value="re-encode">Re-encode</option>
+              </select>
+              <input
+                className="titles__track-lang"
+                value={am.language}
+                onChange={(e) =>
+                  onUpdate({
+                    ...title,
+                    audioMappings: title.audioMappings.map((a) =>
+                      a.id === am.id ? { ...a, language: e.target.value } : a,
+                    ),
+                  })
+                }
+                maxLength={3}
+                title="ISO 639-2 language code"
+              />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Subtitle Mappings */}
+      {title.subtitleMappings.length > 0 && (
+        <div className="titles__editor-section">
+          <h4 className="titles__editor-heading">Subtitle Tracks</h4>
+          {title.subtitleMappings.map((sm) => (
+            <div key={sm.id} className="titles__track-row">
+              <input
+                className="titles__track-label"
+                value={sm.label}
+                onChange={(e) =>
+                  onUpdate({
+                    ...title,
+                    subtitleMappings: title.subtitleMappings.map((s) =>
+                      s.id === sm.id ? { ...s, label: e.target.value } : s,
+                    ),
+                  })
+                }
+              />
+              <input
+                className="titles__track-lang"
+                value={sm.language}
+                onChange={(e) =>
+                  onUpdate({
+                    ...title,
+                    subtitleMappings: title.subtitleMappings.map((s) =>
+                      s.id === sm.id ? { ...s, language: e.target.value } : s,
+                    ),
+                  })
+                }
+                maxLength={3}
+                title="ISO 639-2 language code"
+              />
+              <label className="titles__track-flag">
+                <input
+                  type="checkbox"
+                  checked={sm.isDefault}
+                  onChange={(e) =>
+                    onUpdate({
+                      ...title,
+                      subtitleMappings: title.subtitleMappings.map((s) =>
+                        s.id === sm.id ? { ...s, isDefault: e.target.checked } : s,
+                      ),
+                    })
+                  }
+                />
+                Default
+              </label>
+              <label className="titles__track-flag">
+                <input
+                  type="checkbox"
+                  checked={sm.isForced}
+                  onChange={(e) =>
+                    onUpdate({
+                      ...title,
+                      subtitleMappings: title.subtitleMappings.map((s) =>
+                        s.id === sm.id ? { ...s, isForced: e.target.checked } : s,
+                      ),
+                    })
+                  }
+                />
+                Forced
+              </label>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}

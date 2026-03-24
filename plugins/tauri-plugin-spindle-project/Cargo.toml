@@ -1,0 +1,20 @@
+[package]
+name = "tauri-plugin-spindle-project"
+version = "0.1.0"
+authors = ["Liminal HQ, Scott Morris"]
+description = "Tauri plugin for Spindle project schema, validation, and domain logic"
+edition = "2021"
+rust-version = "1.77.2"
+exclude = ["/examples", "/dist-js", "/guest-js", "/node_modules"]
+links = "tauri-plugin-spindle-project"
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+uuid = { version = "1", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+
+[build-dependencies]
+tauri-plugin = { version = "2", features = ["build"] }

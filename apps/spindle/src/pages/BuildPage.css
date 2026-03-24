@@ -1,0 +1,109 @@
+/* Build page styles */
+
+.build {
+  max-width: 800px;
+}
+
+/* ── Controls ─────────────────────────────────────────────── */
+
+.build__controls {
+  margin-bottom: var(--space-4);
+}
+
+.build__summary {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+  font-size: var(--text-sm);
+}
+
+.build__summary-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.build__summary-label {
+  font-size: var(--text-xs);
+}
+
+.build__summary-path {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  word-break: break-all;
+}
+
+.build__actions {
+  display: flex;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.build__warning {
+  font-size: var(--text-sm);
+  color: var(--colour-warning);
+  margin-top: var(--space-2);
+}
+
+/* ── Build log ────────────────────────────────────────────── */
+
+.build__log {
+  margin-bottom: var(--space-4);
+}
+
+.build__log-output {
+  background: var(--bg-deep);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: var(--space-3);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  overflow-x: auto;
+  max-height: 400px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.6;
+}
+
+/* ── Validation issues ────────────────────────────────────── */
+
+.build__validation {
+  margin-bottom: var(--space-4);
+}
+
+.build__issue-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.build__issue {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.build__issue-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.build__issue--error .build__issue-dot { background: var(--colour-error); }
+.build__issue--warning .build__issue-dot { background: var(--colour-warning); }
+.build__issue--info .build__issue-dot { background: var(--colour-info); }
+
+.build__issue-code {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
