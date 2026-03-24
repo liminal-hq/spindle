@@ -8,11 +8,13 @@ import { useProjectStore } from '../store/project-store';
 import type {
 	Menu,
 	MenuButton,
+	MenuHighlightColours,
 	ButtonBounds,
 	PlaybackAction,
 	SpindleProjectFile,
 	VideoStandard,
 } from '../types/project';
+import { DEFAULT_HIGHLIGHT_COLOURS } from '../types/project';
 
 // DVD menu canvas dimensions vary by video standard
 const MENU_WIDTH = 720;
@@ -52,6 +54,7 @@ export function MenusPage() {
 			backgroundAssetId: null,
 			buttons: [],
 			defaultButtonId: null,
+			highlightColours: { ...DEFAULT_HIGHLIGHT_COLOURS },
 		};
 		updateProject((p) => ({
 			...p,
@@ -183,6 +186,11 @@ function MenuEditor({
 	const [showSafeArea, setShowSafeArea] = useState(true);
 	const [previewMode, setPreviewMode] = useState(false);
 
+	const backgroundAsset = menu.backgroundAssetId
+		? (project.assets.find((a) => a.id === menu.backgroundAssetId) ?? null)
+		: null;
+	const backgroundAssetLabel = backgroundAsset ? backgroundAsset.fileName : null;
+
 	const handleAddButton = () => {
 		const newButton: MenuButton = {
 			id: crypto.randomUUID(),
@@ -294,6 +302,7 @@ function MenuEditor({
 							menu={menu}
 							canvasHeight={canvasHeight}
 							showSafeArea={showSafeArea}
+							backgroundLabel={backgroundAssetLabel}
 						/>
 					) : (
 						<MenuCanvas
@@ -301,6 +310,7 @@ function MenuEditor({
 							canvasHeight={canvasHeight}
 							onUpdateButton={handleUpdateButton}
 							showSafeArea={showSafeArea}
+							backgroundLabel={backgroundAssetLabel}
 						/>
 					)}
 				</div>
@@ -379,6 +389,19 @@ function MenuEditor({
 					</div>
 				</div>
 			)}
+
+			{/* Highlight colours */}
+			<div className="card menus__highlights">
+				<h4 className="menus__section-heading">Overlay Highlight Colours</h4>
+				<p className="menus__highlights-hint text-muted">
+					DVD menus use a subpicture overlay with a 4-colour palette. The select colour is shown
+					when a button is focused; the activate colour flashes when pressed.
+				</p>
+				<HighlightColourEditor
+					colours={menu.highlightColours}
+					onChange={(colours) => onUpdate((m) => ({ ...m, highlightColours: colours }))}
+				/>
+			</div>
 		</div>
 	);
 }
@@ -388,11 +411,13 @@ function MenuCanvas({
 	canvasHeight,
 	onUpdateButton,
 	showSafeArea,
+	backgroundLabel,
 }: {
 	menu: Menu;
 	canvasHeight: number;
 	onUpdateButton: (buttonId: string, updates: Partial<MenuButton>) => void;
 	showSafeArea: boolean;
+	backgroundLabel: string | null;
 }) {
 	const canvasRef = useRef<HTMLDivElement>(null);
 	const dragState = useRef<{
@@ -462,6 +487,10 @@ function MenuCanvas({
 			ref={canvasRef}
 			style={{ aspectRatio: `${MENU_WIDTH} / ${canvasHeight}` }}
 		>
+			{/* Background label */}
+			{backgroundLabel && (
+				<div className="menus__canvas-bg-label text-muted">{backgroundLabel}</div>
+			)}
 			{/* Safe-area guides */}
 			{showSafeArea && (
 				<>
@@ -509,10 +538,12 @@ function NavigationPreview({
 	menu,
 	canvasHeight,
 	showSafeArea,
+	backgroundLabel,
 }: {
 	menu: Menu;
 	canvasHeight: number;
 	showSafeArea: boolean;
+	backgroundLabel: string | null;
 }) {
 	const [focusedId, setFocusedId] = useState<string | null>(
 		menu.defaultButtonId ?? menu.buttons[0]?.id ?? null,
@@ -568,6 +599,9 @@ function NavigationPreview({
 			onKeyDown={handleKeyDown}
 			style={{ aspectRatio: `${MENU_WIDTH} / ${canvasHeight}` }}
 		>
+			{backgroundLabel && (
+				<div className="menus__canvas-bg-label text-muted">{backgroundLabel}</div>
+			)}
 			{showSafeArea && (
 				<>
 					<div
@@ -593,21 +627,118 @@ function NavigationPreview({
 			<div className="menus__preview-hint text-muted">
 				Use arrow keys to navigate. Press Enter to activate.
 			</div>
-			{menu.buttons.map((btn) => (
-				<div
-					key={btn.id}
-					className={`menus__canvas-button ${btn.id === focusedId ? 'menus__canvas-button--focused' : ''} ${menu.defaultButtonId === btn.id ? 'menus__canvas-button--default' : ''}`}
-					style={{
-						left: `${(btn.bounds.x / MENU_WIDTH) * 100}%`,
-						top: `${(btn.bounds.y / canvasHeight) * 100}%`,
-						width: `${(btn.bounds.width / MENU_WIDTH) * 100}%`,
-						height: `${(btn.bounds.height / canvasHeight) * 100}%`,
-					}}
-					onClick={() => setFocusedId(btn.id)}
-				>
-					{btn.label}
+			{menu.buttons.map((btn) => {
+				const isFocused = btn.id === focusedId;
+				const hl = menu.highlightColours;
+				return (
+					<div
+						key={btn.id}
+						className={`menus__canvas-button ${isFocused ? 'menus__canvas-button--focused' : ''} ${menu.defaultButtonId === btn.id ? 'menus__canvas-button--default' : ''}`}
+						style={{
+							left: `${(btn.bounds.x / MENU_WIDTH) * 100}%`,
+							top: `${(btn.bounds.y / canvasHeight) * 100}%`,
+							width: `${(btn.bounds.width / MENU_WIDTH) * 100}%`,
+							height: `${(btn.bounds.height / canvasHeight) * 100}%`,
+							...(isFocused
+								? {
+										background: hexToRgba(hl.selectColour, hl.selectOpacity),
+										borderColor: hl.selectColour,
+										boxShadow: `0 0 12px ${hexToRgba(hl.selectColour, 0.5)}, 0 0 24px ${hexToRgba(hl.selectColour, 0.2)}`,
+									}
+								: {}),
+						}}
+						onClick={() => setFocusedId(btn.id)}
+					>
+						{btn.label}
+					</div>
+				);
+			})}
+		</div>
+	);
+}
+
+/** Editor for DVD subpicture overlay highlight colours. */
+function HighlightColourEditor({
+	colours,
+	onChange,
+}: {
+	colours: MenuHighlightColours;
+	onChange: (colours: MenuHighlightColours) => void;
+}) {
+	return (
+		<div className="menus__colour-grid">
+			<div className="menus__colour-field">
+				<label className="menus__colour-label">Select Colour</label>
+				<div className="menus__colour-row">
+					<input
+						type="color"
+						className="menus__colour-input"
+						value={colours.selectColour}
+						onChange={(e) => onChange({ ...colours, selectColour: e.target.value })}
+					/>
+					<input
+						className="menus__colour-hex"
+						value={colours.selectColour}
+						onChange={(e) => onChange({ ...colours, selectColour: e.target.value })}
+						maxLength={7}
+					/>
 				</div>
-			))}
+				<div className="menus__colour-row">
+					<label className="text-muted">Opacity</label>
+					<input
+						type="range"
+						min="0"
+						max="1"
+						step="0.05"
+						value={colours.selectOpacity}
+						onChange={(e) => onChange({ ...colours, selectOpacity: Number(e.target.value) })}
+					/>
+					<span className="text-muted">{Math.round(colours.selectOpacity * 100)}%</span>
+				</div>
+				<div
+					className="menus__colour-swatch"
+					style={{
+						background: colours.selectColour,
+						opacity: colours.selectOpacity,
+					}}
+				/>
+			</div>
+			<div className="menus__colour-field">
+				<label className="menus__colour-label">Activate Colour</label>
+				<div className="menus__colour-row">
+					<input
+						type="color"
+						className="menus__colour-input"
+						value={colours.activateColour}
+						onChange={(e) => onChange({ ...colours, activateColour: e.target.value })}
+					/>
+					<input
+						className="menus__colour-hex"
+						value={colours.activateColour}
+						onChange={(e) => onChange({ ...colours, activateColour: e.target.value })}
+						maxLength={7}
+					/>
+				</div>
+				<div className="menus__colour-row">
+					<label className="text-muted">Opacity</label>
+					<input
+						type="range"
+						min="0"
+						max="1"
+						step="0.05"
+						value={colours.activateOpacity}
+						onChange={(e) => onChange({ ...colours, activateOpacity: Number(e.target.value) })}
+					/>
+					<span className="text-muted">{Math.round(colours.activateOpacity * 100)}%</span>
+				</div>
+				<div
+					className="menus__colour-swatch"
+					style={{
+						background: colours.activateColour,
+						opacity: colours.activateOpacity,
+					}}
+				/>
+			</div>
 		</div>
 	);
 }
@@ -663,4 +794,13 @@ function navLabel(navId: string | null, buttons: MenuButton[]): string {
 	if (!navId) return '—';
 	const btn = buttons.find((b) => b.id === navId);
 	return btn ? btn.label : '?';
+}
+
+/** Convert a CSS hex colour + opacity to an rgba() string. */
+function hexToRgba(hex: string, opacity: number): string {
+	const h = hex.replace('#', '');
+	const r = parseInt(h.substring(0, 2), 16) || 0;
+	const g = parseInt(h.substring(2, 4), 16) || 0;
+	const b = parseInt(h.substring(4, 6), 16) || 0;
+	return `rgba(${r}, ${g}, ${b}, ${opacity})`;
 }

@@ -321,6 +321,39 @@ pub struct Menu {
     pub background_asset_id: Option<String>,
     pub buttons: Vec<MenuButton>,
     pub default_button_id: Option<String>,
+    /// Highlight colours for the subpicture overlay (DVD 4-colour palette).
+    #[serde(default)]
+    pub highlight_colours: MenuHighlightColours,
+}
+
+/// DVD subpicture highlight palette colours.
+///
+/// DVD menus use a 4-colour CLUT (colour look-up table) for button overlays.
+/// The "select" colour is shown when a button is navigated to; the "activate"
+/// colour flashes briefly when the button is pressed. Colours are stored as
+/// CSS-style hex strings (e.g. "#ffaa40").
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MenuHighlightColours {
+    /// Colour shown over a button when it is selected/focused.
+    pub select_colour: String,
+    /// Opacity of the select highlight (0.0–1.0).
+    pub select_opacity: f64,
+    /// Colour shown briefly when a button is activated/pressed.
+    pub activate_colour: String,
+    /// Opacity of the activate highlight (0.0–1.0).
+    pub activate_opacity: f64,
+}
+
+impl Default for MenuHighlightColours {
+    fn default() -> Self {
+        Self {
+            select_colour: "#ffaa40".to_string(),
+            select_opacity: 0.6,
+            activate_colour: "#ffffff".to_string(),
+            activate_opacity: 0.8,
+        }
+    }
 }
 
 /// A navigable button within a menu.

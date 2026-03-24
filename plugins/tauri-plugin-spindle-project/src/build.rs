@@ -995,6 +995,7 @@ mod tests {
                 },
             ],
             default_button_id: None,
+            highlight_colours: MenuHighlightColours::default(),
         };
 
         auto_generate_navigation(&mut menu);
@@ -1073,6 +1074,7 @@ mod tests {
                 },
             ],
             default_button_id: None,
+            highlight_colours: MenuHighlightColours::default(),
         };
 
         auto_generate_navigation(&mut menu);

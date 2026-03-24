@@ -244,6 +244,11 @@
 	cursor: pointer;
 }
 
+.titles__hint {
+	font-size: var(--text-xs);
+	margin-bottom: var(--space-2);
+}
+
 /* ── Empty state ──────────────────────────────────────────── */
 
 .titles__empty {

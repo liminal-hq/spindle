@@ -13,6 +13,7 @@ import type {
 	AspectMode,
 	AudioOutputTarget,
 	CopyMode,
+	PlaybackAction,
 	SpindleProjectFile,
 } from '../types/project';
 import './TitlesPage.css';
@@ -110,6 +111,11 @@ export function TitlesPage() {
 							title={selectedTitle}
 							assets={project.assets}
 							standard={project.disc.standard}
+							allTitles={titles}
+							allMenus={[
+								...project.disc.globalMenus,
+								...project.disc.titlesets.flatMap((ts) => ts.menus),
+							]}
 							onUpdate={handleUpdateTitle}
 						/>
 					)}
@@ -254,11 +260,15 @@ function TitleEditor({
 	title,
 	assets,
 	standard,
+	allTitles,
+	allMenus,
 	onUpdate,
 }: {
 	title: Title;
 	assets: Asset[];
 	standard: string;
+	allTitles: { id: string; name: string }[];
+	allMenus: { id: string; name: string }[];
 	onUpdate: (title: Title) => void;
 }) {
 	const selectedAsset = assets.find((a) => a.id === title.sourceAssetId) ?? null;
@@ -559,6 +569,59 @@ function TitleEditor({
 					))}
 				</div>
 			)}
+
+			{/* End Action */}
+			<div className="titles__editor-section">
+				<h4 className="titles__editor-heading">End Action</h4>
+				<p className="titles__hint text-muted">What happens when this title finishes playing.</p>
+				<select
+					className="titles__select"
+					value={endActionToString(title.endAction)}
+					onChange={(e) => onUpdate({ ...title, endAction: stringToEndAction(e.target.value) })}
+				>
+					<option value="">None (stop playback)</option>
+					<option value="stop">Stop</option>
+					<optgroup label="Play Title">
+						{allTitles
+							.filter((t) => t.id !== title.id)
+							.map((t) => (
+								<option key={t.id} value={`playTitle:${t.id}`}>
+									{t.name}
+								</option>
+							))}
+					</optgroup>
+					<optgroup label="Show Menu">
+						{allMenus.map((m) => (
+							<option key={m.id} value={`showMenu:${m.id}`}>
+								{m.name}
+							</option>
+						))}
+					</optgroup>
+				</select>
+			</div>
 		</div>
 	);
+}
+
+function endActionToString(action: PlaybackAction | null): string {
+	if (!action) return '';
+	switch (action.type) {
+		case 'playTitle':
+			return `playTitle:${action.titleId}`;
+		case 'showMenu':
+			return `showMenu:${action.menuId}`;
+		case 'stop':
+			return 'stop';
+		default:
+			return '';
+	}
+}
+
+function stringToEndAction(str: string): PlaybackAction | null {
+	if (!str) return null;
+	if (str === 'stop') return { type: 'stop' };
+	const [type, id] = str.split(':');
+	if (type === 'playTitle' && id) return { type: 'playTitle', titleId: id };
+	if (type === 'showMenu' && id) return { type: 'showMenu', menuId: id };
+	return null;
 }

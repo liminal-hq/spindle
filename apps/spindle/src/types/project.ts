@@ -132,6 +132,20 @@ export interface Menu {
 	backgroundAssetId: string | null;
 	buttons: MenuButton[];
 	defaultButtonId: string | null;
+	/** DVD subpicture highlight palette colours. */
+	highlightColours: MenuHighlightColours;
+}
+
+/** DVD subpicture highlight palette for button overlays. */
+export interface MenuHighlightColours {
+	/** CSS hex colour shown when a button is selected/focused. */
+	selectColour: string;
+	/** Opacity of the select highlight (0.0–1.0). */
+	selectOpacity: number;
+	/** CSS hex colour shown briefly when a button is activated/pressed. */
+	activateColour: string;
+	/** Opacity of the activate highlight (0.0–1.0). */
+	activateOpacity: number;
 }
 
 export interface MenuButton {
@@ -309,6 +323,13 @@ export interface CreateProjectRequest {
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
+
+export const DEFAULT_HIGHLIGHT_COLOURS: MenuHighlightColours = {
+	selectColour: '#ffaa40',
+	selectOpacity: 0.6,
+	activateColour: '#ffffff',
+	activateOpacity: 0.8,
+};
 
 export const CAPACITY_LABELS: Record<CapacityTarget, string> = {
 	DVD5: 'DVD-5 (4.7 GB)',
