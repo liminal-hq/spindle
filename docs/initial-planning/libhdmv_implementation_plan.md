@@ -105,12 +105,14 @@ Spindle (Tauri app)
 **Purpose:** Abstract over BDMV source locations (folder on disk, mounted ISO, UDF image).
 
 **Scope:**
+
 - Path resolver for BDMV directory structure (`BDMV/`, `BDMV/BACKUP/`, `CERTIFICATE/`)
 - Enumerate available playlists, clips, streams
 - Fallback to `BDMV/BACKUP/` when primary files are missing or corrupt (matching libbluray behaviour)
 - UDF read support (via `udf` crate or similar) for ISO images
 
 **Key types:**
+
 - `BdmvSource` — trait for filesystem access
 - `FolderSource`, `IsoSource` — concrete implementations
 - `BdmvLayout` — validated directory structure with known file paths
@@ -120,6 +122,7 @@ Spindle (Tauri app)
 **Purpose:** Parse all BDMV control files into strongly typed Rust structures.
 
 **Files parsed:**
+
 - `index.bdmv` — disc index with First Play, Top Menu, and title entries (HDMV vs BD-J, access flags)
 - `MovieObject.bdmv` — movie objects containing HDMV command sequences
 - `*.mpls` — playlists (PlayItems, sub-paths, playmarks/chapters, stream entries)
@@ -127,6 +130,7 @@ Spindle (Tauri app)
 - `sound.bdmv` — button sound effects (AUXDATA)
 
 **Design rules:**
+
 - Signature and version validation (`INDX0100`/`INDX0200`/`INDX0300`, `MOBJ0100`/`MOBJ0200`/`MOBJ0300`, etc.)
 - Accept multiple known versions (0100, 0200, 0300); surface unknown versions as warnings, not hard failures
 - Version-aware field reading: 0300 files contain extension data blocks for HEVC/HDR that 0200 files do not
@@ -135,6 +139,7 @@ Spindle (Tauri app)
 - Extension data blocks: parse known extensions, preserve unknown extensions as raw bytes with logging
 
 **Key types:**
+
 - `DiscIndex` — titles, first play object, top menu object, optional HDR flags (0300)
 - `TitleEntry` — object type (HDMV/BD-J), playback type, access flags
 - `MovieObjectFile` — collection of `MovieObject`s, each a sequence of `HdmvCommand`s
@@ -152,6 +157,7 @@ Spindle (Tauri app)
 **Purpose:** Decode and represent the HDMV bytecode instruction set.
 
 **Scope:**
+
 - Decode 12-byte command words into structured instruction types
 - Strongly typed instruction groups: `Branch`, `Compare`, `Set`
 - Strongly typed subgroups and opcodes (e.g., `Branch::Goto`, `Branch::Jump`, `Branch::Play`, `Set::SetSystem`)
@@ -160,6 +166,7 @@ Spindle (Tauri app)
 - Disassembler that produces human-readable instruction traces
 
 **Key types:**
+
 - `HdmvCommand` — raw 12-byte record
 - `Instruction` — decoded instruction enum
 - `Operand` — register reference or immediate value
@@ -170,6 +177,7 @@ Spindle (Tauri app)
 **Purpose:** Execute HDMV movie object command sequences and emit navigation events.
 
 **Scope:**
+
 - Register file: 4096 GPRs (32-bit unsigned), 128 PSRs (32-bit unsigned)
 - Named PSR semantics: `IG_STREAM_ID`, `PRIMARY_AUDIO_ID`, `MENU_PAGE_ID`, `SELECTED_BUTTON_ID`, etc.
 - Instruction execution: branch/compare/set with condition flags
@@ -188,6 +196,7 @@ Spindle (Tauri app)
 - Deterministic execution: given the same register state and commands, always produces the same event sequence
 
 **Key types:**
+
 - `RegisterFile` — GPR + PSR state
 - `VmSession` — execution context (current object, program counter, call stack)
 - `NavEvent` — enum of all events the VM can emit
@@ -198,6 +207,7 @@ Spindle (Tauri app)
 **Purpose:** Decode IGS bitstream segments into a concrete menu scene model.
 
 **Scope:**
+
 - Parse Interactive Composition segments from transport stream PES packets
 - Decode into pages, each containing:
   - Page ID and version
@@ -214,6 +224,7 @@ Spindle (Tauri app)
 - Object segment decoding (RLE-compressed bitmap payloads)
 
 **Key types:**
+
 - `InteractiveComposition` — top-level decoded structure
 - `IgPage` — single menu page
 - `ButtonOverlapGroup` — group of mutually exclusive buttons
@@ -227,6 +238,7 @@ Spindle (Tauri app)
 **Purpose:** Decode PGS subtitle streams into overlay surfaces.
 
 **Scope:**
+
 - Parse PGS segment types: Palette (0x14), Object (0x15), Presentation Composition (0x16), Window (0x17), Display (0x80)
 - RLE bitmap decode into paletted surfaces
 - Palette application (256-entry, YCbCrA → RGBA conversion)
@@ -234,6 +246,7 @@ Spindle (Tauri app)
 - Window positioning and cropping
 
 **Key types:**
+
 - `PgsSegment` — parsed segment enum
 - `PgsDisplaySet` — complete set of segments for one display update
 - `PgsObject` — decoded bitmap
@@ -245,6 +258,7 @@ Spindle (Tauri app)
 **Purpose:** Maintain the runtime state of HDMV menu navigation, independent of rendering.
 
 **Scope:**
+
 - Current page tracking (driven by `PSR_MENU_PAGE_ID`)
 - Focus state (driven by `PSR_SELECTED_BUTTON_ID`)
 - Button enable/disable state
@@ -256,6 +270,7 @@ Spindle (Tauri app)
 - Mouse/pointer hit testing against button bounds
 
 **Key types:**
+
 - `MenuScene` — current page, focus, button states, timers
 - `SceneInput` — enum of user inputs (Up/Down/Left/Right, Select, TopMenu, PopupMenu, ColourKeys)
 - `SceneUpdate` — description of what changed (focus moved, page changed, button activated, commands emitted)
@@ -266,6 +281,7 @@ Spindle (Tauri app)
 **Purpose:** Compose IGS/PGS overlays into renderable output.
 
 **Scope:**
+
 - Renderer trait: `trait HdmvRenderer` with methods for overlay composition
 - Reference CPU compositor: palette lookup → RGBA buffer composition
 - Support for rendering individual button states, full pages, and PGS overlays
@@ -273,6 +289,7 @@ Spindle (Tauri app)
 - PNG/WebP export for Tauri plugin preview transport
 
 **Key types:**
+
 - `HdmvRenderer` — trait
 - `CpuRenderer` — reference implementation
 - `OverlayFrame` — RGBA buffer with dimensions and position
@@ -318,6 +335,7 @@ NavSession::render_preview_png(&self, max_width: u32) -> Vec<u8>
 **Goal:** Working Rust workspace with CI, linting, and fuzz infrastructure in `liminal-hq/libhdmv`.
 
 **Deliverables:**
+
 - New `liminal-hq/libhdmv` repository with Cargo workspace containing all 9 crate stubs
 - CI pipeline: `cargo check`, `cargo test`, `cargo clippy`, `cargo fmt`
 - `cargo-fuzz` targets for `bdmv-parse`, `igs`, `pgs`
@@ -326,6 +344,7 @@ NavSession::render_preview_png(&self, max_width: u32) -> Vec<u8>
 - `README.md` with architecture overview
 
 **Exit criteria:**
+
 - `cargo test` passes across all crates
 - Fuzz targets compile and run (even if no bugs found yet)
 
@@ -338,6 +357,7 @@ NavSession::render_preview_png(&self, max_width: u32) -> Vec<u8>
 **Deliverables:**
 
 #### 1a: `bdmv-io` + `bdmv-parse` core
+
 - `index.bdmv` parser with signature/version validation
 - `MovieObject.bdmv` parser with command extraction
 - MPLS parser (PlayItems, playmarks, stream entries)
@@ -346,11 +366,13 @@ NavSession::render_preview_png(&self, max_width: u32) -> Vec<u8>
 - Fallback to `BDMV/BACKUP/` paths
 
 #### 1b: `hdmv-insn`
+
 - 12-byte command word decoder
 - Complete instruction enum coverage (BRANCH/CMP/SET/SETSYSTEM)
 - Text disassembler producing human-readable traces
 
 #### 1c: `hdmv-inspect` CLI example
+
 - `hdmv-inspect <bdmv-folder>` dumps:
   - Disc index (titles, first play, top menu)
   - Movie objects with disassembled commands
@@ -359,11 +381,13 @@ NavSession::render_preview_png(&self, max_width: u32) -> Vec<u8>
 - JSON output mode for golden-test generation
 
 **Testing:**
+
 - Golden JSON tests for synthetic fixtures
 - Fuzz all parsers with `cargo-fuzz`
 - Version-tolerance tests (0100 and 0200 signatures)
 
 **Exit criteria:**
+
 - Can parse a real decrypted BDMV folder and produce correct structured output
 - All parsers survive fuzz runs without panics
 
@@ -376,11 +400,13 @@ NavSession::render_preview_png(&self, max_width: u32) -> Vec<u8>
 **Deliverables:**
 
 #### 2a: Register file and PSR model
+
 - 4096 GPRs, 128 PSRs with named constants
 - PSR read/write with value-range validation
 - Register snapshot/restore for testing
 
 #### 2b: VM executor
+
 - Instruction dispatch for all BRANCH/CMP/SET groups
 - Conditional execution (branch on compare result)
 - Call stack for `CALL_OBJECT` / `RESUME`
@@ -389,16 +415,19 @@ NavSession::render_preview_png(&self, max_width: u32) -> Vec<u8>
 - Execution step limit (prevent infinite loops in malformed objects)
 
 #### 2c: VM trace harness
+
 - Instruction-by-instruction trace output (PC, instruction, register changes, events)
 - Trace replay from JSON for regression testing
 - Comparison harness for validating against libbluray traces (local only, not redistributed)
 
 **Testing:**
+
 - Synthetic movie objects exercising every instruction group
 - Golden trace tests (instruction sequence → expected events)
 - Edge cases: empty objects, max call depth, unknown opcodes (graceful skip)
 
 **Exit criteria:**
+
 - VM can execute First Play and Top Menu objects from a real disc and emit correct navigation events
 - Trace output matches expected behaviour for all synthetic fixtures
 
@@ -411,6 +440,7 @@ NavSession::render_preview_png(&self, max_width: u32) -> Vec<u8>
 **Deliverables:**
 
 #### 3a: PGS decoder (`pgs` crate)
+
 - Segment parser for all 5 segment types
 - RLE bitmap decompression
 - Palette application (YCbCrA → RGBA)
@@ -418,6 +448,7 @@ NavSession::render_preview_png(&self, max_width: u32) -> Vec<u8>
 - PTS-based timing
 
 #### 3b: IGS decoder (`igs` crate)
+
 - Interactive Composition segment parser
 - Page/BOG/button extraction with all fields
 - Button state object references (Normal/Selected/Activated)
@@ -427,6 +458,7 @@ NavSession::render_preview_png(&self, max_width: u32) -> Vec<u8>
 - Palette and object segment decoding (shared RLE with PGS)
 
 #### 3c: Reference renderer (`hdmv-render` crate)
+
 - CPU compositor: palette lookup + alpha blending onto RGBA buffer
 - Render individual button states
 - Render full page (all buttons in their current states)
@@ -434,12 +466,14 @@ NavSession::render_preview_png(&self, max_width: u32) -> Vec<u8>
 - PNG export for preview/testing
 
 **Testing:**
+
 - Synthetic IGS/PGS fixtures with known pixel output
 - Golden image tests (rendered PNG hash comparison)
 - Fuzz IGS and PGS segment parsers
 - Round-trip: decode → render → compare against expected images
 
 **Exit criteria:**
+
 - Can decode IGS from a real disc and render all menu pages as correct PNG images
 - PGS subtitle overlays render correctly
 
@@ -452,6 +486,7 @@ NavSession::render_preview_png(&self, max_width: u32) -> Vec<u8>
 **Deliverables:**
 
 #### 4a: Scene state machine (`hdmv-scene` crate)
+
 - Page state tracking driven by PSR values
 - Focus navigation: directional input → BOG traversal → focus movement
 - Default button selection on page entry
@@ -461,21 +496,25 @@ NavSession::render_preview_png(&self, max_width: u32) -> Vec<u8>
 - Timer management (composition/selection/user timeouts)
 
 #### 4b: Input handling
+
 - Remote key mapping: Up/Down/Left/Right, Select/OK, TopMenu, PopupMenu, Return, ColourKeys (R/G/Y/B)
 - Mouse/pointer hit testing against button bounds
 - Mouse select (hover) and mouse activate (click)
 
 #### 4c: Integration with VM
+
 - Wire VM `SET_BUTTON_PAGE` / `ENABLE_BUTTON` / `DISABLE_BUTTON` / `POPUP_OFF` events into scene engine
 - Scene changes produce navigation commands that feed back into VM
 
 **Testing:**
+
 - Synthetic menu fixtures with known navigation graphs
 - Automated navigation sequences: "press Down, Down, Right, Select" → verify final state
 - Dead-end detection: verify all buttons are reachable
 - Timer expiry tests
 
 **Exit criteria:**
+
 - Can load a real BD top menu, navigate with keyboard/mouse, activate buttons, and receive correct navigation events
 - Popup menu toggle works correctly
 
@@ -486,6 +525,7 @@ NavSession::render_preview_png(&self, max_width: u32) -> Vec<u8>
 **Goal:** Expose `libhdmv` to Spindle's React frontend via a Tauri v2 plugin.
 
 This phase spans all three repositories:
+
 - `liminal-hq/libhdmv` — ensure the umbrella crate's public API is stable and well-documented
 - `liminal-hq/tauri-plugin-workspace` — add `tauri-plugin-hdmv` as a new crate in the existing plugin workspace
 - `liminal-hq/spindle` — consume the plugin and wire it into the BD backend
@@ -493,6 +533,7 @@ This phase spans all three repositories:
 **Deliverables:**
 
 #### 5a: `tauri-plugin-hdmv` crate (in `liminal-hq/tauri-plugin-workspace`)
+
 - Add `tauri-plugin-hdmv` crate to the existing Tauri plugin workspace alongside other Liminal plugins
 - Git dependency on `libhdmv` umbrella crate (with `[patch]` override for local development)
 - Session lifecycle: open disc → create session → close session
@@ -514,12 +555,14 @@ This phase spans all three repositories:
 - Session management with cleanup on window close
 
 #### 5b: NPM package (`@liminal-hq/tauri-plugin-hdmv`, in `liminal-hq/tauri-plugin-workspace`)
+
 - TypeScript bindings generated from Rust command signatures
 - Type-safe wrappers for all commands
 - Event listener setup for async notifications
 - Published alongside or as part of the plugin workspace's NPM packages
 
 #### 5c: Integration with Spindle (in `liminal-hq/spindle`)
+
 - Add `tauri-plugin-hdmv` dependency to Spindle's `src-tauri/Cargo.toml` (git dependency on `tauri-plugin-workspace`)
 - Add `@liminal-hq/tauri-plugin-hdmv` to Spindle's frontend dependencies
 - Wire plugin into Spindle's BD backend slot
@@ -527,16 +570,19 @@ This phase spans all three repositories:
 - Connect to disc inspection views
 
 **Cross-repo coordination:**
+
 - `libhdmv` must tag a stable release (or pin a commit) before the plugin depends on it in CI
 - The plugin workspace's CI should test against `libhdmv` main to catch breaking changes early
 - Spindle's CI should test against the plugin workspace's main for the same reason
 
 **Testing:**
+
 - End-to-end: open disc folder → inspect → navigate menu → render preview
 - Permission boundary tests: ensure filesystem access is scoped
 - Session lifecycle tests: multiple open/close cycles, concurrent sessions
 
 **Exit criteria:**
+
 - Spindle can open a decrypted BDMV folder, display disc info, and interactively navigate menus in the UI
 
 ---
@@ -550,17 +596,20 @@ This phase is explicitly deferred until Phases 0–5 are stable. It is documente
 **Deliverables:**
 
 #### 6a: IG authoring model
+
 - `IgProject` — editable menu project structure (pages, buttons, images, palette policies)
 - Image import: button artwork for Normal/Selected/Activated states
 - Palette quantisation: auto-reduce to 256-entry palette per page
 - Navigation graph editor output → button nav commands
 
 #### 6b: IG compiler
+
 - Compile `IgProject` → IGS segment stream
 - Generate palette segments, object segments (RLE compress), interactive composition segments
 - Produce correctly timed PES packets for muxing
 
 #### 6c: BDMV structure generator
+
 - Generate `index.bdmv` with title entries
 - Generate `MovieObject.bdmv` with navigation commands (First Play → Top Menu → Play Playlist)
 - Generate MPLS files from playlist definitions
@@ -570,11 +619,13 @@ This phase is explicitly deferred until Phases 0–5 are stable. It is documente
 - Validate output structure
 
 #### 6d: Muxing integration
+
 - Interface with tsMuxeR (or future Rust muxer) for M2TS generation
 - Multiplex IGS PID(s) with video/audio streams
 - Generate correct PCR/PTS/DTS timing
 
 **Exit criteria:**
+
 - Can author a simple top menu + popup menu with button navigation and compile to a valid, playable BDMV folder
 
 ---
@@ -588,6 +639,7 @@ This phase builds on the UHD BD-aware data models established in earlier phases.
 **Deliverables:**
 
 #### 7a: Complete UHD BD parsing
+
 - MPLS extension 3.5 parser for HDR10 static metadata (mastering display colour volume, content light levels)
 - `StreamCodingInfo` extended field parsing for HEVC 0x24 (DynamicRangeType, ColorSpace, HDRPlusFlag)
 - Dolby Vision enhancement layer SubPath parsing and validation
@@ -595,12 +647,14 @@ This phase builds on the UHD BD-aware data models established in earlier phases.
 - UHD BD disc index HDR flags parsing
 
 #### 7b: UHD BD authoring extensions
+
 - Generate 0300-version control files (`INDX0300`, `MOBJ0300`, `MPLS0300`, `HDMV0300`)
 - Write MPLS extension 3.5 blocks with HDR10 static metadata
 - Generate CLPI entries with HEVC stream coding type 0x24 and extended fields
 - SubPath generation for Dolby Vision enhancement layers
 
 #### 7c: Spindle UHD BD integration
+
 - BD-66 and BD-100 capacity tiers in the disc planner
 - Higher bitrate ranges (up to 128 Mbit/s for BD-100)
 - HEVC Main 10 output profile with HDR parameters (display primaries, luminance, MaxCLL, MaxFALL)
@@ -609,6 +663,7 @@ This phase builds on the UHD BD-aware data models established in earlier phases.
 - Integration with Rust ecosystem tools: `hdr10plus_tool` and `dovi_tool` crates for HDR metadata handling
 
 #### 7d: UHD BD validation
+
 - Verify HEVC stream compliance (Main 10, Level 5.1)
 - Verify HDR10 static metadata presence and validity
 - Verify AC-3 fallback presence (same requirement as standard BD)
@@ -616,6 +671,7 @@ This phase builds on the UHD BD-aware data models established in earlier phases.
 - BD-66/BD-100 capacity and bitrate limit validation
 
 **Exit criteria:**
+
 - Can parse and inspect a real UHD BD folder with HDR10/DV content
 - Can author a UHD BD with HEVC video and HDR10 metadata that plays on a UHD BD player
 
@@ -736,16 +792,16 @@ Phases 2 and 3 can proceed in parallel once Phase 1 is complete. Phase 5 spans a
 
 ## 9. Timeline Estimate
 
-| Phase | Duration | Dependencies | Confidence |
-|-------|----------|-------------|------------|
-| 0 — Scaffold | 1 week | None | High |
-| 1 — Parsers + CLI | 3–4 weeks | Phase 0 | High |
-| 2 — VM | 2–3 weeks | Phase 1 | Medium-high |
+| Phase              | Duration  | Dependencies              | Confidence  |
+| ------------------ | --------- | ------------------------- | ----------- |
+| 0 — Scaffold       | 1 week    | None                      | High        |
+| 1 — Parsers + CLI  | 3–4 weeks | Phase 0                   | High        |
+| 2 — VM             | 2–3 weeks | Phase 1                   | Medium-high |
 | 3 — IGS/PGS decode | 3–4 weeks | Phase 1 (parallel with 2) | Medium-high |
-| 4 — Menu scene | 2–3 weeks | Phases 2 + 3 | Medium |
-| 5 — Tauri plugin | 2–3 weeks | Phase 4 | Medium-high |
-| 6 — Authoring | 4–6 weeks | Phase 5 stable | Medium-low |
-| 7 — UHD BD | 3–4 weeks | Phase 6 stable | Medium |
+| 4 — Menu scene     | 2–3 weeks | Phases 2 + 3              | Medium      |
+| 5 — Tauri plugin   | 2–3 weeks | Phase 4                   | Medium-high |
+| 6 — Authoring      | 4–6 weeks | Phase 5 stable            | Medium-low  |
+| 7 — UHD BD         | 3–4 weeks | Phase 6 stable            | Medium      |
 
 **Total to interactive menu preview (Phases 0–5):** ~13–18 weeks
 **Total including standard BD authoring (Phase 6):** ~17–24 weeks
@@ -758,21 +814,25 @@ These estimates assume a single developer working primarily on `libhdmv`. Phases
 ## 10. Integration Points with Spindle
 
 ### Inspection views
+
 - Disc info from `hdmv_get_disc_info` populates the BD Project Overview (mockup 02-bd)
 - Playlist listing from `hdmv_list_playlists` drives the Playlists Overview (mockup 05-bd)
 - Stream info from playlist/clip parsing feeds the Stream Mapping view (mockup 07-bd)
 
 ### Menu preview
+
 - `hdmv_render_preview` provides the menu canvas image for the Menu Editor (mockup 11-bd)
 - `hdmv_get_menu_state` drives the Navigation Preview (mockup 12-bd) — button focus state, navigation graph, validation checks
 - `hdmv_send_key` / `hdmv_mouse_click` enable interactive menu testing with the BD remote simulator
 
 ### Build pipeline
+
 - Phase 6 authoring output feeds into Spindle's BD build pipeline (mockup 14-bd, 15-bd)
 - Compiled IGS streams are passed to tsMuxeR for M2TS muxing
 - Generated BDMV metadata is written directly by `libhdmv`
 
 ### Verification
+
 - Post-build, `libhdmv` can re-parse the authored BDMV output and verify:
   - All playlists resolve to valid clips
   - IGS pages/buttons have valid navigation

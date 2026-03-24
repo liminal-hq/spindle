@@ -1,313 +1,541 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en-CA">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=1280">
-  <title>Spindle — Verification &amp; QA</title>
-  <link rel="stylesheet" href="design-system.css">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
-  <style>
-    body { background: var(--bg-panel); }
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=1280" />
+		<title>Spindle — Verification &amp; QA</title>
+		<link rel="stylesheet" href="design-system.css" />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap"
+			rel="stylesheet"
+		/>
+		<style>
+			body {
+				background: var(--bg-panel);
+			}
 
-    .qa-layout {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: var(--space-4);
-      max-width: 960px;
-    }
-    .qa-layout--full {
-      grid-column: 1 / -1;
-    }
+			.qa-layout {
+				display: grid;
+				grid-template-columns: 1fr 1fr;
+				gap: var(--space-4);
+				max-width: 960px;
+			}
+			.qa-layout--full {
+				grid-column: 1 / -1;
+			}
 
-    /* -- Check category card -- */
-    .check-card {
-      background: var(--bg-card);
-      border: 1px solid var(--border-subtle);
-      border-radius: var(--radius-lg);
-      padding: var(--space-4);
-    }
-    .check-card__header {
-      display: flex;
-      align-items: center;
-      gap: var(--space-2);
-      margin-bottom: var(--space-3);
-    }
-    .check-card__icon {
-      width: 28px; height: 28px;
-      border-radius: 6px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .check-card__title {
-      font-family: var(--font-heading);
-      font-size: var(--text-md);
-      font-weight: 600;
-    }
-    .check-card__count {
-      margin-left: auto;
-    }
+			/* -- Check category card -- */
+			.check-card {
+				background: var(--bg-card);
+				border: 1px solid var(--border-subtle);
+				border-radius: var(--radius-lg);
+				padding: var(--space-4);
+			}
+			.check-card__header {
+				display: flex;
+				align-items: center;
+				gap: var(--space-2);
+				margin-bottom: var(--space-3);
+			}
+			.check-card__icon {
+				width: 28px;
+				height: 28px;
+				border-radius: 6px;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+			}
+			.check-card__title {
+				font-family: var(--font-heading);
+				font-size: var(--text-md);
+				font-weight: 600;
+			}
+			.check-card__count {
+				margin-left: auto;
+			}
 
-    /* -- Individual check rows -- */
-    .check-row {
-      display: flex;
-      align-items: flex-start;
-      gap: var(--space-2);
-      padding: var(--space-2) 0;
-      border-bottom: 1px solid var(--border-subtle);
-      font-size: var(--text-sm);
-    }
-    .check-row:last-child { border-bottom: none; }
+			/* -- Individual check rows -- */
+			.check-row {
+				display: flex;
+				align-items: flex-start;
+				gap: var(--space-2);
+				padding: var(--space-2) 0;
+				border-bottom: 1px solid var(--border-subtle);
+				font-size: var(--text-sm);
+			}
+			.check-row:last-child {
+				border-bottom: none;
+			}
 
-    .check-icon {
-      width: 16px; height: 16px;
-      flex-shrink: 0;
-      margin-top: 2px;
-    }
+			.check-icon {
+				width: 16px;
+				height: 16px;
+				flex-shrink: 0;
+				margin-top: 2px;
+			}
 
-    .check-row__details {
-      font-size: var(--text-xs);
-      color: var(--text-muted);
-      margin-top: 2px;
-    }
+			.check-row__details {
+				font-size: var(--text-xs);
+				color: var(--text-muted);
+				margin-top: 2px;
+			}
 
-    /* -- Summary banner -- */
-    .qa-banner {
-      grid-column: 1 / -1;
-      display: flex;
-      align-items: center;
-      gap: var(--space-4);
-      padding: var(--space-5);
-      background: var(--bg-card);
-      border: 1px solid var(--border-subtle);
-      border-radius: var(--radius-lg);
-      margin-bottom: var(--space-4);
-    }
-    .qa-banner__score {
-      width: 64px; height: 64px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-    }
-    .qa-banner__score-value {
-      font-family: var(--font-heading);
-      font-size: var(--text-2xl);
-      font-weight: 700;
-    }
+			/* -- Summary banner -- */
+			.qa-banner {
+				grid-column: 1 / -1;
+				display: flex;
+				align-items: center;
+				gap: var(--space-4);
+				padding: var(--space-5);
+				background: var(--bg-card);
+				border: 1px solid var(--border-subtle);
+				border-radius: var(--radius-lg);
+				margin-bottom: var(--space-4);
+			}
+			.qa-banner__score {
+				width: 64px;
+				height: 64px;
+				border-radius: 50%;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				flex-shrink: 0;
+			}
+			.qa-banner__score-value {
+				font-family: var(--font-heading);
+				font-size: var(--text-2xl);
+				font-weight: 700;
+			}
 
-    .qa-summary-stats {
-      display: flex;
-      gap: var(--space-6);
-      margin-left: auto;
-    }
-    .qa-stat {
-      text-align: center;
-    }
-    .qa-stat__value {
-      font-family: var(--font-heading);
-      font-size: var(--text-xl);
-      font-weight: 700;
-    }
-    .qa-stat__label {
-      font-size: var(--text-xs);
-      color: var(--text-muted);
-    }
-  </style>
-</head>
-<body>
-  <div style="padding: var(--space-6); max-width: 1020px;">
+			.qa-summary-stats {
+				display: flex;
+				gap: var(--space-6);
+				margin-left: auto;
+			}
+			.qa-stat {
+				text-align: center;
+			}
+			.qa-stat__value {
+				font-family: var(--font-heading);
+				font-size: var(--text-xl);
+				font-weight: 700;
+			}
+			.qa-stat__label {
+				font-size: var(--text-xs);
+				color: var(--text-muted);
+			}
+		</style>
+	</head>
+	<body>
+		<div style="padding: var(--space-6); max-width: 1020px">
+			<div class="page-header">
+				<div>
+					<h1 class="page-title">Verification &amp; QA</h1>
+					<p class="text-muted" style="font-size: var(--text-sm); margin-top: 2px">
+						Post-build quality checks · Last run after build at 13:46
+					</p>
+				</div>
+				<div class="flex gap-2">
+					<button class="btn">Re-run Checks</button>
+					<button class="btn btn--ghost">Export Report</button>
+				</div>
+			</div>
 
-    <div class="page-header">
-      <div>
-        <h1 class="page-title">Verification &amp; QA</h1>
-        <p class="text-muted" style="font-size:var(--text-sm); margin-top:2px;">Post-build quality checks · Last run after build at 13:46</p>
-      </div>
-      <div class="flex gap-2">
-        <button class="btn">Re-run Checks</button>
-        <button class="btn btn--ghost">Export Report</button>
-      </div>
-    </div>
+			<!-- ═══ Summary Banner ═══ -->
+			<div class="qa-banner">
+				<div
+					class="qa-banner__score"
+					style="background: rgba(46, 198, 106, 0.1); border: 2px solid var(--colour-success)"
+				>
+					<div class="qa-banner__score-value" style="color: var(--colour-success)">A</div>
+				</div>
+				<div>
+					<div
+						style="
+							font-family: var(--font-heading);
+							font-size: var(--text-lg);
+							font-weight: 700;
+							color: var(--colour-success);
+						"
+					>
+						Build Verified
+					</div>
+					<div style="font-size: var(--text-sm); color: var(--text-secondary)">
+						All structural checks passed. 2 informational warnings.
+					</div>
+				</div>
+				<div class="qa-summary-stats">
+					<div class="qa-stat">
+						<div class="qa-stat__value" style="color: var(--colour-success)">14</div>
+						<div class="qa-stat__label">Passed</div>
+					</div>
+					<div class="qa-stat">
+						<div class="qa-stat__value" style="color: var(--colour-warning)">2</div>
+						<div class="qa-stat__label">Warnings</div>
+					</div>
+					<div class="qa-stat">
+						<div class="qa-stat__value" style="color: var(--colour-error)">0</div>
+						<div class="qa-stat__label">Errors</div>
+					</div>
+				</div>
+			</div>
 
-    <!-- ═══ Summary Banner ═══ -->
-    <div class="qa-banner">
-      <div class="qa-banner__score" style="background:rgba(46,198,106,0.1);border:2px solid var(--colour-success);">
-        <div class="qa-banner__score-value" style="color:var(--colour-success);">A</div>
-      </div>
-      <div>
-        <div style="font-family:var(--font-heading);font-size:var(--text-lg);font-weight:700;color:var(--colour-success);">Build Verified</div>
-        <div style="font-size:var(--text-sm);color:var(--text-secondary);">All structural checks passed. 2 informational warnings.</div>
-      </div>
-      <div class="qa-summary-stats">
-        <div class="qa-stat">
-          <div class="qa-stat__value" style="color:var(--colour-success);">14</div>
-          <div class="qa-stat__label">Passed</div>
-        </div>
-        <div class="qa-stat">
-          <div class="qa-stat__value" style="color:var(--colour-warning);">2</div>
-          <div class="qa-stat__label">Warnings</div>
-        </div>
-        <div class="qa-stat">
-          <div class="qa-stat__value" style="color:var(--colour-error);">0</div>
-          <div class="qa-stat__label">Errors</div>
-        </div>
-      </div>
-    </div>
+			<div class="qa-layout">
+				<!-- ═══ Structural Checks ═══ -->
+				<div class="check-card">
+					<div class="check-card__header">
+						<div class="check-card__icon" style="background: rgba(46, 198, 106, 0.1)">
+							<svg
+								width="14"
+								height="14"
+								viewBox="0 0 16 16"
+								fill="none"
+								stroke="var(--colour-success)"
+								stroke-width="1.5"
+							>
+								<path d="M2 4l4-2h8v12H2z" />
+							</svg>
+						</div>
+						<div class="check-card__title">Structure</div>
+						<span class="badge badge--remux check-card__count">5/5</span>
+					</div>
 
-    <div class="qa-layout">
+					<div class="check-row">
+						<svg
+							class="check-icon"
+							viewBox="0 0 16 16"
+							fill="none"
+							stroke="var(--colour-success)"
+							stroke-width="1.5"
+						>
+							<circle cx="8" cy="8" r="6" />
+							<path d="M5 8l2 2 4-4" />
+						</svg>
+						<div>
+							<div style="color: var(--text-primary)">VIDEO_TS directory exists</div>
+							<div class="check-row__details">Contains VTS_01_0.VOB through VTS_01_3.VOB</div>
+						</div>
+					</div>
+					<div class="check-row">
+						<svg
+							class="check-icon"
+							viewBox="0 0 16 16"
+							fill="none"
+							stroke="var(--colour-success)"
+							stroke-width="1.5"
+						>
+							<circle cx="8" cy="8" r="6" />
+							<path d="M5 8l2 2 4-4" />
+						</svg>
+						<div>
+							<div style="color: var(--text-primary)">IFO/BUP files present and paired</div>
+							<div class="check-row__details">
+								VIDEO_TS.IFO, VTS_01_0.IFO + matching .BUP backups
+							</div>
+						</div>
+					</div>
+					<div class="check-row">
+						<svg
+							class="check-icon"
+							viewBox="0 0 16 16"
+							fill="none"
+							stroke="var(--colour-success)"
+							stroke-width="1.5"
+						>
+							<circle cx="8" cy="8" r="6" />
+							<path d="M5 8l2 2 4-4" />
+						</svg>
+						<div>
+							<div style="color: var(--text-primary)">Title count matches project</div>
+							<div class="check-row__details">3 titles authored, 3 found in IFO</div>
+						</div>
+					</div>
+					<div class="check-row">
+						<svg
+							class="check-icon"
+							viewBox="0 0 16 16"
+							fill="none"
+							stroke="var(--colour-success)"
+							stroke-width="1.5"
+						>
+							<circle cx="8" cy="8" r="6" />
+							<path d="M5 8l2 2 4-4" />
+						</svg>
+						<div>
+							<div style="color: var(--text-primary)">Menu structure present</div>
+							<div class="check-row__details">Root menu + 1 sub-menu authored</div>
+						</div>
+					</div>
+					<div class="check-row">
+						<svg
+							class="check-icon"
+							viewBox="0 0 16 16"
+							fill="none"
+							stroke="var(--colour-success)"
+							stroke-width="1.5"
+						>
+							<circle cx="8" cy="8" r="6" />
+							<path d="M5 8l2 2 4-4" />
+						</svg>
+						<div>
+							<div style="color: var(--text-primary)">Total size within disc capacity</div>
+							<div class="check-row__details">4.09 GB &lt; 4.70 GB (DVD-5 limit)</div>
+						</div>
+					</div>
+				</div>
 
-      <!-- ═══ Structural Checks ═══ -->
-      <div class="check-card">
-        <div class="check-card__header">
-          <div class="check-card__icon" style="background:rgba(46,198,106,0.1);">
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="var(--colour-success)" stroke-width="1.5"><path d="M2 4l4-2h8v12H2z"/></svg>
-          </div>
-          <div class="check-card__title">Structure</div>
-          <span class="badge badge--remux check-card__count">5/5</span>
-        </div>
+				<!-- ═══ Compatibility Checks ═══ -->
+				<div class="check-card">
+					<div class="check-card__header">
+						<div class="check-card__icon" style="background: rgba(46, 198, 106, 0.1)">
+							<svg
+								width="14"
+								height="14"
+								viewBox="0 0 16 16"
+								fill="none"
+								stroke="var(--colour-success)"
+								stroke-width="1.5"
+							>
+								<circle cx="8" cy="8" r="6" />
+								<circle cx="8" cy="8" r="2" />
+							</svg>
+						</div>
+						<div class="check-card__title">Compatibility</div>
+						<span class="badge badge--remux check-card__count">5/5</span>
+					</div>
 
-        <div class="check-row">
-          <svg class="check-icon" viewBox="0 0 16 16" fill="none" stroke="var(--colour-success)" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M5 8l2 2 4-4"/></svg>
-          <div>
-            <div style="color:var(--text-primary);">VIDEO_TS directory exists</div>
-            <div class="check-row__details">Contains VTS_01_0.VOB through VTS_01_3.VOB</div>
-          </div>
-        </div>
-        <div class="check-row">
-          <svg class="check-icon" viewBox="0 0 16 16" fill="none" stroke="var(--colour-success)" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M5 8l2 2 4-4"/></svg>
-          <div>
-            <div style="color:var(--text-primary);">IFO/BUP files present and paired</div>
-            <div class="check-row__details">VIDEO_TS.IFO, VTS_01_0.IFO + matching .BUP backups</div>
-          </div>
-        </div>
-        <div class="check-row">
-          <svg class="check-icon" viewBox="0 0 16 16" fill="none" stroke="var(--colour-success)" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M5 8l2 2 4-4"/></svg>
-          <div>
-            <div style="color:var(--text-primary);">Title count matches project</div>
-            <div class="check-row__details">3 titles authored, 3 found in IFO</div>
-          </div>
-        </div>
-        <div class="check-row">
-          <svg class="check-icon" viewBox="0 0 16 16" fill="none" stroke="var(--colour-success)" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M5 8l2 2 4-4"/></svg>
-          <div>
-            <div style="color:var(--text-primary);">Menu structure present</div>
-            <div class="check-row__details">Root menu + 1 sub-menu authored</div>
-          </div>
-        </div>
-        <div class="check-row">
-          <svg class="check-icon" viewBox="0 0 16 16" fill="none" stroke="var(--colour-success)" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M5 8l2 2 4-4"/></svg>
-          <div>
-            <div style="color:var(--text-primary);">Total size within disc capacity</div>
-            <div class="check-row__details">4.09 GB &lt; 4.70 GB (DVD-5 limit)</div>
-          </div>
-        </div>
-      </div>
+					<div class="check-row">
+						<svg
+							class="check-icon"
+							viewBox="0 0 16 16"
+							fill="none"
+							stroke="var(--colour-success)"
+							stroke-width="1.5"
+						>
+							<circle cx="8" cy="8" r="6" />
+							<path d="M5 8l2 2 4-4" />
+						</svg>
+						<div>
+							<div style="color: var(--text-primary)">All video streams are MPEG-2</div>
+						</div>
+					</div>
+					<div class="check-row">
+						<svg
+							class="check-icon"
+							viewBox="0 0 16 16"
+							fill="none"
+							stroke="var(--colour-success)"
+							stroke-width="1.5"
+						>
+							<circle cx="8" cy="8" r="6" />
+							<path d="M5 8l2 2 4-4" />
+						</svg>
+						<div>
+							<div style="color: var(--text-primary)">Resolution matches NTSC Full D1</div>
+							<div class="check-row__details">All titles at 720×480</div>
+						</div>
+					</div>
+					<div class="check-row">
+						<svg
+							class="check-icon"
+							viewBox="0 0 16 16"
+							fill="none"
+							stroke="var(--colour-success)"
+							stroke-width="1.5"
+						>
+							<circle cx="8" cy="8" r="6" />
+							<path d="M5 8l2 2 4-4" />
+						</svg>
+						<div>
+							<div style="color: var(--text-primary)">Audio streams are DVD-legal</div>
+							<div class="check-row__details">AC-3 stereo, 48 kHz on all titles</div>
+						</div>
+					</div>
+					<div class="check-row">
+						<svg
+							class="check-icon"
+							viewBox="0 0 16 16"
+							fill="none"
+							stroke="var(--colour-success)"
+							stroke-width="1.5"
+						>
+							<circle cx="8" cy="8" r="6" />
+							<path d="M5 8l2 2 4-4" />
+						</svg>
+						<div>
+							<div style="color: var(--text-primary)">Frame rate is 29.97fps throughout</div>
+						</div>
+					</div>
+					<div class="check-row">
+						<svg
+							class="check-icon"
+							viewBox="0 0 16 16"
+							fill="none"
+							stroke="var(--colour-success)"
+							stroke-width="1.5"
+						>
+							<circle cx="8" cy="8" r="6" />
+							<path d="M5 8l2 2 4-4" />
+						</svg>
+						<div>
+							<div style="color: var(--text-primary)">Video bitrates within DVD spec limits</div>
+						</div>
+					</div>
+				</div>
 
-      <!-- ═══ Compatibility Checks ═══ -->
-      <div class="check-card">
-        <div class="check-card__header">
-          <div class="check-card__icon" style="background:rgba(46,198,106,0.1);">
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="var(--colour-success)" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="2"/></svg>
-          </div>
-          <div class="check-card__title">Compatibility</div>
-          <span class="badge badge--remux check-card__count">5/5</span>
-        </div>
+				<!-- ═══ Copy/Re-encode Summary ═══ -->
+				<div class="check-card">
+					<div class="check-card__header">
+						<div class="check-card__icon" style="background: rgba(96, 165, 250, 0.1)">
+							<svg
+								width="14"
+								height="14"
+								viewBox="0 0 16 16"
+								fill="none"
+								stroke="var(--brand-blue)"
+								stroke-width="1.5"
+							>
+								<path d="M2 4h12M2 8h8M2 12h10" />
+							</svg>
+						</div>
+						<div class="check-card__title">Encoding Summary</div>
+					</div>
 
-        <div class="check-row">
-          <svg class="check-icon" viewBox="0 0 16 16" fill="none" stroke="var(--colour-success)" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M5 8l2 2 4-4"/></svg>
-          <div>
-            <div style="color:var(--text-primary);">All video streams are MPEG-2</div>
-          </div>
-        </div>
-        <div class="check-row">
-          <svg class="check-icon" viewBox="0 0 16 16" fill="none" stroke="var(--colour-success)" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M5 8l2 2 4-4"/></svg>
-          <div>
-            <div style="color:var(--text-primary);">Resolution matches NTSC Full D1</div>
-            <div class="check-row__details">All titles at 720×480</div>
-          </div>
-        </div>
-        <div class="check-row">
-          <svg class="check-icon" viewBox="0 0 16 16" fill="none" stroke="var(--colour-success)" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M5 8l2 2 4-4"/></svg>
-          <div>
-            <div style="color:var(--text-primary);">Audio streams are DVD-legal</div>
-            <div class="check-row__details">AC-3 stereo, 48 kHz on all titles</div>
-          </div>
-        </div>
-        <div class="check-row">
-          <svg class="check-icon" viewBox="0 0 16 16" fill="none" stroke="var(--colour-success)" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M5 8l2 2 4-4"/></svg>
-          <div>
-            <div style="color:var(--text-primary);">Frame rate is 29.97fps throughout</div>
-          </div>
-        </div>
-        <div class="check-row">
-          <svg class="check-icon" viewBox="0 0 16 16" fill="none" stroke="var(--colour-success)" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M5 8l2 2 4-4"/></svg>
-          <div>
-            <div style="color:var(--text-primary);">Video bitrates within DVD spec limits</div>
-          </div>
-        </div>
-      </div>
+					<div class="check-row">
+						<svg
+							class="check-icon"
+							viewBox="0 0 16 16"
+							fill="none"
+							stroke="var(--colour-success)"
+							stroke-width="1.5"
+						>
+							<circle cx="8" cy="8" r="6" />
+							<path d="M5 8l2 2 4-4" />
+						</svg>
+						<div>
+							<div style="color: var(--text-primary)">Title 1 — Ceremony</div>
+							<div class="check-row__details">Stream copy · No quality loss · 2.14 GB</div>
+						</div>
+					</div>
+					<div class="check-row">
+						<svg
+							class="check-icon"
+							viewBox="0 0 16 16"
+							fill="none"
+							stroke="var(--colour-warning)"
+							stroke-width="1.5"
+						>
+							<circle cx="8" cy="8" r="6" />
+							<path d="M8 5v3M8 10v1" />
+						</svg>
+						<div>
+							<div style="color: var(--text-primary)">Title 2 — Reception</div>
+							<div class="check-row__details" style="color: var(--colour-warning)">
+								Re-encoded from H.264 · Quality depends on bitrate (4,600 kbps)
+							</div>
+						</div>
+					</div>
+					<div class="check-row">
+						<svg
+							class="check-icon"
+							viewBox="0 0 16 16"
+							fill="none"
+							stroke="var(--colour-warning)"
+							stroke-width="1.5"
+						>
+							<circle cx="8" cy="8" r="6" />
+							<path d="M8 5v3M8 10v1" />
+						</svg>
+						<div>
+							<div style="color: var(--text-primary)">Title 3 — Highlights</div>
+							<div class="check-row__details" style="color: var(--colour-warning)">
+								Re-encoded + downscaled from 1080p · 7,500 kbps target
+							</div>
+						</div>
+					</div>
+				</div>
 
-      <!-- ═══ Copy/Re-encode Summary ═══ -->
-      <div class="check-card">
-        <div class="check-card__header">
-          <div class="check-card__icon" style="background:rgba(96,165,250,0.1);">
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="var(--brand-blue)" stroke-width="1.5"><path d="M2 4h12M2 8h8M2 12h10"/></svg>
-          </div>
-          <div class="check-card__title">Encoding Summary</div>
-        </div>
+				<!-- ═══ Navigation Checks ═══ -->
+				<div class="check-card">
+					<div class="check-card__header">
+						<div class="check-card__icon" style="background: rgba(46, 198, 106, 0.1)">
+							<svg
+								width="14"
+								height="14"
+								viewBox="0 0 16 16"
+								fill="none"
+								stroke="var(--colour-success)"
+								stroke-width="1.5"
+							>
+								<path d="M3 8h10M8 3l5 5-5 5" />
+							</svg>
+						</div>
+						<div class="check-card__title">Navigation</div>
+						<span class="badge badge--remux check-card__count">4/4</span>
+					</div>
 
-        <div class="check-row">
-          <svg class="check-icon" viewBox="0 0 16 16" fill="none" stroke="var(--colour-success)" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M5 8l2 2 4-4"/></svg>
-          <div>
-            <div style="color:var(--text-primary);">Title 1 — Ceremony</div>
-            <div class="check-row__details">Stream copy · No quality loss · 2.14 GB</div>
-          </div>
-        </div>
-        <div class="check-row">
-          <svg class="check-icon" viewBox="0 0 16 16" fill="none" stroke="var(--colour-warning)" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 5v3M8 10v1"/></svg>
-          <div>
-            <div style="color:var(--text-primary);">Title 2 — Reception</div>
-            <div class="check-row__details" style="color:var(--colour-warning);">Re-encoded from H.264 · Quality depends on bitrate (4,600 kbps)</div>
-          </div>
-        </div>
-        <div class="check-row">
-          <svg class="check-icon" viewBox="0 0 16 16" fill="none" stroke="var(--colour-warning)" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 5v3M8 10v1"/></svg>
-          <div>
-            <div style="color:var(--text-primary);">Title 3 — Highlights</div>
-            <div class="check-row__details" style="color:var(--colour-warning);">Re-encoded + downscaled from 1080p · 7,500 kbps target</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- ═══ Navigation Checks ═══ -->
-      <div class="check-card">
-        <div class="check-card__header">
-          <div class="check-card__icon" style="background:rgba(46,198,106,0.1);">
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="var(--colour-success)" stroke-width="1.5"><path d="M3 8h10M8 3l5 5-5 5"/></svg>
-          </div>
-          <div class="check-card__title">Navigation</div>
-          <span class="badge badge--remux check-card__count">4/4</span>
-        </div>
-
-        <div class="check-row">
-          <svg class="check-icon" viewBox="0 0 16 16" fill="none" stroke="var(--colour-success)" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M5 8l2 2 4-4"/></svg>
-          <div><div style="color:var(--text-primary);">All menu buttons have valid targets</div></div>
-        </div>
-        <div class="check-row">
-          <svg class="check-icon" viewBox="0 0 16 16" fill="none" stroke="var(--colour-success)" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M5 8l2 2 4-4"/></svg>
-          <div><div style="color:var(--text-primary);">Directional navigation fully connected</div></div>
-        </div>
-        <div class="check-row">
-          <svg class="check-icon" viewBox="0 0 16 16" fill="none" stroke="var(--colour-success)" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M5 8l2 2 4-4"/></svg>
-          <div><div style="color:var(--text-primary);">End actions configured for all titles</div></div>
-        </div>
-        <div class="check-row">
-          <svg class="check-icon" viewBox="0 0 16 16" fill="none" stroke="var(--colour-success)" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M5 8l2 2 4-4"/></svg>
-          <div><div style="color:var(--text-primary);">Chapter points valid and ascending</div></div>
-        </div>
-      </div>
-    </div>
-  </div>
-</body>
+					<div class="check-row">
+						<svg
+							class="check-icon"
+							viewBox="0 0 16 16"
+							fill="none"
+							stroke="var(--colour-success)"
+							stroke-width="1.5"
+						>
+							<circle cx="8" cy="8" r="6" />
+							<path d="M5 8l2 2 4-4" />
+						</svg>
+						<div>
+							<div style="color: var(--text-primary)">All menu buttons have valid targets</div>
+						</div>
+					</div>
+					<div class="check-row">
+						<svg
+							class="check-icon"
+							viewBox="0 0 16 16"
+							fill="none"
+							stroke="var(--colour-success)"
+							stroke-width="1.5"
+						>
+							<circle cx="8" cy="8" r="6" />
+							<path d="M5 8l2 2 4-4" />
+						</svg>
+						<div>
+							<div style="color: var(--text-primary)">Directional navigation fully connected</div>
+						</div>
+					</div>
+					<div class="check-row">
+						<svg
+							class="check-icon"
+							viewBox="0 0 16 16"
+							fill="none"
+							stroke="var(--colour-success)"
+							stroke-width="1.5"
+						>
+							<circle cx="8" cy="8" r="6" />
+							<path d="M5 8l2 2 4-4" />
+						</svg>
+						<div>
+							<div style="color: var(--text-primary)">End actions configured for all titles</div>
+						</div>
+					</div>
+					<div class="check-row">
+						<svg
+							class="check-icon"
+							viewBox="0 0 16 16"
+							fill="none"
+							stroke="var(--colour-success)"
+							stroke-width="1.5"
+						>
+							<circle cx="8" cy="8" r="6" />
+							<path d="M5 8l2 2 4-4" />
+						</svg>
+						<div>
+							<div style="color: var(--text-primary)">Chapter points valid and ascending</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</body>
 </html>

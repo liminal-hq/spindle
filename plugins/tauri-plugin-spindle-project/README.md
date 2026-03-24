@@ -39,9 +39,9 @@ Creates a default project file from a small request payload.
 
 ```json
 {
-  "name": "Wedding DVD",
-  "standard": "NTSC",
-  "capacityTarget": "DVD5"
+	"name": "Wedding DVD",
+	"standard": "NTSC",
+	"capacityTarget": "DVD5"
 }
 ```
 
@@ -106,9 +106,7 @@ If you are using Tauri capabilities, include the default permission set:
 
 ```json
 {
-  "permissions": [
-    "spindle-project:default"
-  ]
+	"permissions": ["spindle-project:default"]
 }
 ```
 
@@ -119,36 +117,36 @@ The default permission set enables all five commands.
 The plugin is invoked through Tauri core APIs:
 
 ```ts
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from '@tauri-apps/api/core';
 
-const project = await invoke("plugin:spindle-project|create_project", {
-  payload: {
-    name: "Wedding DVD",
-    standard: "NTSC",
-    capacityTarget: "DVD5",
-  },
+const project = await invoke('plugin:spindle-project|create_project', {
+	payload: {
+		name: 'Wedding DVD',
+		standard: 'NTSC',
+		capacityTarget: 'DVD5',
+	},
 });
 ```
 
 Parsing and saving typically look like this:
 
 ```ts
-const parsed = await invoke("plugin:spindle-project|parse_project", { json });
+const parsed = await invoke('plugin:spindle-project|parse_project', { json });
 
-const serialised = await invoke("plugin:spindle-project|serialise_project", {
-  project: parsed,
+const serialised = await invoke('plugin:spindle-project|serialise_project', {
+	project: parsed,
 });
 ```
 
 Validation and asset inspection use the same pattern:
 
 ```ts
-const issues = await invoke("plugin:spindle-project|validate_project", {
-  project,
+const issues = await invoke('plugin:spindle-project|validate_project', {
+	project,
 });
 
-const asset = await invoke("plugin:spindle-project|inspect_asset", {
-  path: "/media/clip.mpg",
+const asset = await invoke('plugin:spindle-project|inspect_asset', {
+	path: '/media/clip.mpg',
 });
 ```
 

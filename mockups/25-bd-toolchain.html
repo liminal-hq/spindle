@@ -1,346 +1,509 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en-CA">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=1280">
-  <title>Spindle — BD Toolchain</title>
-  <link rel="stylesheet" href="design-system.css">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
-  <style>
-    body { background: var(--bg-panel); }
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=1280" />
+		<title>Spindle — BD Toolchain</title>
+		<link rel="stylesheet" href="design-system.css" />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap"
+			rel="stylesheet"
+		/>
+		<style>
+			body {
+				background: var(--bg-panel);
+			}
 
-    .settings-layout {
-      display: grid;
-      grid-template-columns: 200px 1fr;
-      gap: var(--space-6);
-      max-width: 900px;
-    }
+			.settings-layout {
+				display: grid;
+				grid-template-columns: 200px 1fr;
+				gap: var(--space-6);
+				max-width: 900px;
+			}
 
-    .settings-nav {
-      display: flex;
-      flex-direction: column;
-      gap: var(--space-1);
-    }
-    .settings-nav__item {
-      padding: var(--space-2) var(--space-3);
-      font-size: var(--text-sm);
-      color: var(--text-secondary);
-      border-radius: var(--radius-md);
-      cursor: pointer;
-    }
-    .settings-nav__item:hover { background: rgba(255,255,255,0.04); color: var(--text-primary); }
-    .settings-nav__item--active {
-      background: rgba(96,165,250,0.1);
-      color: var(--brand-blue);
-      font-weight: 500;
-    }
+			.settings-nav {
+				display: flex;
+				flex-direction: column;
+				gap: var(--space-1);
+			}
+			.settings-nav__item {
+				padding: var(--space-2) var(--space-3);
+				font-size: var(--text-sm);
+				color: var(--text-secondary);
+				border-radius: var(--radius-md);
+				cursor: pointer;
+			}
+			.settings-nav__item:hover {
+				background: rgba(255, 255, 255, 0.04);
+				color: var(--text-primary);
+			}
+			.settings-nav__item--active {
+				background: rgba(96, 165, 250, 0.1);
+				color: var(--brand-blue);
+				font-weight: 500;
+			}
 
-    .section-block { margin-bottom: var(--space-8); }
-    .section-title {
-      font-family: var(--font-heading);
-      font-size: var(--text-lg);
-      font-weight: 700;
-      margin-bottom: var(--space-1);
-    }
-    .section-desc {
-      font-size: var(--text-xs);
-      color: var(--text-muted);
-      margin-bottom: var(--space-4);
-    }
+			.section-block {
+				margin-bottom: var(--space-8);
+			}
+			.section-title {
+				font-family: var(--font-heading);
+				font-size: var(--text-lg);
+				font-weight: 700;
+				margin-bottom: var(--space-1);
+			}
+			.section-desc {
+				font-size: var(--text-xs);
+				color: var(--text-muted);
+				margin-bottom: var(--space-4);
+			}
 
-    .tool-row {
-      display: grid;
-      grid-template-columns: 1fr 100px 80px 100px;
-      align-items: center;
-      gap: var(--space-3);
-      padding: var(--space-3) var(--space-4);
-      background: var(--bg-card);
-      border: 1px solid var(--border-subtle);
-      border-radius: var(--radius-md);
-      margin-bottom: var(--space-2);
-    }
-    .tool-row__name {
-      font-weight: 600;
-      font-size: var(--text-sm);
-      color: var(--text-primary);
-    }
-    .tool-row__desc {
-      font-size: var(--text-xs);
-      color: var(--text-muted);
-    }
-    .tool-row__version {
-      font-family: var(--font-mono);
-      font-size: var(--text-xs);
-      color: var(--text-secondary);
-    }
+			.tool-row {
+				display: grid;
+				grid-template-columns: 1fr 100px 80px 100px;
+				align-items: center;
+				gap: var(--space-3);
+				padding: var(--space-3) var(--space-4);
+				background: var(--bg-card);
+				border: 1px solid var(--border-subtle);
+				border-radius: var(--radius-md);
+				margin-bottom: var(--space-2);
+			}
+			.tool-row__name {
+				font-weight: 600;
+				font-size: var(--text-sm);
+				color: var(--text-primary);
+			}
+			.tool-row__desc {
+				font-size: var(--text-xs);
+				color: var(--text-muted);
+			}
+			.tool-row__version {
+				font-family: var(--font-mono);
+				font-size: var(--text-xs);
+				color: var(--text-secondary);
+			}
 
-    .capability-list {
-      display: flex;
-      flex-wrap: wrap;
-      gap: var(--space-2);
-      margin-top: var(--space-3);
-    }
+			.capability-list {
+				display: flex;
+				flex-wrap: wrap;
+				gap: var(--space-2);
+				margin-top: var(--space-3);
+			}
 
-    .backend-card {
-      display: grid;
-      grid-template-columns: auto 1fr auto;
-      align-items: center;
-      gap: var(--space-4);
-      padding: var(--space-4);
-      border: 1px solid var(--border-subtle);
-      border-radius: var(--radius-lg);
-      margin-bottom: var(--space-3);
-      background: var(--bg-card);
-      cursor: pointer;
-      transition: all var(--transition-fast);
-    }
-    .backend-card:hover { border-color: var(--border-default); }
-    .backend-card--active {
-      border-color: var(--brand-blue);
-      background: rgba(96,165,250,0.04);
-    }
-    .backend-icon {
-      width: 44px; height: 44px;
-      border-radius: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .backend-name {
-      font-weight: 600;
-      font-size: var(--text-md);
-    }
-    .backend-desc {
-      font-size: var(--text-xs);
-      color: var(--text-muted);
-      margin-top: 2px;
-    }
-    .backend-tools {
-      font-size: var(--text-xs);
-      color: var(--text-muted);
-      font-family: var(--font-mono);
-      margin-top: var(--space-1);
-    }
+			.backend-card {
+				display: grid;
+				grid-template-columns: auto 1fr auto;
+				align-items: center;
+				gap: var(--space-4);
+				padding: var(--space-4);
+				border: 1px solid var(--border-subtle);
+				border-radius: var(--radius-lg);
+				margin-bottom: var(--space-3);
+				background: var(--bg-card);
+				cursor: pointer;
+				transition: all var(--transition-fast);
+			}
+			.backend-card:hover {
+				border-color: var(--border-default);
+			}
+			.backend-card--active {
+				border-color: var(--brand-blue);
+				background: rgba(96, 165, 250, 0.04);
+			}
+			.backend-icon {
+				width: 44px;
+				height: 44px;
+				border-radius: 10px;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+			}
+			.backend-name {
+				font-weight: 600;
+				font-size: var(--text-md);
+			}
+			.backend-desc {
+				font-size: var(--text-xs);
+				color: var(--text-muted);
+				margin-top: 2px;
+			}
+			.backend-tools {
+				font-size: var(--text-xs);
+				color: var(--text-muted);
+				font-family: var(--font-mono);
+				margin-top: var(--space-1);
+			}
 
-    .format-banner {
-      display: flex;
-      align-items: center;
-      gap: var(--space-3);
-      padding: var(--space-3) var(--space-4);
-      background: rgba(96,165,250,0.05);
-      border: 1px solid rgba(96,165,250,0.15);
-      border-radius: var(--radius-md);
-      margin-bottom: var(--space-6);
-      font-size: var(--text-sm);
-    }
+			.format-banner {
+				display: flex;
+				align-items: center;
+				gap: var(--space-3);
+				padding: var(--space-3) var(--space-4);
+				background: rgba(96, 165, 250, 0.05);
+				border: 1px solid rgba(96, 165, 250, 0.15);
+				border-radius: var(--radius-md);
+				margin-bottom: var(--space-6);
+				font-size: var(--text-sm);
+			}
 
-    /* -- Shared vs backend comparison -- */
-    .layer-diagram {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: var(--space-3);
-      margin-top: var(--space-4);
-    }
-    .layer-box {
-      padding: var(--space-3);
-      border-radius: var(--radius-md);
-      font-size: var(--text-xs);
-    }
-    .layer-box--shared {
-      background: rgba(255,170,64,0.06);
-      border: 1px solid rgba(255,170,64,0.15);
-    }
-    .layer-box--dvd {
-      background: rgba(255,170,64,0.04);
-      border: 1px solid rgba(255,170,64,0.1);
-    }
-    .layer-box--bd {
-      background: rgba(96,165,250,0.04);
-      border: 1px solid rgba(96,165,250,0.1);
-    }
-    .layer-box__title {
-      font-weight: 600;
-      margin-bottom: var(--space-1);
-    }
-  </style>
-</head>
-<body>
-  <div style="padding: var(--space-6); max-width: 960px;">
+			/* -- Shared vs backend comparison -- */
+			.layer-diagram {
+				display: grid;
+				grid-template-columns: 1fr 1fr;
+				gap: var(--space-3);
+				margin-top: var(--space-4);
+			}
+			.layer-box {
+				padding: var(--space-3);
+				border-radius: var(--radius-md);
+				font-size: var(--text-xs);
+			}
+			.layer-box--shared {
+				background: rgba(255, 170, 64, 0.06);
+				border: 1px solid rgba(255, 170, 64, 0.15);
+			}
+			.layer-box--dvd {
+				background: rgba(255, 170, 64, 0.04);
+				border: 1px solid rgba(255, 170, 64, 0.1);
+			}
+			.layer-box--bd {
+				background: rgba(96, 165, 250, 0.04);
+				border: 1px solid rgba(96, 165, 250, 0.1);
+			}
+			.layer-box__title {
+				font-weight: 600;
+				margin-bottom: var(--space-1);
+			}
+		</style>
+	</head>
+	<body>
+		<div style="padding: var(--space-6); max-width: 960px">
+			<div class="page-header" style="margin-bottom: var(--space-8)">
+				<h1 class="page-title">Settings</h1>
+			</div>
 
-    <div class="page-header" style="margin-bottom:var(--space-8);">
-      <h1 class="page-title">Settings</h1>
-    </div>
+			<div class="settings-layout">
+				<nav class="settings-nav">
+					<div class="settings-nav__item settings-nav__item--active">Toolchain</div>
+					<div class="settings-nav__item">Backends</div>
+					<div class="settings-nav__item">General</div>
+					<div class="settings-nav__item">Cache</div>
+					<div class="settings-nav__item">Build Defaults</div>
+					<div class="settings-nav__item">About</div>
+				</nav>
 
-    <div class="settings-layout">
+				<div>
+					<!-- ═══ Backend Selector ═══ -->
+					<div class="section-block">
+						<div class="section-title">Format Backends</div>
+						<div class="section-desc">
+							Each disc format uses a separate authoring backend with its own toolchain and
+							validation rules.
+						</div>
 
-      <nav class="settings-nav">
-        <div class="settings-nav__item settings-nav__item--active">Toolchain</div>
-        <div class="settings-nav__item">Backends</div>
-        <div class="settings-nav__item">General</div>
-        <div class="settings-nav__item">Cache</div>
-        <div class="settings-nav__item">Build Defaults</div>
-        <div class="settings-nav__item">About</div>
-      </nav>
+						<div class="backend-card">
+							<div class="backend-icon" style="background: rgba(255, 170, 64, 0.12)">
+								<svg
+									width="22"
+									height="22"
+									viewBox="0 0 16 16"
+									fill="none"
+									stroke="var(--brand-orange)"
+									stroke-width="1.5"
+								>
+									<circle cx="8" cy="8" r="6" />
+									<circle cx="8" cy="8" r="2" />
+								</svg>
+							</div>
+							<div>
+								<div class="backend-name" style="color: var(--brand-orange)">DVD-Video</div>
+								<div class="backend-desc">
+									Standard-definition disc authoring with MPEG-2 and AC-3
+								</div>
+								<div class="backend-tools">dvdauthor 0.7.2 · spumux 0.7.2 · ffmpeg 8.1.2</div>
+							</div>
+							<span class="badge badge--remux">Ready</span>
+						</div>
 
-      <div>
+						<div class="backend-card backend-card--active">
+							<div class="backend-icon" style="background: rgba(96, 165, 250, 0.12)">
+								<svg
+									width="22"
+									height="22"
+									viewBox="0 0 16 16"
+									fill="none"
+									stroke="var(--brand-blue)"
+									stroke-width="1.5"
+								>
+									<circle cx="8" cy="8" r="6" />
+									<circle cx="8" cy="8" r="2" />
+									<path d="M8 2A6 6 0 0 1 13 5" stroke-linecap="round" opacity="0.4" />
+								</svg>
+							</div>
+							<div>
+								<div class="backend-name" style="color: var(--brand-blue)">Blu-ray Disc</div>
+								<div class="backend-desc">
+									High-definition disc authoring with H.264/HEVC and lossless audio
+								</div>
+								<div class="backend-tools">tsMuxeR 2.6.27 · bdjo-tools · ffmpeg 8.1.2</div>
+							</div>
+							<span class="badge badge--light">Selected</span>
+						</div>
+					</div>
 
-        <!-- ═══ Backend Selector ═══ -->
-        <div class="section-block">
-          <div class="section-title">Format Backends</div>
-          <div class="section-desc">Each disc format uses a separate authoring backend with its own toolchain and validation rules.</div>
+					<!-- ═══ BD Toolchain ═══ -->
+					<div class="section-block">
+						<div class="section-title">Blu-ray Toolchain</div>
+						<div class="section-desc">
+							Sidecar binaries used for BD stream muxing, menu compilation, and BDMV authoring.
+						</div>
 
-          <div class="backend-card">
-            <div class="backend-icon" style="background:rgba(255,170,64,0.12);">
-              <svg width="22" height="22" viewBox="0 0 16 16" fill="none" stroke="var(--brand-orange)" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="2"/></svg>
-            </div>
-            <div>
-              <div class="backend-name" style="color:var(--brand-orange);">DVD-Video</div>
-              <div class="backend-desc">Standard-definition disc authoring with MPEG-2 and AC-3</div>
-              <div class="backend-tools">dvdauthor 0.7.2 · spumux 0.7.2 · ffmpeg 8.1.2</div>
-            </div>
-            <span class="badge badge--remux">Ready</span>
-          </div>
+						<div class="tool-row">
+							<div>
+								<div class="tool-row__name">FFmpeg</div>
+								<div class="tool-row__desc">
+									H.264/HEVC encoding, audio transcoding, stream extraction
+								</div>
+							</div>
+							<div class="tool-row__version">8.1.2</div>
+							<span class="badge badge--remux">Bundled</span>
+							<span
+								style="
+									font-size: var(--text-xs);
+									color: var(--colour-success);
+									display: flex;
+									align-items: center;
+									gap: 4px;
+								"
+							>
+								<svg
+									width="10"
+									height="10"
+									viewBox="0 0 16 16"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+								>
+									<circle cx="8" cy="8" r="6" />
+									<path d="M5 8l2 2 4-4" />
+								</svg>
+								Available
+							</span>
+						</div>
 
-          <div class="backend-card backend-card--active">
-            <div class="backend-icon" style="background:rgba(96,165,250,0.12);">
-              <svg width="22" height="22" viewBox="0 0 16 16" fill="none" stroke="var(--brand-blue)" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="2"/><path d="M8 2A6 6 0 0 1 13 5" stroke-linecap="round" opacity="0.4"/></svg>
-            </div>
-            <div>
-              <div class="backend-name" style="color:var(--brand-blue);">Blu-ray Disc</div>
-              <div class="backend-desc">High-definition disc authoring with H.264/HEVC and lossless audio</div>
-              <div class="backend-tools">tsMuxeR 2.6.27 · bdjo-tools · ffmpeg 8.1.2</div>
-            </div>
-            <span class="badge badge--light">Selected</span>
-          </div>
-        </div>
+						<div class="tool-row">
+							<div>
+								<div class="tool-row__name">FFprobe</div>
+								<div class="tool-row__desc">Media inspection and stream analysis</div>
+							</div>
+							<div class="tool-row__version">8.1.2</div>
+							<span class="badge badge--remux">Bundled</span>
+							<span
+								style="
+									font-size: var(--text-xs);
+									color: var(--colour-success);
+									display: flex;
+									align-items: center;
+									gap: 4px;
+								"
+							>
+								<svg
+									width="10"
+									height="10"
+									viewBox="0 0 16 16"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+								>
+									<circle cx="8" cy="8" r="6" />
+									<path d="M5 8l2 2 4-4" />
+								</svg>
+								Available
+							</span>
+						</div>
 
-        <!-- ═══ BD Toolchain ═══ -->
-        <div class="section-block">
-          <div class="section-title">Blu-ray Toolchain</div>
-          <div class="section-desc">Sidecar binaries used for BD stream muxing, menu compilation, and BDMV authoring.</div>
+						<div class="tool-row">
+							<div>
+								<div class="tool-row__name">tsMuxeR</div>
+								<div class="tool-row__desc">
+									MPEG-2 transport stream muxing for BD-compliant .m2ts output
+								</div>
+							</div>
+							<div class="tool-row__version">2.6.27</div>
+							<span class="badge badge--remux">Bundled</span>
+							<span
+								style="
+									font-size: var(--text-xs);
+									color: var(--colour-success);
+									display: flex;
+									align-items: center;
+									gap: 4px;
+								"
+							>
+								<svg
+									width="10"
+									height="10"
+									viewBox="0 0 16 16"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+								>
+									<circle cx="8" cy="8" r="6" />
+									<path d="M5 8l2 2 4-4" />
+								</svg>
+								Available
+							</span>
+						</div>
 
-          <div class="tool-row">
-            <div>
-              <div class="tool-row__name">FFmpeg</div>
-              <div class="tool-row__desc">H.264/HEVC encoding, audio transcoding, stream extraction</div>
-            </div>
-            <div class="tool-row__version">8.1.2</div>
-            <span class="badge badge--remux">Bundled</span>
-            <span style="font-size:var(--text-xs);color:var(--colour-success);display:flex;align-items:center;gap:4px;">
-              <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="8" r="6"/><path d="M5 8l2 2 4-4"/></svg>
-              Available
-            </span>
-          </div>
+						<div class="tool-row">
+							<div>
+								<div class="tool-row__name">BD Menu Compiler</div>
+								<div class="tool-row__desc">
+									Interactive graphics stream generation for top and popup menus
+								</div>
+							</div>
+							<div class="tool-row__version">1.0.0</div>
+							<span class="badge badge--remux">Bundled</span>
+							<span
+								style="
+									font-size: var(--text-xs);
+									color: var(--colour-success);
+									display: flex;
+									align-items: center;
+									gap: 4px;
+								"
+							>
+								<svg
+									width="10"
+									height="10"
+									viewBox="0 0 16 16"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+								>
+									<circle cx="8" cy="8" r="6" />
+									<path d="M5 8l2 2 4-4" />
+								</svg>
+								Available
+							</span>
+						</div>
 
-          <div class="tool-row">
-            <div>
-              <div class="tool-row__name">FFprobe</div>
-              <div class="tool-row__desc">Media inspection and stream analysis</div>
-            </div>
-            <div class="tool-row__version">8.1.2</div>
-            <span class="badge badge--remux">Bundled</span>
-            <span style="font-size:var(--text-xs);color:var(--colour-success);display:flex;align-items:center;gap:4px;">
-              <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="8" r="6"/><path d="M5 8l2 2 4-4"/></svg>
-              Available
-            </span>
-          </div>
+						<div class="tool-row">
+							<div>
+								<div class="tool-row__name">BDMV Authoring Tool</div>
+								<div class="tool-row__desc">
+									BDMV directory structure generation, index/MovieObject creation
+								</div>
+							</div>
+							<div class="tool-row__version">1.0.0</div>
+							<span class="badge badge--remux">Bundled</span>
+							<span
+								style="
+									font-size: var(--text-xs);
+									color: var(--colour-success);
+									display: flex;
+									align-items: center;
+									gap: 4px;
+								"
+							>
+								<svg
+									width="10"
+									height="10"
+									viewBox="0 0 16 16"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+								>
+									<circle cx="8" cy="8" r="6" />
+									<path d="M5 8l2 2 4-4" />
+								</svg>
+								Available
+							</span>
+						</div>
 
-          <div class="tool-row">
-            <div>
-              <div class="tool-row__name">tsMuxeR</div>
-              <div class="tool-row__desc">MPEG-2 transport stream muxing for BD-compliant .m2ts output</div>
-            </div>
-            <div class="tool-row__version">2.6.27</div>
-            <span class="badge badge--remux">Bundled</span>
-            <span style="font-size:var(--text-xs);color:var(--colour-success);display:flex;align-items:center;gap:4px;">
-              <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="8" r="6"/><path d="M5 8l2 2 4-4"/></svg>
-              Available
-            </span>
-          </div>
+						<!-- BD Capabilities -->
+						<div style="margin-top: var(--space-4)">
+							<h4 style="font-size: var(--text-sm); margin-bottom: var(--space-2)">
+								Detected BD Capabilities
+							</h4>
+							<div class="capability-list">
+								<span class="tag">H.264 AVC Encode</span>
+								<span class="tag">HEVC Encode</span>
+								<span class="tag">MPEG-2 Encode</span>
+								<span class="tag">DTS-HD MA</span>
+								<span class="tag">Dolby TrueHD</span>
+								<span class="tag">AC-3 Encode</span>
+								<span class="tag">E-AC-3 Encode</span>
+								<span class="tag">LPCM 7.1</span>
+								<span class="tag">M2TS Mux</span>
+								<span class="tag">BDMV Author</span>
+								<span class="tag">IG Stream</span>
+								<span class="tag">PG Subtitles</span>
+								<span class="tag">BD-25 Image</span>
+								<span class="tag">BD-50 Image</span>
+							</div>
+						</div>
+					</div>
 
-          <div class="tool-row">
-            <div>
-              <div class="tool-row__name">BD Menu Compiler</div>
-              <div class="tool-row__desc">Interactive graphics stream generation for top and popup menus</div>
-            </div>
-            <div class="tool-row__version">1.0.0</div>
-            <span class="badge badge--remux">Bundled</span>
-            <span style="font-size:var(--text-xs);color:var(--colour-success);display:flex;align-items:center;gap:4px;">
-              <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="8" r="6"/><path d="M5 8l2 2 4-4"/></svg>
-              Available
-            </span>
-          </div>
+					<!-- ═══ Architecture Diagram ═══ -->
+					<div class="section-block">
+						<div class="section-title">Backend Architecture</div>
+						<div class="section-desc">
+							Shared authoring layers vs format-specific backends. Each backend owns its own
+							legality rules, compilation, and output structure.
+						</div>
 
-          <div class="tool-row">
-            <div>
-              <div class="tool-row__name">BDMV Authoring Tool</div>
-              <div class="tool-row__desc">BDMV directory structure generation, index/MovieObject creation</div>
-            </div>
-            <div class="tool-row__version">1.0.0</div>
-            <span class="badge badge--remux">Bundled</span>
-            <span style="font-size:var(--text-xs);color:var(--colour-success);display:flex;align-items:center;gap:4px;">
-              <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="8" r="6"/><path d="M5 8l2 2 4-4"/></svg>
-              Available
-            </span>
-          </div>
+						<div
+							style="
+								padding: var(--space-4);
+								background: var(--bg-card);
+								border: 1px solid var(--border-subtle);
+								border-radius: var(--radius-lg);
+							"
+						>
+							<!-- Shared layer -->
+							<div class="layer-box layer-box--shared" style="margin-bottom: var(--space-3)">
+								<div class="layer-box__title" style="color: var(--brand-orange)">Shared Core</div>
+								<div style="color: var(--text-muted)">
+									Project model · Asset inspection · Track mapping · Menu intent · Planner engine ·
+									Build orchestration · Diagnostics
+								</div>
+							</div>
 
-          <!-- BD Capabilities -->
-          <div style="margin-top:var(--space-4);">
-            <h4 style="font-size:var(--text-sm);margin-bottom:var(--space-2);">Detected BD Capabilities</h4>
-            <div class="capability-list">
-              <span class="tag">H.264 AVC Encode</span>
-              <span class="tag">HEVC Encode</span>
-              <span class="tag">MPEG-2 Encode</span>
-              <span class="tag">DTS-HD MA</span>
-              <span class="tag">Dolby TrueHD</span>
-              <span class="tag">AC-3 Encode</span>
-              <span class="tag">E-AC-3 Encode</span>
-              <span class="tag">LPCM 7.1</span>
-              <span class="tag">M2TS Mux</span>
-              <span class="tag">BDMV Author</span>
-              <span class="tag">IG Stream</span>
-              <span class="tag">PG Subtitles</span>
-              <span class="tag">BD-25 Image</span>
-              <span class="tag">BD-50 Image</span>
-            </div>
-          </div>
-        </div>
+							<!-- Backend layers side by side -->
+							<div class="layer-diagram">
+								<div class="layer-box layer-box--dvd">
+									<div class="layer-box__title" style="color: var(--brand-orange)">DVD Backend</div>
+									<div style="color: var(--text-muted)">
+										DVD titlesets · MPEG-2 legality · Subpicture menus · dvdauthor compilation ·
+										VIDEO_TS output · DVD validation
+									</div>
+								</div>
+								<div class="layer-box layer-box--bd">
+									<div class="layer-box__title" style="color: var(--brand-blue)">BD Backend</div>
+									<div style="color: var(--text-muted)">
+										BD playlists · H.264/HEVC legality · IG/popup menus · tsMuxeR compilation · BDMV
+										output · BD compliance
+									</div>
+								</div>
+							</div>
 
-        <!-- ═══ Architecture Diagram ═══ -->
-        <div class="section-block">
-          <div class="section-title">Backend Architecture</div>
-          <div class="section-desc">Shared authoring layers vs format-specific backends. Each backend owns its own legality rules, compilation, and output structure.</div>
-
-          <div style="padding:var(--space-4);background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:var(--radius-lg);">
-            <!-- Shared layer -->
-            <div class="layer-box layer-box--shared" style="margin-bottom:var(--space-3);">
-              <div class="layer-box__title" style="color:var(--brand-orange);">Shared Core</div>
-              <div style="color:var(--text-muted);">Project model · Asset inspection · Track mapping · Menu intent · Planner engine · Build orchestration · Diagnostics</div>
-            </div>
-
-            <!-- Backend layers side by side -->
-            <div class="layer-diagram">
-              <div class="layer-box layer-box--dvd">
-                <div class="layer-box__title" style="color:var(--brand-orange);">DVD Backend</div>
-                <div style="color:var(--text-muted);">
-                  DVD titlesets · MPEG-2 legality · Subpicture menus · dvdauthor compilation · VIDEO_TS output · DVD validation
-                </div>
-              </div>
-              <div class="layer-box layer-box--bd">
-                <div class="layer-box__title" style="color:var(--brand-blue);">BD Backend</div>
-                <div style="color:var(--text-muted);">
-                  BD playlists · H.264/HEVC legality · IG/popup menus · tsMuxeR compilation · BDMV output · BD compliance
-                </div>
-              </div>
-            </div>
-
-            <div style="text-align:center;margin-top:var(--space-3);font-size:var(--text-xs);color:var(--text-muted);">
-              Shared human authoring concepts · Isolated format law · Build routes through selected backend
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</body>
+							<div
+								style="
+									text-align: center;
+									margin-top: var(--space-3);
+									font-size: var(--text-xs);
+									color: var(--text-muted);
+								"
+							>
+								Shared human authoring concepts · Isolated format law · Build routes through
+								selected backend
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</body>
 </html>

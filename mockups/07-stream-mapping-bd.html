@@ -1,388 +1,621 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en-CA">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=1280">
-  <title>Spindle — Stream Mapping (Blu-ray)</title>
-  <link rel="stylesheet" href="design-system.css">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
-  <style>
-    body { background: var(--bg-panel); }
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=1280" />
+		<title>Spindle — Stream Mapping (Blu-ray)</title>
+		<link rel="stylesheet" href="design-system.css" />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap"
+			rel="stylesheet"
+		/>
+		<style>
+			body {
+				background: var(--bg-panel);
+			}
 
-    .mapping-layout {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: var(--space-6);
-      max-width: 960px;
-    }
-    .mapping-panel {
-      background: var(--bg-card);
-      border: 1px solid var(--border-subtle);
-      border-radius: var(--radius-lg);
-      padding: var(--space-4);
-    }
-    .mapping-panel__title {
-      display: flex;
-      align-items: center;
-      gap: var(--space-2);
-      font-size: var(--text-md);
-      font-weight: 600;
-      font-family: var(--font-heading);
-      margin-bottom: var(--space-4);
-    }
+			.mapping-layout {
+				display: grid;
+				grid-template-columns: 1fr 1fr;
+				gap: var(--space-6);
+				max-width: 960px;
+			}
+			.mapping-panel {
+				background: var(--bg-card);
+				border: 1px solid var(--border-subtle);
+				border-radius: var(--radius-lg);
+				padding: var(--space-4);
+			}
+			.mapping-panel__title {
+				display: flex;
+				align-items: center;
+				gap: var(--space-2);
+				font-size: var(--text-md);
+				font-weight: 600;
+				font-family: var(--font-heading);
+				margin-bottom: var(--space-4);
+			}
 
-    .source-stream {
-      display: flex;
-      align-items: center;
-      gap: var(--space-3);
-      padding: var(--space-3);
-      border: 1px solid var(--border-subtle);
-      border-radius: var(--radius-md);
-      margin-bottom: var(--space-2);
-      transition: all var(--transition-fast);
-    }
-    .source-stream:hover { border-color: var(--border-default); background: rgba(255,255,255,0.02); }
-    .source-stream--selected {
-      border-color: rgba(96,165,250,0.3);
-      background: rgba(96,165,250,0.04);
-    }
-    .source-stream--excluded { opacity: 0.4; }
+			.source-stream {
+				display: flex;
+				align-items: center;
+				gap: var(--space-3);
+				padding: var(--space-3);
+				border: 1px solid var(--border-subtle);
+				border-radius: var(--radius-md);
+				margin-bottom: var(--space-2);
+				transition: all var(--transition-fast);
+			}
+			.source-stream:hover {
+				border-color: var(--border-default);
+				background: rgba(255, 255, 255, 0.02);
+			}
+			.source-stream--selected {
+				border-color: rgba(96, 165, 250, 0.3);
+				background: rgba(96, 165, 250, 0.04);
+			}
+			.source-stream--excluded {
+				opacity: 0.4;
+			}
 
-    .stream-checkbox {
-      width: 18px; height: 18px;
-      border-radius: 4px;
-      border: 2px solid var(--border-default);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      flex-shrink: 0;
-    }
-    .stream-checkbox--checked {
-      background: var(--brand-blue);
-      border-color: var(--brand-blue);
-    }
+			.stream-checkbox {
+				width: 18px;
+				height: 18px;
+				border-radius: 4px;
+				border: 2px solid var(--border-default);
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				cursor: pointer;
+				flex-shrink: 0;
+			}
+			.stream-checkbox--checked {
+				background: var(--brand-blue);
+				border-color: var(--brand-blue);
+			}
 
-    .stream-badge {
-      width: 28px; height: 28px;
-      border-radius: 6px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 11px;
-      font-weight: 700;
-      flex-shrink: 0;
-    }
-    .stream-badge--v { background: rgba(96,165,250,0.15); color: var(--brand-blue); }
-    .stream-badge--a { background: rgba(34,211,238,0.15); color: var(--brand-cyan); }
-    .stream-badge--s { background: rgba(167,139,250,0.15); color: var(--brand-purple); }
+			.stream-badge {
+				width: 28px;
+				height: 28px;
+				border-radius: 6px;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				font-size: 11px;
+				font-weight: 700;
+				flex-shrink: 0;
+			}
+			.stream-badge--v {
+				background: rgba(96, 165, 250, 0.15);
+				color: var(--brand-blue);
+			}
+			.stream-badge--a {
+				background: rgba(34, 211, 238, 0.15);
+				color: var(--brand-cyan);
+			}
+			.stream-badge--s {
+				background: rgba(167, 139, 250, 0.15);
+				color: var(--brand-purple);
+			}
 
-    .source-stream__info { flex: 1; }
-    .source-stream__name { font-size: var(--text-sm); font-weight: 500; color: var(--text-primary); }
-    .source-stream__meta { font-size: var(--text-xs); color: var(--text-muted); font-family: var(--font-mono); margin-top: 1px; }
+			.source-stream__info {
+				flex: 1;
+			}
+			.source-stream__name {
+				font-size: var(--text-sm);
+				font-weight: 500;
+				color: var(--text-primary);
+			}
+			.source-stream__meta {
+				font-size: var(--text-xs);
+				color: var(--text-muted);
+				font-family: var(--font-mono);
+				margin-top: 1px;
+			}
 
-    .output-config { margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px solid var(--border-subtle); }
-    .output-config__row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: var(--space-2) 0;
-    }
-    .output-config__label { font-size: var(--text-xs); color: var(--text-muted); }
+			.output-config {
+				margin-top: var(--space-3);
+				padding-top: var(--space-3);
+				border-top: 1px solid var(--border-subtle);
+			}
+			.output-config__row {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				padding: var(--space-2) 0;
+			}
+			.output-config__label {
+				font-size: var(--text-xs);
+				color: var(--text-muted);
+			}
 
-    .encode-toggle {
-      display: inline-flex;
-      border: 1px solid var(--border-default);
-      border-radius: var(--radius-md);
-      overflow: hidden;
-    }
-    .encode-toggle__opt {
-      padding: 3px 10px;
-      font-size: var(--text-xs);
-      font-weight: 500;
-      color: var(--text-muted);
-      cursor: pointer;
-      transition: all var(--transition-fast);
-    }
-    .encode-toggle__opt:hover { color: var(--text-secondary); }
-    .encode-toggle__opt--active { background: rgba(46,198,106,0.12); color: var(--colour-success); }
-    .encode-toggle__opt--active-warn { background: rgba(251,191,36,0.12); color: var(--colour-warning); }
+			.encode-toggle {
+				display: inline-flex;
+				border: 1px solid var(--border-default);
+				border-radius: var(--radius-md);
+				overflow: hidden;
+			}
+			.encode-toggle__opt {
+				padding: 3px 10px;
+				font-size: var(--text-xs);
+				font-weight: 500;
+				color: var(--text-muted);
+				cursor: pointer;
+				transition: all var(--transition-fast);
+			}
+			.encode-toggle__opt:hover {
+				color: var(--text-secondary);
+			}
+			.encode-toggle__opt--active {
+				background: rgba(46, 198, 106, 0.12);
+				color: var(--colour-success);
+			}
+			.encode-toggle__opt--active-warn {
+				background: rgba(251, 191, 36, 0.12);
+				color: var(--colour-warning);
+			}
 
-    .breadcrumb {
-      display: flex; align-items: center; gap: var(--space-1);
-      margin-bottom: var(--space-4); font-size: var(--text-sm);
-    }
-    .breadcrumb a { color: var(--text-muted); }
-    .breadcrumb__sep { color: var(--text-muted); }
-    .breadcrumb__current { color: var(--text-primary); font-weight: 500; }
+			.breadcrumb {
+				display: flex;
+				align-items: center;
+				gap: var(--space-1);
+				margin-bottom: var(--space-4);
+				font-size: var(--text-sm);
+			}
+			.breadcrumb a {
+				color: var(--text-muted);
+			}
+			.breadcrumb__sep {
+				color: var(--text-muted);
+			}
+			.breadcrumb__current {
+				color: var(--text-primary);
+				font-weight: 500;
+			}
 
-    .section-hint {
-      display: flex;
-      align-items: flex-start;
-      gap: var(--space-2);
-      padding: var(--space-3);
-      background: rgba(96,165,250,0.05);
-      border: 1px solid rgba(96,165,250,0.1);
-      border-radius: var(--radius-md);
-      font-size: var(--text-xs);
-      color: var(--text-secondary);
-      margin-bottom: var(--space-4);
-      line-height: 1.5;
-    }
-    .section-hint__icon { color: var(--brand-blue); flex-shrink: 0; margin-top: 1px; }
+			.section-hint {
+				display: flex;
+				align-items: flex-start;
+				gap: var(--space-2);
+				padding: var(--space-3);
+				background: rgba(96, 165, 250, 0.05);
+				border: 1px solid rgba(96, 165, 250, 0.1);
+				border-radius: var(--radius-md);
+				font-size: var(--text-xs);
+				color: var(--text-secondary);
+				margin-bottom: var(--space-4);
+				line-height: 1.5;
+			}
+			.section-hint__icon {
+				color: var(--brand-blue);
+				flex-shrink: 0;
+				margin-top: 1px;
+			}
 
-    .bd-note {
-      display: flex;
-      align-items: flex-start;
-      gap: var(--space-2);
-      padding: var(--space-3);
-      background: rgba(167,139,250,0.05);
-      border: 1px solid rgba(167,139,250,0.12);
-      border-radius: var(--radius-md);
-      font-size: var(--text-xs);
-      color: var(--text-secondary);
-      line-height: 1.5;
-      margin-top: var(--space-3);
-    }
-  </style>
-</head>
-<body>
-  <div style="padding: var(--space-6); max-width: 1020px;">
+			.bd-note {
+				display: flex;
+				align-items: flex-start;
+				gap: var(--space-2);
+				padding: var(--space-3);
+				background: rgba(167, 139, 250, 0.05);
+				border: 1px solid rgba(167, 139, 250, 0.12);
+				border-radius: var(--radius-md);
+				font-size: var(--text-xs);
+				color: var(--text-secondary);
+				line-height: 1.5;
+				margin-top: var(--space-3);
+			}
+		</style>
+	</head>
+	<body>
+		<div style="padding: var(--space-6); max-width: 1020px">
+			<div class="breadcrumb">
+				<a href="#">Playlists</a>
+				<span class="breadcrumb__sep">›</span>
+				<a href="#">Feature Film</a>
+				<span class="breadcrumb__sep">›</span>
+				<span class="breadcrumb__current">Stream Mapping</span>
+			</div>
 
-    <div class="breadcrumb">
-      <a href="#">Playlists</a>
-      <span class="breadcrumb__sep">›</span>
-      <a href="#">Feature Film</a>
-      <span class="breadcrumb__sep">›</span>
-      <span class="breadcrumb__current">Stream Mapping</span>
-    </div>
+			<div class="page-header">
+				<div>
+					<h1 class="page-title">Stream Mapping — Feature Film</h1>
+					<p class="text-muted" style="font-size: var(--text-sm); margin-top: 2px">
+						Select which streams from the source file to include in this playlist
+					</p>
+				</div>
+				<div class="flex gap-2">
+					<button class="btn">Cancel</button>
+					<button class="btn btn--primary">Save Mapping</button>
+				</div>
+			</div>
 
-    <div class="page-header">
-      <div>
-        <h1 class="page-title">Stream Mapping — Feature Film</h1>
-        <p class="text-muted" style="font-size:var(--text-sm); margin-top:2px;">Select which streams from the source file to include in this playlist</p>
-      </div>
-      <div class="flex gap-2">
-        <button class="btn">Cancel</button>
-        <button class="btn btn--primary">Save Mapping</button>
-      </div>
-    </div>
+			<div class="section-hint">
+				<svg
+					class="section-hint__icon"
+					width="14"
+					height="14"
+					viewBox="0 0 16 16"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="1.5"
+				>
+					<circle cx="8" cy="8" r="6" />
+					<path d="M8 5v1M8 8v3" />
+				</svg>
+				<span
+					>Blu-ray allows one video stream, up to 32 audio streams, and up to 255 PGS subtitle
+					streams per playlist. When the primary audio is a lossless codec (DTS-HD MA or TrueHD), a
+					<strong>mandatory AC-3 fallback</strong> is required for player compatibility.</span
+				>
+			</div>
 
-    <div class="section-hint">
-      <svg class="section-hint__icon" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 5v1M8 8v3"/></svg>
-      <span>Blu-ray allows one video stream, up to 32 audio streams, and up to 255 PGS subtitle streams per playlist. When the primary audio is a lossless codec (DTS-HD MA or TrueHD), a <strong>mandatory AC-3 fallback</strong> is required for player compatibility.</span>
-    </div>
+			<div class="mapping-layout">
+				<!-- Source Streams -->
+				<div class="mapping-panel">
+					<div class="mapping-panel__title">
+						<svg
+							width="16"
+							height="16"
+							viewBox="0 0 16 16"
+							fill="none"
+							stroke="var(--brand-blue)"
+							stroke-width="1.5"
+						>
+							<rect x="2" y="3" width="12" height="10" rx="1.5" />
+							<path d="M5 3V2M11 3V2" />
+						</svg>
+						Source Streams
+						<span class="text-muted" style="font-size: var(--text-xs); font-weight: 400"
+							>feature_master.mkv</span
+						>
+					</div>
 
-    <div class="mapping-layout">
+					<!-- Video -->
+					<div class="source-stream source-stream--selected">
+						<div class="stream-checkbox stream-checkbox--checked">
+							<svg
+								width="10"
+								height="10"
+								viewBox="0 0 12 12"
+								fill="none"
+								stroke="var(--text-inverse)"
+								stroke-width="2"
+							>
+								<path d="M2 6l3 3 5-5" />
+							</svg>
+						</div>
+						<div class="stream-badge stream-badge--v">V</div>
+						<div class="source-stream__info">
+							<div class="source-stream__name">Video #0</div>
+							<div class="source-stream__meta">H.264 AVC · 1920×1080 · 23.976fps · High@L4.1</div>
+						</div>
+						<span class="badge badge--remux">BD Legal</span>
+					</div>
 
-      <!-- Source Streams -->
-      <div class="mapping-panel">
-        <div class="mapping-panel__title">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="var(--brand-blue)" stroke-width="1.5"><rect x="2" y="3" width="12" height="10" rx="1.5"/><path d="M5 3V2M11 3V2"/></svg>
-          Source Streams
-          <span class="text-muted" style="font-size:var(--text-xs); font-weight:400;">feature_master.mkv</span>
-        </div>
+					<!-- Audio: DTS-HD MA -->
+					<div class="source-stream source-stream--selected">
+						<div class="stream-checkbox stream-checkbox--checked">
+							<svg
+								width="10"
+								height="10"
+								viewBox="0 0 12 12"
+								fill="none"
+								stroke="var(--text-inverse)"
+								stroke-width="2"
+							>
+								<path d="M2 6l3 3 5-5" />
+							</svg>
+						</div>
+						<div class="stream-badge stream-badge--a">A</div>
+						<div class="source-stream__info">
+							<div class="source-stream__name">Audio #0 — English</div>
+							<div class="source-stream__meta">DTS-HD MA · 5.1 · 48 kHz · ~4,500 kbps</div>
+						</div>
+						<span class="badge badge--remux">BD Legal</span>
+					</div>
 
-        <!-- Video -->
-        <div class="source-stream source-stream--selected">
-          <div class="stream-checkbox stream-checkbox--checked">
-            <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="var(--text-inverse)" stroke-width="2"><path d="M2 6l3 3 5-5"/></svg>
-          </div>
-          <div class="stream-badge stream-badge--v">V</div>
-          <div class="source-stream__info">
-            <div class="source-stream__name">Video #0</div>
-            <div class="source-stream__meta">H.264 AVC · 1920×1080 · 23.976fps · High@L4.1</div>
-          </div>
-          <span class="badge badge--remux">BD Legal</span>
-        </div>
+					<!-- Audio: AAC (needs re-encode) -->
+					<div class="source-stream source-stream--selected">
+						<div class="stream-checkbox stream-checkbox--checked">
+							<svg
+								width="10"
+								height="10"
+								viewBox="0 0 12 12"
+								fill="none"
+								stroke="var(--text-inverse)"
+								stroke-width="2"
+							>
+								<path d="M2 6l3 3 5-5" />
+							</svg>
+						</div>
+						<div class="stream-badge stream-badge--a">A</div>
+						<div class="source-stream__info">
+							<div class="source-stream__name">Audio #1 — Commentary</div>
+							<div class="source-stream__meta">AAC · Stereo · 48 kHz · 256 kbps</div>
+						</div>
+						<span class="badge badge--reencode">Needs Encode</span>
+					</div>
 
-        <!-- Audio: DTS-HD MA -->
-        <div class="source-stream source-stream--selected">
-          <div class="stream-checkbox stream-checkbox--checked">
-            <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="var(--text-inverse)" stroke-width="2"><path d="M2 6l3 3 5-5"/></svg>
-          </div>
-          <div class="stream-badge stream-badge--a">A</div>
-          <div class="source-stream__info">
-            <div class="source-stream__name">Audio #0 — English</div>
-            <div class="source-stream__meta">DTS-HD MA · 5.1 · 48 kHz · ~4,500 kbps</div>
-          </div>
-          <span class="badge badge--remux">BD Legal</span>
-        </div>
+					<!-- Subtitle: PGS -->
+					<div class="source-stream source-stream--selected">
+						<div class="stream-checkbox stream-checkbox--checked">
+							<svg
+								width="10"
+								height="10"
+								viewBox="0 0 12 12"
+								fill="none"
+								stroke="var(--text-inverse)"
+								stroke-width="2"
+							>
+								<path d="M2 6l3 3 5-5" />
+							</svg>
+						</div>
+						<div class="stream-badge stream-badge--s">S</div>
+						<div class="source-stream__info">
+							<div class="source-stream__name">Subtitle #0 — English SDH</div>
+							<div class="source-stream__meta">PGS (Presentation Graphics Stream)</div>
+						</div>
+						<span class="badge badge--remux">BD Legal</span>
+					</div>
 
-        <!-- Audio: AAC (needs re-encode) -->
-        <div class="source-stream source-stream--selected">
-          <div class="stream-checkbox stream-checkbox--checked">
-            <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="var(--text-inverse)" stroke-width="2"><path d="M2 6l3 3 5-5"/></svg>
-          </div>
-          <div class="stream-badge stream-badge--a">A</div>
-          <div class="source-stream__info">
-            <div class="source-stream__name">Audio #1 — Commentary</div>
-            <div class="source-stream__meta">AAC · Stereo · 48 kHz · 256 kbps</div>
-          </div>
-          <span class="badge badge--reencode">Needs Encode</span>
-        </div>
+					<!-- Subtitle: SRT (needs conversion) -->
+					<div class="source-stream source-stream--selected">
+						<div class="stream-checkbox stream-checkbox--checked">
+							<svg
+								width="10"
+								height="10"
+								viewBox="0 0 12 12"
+								fill="none"
+								stroke="var(--text-inverse)"
+								stroke-width="2"
+							>
+								<path d="M2 6l3 3 5-5" />
+							</svg>
+						</div>
+						<div class="stream-badge stream-badge--s">S</div>
+						<div class="source-stream__info">
+							<div class="source-stream__name">Subtitle #1 — French</div>
+							<div class="source-stream__meta">SRT (text) — will convert to PGS</div>
+						</div>
+						<span class="badge badge--reencode">Convert</span>
+					</div>
 
-        <!-- Subtitle: PGS -->
-        <div class="source-stream source-stream--selected">
-          <div class="stream-checkbox stream-checkbox--checked">
-            <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="var(--text-inverse)" stroke-width="2"><path d="M2 6l3 3 5-5"/></svg>
-          </div>
-          <div class="stream-badge stream-badge--s">S</div>
-          <div class="source-stream__info">
-            <div class="source-stream__name">Subtitle #0 — English SDH</div>
-            <div class="source-stream__meta">PGS (Presentation Graphics Stream)</div>
-          </div>
-          <span class="badge badge--remux">BD Legal</span>
-        </div>
+					<!-- Attachment (excluded) -->
+					<div class="source-stream source-stream--excluded">
+						<div class="stream-checkbox"></div>
+						<div
+							class="stream-badge"
+							style="background: rgba(255, 255, 255, 0.05); color: var(--text-muted)"
+						>
+							T
+						</div>
+						<div class="source-stream__info">
+							<div class="source-stream__name" style="color: var(--text-muted)">
+								Attachment #0 — Fonts
+							</div>
+							<div class="source-stream__meta">TTF font data</div>
+						</div>
+						<span class="badge badge--unsupported" style="font-size: 9px">N/A</span>
+					</div>
+				</div>
 
-        <!-- Subtitle: SRT (needs conversion) -->
-        <div class="source-stream source-stream--selected">
-          <div class="stream-checkbox stream-checkbox--checked">
-            <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="var(--text-inverse)" stroke-width="2"><path d="M2 6l3 3 5-5"/></svg>
-          </div>
-          <div class="stream-badge stream-badge--s">S</div>
-          <div class="source-stream__info">
-            <div class="source-stream__name">Subtitle #1 — French</div>
-            <div class="source-stream__meta">SRT (text) — will convert to PGS</div>
-          </div>
-          <span class="badge badge--reencode">Convert</span>
-        </div>
+				<!-- Output Configuration -->
+				<div class="mapping-panel">
+					<div class="mapping-panel__title">
+						<svg
+							width="16"
+							height="16"
+							viewBox="0 0 16 16"
+							fill="none"
+							stroke="var(--colour-success)"
+							stroke-width="1.5"
+						>
+							<circle cx="8" cy="8" r="6" />
+							<circle cx="8" cy="8" r="2" />
+						</svg>
+						Output Configuration
+					</div>
 
-        <!-- Attachment (excluded) -->
-        <div class="source-stream source-stream--excluded">
-          <div class="stream-checkbox"></div>
-          <div class="stream-badge" style="background:rgba(255,255,255,0.05); color:var(--text-muted);">T</div>
-          <div class="source-stream__info">
-            <div class="source-stream__name" style="color:var(--text-muted);">Attachment #0 — Fonts</div>
-            <div class="source-stream__meta">TTF font data</div>
-          </div>
-          <span class="badge badge--unsupported" style="font-size:9px;">N/A</span>
-        </div>
-      </div>
+					<!-- Video -->
+					<div style="margin-bottom: var(--space-4)">
+						<div class="flex items-center gap-2 mb-2">
+							<div
+								class="stream-badge stream-badge--v"
+								style="width: 22px; height: 22px; font-size: 9px"
+							>
+								V
+							</div>
+							<span style="font-size: var(--text-sm); font-weight: 600; color: var(--text-primary)"
+								>Video</span
+							>
+						</div>
+						<div class="output-config__row">
+							<span class="output-config__label">Action</span>
+							<div class="encode-toggle">
+								<span class="encode-toggle__opt">Copy</span>
+								<span class="encode-toggle__opt encode-toggle__opt--active-warn">Re-encode</span>
+							</div>
+						</div>
+						<div class="output-config__row">
+							<span class="output-config__label">Codec</span>
+							<select
+								class="input input--select"
+								style="width: 140px; padding: 3px 28px 3px 8px; font-size: var(--text-xs)"
+							>
+								<option>H.264 AVC</option>
+								<option>HEVC (H.265)</option>
+								<option>MPEG-2</option>
+							</select>
+						</div>
+						<div class="output-config__row">
+							<span class="output-config__label">Resolution</span>
+							<span class="tag">1920×1080p</span>
+						</div>
+						<div class="output-config__row">
+							<span class="output-config__label">Target Bitrate</span>
+							<span
+								style="
+									font-family: var(--font-mono);
+									font-size: var(--text-xs);
+									color: var(--text-primary);
+								"
+								>25,000 kbps</span
+							>
+						</div>
+					</div>
 
-      <!-- Output Configuration -->
-      <div class="mapping-panel">
-        <div class="mapping-panel__title">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="var(--colour-success)" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="2"/></svg>
-          Output Configuration
-        </div>
+					<div
+						style="height: 1px; background: var(--border-subtle); margin: var(--space-2) 0"
+					></div>
 
-        <!-- Video -->
-        <div style="margin-bottom:var(--space-4);">
-          <div class="flex items-center gap-2 mb-2">
-            <div class="stream-badge stream-badge--v" style="width:22px;height:22px;font-size:9px;">V</div>
-            <span style="font-size:var(--text-sm);font-weight:600;color:var(--text-primary);">Video</span>
-          </div>
-          <div class="output-config__row">
-            <span class="output-config__label">Action</span>
-            <div class="encode-toggle">
-              <span class="encode-toggle__opt">Copy</span>
-              <span class="encode-toggle__opt encode-toggle__opt--active-warn">Re-encode</span>
-            </div>
-          </div>
-          <div class="output-config__row">
-            <span class="output-config__label">Codec</span>
-            <select class="input input--select" style="width:140px;padding:3px 28px 3px 8px;font-size:var(--text-xs);">
-              <option>H.264 AVC</option>
-              <option>HEVC (H.265)</option>
-              <option>MPEG-2</option>
-            </select>
-          </div>
-          <div class="output-config__row">
-            <span class="output-config__label">Resolution</span>
-            <span class="tag">1920×1080p</span>
-          </div>
-          <div class="output-config__row">
-            <span class="output-config__label">Target Bitrate</span>
-            <span style="font-family:var(--font-mono);font-size:var(--text-xs);color:var(--text-primary);">25,000 kbps</span>
-          </div>
-        </div>
+					<!-- Audio 1: DTS-HD MA -->
+					<div style="margin-bottom: var(--space-4); margin-top: var(--space-3)">
+						<div class="flex items-center gap-2 mb-2">
+							<div
+								class="stream-badge stream-badge--a"
+								style="width: 22px; height: 22px; font-size: 9px"
+							>
+								A
+							</div>
+							<span style="font-size: var(--text-sm); font-weight: 600; color: var(--text-primary)"
+								>Audio — English (Primary)</span
+							>
+						</div>
+						<div class="output-config__row">
+							<span class="output-config__label">Action</span>
+							<div class="encode-toggle">
+								<span class="encode-toggle__opt encode-toggle__opt--active">Copy</span>
+								<span class="encode-toggle__opt">Re-encode</span>
+							</div>
+						</div>
+						<div class="output-config__row">
+							<span class="output-config__label">Format</span>
+							<select
+								class="input input--select"
+								style="width: 140px; padding: 3px 28px 3px 8px; font-size: var(--text-xs)"
+							>
+								<option>DTS-HD MA</option>
+								<option>Dolby TrueHD</option>
+								<option>LPCM</option>
+								<option>DTS</option>
+								<option>AC-3</option>
+								<option>E-AC-3</option>
+							</select>
+						</div>
+						<div class="output-config__row">
+							<span class="output-config__label">Language</span>
+							<select
+								class="input input--select"
+								style="width: 100px; padding: 3px 28px 3px 8px; font-size: var(--text-xs)"
+							>
+								<option>English</option>
+								<option>French</option>
+							</select>
+						</div>
+					</div>
 
-        <div style="height:1px;background:var(--border-subtle);margin:var(--space-2) 0;"></div>
+					<div
+						style="height: 1px; background: var(--border-subtle); margin: var(--space-2) 0"
+					></div>
 
-        <!-- Audio 1: DTS-HD MA -->
-        <div style="margin-bottom:var(--space-4);margin-top:var(--space-3);">
-          <div class="flex items-center gap-2 mb-2">
-            <div class="stream-badge stream-badge--a" style="width:22px;height:22px;font-size:9px;">A</div>
-            <span style="font-size:var(--text-sm);font-weight:600;color:var(--text-primary);">Audio — English (Primary)</span>
-          </div>
-          <div class="output-config__row">
-            <span class="output-config__label">Action</span>
-            <div class="encode-toggle">
-              <span class="encode-toggle__opt encode-toggle__opt--active">Copy</span>
-              <span class="encode-toggle__opt">Re-encode</span>
-            </div>
-          </div>
-          <div class="output-config__row">
-            <span class="output-config__label">Format</span>
-            <select class="input input--select" style="width:140px;padding:3px 28px 3px 8px;font-size:var(--text-xs);">
-              <option>DTS-HD MA</option>
-              <option>Dolby TrueHD</option>
-              <option>LPCM</option>
-              <option>DTS</option>
-              <option>AC-3</option>
-              <option>E-AC-3</option>
-            </select>
-          </div>
-          <div class="output-config__row">
-            <span class="output-config__label">Language</span>
-            <select class="input input--select" style="width:100px;padding:3px 28px 3px 8px;font-size:var(--text-xs);">
-              <option>English</option>
-              <option>French</option>
-            </select>
-          </div>
-        </div>
+					<!-- AC-3 Fallback (auto-generated) -->
+					<div
+						style="
+							margin-bottom: var(--space-4);
+							margin-top: var(--space-3);
+							padding: var(--space-3);
+							background: rgba(96, 165, 250, 0.04);
+							border: 1px solid rgba(96, 165, 250, 0.1);
+							border-radius: var(--radius-md);
+						"
+					>
+						<div class="flex items-center gap-2 mb-2">
+							<div
+								class="stream-badge stream-badge--a"
+								style="width: 22px; height: 22px; font-size: 9px"
+							>
+								A
+							</div>
+							<span style="font-size: var(--text-sm); font-weight: 600; color: var(--brand-blue)"
+								>AC-3 Fallback (Auto)</span
+							>
+							<span class="badge badge--light" style="font-size: 9px; margin-left: auto"
+								>Required</span
+							>
+						</div>
+						<div class="output-config__row">
+							<span class="output-config__label">Source</span>
+							<span style="font-size: var(--text-xs); color: var(--text-secondary)"
+								>Downmix from DTS-HD MA</span
+							>
+						</div>
+						<div class="output-config__row">
+							<span class="output-config__label">Format</span>
+							<span style="font-size: var(--text-xs); color: var(--text-primary); font-weight: 500"
+								>AC-3 · 5.1 · 640 kbps</span
+							>
+						</div>
+					</div>
 
-        <div style="height:1px;background:var(--border-subtle);margin:var(--space-2) 0;"></div>
+					<div
+						style="height: 1px; background: var(--border-subtle); margin: var(--space-2) 0"
+					></div>
 
-        <!-- AC-3 Fallback (auto-generated) -->
-        <div style="margin-bottom:var(--space-4);margin-top:var(--space-3);padding:var(--space-3);background:rgba(96,165,250,0.04);border:1px solid rgba(96,165,250,0.1);border-radius:var(--radius-md);">
-          <div class="flex items-center gap-2 mb-2">
-            <div class="stream-badge stream-badge--a" style="width:22px;height:22px;font-size:9px;">A</div>
-            <span style="font-size:var(--text-sm);font-weight:600;color:var(--brand-blue);">AC-3 Fallback (Auto)</span>
-            <span class="badge badge--light" style="font-size:9px;margin-left:auto;">Required</span>
-          </div>
-          <div class="output-config__row">
-            <span class="output-config__label">Source</span>
-            <span style="font-size:var(--text-xs);color:var(--text-secondary);">Downmix from DTS-HD MA</span>
-          </div>
-          <div class="output-config__row">
-            <span class="output-config__label">Format</span>
-            <span style="font-size:var(--text-xs);color:var(--text-primary);font-weight:500;">AC-3 · 5.1 · 640 kbps</span>
-          </div>
-        </div>
+					<!-- Audio 2: Commentary -->
+					<div style="margin-bottom: var(--space-4); margin-top: var(--space-3)">
+						<div class="flex items-center gap-2 mb-2">
+							<div
+								class="stream-badge stream-badge--a"
+								style="width: 22px; height: 22px; font-size: 9px"
+							>
+								A
+							</div>
+							<span style="font-size: var(--text-sm); font-weight: 600; color: var(--text-primary)"
+								>Audio — Commentary</span
+							>
+						</div>
+						<div class="output-config__row">
+							<span class="output-config__label">Action</span>
+							<div class="encode-toggle">
+								<span class="encode-toggle__opt">Copy</span>
+								<span class="encode-toggle__opt encode-toggle__opt--active-warn">Re-encode</span>
+							</div>
+						</div>
+						<div class="output-config__row">
+							<span class="output-config__label">Format</span>
+							<select
+								class="input input--select"
+								style="width: 140px; padding: 3px 28px 3px 8px; font-size: var(--text-xs)"
+							>
+								<option>AC-3</option>
+								<option>E-AC-3</option>
+								<option>DTS</option>
+							</select>
+						</div>
+					</div>
 
-        <div style="height:1px;background:var(--border-subtle);margin:var(--space-2) 0;"></div>
-
-        <!-- Audio 2: Commentary -->
-        <div style="margin-bottom:var(--space-4);margin-top:var(--space-3);">
-          <div class="flex items-center gap-2 mb-2">
-            <div class="stream-badge stream-badge--a" style="width:22px;height:22px;font-size:9px;">A</div>
-            <span style="font-size:var(--text-sm);font-weight:600;color:var(--text-primary);">Audio — Commentary</span>
-          </div>
-          <div class="output-config__row">
-            <span class="output-config__label">Action</span>
-            <div class="encode-toggle">
-              <span class="encode-toggle__opt">Copy</span>
-              <span class="encode-toggle__opt encode-toggle__opt--active-warn">Re-encode</span>
-            </div>
-          </div>
-          <div class="output-config__row">
-            <span class="output-config__label">Format</span>
-            <select class="input input--select" style="width:140px;padding:3px 28px 3px 8px;font-size:var(--text-xs);">
-              <option>AC-3</option>
-              <option>E-AC-3</option>
-              <option>DTS</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="bd-note">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="var(--brand-purple)" stroke-width="1.5" style="flex-shrink:0;margin-top:1px;"><circle cx="8" cy="8" r="6"/><path d="M8 5v1M8 8v3"/></svg>
-          <span><strong>BD Audio Rules:</strong> When using DTS-HD MA or TrueHD as primary audio, Blu-ray spec mandates an AC-3 secondary track at ≤640 kbps for universal player compatibility. Spindle generates this automatically.</span>
-        </div>
-      </div>
-    </div>
-  </div>
-</body>
+					<div class="bd-note">
+						<svg
+							width="14"
+							height="14"
+							viewBox="0 0 16 16"
+							fill="none"
+							stroke="var(--brand-purple)"
+							stroke-width="1.5"
+							style="flex-shrink: 0; margin-top: 1px"
+						>
+							<circle cx="8" cy="8" r="6" />
+							<path d="M8 5v1M8 8v3" />
+						</svg>
+						<span
+							><strong>BD Audio Rules:</strong> When using DTS-HD MA or TrueHD as primary audio,
+							Blu-ray spec mandates an AC-3 secondary track at ≤640 kbps for universal player
+							compatibility. Spindle generates this automatically.</span
+						>
+					</div>
+				</div>
+			</div>
+		</div>
+	</body>
 </html>

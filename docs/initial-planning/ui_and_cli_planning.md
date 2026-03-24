@@ -907,4 +907,3 @@ The healthiest architecture is therefore:
 - optional future CLI for validation, planning, and builds
 
 That shape keeps Spindle disciplined while still leaving room for automation and advanced workflows.
-

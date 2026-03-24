@@ -18,7 +18,6 @@ Default permissions for the spindle-project plugin
 <th>Description</th>
 </tr>
 
-
 <tr>
 <td>
 

@@ -2,15 +2,15 @@
 
 ## Executive summary
 
-HDMV (“HD Movie mode”) is the *non-Java* interactive application model in the Blu-ray Disc ecosystem: it combines disc-level control data (e.g., `index.bdmv`, `MovieObject.bdmv`, playlists) with time-synchronised graphics streams (Interactive Graphics for menus, Presentation Graphics for subtitles/overlays) to deliver button-driven navigation, pop-up menus, and limited logic. In practice, HDMV behaves like a small, deterministic, register-based control language (“movie object” command sequences) plus a page-based interactive graphics scene model (“pages”, “button overlap groups”, effects, timeouts), tightly coupled to the player’s playback timeline and state. 
+HDMV (“HD Movie mode”) is the _non-Java_ interactive application model in the Blu-ray Disc ecosystem: it combines disc-level control data (e.g., `index.bdmv`, `MovieObject.bdmv`, playlists) with time-synchronised graphics streams (Interactive Graphics for menus, Presentation Graphics for subtitles/overlays) to deliver button-driven navigation, pop-up menus, and limited logic. In practice, HDMV behaves like a small, deterministic, register-based control language (“movie object” command sequences) plus a page-based interactive graphics scene model (“pages”, “button overlap groups”, effects, timeouts), tightly coupled to the player’s playback timeline and state.
 
-The most implementable public view of HDMV today is *de facto* behavioural specification via reference implementations—especially libbluray—and adjacent decoder codebases for graphics payloads. libbluray exposes: (a) HDMV instruction grouping and opcodes; (b) a VM that emits playback/navigation events; (c) an Interactive Graphics decoder that yields pages/buttons/effects/timeouts; and (d) overlay output models that reveal the essential rendering contract. 
+The most implementable public view of HDMV today is _de facto_ behavioural specification via reference implementations—especially libbluray—and adjacent decoder codebases for graphics payloads. libbluray exposes: (a) HDMV instruction grouping and opcodes; (b) a VM that emits playback/navigation events; (c) an Interactive Graphics decoder that yields pages/buttons/effects/timeouts; and (d) overlay output models that reveal the essential rendering contract.
 
-BD-J (Java-based) is a different runtime model: it adds a general-purpose application environment (networking, storage, permissions, richer UI toolkits) at the cost of JVM integration, asynchronous threading, and larger behavioural surface area. Notably, libbluray’s public API explicitly distinguishes overlay output modalities: HDMV menus/subtitles can be emitted as compressed YUV overlays, while BD-J menus emit ARGB overlays and may invoke callbacks from Java VM threads. A mainstream player integration (VLC media player by VideoLAN) reflects this in user-facing behaviour: when BD-J is detected but Java is unavailable/unsupported, discs are played without BD-J menus. 
+BD-J (Java-based) is a different runtime model: it adds a general-purpose application environment (networking, storage, permissions, richer UI toolkits) at the cost of JVM integration, asynchronous threading, and larger behavioural surface area. Notably, libbluray’s public API explicitly distinguishes overlay output modalities: HDMV menus/subtitles can be emitted as compressed YUV overlays, while BD-J menus emit ARGB overlays and may invoke callbacks from Java VM threads. A mainstream player integration (VLC media player by VideoLAN) reflects this in user-facing behaviour: when BD-J is detected but Java is unavailable/unsupported, discs are played without BD-J menus.
 
-**Feasibility judgement (Linux/Rust)**: a Rust-native HDMV stack is *realistically implementable* on Linux **for decrypted disc folders / ISOs** and for many inspection/preview use cases, because the key complexities (binary parsing, deterministic VM, IGS/PGS decoding, overlay composition) are well bounded and publicly inferable via open implementations. Full disc playback of commercial titles is constrained mainly by DRM (AACS/BD+), not by HDMV itself; libbluray’s API surface even models “encrypted” error conditions distinctly (AACS/BD+). 
+**Feasibility judgement (Linux/Rust)**: a Rust-native HDMV stack is _realistically implementable_ on Linux **for decrypted disc folders / ISOs** and for many inspection/preview use cases, because the key complexities (binary parsing, deterministic VM, IGS/PGS decoding, overlay composition) are well bounded and publicly inferable via open implementations. Full disc playback of commercial titles is constrained mainly by DRM (AACS/BD+), not by HDMV itself; libbluray’s API surface even models “encrypted” error conditions distinctly (AACS/BD+).
 
-**Recommended sequencing**: start as a **parser/inspector + menu preview engine** (HDMV VM + IGS/PGS decode + renderer abstraction) rather than authoring. Authoring requires *compiling* IGS/HDMV assets and generating correct BDMV metadata structures, which is a much larger and less documented surface area than reading/playing. Evidence from tooling ecosystems supports this bias: open tools like tsMuxer focus on muxing and generating basic BDMV structures, and feature requests explicitly ask for Blu-ray menu creation as a missing capability. 
+**Recommended sequencing**: start as a **parser/inspector + menu preview engine** (HDMV VM + IGS/PGS decode + renderer abstraction) rather than authoring. Authoring requires _compiling_ IGS/HDMV assets and generating correct BDMV metadata structures, which is a much larger and less documented surface area than reading/playing. Evidence from tooling ecosystems supports this bias: open tools like tsMuxer focus on muxing and generating basic BDMV structures, and feature requests explicitly ask for Blu-ray menu creation as a missing capability.
 
 To make the deliverable usable as an RFC foundation, this report uses provenance tags:
 
@@ -22,53 +22,53 @@ To make the deliverable usable as an RFC foundation, this report uses provenance
 
 ### Output map to the requested structure
 
-| Requested item | Where it is addressed |
-|---|---|
-| Executive summary | Executive summary (this section) |
-| Glossary | Glossary of terms |
-| Deep technical explanation of HDMV | Blu-ray architecture; HDMV runtime and graphics model |
-| Comparison table: HDMV vs BD-J | Blu-ray architecture (comparison table) |
+| Requested item                             | Where it is addressed                                            |
+| ------------------------------------------ | ---------------------------------------------------------------- |
+| Executive summary                          | Executive summary (this section)                                 |
+| Glossary                                   | Glossary of terms                                                |
+| Deep technical explanation of HDMV         | Blu-ray architecture; HDMV runtime and graphics model            |
+| Comparison table: HDMV vs BD-J             | Blu-ray architecture (comparison table)                          |
 | Disc/file/runtime architecture walkthrough | Blu-ray architecture; HDMV runtime and graphics model (diagrams) |
-| Graphics and menu model analysis | HDMV runtime and graphics model |
-| Existing tools and ecosystem survey | Authoring workflows and ecosystem survey |
-| Rust library design proposal | `libhdmv` Rust library design proposal |
-| Tauri v2 plugin design proposal | Tauri v2 plugin design proposal and phased roadmap |
-| Phased implementation roadmap | Tauri v2 plugin design proposal and phased roadmap |
-| Risks, unknowns, and research gaps | Risks, unknowns, and annotated bibliography |
-| Recommended next steps | Risks, unknowns, and annotated bibliography |
-| Annotated bibliography / source list | Risks, unknowns, and annotated bibliography |
+| Graphics and menu model analysis           | HDMV runtime and graphics model                                  |
+| Existing tools and ecosystem survey        | Authoring workflows and ecosystem survey                         |
+| Rust library design proposal               | `libhdmv` Rust library design proposal                           |
+| Tauri v2 plugin design proposal            | Tauri v2 plugin design proposal and phased roadmap               |
+| Phased implementation roadmap              | Tauri v2 plugin design proposal and phased roadmap               |
+| Risks, unknowns, and research gaps         | Risks, unknowns, and annotated bibliography                      |
+| Recommended next steps                     | Risks, unknowns, and annotated bibliography                      |
+| Annotated bibliography / source list       | Risks, unknowns, and annotated bibliography                      |
 
 ## Glossary of terms
 
-**BDMV (Blu-ray Disc Movie)**: the disc application format directory tree that contains control files (`*.bdmv`), playlists (`*.mpls`), clip info (`*.clpi`), and streams (`*.m2ts`). AACS documentation for BD recordable media depicts the core structure and explicitly references `index.bdmv`, `MovieObject.bdmv`, and the `PLAYLIST/CLIPINF/STREAM` subtrees. 
+**BDMV (Blu-ray Disc Movie)**: the disc application format directory tree that contains control files (`*.bdmv`), playlists (`*.mpls`), clip info (`*.clpi`), and streams (`*.m2ts`). AACS documentation for BD recordable media depicts the core structure and explicitly references `index.bdmv`, `MovieObject.bdmv`, and the `PLAYLIST/CLIPINF/STREAM` subtrees.
 
-**HDMV**: the non-Java Blu-ray application mode that provides menu and navigation logic via “movie objects” and Interactive Graphics, with deterministic commands and registers rather than a general-purpose VM. The Blu-ray audio-visual application white paper treats HDMV as a first-class mode alongside BD-J. 
+**HDMV**: the non-Java Blu-ray application mode that provides menu and navigation logic via “movie objects” and Interactive Graphics, with deterministic commands and registers rather than a general-purpose VM. The Blu-ray audio-visual application white paper treats HDMV as a first-class mode alongside BD-J.
 
-**BD-J**: the Java-based Blu-ray application mode (Xlet model), supporting authenticated/signed applications, network access (with permissions), and local/system storage, among other platform features. 
+**BD-J**: the Java-based Blu-ray application mode (Xlet model), supporting authenticated/signed applications, network access (with permissions), and local/system storage, among other platform features.
 
-**`index.bdmv`**: a disc control file that enumerates titles and indicates which playback objects represent “First Play” and “Top Menu”. A widely used parser (libbluray) treats it as a signature/versioned binary and exposes title object types (HDMV vs BD-J) and access flags (permitted/prohibited/hidden). 
+**`index.bdmv`**: a disc control file that enumerates titles and indicates which playback objects represent “First Play” and “Top Menu”. A widely used parser (libbluray) treats it as a signature/versioned binary and exposes title object types (HDMV vs BD-J) and access flags (permitted/prohibited/hidden).
 
-**`MovieObject.bdmv`**: a disc control file containing “movie objects,” each a sequence of fixed-size commands with flags such as `resume_intention_flag` and masks affecting user operations (menu call/title search). libbluray’s parser shows the file signature/versioning and the 12-byte command layout. 
+**`MovieObject.bdmv`**: a disc control file containing “movie objects,” each a sequence of fixed-size commands with flags such as `resume_intention_flag` and masks affecting user operations (menu call/title search). libbluray’s parser shows the file signature/versioning and the 12-byte command layout.
 
-**MPLS (playlist)**: `*.mpls` files in `BDMV/PLAYLIST/` define PlayItems (clip intervals) and playmarks (chapters). The white paper positions playlists as core playback structure and also introduces “sub-paths” for supplemental content. 
+**MPLS (playlist)**: `*.mpls` files in `BDMV/PLAYLIST/` define PlayItems (clip intervals) and playmarks (chapters). The white paper positions playlists as core playback structure and also introduces “sub-paths” for supplemental content.
 
-**CLPI (clip info)**: `*.clpi` files in `BDMV/CLIPINF/` carry metadata needed to access corresponding `*.m2ts` clip streams (e.g., time stamps/access points), referenced as part of BDMV’s core format structure. 
+**CLPI (clip info)**: `*.clpi` files in `BDMV/CLIPINF/` carry metadata needed to access corresponding `*.m2ts` clip streams (e.g., time stamps/access points), referenced as part of BDMV’s core format structure.
 
-**M2TS**: MPEG-2 transport stream files used for Blu-ray clips in `BDMV/STREAM/`. Both Presentation Graphics (PGS) and Interactive Graphics (IGS) are carried as streams multiplexed with video/audio and can be timed by PTS/DTS. 
+**M2TS**: MPEG-2 transport stream files used for Blu-ray clips in `BDMV/STREAM/`. Both Presentation Graphics (PGS) and Interactive Graphics (IGS) are carried as streams multiplexed with video/audio and can be timed by PTS/DTS.
 
-**PGS (Presentation Graphics Stream)**: a subtitle/overlay stream format designed for frame-accurate graphic overlay; FFmpeg’s decoder models segment types such as palette/object/presentation/window/display and RLE bitmap payloads with up to 256 palette entries. 
+**PGS (Presentation Graphics Stream)**: a subtitle/overlay stream format designed for frame-accurate graphic overlay; FFmpeg’s decoder models segment types such as palette/object/presentation/window/display and RLE bitmap payloads with up to 256 palette entries.
 
-**IGS (Interactive Graphics Stream)**: a timed interactive graphics stream used for HDMV menus, including pages, buttons, effects sequences, timeouts, and navigation commands tied to button actions. libbluray’s IG decoder reveals a page/BOG-centric model with per-page defaults and effect sequences. 
+**IGS (Interactive Graphics Stream)**: a timed interactive graphics stream used for HDMV menus, including pages, buttons, effects sequences, timeouts, and navigation commands tied to button actions. libbluray’s IG decoder reveals a page/BOG-centric model with per-page defaults and effect sequences.
 
-**GPR/PSR**: General Purpose Registers and Player Status Registers. A commercial-grade menu editor manual states the BD-ROM player has 4096 GPRs and 128 PSRs; libbluray defines matching counts and exposes PSR meanings such as interactive graphics stream number, primary audio, and menu page/button IDs. 
+**GPR/PSR**: General Purpose Registers and Player Status Registers. A commercial-grade menu editor manual states the BD-ROM player has 4096 GPRs and 128 PSRs; libbluray defines matching counts and exposes PSR meanings such as interactive graphics stream number, primary audio, and menu page/button IDs.
 
 ## HDMV in the Blu-ray architecture
 
 ### What HDMV is and where it sits
 
-[AUTHORITATIVE DOC] Blu-ray’s audio-visual application model is layered: transport streams carry audio/video and graphics streams; disc-level metadata selects titles and provides navigation entry points; and applications are realised in either HDMV mode (scripted commands + interactive graphics) or BD-J mode (Java Xlets + the BD-J platform). The Blu-ray white paper explicitly describes both HDMV and BD-J and positions Presentation Graphics as available in both modes, while Interactive Graphics is the HDMV mechanism enabling always-on and multi-page menus with frame-accurate timing when multiplexed with video. 
+[AUTHORITATIVE DOC] Blu-ray’s audio-visual application model is layered: transport streams carry audio/video and graphics streams; disc-level metadata selects titles and provides navigation entry points; and applications are realised in either HDMV mode (scripted commands + interactive graphics) or BD-J mode (Java Xlets + the BD-J platform). The Blu-ray white paper explicitly describes both HDMV and BD-J and positions Presentation Graphics as available in both modes, while Interactive Graphics is the HDMV mechanism enabling always-on and multi-page menus with frame-accurate timing when multiplexed with video.
 
-[REVERSE-ENGINEERED] libbluray’s `index.bdmv` model directly encodes this split: titles in the index have `object_type` values for “hdmv” and “bdj”, and HDMV/BD-J each have “movie” vs “interactive” playback types. In addition, per-title access types include “permitted”, “prohibited”, and “hidden”, with explicit comments about whether a title “may be shown on UI”. 
+[REVERSE-ENGINEERED] libbluray’s `index.bdmv` model directly encodes this split: titles in the index have `object_type` values for “hdmv” and “bdj”, and HDMV/BD-J each have “movie” vs “interactive” playback types. In addition, per-title access types include “permitted”, “prohibited”, and “hidden”, with explicit comments about whether a title “may be shown on UI”.
 
 ### Disc structures and files that participate in HDMV
 
@@ -85,32 +85,32 @@ To make the deliverable usable as an RFC foundation, this report uses provenance
   /BACKUP    (backup copies of key metadata)
 ```
 
-This is consistent across (a) BDMV diagrams used in AACS documentation for BD recordable media and (b) Blu-ray application documentation that treats playlists and clip info as distinct from AV streams. 
+This is consistent across (a) BDMV diagrams used in AACS documentation for BD recordable media and (b) Blu-ray application documentation that treats playlists and clip info as distinct from AV streams.
 
-[REVERSE-ENGINEERED] libbluray’s loaders explicitly attempt `BDMV/MovieObject.bdmv` and, on failure, fall back to `BDMV/BACKUP/MovieObject.bdmv`, which is an implementation-level confirmation of the “backup metadata” convention. 
+[REVERSE-ENGINEERED] libbluray’s loaders explicitly attempt `BDMV/MovieObject.bdmv` and, on failure, fall back to `BDMV/BACKUP/MovieObject.bdmv`, which is an implementation-level confirmation of the “backup metadata” convention.
 
 ### Launch and control: “First Play”, “Top Menu”, titles, playlists, movie objects
 
-[REVERSE-ENGINEERED] In libbluray’s `index.bdmv` parser, two “playback objects” appear before the title list: `first_play` and `top_menu`. After these objects are parsed, the index contains `num_titles` and an array of titles, each with `object_type` (HDMV vs BD-J) and `access_type` flags. 
+[REVERSE-ENGINEERED] In libbluray’s `index.bdmv` parser, two “playback objects” appear before the title list: `first_play` and `top_menu`. After these objects are parsed, the index contains `num_titles` and an array of titles, each with `object_type` (HDMV vs BD-J) and `access_type` flags.
 
 [AUTHORITATIVE DOC + REVERSE-ENGINEERED] At a runtime level, libbluray’s public navigation API makes this model concrete:
 
-- `bd_play()` starts navigation “from ‘First Play’ title.”   
-- Special title numbers are defined: “Top Menu” is `0`, and “First Play” is `0xffff`.   
-- Applications can invoke a top menu call with `bd_menu_call(bd, pts)` and must provide current playback position for resuming. 
+- `bd_play()` starts navigation “from ‘First Play’ title.”
+- Special title numbers are defined: “Top Menu” is `0`, and “First Play” is `0xffff`.
+- Applications can invoke a top menu call with `bd_menu_call(bd, pts)` and must provide current playback position for resuming.
 
-This gives an implementer a highly actionable model: *disc insert → parse index → start First Play → transition to Top Menu on request*.
+This gives an implementer a highly actionable model: _disc insert → parse index → start First Play → transition to Top Menu on request_.
 
 ### Comparison table: HDMV vs BD-J
 
-| Dimension | HDMV | BD-J |
-|---|---|---|
-| Runtime model | Deterministic command sequences (“movie objects”) with register state and limited opcodes (branch/compare/set/system-set).  | Java Xlet application model with JVM, security sandbox, signing/authentication, and richer APIs.  |
-| State | GPR/PSR register file; tooling documentation states 4096 GPRs, 128 PSRs; implementations expose PSRs for menu page/button IDs, streams, etc.  | Application-managed state, with access-controlled storage (system + optional local storage) and broader lifecycle state.  |
-| Graphics/menu output | Interactive Graphics (page/button/effects model) plus Presentation Graphics; libbluray exposes compressed YUV overlays for HDMV menus/subtitles.  | Java graphics plane output; libbluray notes BD-J outputs only ARGB graphics; callbacks may occur from Java VM threads.  |
-| Interactivity complexity | Button-driven navigation, page transitions, enable/disable buttons, pop-up menu toggling, timers, stream selection; no general-purpose computation beyond provided ops.  | General-purpose programming within BD-J platform constraints; can respond to diverse events, networked content, storage binding.  |
-| Authoring implications | Authoring hinges on building IGS assets (pages, BOGs, state objects, nav commands) and movie object scripts; ecosystem for creation is narrower and more “format-close”.  | Requires Java application authoring, signing, and platform-specific testing; more tools/skills but also more overhead.  |
-| Deployment/runtime deps | No JVM requirement; fits hardware players with predictable behaviour.  | JVM integration required; real-world players may warn/fallback when Java missing, as seen in VLC’s BD-J handling logic.  |
+| Dimension                | HDMV                                                                                                                                                                     | BD-J                                                                                                                             |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| Runtime model            | Deterministic command sequences (“movie objects”) with register state and limited opcodes (branch/compare/set/system-set).                                               | Java Xlet application model with JVM, security sandbox, signing/authentication, and richer APIs.                                 |
+| State                    | GPR/PSR register file; tooling documentation states 4096 GPRs, 128 PSRs; implementations expose PSRs for menu page/button IDs, streams, etc.                             | Application-managed state, with access-controlled storage (system + optional local storage) and broader lifecycle state.         |
+| Graphics/menu output     | Interactive Graphics (page/button/effects model) plus Presentation Graphics; libbluray exposes compressed YUV overlays for HDMV menus/subtitles.                         | Java graphics plane output; libbluray notes BD-J outputs only ARGB graphics; callbacks may occur from Java VM threads.           |
+| Interactivity complexity | Button-driven navigation, page transitions, enable/disable buttons, pop-up menu toggling, timers, stream selection; no general-purpose computation beyond provided ops.  | General-purpose programming within BD-J platform constraints; can respond to diverse events, networked content, storage binding. |
+| Authoring implications   | Authoring hinges on building IGS assets (pages, BOGs, state objects, nav commands) and movie object scripts; ecosystem for creation is narrower and more “format-close”. | Requires Java application authoring, signing, and platform-specific testing; more tools/skills but also more overhead.           |
+| Deployment/runtime deps  | No JVM requirement; fits hardware players with predictable behaviour.                                                                                                    | JVM integration required; real-world players may warn/fallback when Java missing, as seen in VLC’s BD-J handling logic.          |
 
 ## HDMV runtime and programming model
 
@@ -120,22 +120,22 @@ This section is written as an implementer-facing “how it actually runs” mode
 
 [REVERSE-ENGINEERED] `MovieObject.bdmv` is parsed by libbluray as a signature/versioned binary. It expects:
 
-- signature `MOBJ` and a version signature (`0200` or `0100` in the parser),  
-- an `extension_data_start` pointer field (non-zero triggers “unknown extension data” logging),  
-- a fixed command format: each command is **12 bytes** and is decoded as a packed instruction header plus 32-bit `dst` and 32-bit `src` operands. 
+- signature `MOBJ` and a version signature (`0200` or `0100` in the parser),
+- an `extension_data_start` pointer field (non-zero triggers “unknown extension data” logging),
+- a fixed command format: each command is **12 bytes** and is decoded as a packed instruction header plus 32-bit `dst` and 32-bit `src` operands.
 
-The instruction header includes fields like operand count, instruction group/subgroup, “immediate operand” flags, and per-group option fields (branch/cmp/set). This is the core of the HDMV “bytecode” you would reimplement in Rust. 
+The instruction header includes fields like operand count, instruction group/subgroup, “immediate operand” flags, and per-group option fields (branch/cmp/set). This is the core of the HDMV “bytecode” you would reimplement in Rust.
 
 [REVERSE-ENGINEERED] Instruction groups and opcodes (as implemented) are small and strongly enumerable:
 
-- Groups: `BRANCH`, `CMP`, `SET`.   
-- BRANCH subgroups include `GOTO` (NOP/GOTO/BREAK), `JUMP` (jump/call object/title, resume), and `PLAY` (play playlist, seek to playitem/playmark, terminate, link playitem/mark).   
-- SETSYSTEM includes operations that bridge HDMV logic into playback and menu runtime: `SET_STREAM`, `SET_NV_TIMER`, `SET_BUTTON_PAGE`, `ENABLE_BUTTON`, `DISABLE_BUTTON`, `SET_SEC_STREAM`, `POPUP_OFF`, `STILL_ON`, `STILL_OFF`, `SET_OUTPUT_MODE`, plus additional values. 
+- Groups: `BRANCH`, `CMP`, `SET`.
+- BRANCH subgroups include `GOTO` (NOP/GOTO/BREAK), `JUMP` (jump/call object/title, resume), and `PLAY` (play playlist, seek to playitem/playmark, terminate, link playitem/mark).
+- SETSYSTEM includes operations that bridge HDMV logic into playback and menu runtime: `SET_STREAM`, `SET_NV_TIMER`, `SET_BUTTON_PAGE`, `ENABLE_BUTTON`, `DISABLE_BUTTON`, `SET_SEC_STREAM`, `POPUP_OFF`, `STILL_ON`, `STILL_OFF`, `SET_OUTPUT_MODE`, plus additional values.
 
 [REVERSE-ENGINEERED] Rather than directly “doing playback,” a VM in libbluray surfaces HDMV execution as **events**. The VM emits events for:
 
-- playback control (`TITLE`, `PLAY_PL`, `PLAY_PI`, `PLAY_PM`, `PLAY_STOP`, `STILL`), and  
-- graphics-controller directives (`SET_BUTTON_PAGE`, `ENABLE_BUTTON`, `DISABLE_BUTTON`, `POPUP_OFF`). 
+- playback control (`TITLE`, `PLAY_PL`, `PLAY_PI`, `PLAY_PM`, `PLAY_STOP`, `STILL`), and
+- graphics-controller directives (`SET_BUTTON_PAGE`, `ENABLE_BUTTON`, `DISABLE_BUTTON`, `POPUP_OFF`).
 
 This event-driven split is a key architectural lesson for a Rust `libhdmv`: **HDMV logic should not be fused to the demux/decode pipeline**; it should emit an explicit “what to do next” contract.
 
@@ -143,26 +143,26 @@ This event-driven split is a key architectural lesson for a Rust `libhdmv`: **HD
 
 [AUTHORITATIVE DOC + REVERSE-ENGINEERED] Tooling documentation for interactive menu authoring describes:
 
-- GPR: 32-bit unsigned variables, **4096 total**.   
-- PSR: 32-bit unsigned status variables, **128 total**, with named meanings like Interactive Graphics stream number, Primary audio stream number, and composite PG/TextST stream selections.   
+- GPR: 32-bit unsigned variables, **4096 total**.
+- PSR: 32-bit unsigned status variables, **128 total**, with named meanings like Interactive Graphics stream number, Primary audio stream number, and composite PG/TextST stream selections.
 
-This matches libbluray’s implementation constants (`BD_GPR_COUNT 4096`, `BD_PSR_COUNT 128`) and its PSR enum naming (e.g., `PSR_IG_STREAM_ID`, `PSR_PRIMARY_AUDIO_ID`, `PSR_MENU_PAGE_ID`, `PSR_SELECTED_BUTTON_ID`). 
+This matches libbluray’s implementation constants (`BD_GPR_COUNT 4096`, `BD_PSR_COUNT 128`) and its PSR enum naming (e.g., `PSR_IG_STREAM_ID`, `PSR_PRIMARY_AUDIO_ID`, `PSR_MENU_PAGE_ID`, `PSR_SELECTED_BUTTON_ID`).
 
 [REVERSE-ENGINEERED] Control over “allowed user actions” (UO masks) appears at multiple layers:
 
-- The HDMV VM header defines UO mask flags such as `HDMV_MENU_CALL_MASK` and `HDMV_TITLE_SEARCH_MASK`.   
-- The public API defines UO mask flags (`BLURAY_UO_MENU_CALL`, `BLURAY_UO_TITLE_SEARCH`) and exposes them as event flags.   
-- Interactive pages include a per-page UO mask table; the IG decoder reads it as part of page parsing.   
+- The HDMV VM header defines UO mask flags such as `HDMV_MENU_CALL_MASK` and `HDMV_TITLE_SEARCH_MASK`.
+- The public API defines UO mask flags (`BLURAY_UO_MENU_CALL`, `BLURAY_UO_TITLE_SEARCH`) and exposes them as event flags.
+- Interactive pages include a per-page UO mask table; the IG decoder reads it as part of page parsing.
 
 For Rust design, this points toward first-class, strongly typed “capability masks” that gate menu call/title search and other operations.
 
 ### Interactive Graphics: pages, buttons, effects, timeouts, and navigation commands
 
-[AUTHORITATIVE DOC] Blu-ray’s Interactive Graphics stream is explicitly described as supporting always-on menus, multi-page menus, and dynamic button enable/disable. Timing can be frame accurate when multiplexed with video because PTS/DTS timestamps determine when the menu appears/disappears. 
+[AUTHORITATIVE DOC] Blu-ray’s Interactive Graphics stream is explicitly described as supporting always-on menus, multi-page menus, and dynamic button enable/disable. Timing can be frame accurate when multiplexed with video because PTS/DTS timestamps determine when the menu appears/disappears.
 
 [REVERSE-ENGINEERED] libbluray’s IG decoder reveals a concrete object model you can reproduce:
 
-- An “interactive composition” begins with a declared `data_len`, then reads `stream_model` and `ui_model`. For some stream models, it includes `composition_timeout_pts` and `selection_timeout_pts` (33-bit PTS-like fields), plus a `user_timeout_duration`.   
+- An “interactive composition” begins with a declared `data_len`, then reads `stream_model` and `ui_model`. For some stream models, it includes `composition_timeout_pts` and `selection_timeout_pts` (33-bit PTS-like fields), plus a `user_timeout_duration`.
 - It contains `num_pages`, each parsed as:
   - `id` and `version`
   - a `uo_mask_table`
@@ -170,44 +170,44 @@ For Rust design, this points toward first-class, strongly typed “capability ma
   - `animation_frame_rate_code`
   - default selected and activated button references
   - a palette reference (`palette_id_ref`)
-  - `num_bogs` (button overlap groups) and their contents. 
+  - `num_bogs` (button overlap groups) and their contents.
 
-This aligns with how the graphics controller consumes and maintains menu state: it reads `PSR_MENU_PAGE_ID` / `PSR_SELECTED_BUTTON_ID`, finds pages and buttons, applies defaults, resets animations, and uses “in/out effects” during page transitions. 
+This aligns with how the graphics controller consumes and maintains menu state: it reads `PSR_MENU_PAGE_ID` / `PSR_SELECTED_BUTTON_ID`, finds pages and buttons, applies defaults, resets animations, and uses “in/out effects” during page transitions.
 
 [AUTHORITATIVE DOC + DE FACTO PRACTICE] An authoring-facing view in the IGEditor manual makes the menu model even more implementable:
 
-- Menus are built from **pages** containing **Button Groups (BOGs)**, and each button has **three states** (normal, activated, selected), typically implemented as state-specific objects referencing images and palette entries.   
-- The tool explicitly supports editing “navigation commands” attached to buttons and editing `sound.bdmv` button sound effects.   
+- Menus are built from **pages** containing **Button Groups (BOGs)**, and each button has **three states** (normal, activated, selected), typically implemented as state-specific objects referencing images and palette entries.
+- The tool explicitly supports editing “navigation commands” attached to buttons and editing `sound.bdmv` button sound effects.
 
 From an engine perspective, this suggests HDMV interactivity is best modelled as:
 
-- a **page-based state machine**,  
-- driven by **focus navigation** (directional keys / mouse selection),  
-- with **button activation** triggering navigation command sequences, and  
+- a **page-based state machine**,
+- driven by **focus navigation** (directional keys / mouse selection),
+- with **button activation** triggering navigation command sequences, and
 - optionally decorated by **animated effects** and **timers**.
 
 ### Presentation Graphics: bitmap overlays, palettes, and timings
 
-[AUTHORITATIVE DOC] Presentation Graphics streams provide non-interactive images for frame-accurate overlay on video and are envisaged primarily for subtitles and other animated graphics during playback, in both HDMV and BD-J modes. 
+[AUTHORITATIVE DOC] Presentation Graphics streams provide non-interactive images for frame-accurate overlay on video and are envisaged primarily for subtitles and other animated graphics during playback, in both HDMV and BD-J modes.
 
 [REVERSE-ENGINEERED] In FFmpeg’s reference decoder, PGS is modelled as a segment stream with:
 
-- `PALETTE_SEGMENT = 0x14`  
-- `OBJECT_SEGMENT = 0x15` (RLE bitmap payload)  
-- `PRESENTATION_SEGMENT = 0x16` (composition/presentation state)  
-- `WINDOW_SEGMENT = 0x17`  
-- `DISPLAY_SEGMENT = 0x80` (display update boundary) 
+- `PALETTE_SEGMENT = 0x14`
+- `OBJECT_SEGMENT = 0x15` (RLE bitmap payload)
+- `PRESENTATION_SEGMENT = 0x16` (composition/presentation state)
+- `WINDOW_SEGMENT = 0x17`
+- `DISPLAY_SEGMENT = 0x80` (display update boundary)
 
-Palette segments allow up to **256 colours**, and RLE data is decoded into a paletted bitmap surface. 
+Palette segments allow up to **256 colours**, and RLE data is decoded into a paletted bitmap surface.
 
-[AUTHORITATIVE DOC] The Blu-ray white paper describes graphics stream composition more generally in terms of composition segments and palette usage, including cropping transforms for effects and transitions realised by multiple composition segments. 
+[AUTHORITATIVE DOC] The Blu-ray white paper describes graphics stream composition more generally in terms of composition segments and palette usage, including cropping transforms for effects and transitions realised by multiple composition segments.
 
 ### Rendering contract: compressed YUV overlays vs ARGB overlays
 
 [REVERSE-ENGINEERED] libbluray’s public API formalises two overlay output routes:
 
-- **Compressed YUV overlays** are used for “presentation graphics (subtitles) and HDMV mode menus,” and the callback is invoked from the application thread context while `bd_*()` functions are called.   
-- **ARGB overlays** are used for BD-J menus; the callback “can be called at any time by a thread created by Java VM.”   
+- **Compressed YUV overlays** are used for “presentation graphics (subtitles) and HDMV mode menus,” and the callback is invoked from the application thread context while `bd_*()` functions are called.
+- **ARGB overlays** are used for BD-J menus; the callback “can be called at any time by a thread created by Java VM.”
 
 This is one of the clearest, most actionable interoperability boundaries you can adopt in a Rust redesign: **treat HDMV menus as an overlay-composition problem with deterministic call sites**, while treating BD-J as a separate integration domain.
 
@@ -224,7 +224,7 @@ Parse index.bdmv ------------------------------+
         |                                      |
         v                                      |
 bd_play() -> start First Play title            |  (public API behaviour)
-        |                                      |  
+        |                                      |
         v                                      |
 Load MovieObject.bdmv                          |
   - objects[] with commands (12-byte each)     |
@@ -257,7 +257,7 @@ Overlay compositor renders:
   - IG overlays (HDMV menus)
 ```
 
-This is the layered model your Rust crate can preserve almost directly, with the VM and graphics controller emitting explicit events instead of performing playback/rendering internally. 
+This is the layered model your Rust crate can preserve almost directly, with the VM and graphics controller emitting explicit events instead of performing playback/rendering internally.
 
 ## Authoring workflows and ecosystem survey
 
@@ -269,16 +269,16 @@ This is the layered model your Rust crate can preserve almost directly, with the
 - importing/exporting projects compatible with Sonic Scenarist BD (including Scenarist “Designer” files),
 - palette calculation/optimisation for button artwork,
 - per-button navigation command editing,
-- button sound authoring via editing `sound.bdmv`.   
+- button sound authoring via editing `sound.bdmv`.
 
-While IGEditor is not itself a Blu-ray spec, it is a *high-signal artefact* showing what real-world HDMV authoring requires at the data-structure level (pages → BOGs → per-state objects + palette + commands). 
+While IGEditor is not itself a Blu-ray spec, it is a _high-signal artefact_ showing what real-world HDMV authoring requires at the data-structure level (pages → BOGs → per-state objects + palette + commands).
 
 ### What exists today in open-source and Linux-compatible tooling
 
 [DE FACTO PRACTICE] The open-source ecosystem strongly favours muxing/remuxing and basic structure generation over authored interactive menus:
 
-- The tsMuxer project presents itself as a “transport stream muxer for remuxing/muxing elementary streams,” listing codec/container support and muxing features, but not HDMV menu authoring as a first-class capability.   
-- A direct feature request asks to “Add menu creation to Blu-ray discs,” reflecting that end users perceive menu creation as missing/non-trivial in tsMuxer-centric workflows.   
+- The tsMuxer project presents itself as a “transport stream muxer for remuxing/muxing elementary streams,” listing codec/container support and muxing features, but not HDMV menu authoring as a first-class capability.
+- A direct feature request asks to “Add menu creation to Blu-ray discs,” reflecting that end users perceive menu creation as missing/non-trivial in tsMuxer-centric workflows.
 
 This matches a long-standing pattern: open tools can build playable “BDMV folders” without interactive menus, but HDMV menu authoring is specialised, format-close work.
 
@@ -286,17 +286,17 @@ This matches a long-standing pattern: open tools can build playable “BDMV fold
 
 [REVERSE-ENGINEERED] For a Rust implementer, libbluray is the single most valuable reference because it covers:
 
-- disc index parsing and title modelling (HDMV vs BD-J)   
-- MovieObject parsing and instruction decoding   
-- HDMV VM event emission   
-- IG decode into pages/BOGs/buttons/effects/timeouts   
-- graphics controller message model (user input + VM control + TS decode)   
-- overlay output contracts (compressed YUV vs ARGB) and user input APIs.   
+- disc index parsing and title modelling (HDMV vs BD-J)
+- MovieObject parsing and instruction decoding
+- HDMV VM event emission
+- IG decode into pages/BOGs/buttons/effects/timeouts
+- graphics controller message model (user input + VM control + TS decode)
+- overlay output contracts (compressed YUV vs ARGB) and user input APIs.
 
 [DE FACTO PRACTICE] VLC’s Blu-ray module shows how a mainstream desktop player integrates libbluray and where real-world constraints appear:
 
-- It explicitly checks for BD-J capability and falls back to non-menu playback when BD-J can’t be handled, including a user-facing “Java required” dialog.   
-- It maintains overlay abstractions and distinguishes overlay planes, matching libbluray’s overlay model.   
+- It explicitly checks for BD-J capability and falls back to non-menu playback when BD-J can’t be handled, including a user-facing “Java required” dialog.
+- It maintains overlay abstractions and distinguishes overlay planes, matching libbluray’s overlay model.
 
 ### Gaps where a new Rust library could add value
 
@@ -316,15 +316,15 @@ This is a layered design proposal optimised for reuse and implementability. It t
 
 [INFERENCE, grounded by reference contracts] A realistic v1 scope is **playback-oriented navigation/menu preview**, not authoring:
 
-- Parsing: `index.bdmv`, `MovieObject.bdmv`, and enough MPLS/CLPI structure to resolve “what would play” and to identify IG/PG stream PIDs. (The white paper emphasises playlists/clips as core playback structure; libbluray’s APIs expose playlist/title selection and navigation-mode reads.)   
-- VM: evaluate MovieObject command sequences and produce explicit “next actions” (play title/playlist, seek playitem/mark, still mode, menu directives), matching the event model.   
-- Graphics decode: decode IGS into a menu scene model (pages/buttons/effects/timeouts) and decode PGS to overlay surfaces (for subtitles and some menu elements), matching known segment structures and time bases.   
+- Parsing: `index.bdmv`, `MovieObject.bdmv`, and enough MPLS/CLPI structure to resolve “what would play” and to identify IG/PG stream PIDs. (The white paper emphasises playlists/clips as core playback structure; libbluray’s APIs expose playlist/title selection and navigation-mode reads.)
+- VM: evaluate MovieObject command sequences and produce explicit “next actions” (play title/playlist, seek playitem/mark, still mode, menu directives), matching the event model.
+- Graphics decode: decode IGS into a menu scene model (pages/buttons/effects/timeouts) and decode PGS to overlay surfaces (for subtitles and some menu elements), matching known segment structures and time bases.
 - Rendering: provide an abstraction and at least one reference renderer that composites paletted overlays into RGBA buffers.
 
-Explicitly *out of scope* for `libhdmv` v1:
+Explicitly _out of scope_ for `libhdmv` v1:
 
-- BD-J runtime implementation (but you may provide integration hooks). The overlay threading and JVM dependency are explicitly different.   
-- DRM/decryption (AACS/BD+). Even libbluray models these as error conditions rather than implementing them in the navigation API.   
+- BD-J runtime implementation (but you may provide integration hooks). The overlay threading and JVM dependency are explicitly different.
+- DRM/decryption (AACS/BD+). Even libbluray models these as error conditions rather than implementing them in the navigation API.
 - Full A/V codec decoding (delegate to FFmpeg/GStreamer/mpv/etc).
 
 ### Proposed crate layout
@@ -346,17 +346,17 @@ libhdmv-workspace/
     hdmv-menu-preview/
 ```
 
-This separation mirrors the boundary that libbluray exposes publicly: data parsing → VM → graphics decode → overlay output. 
+This separation mirrors the boundary that libbluray exposes publicly: data parsing → VM → graphics decode → overlay output.
 
 ### Strongly typed modelling targets
 
 [INFERENCE, motivated by real structures] The following types should be newtypes/enums in Rust rather than raw integers:
 
-- `TitleId` (including reserved values for Top Menu and First Play)   
-- `PlaylistId`, `PlayItemId`, `PlayMarkId` (because VM events distinguish play playlist vs seek playitem vs seek playmark)   
-- `PageId`, `ButtonId`, `BogId` (because PSRs and IGS structures index by these)   
-- `Pts90k` wrapper (because user input APIs and effects timers are in 1/90000s time base)   
-- `UoMask` bitflags (menu call/title search and page UO mask tables)   
+- `TitleId` (including reserved values for Top Menu and First Play)
+- `PlaylistId`, `PlayItemId`, `PlayMarkId` (because VM events distinguish play playlist vs seek playitem vs seek playmark)
+- `PageId`, `ButtonId`, `BogId` (because PSRs and IGS structures index by these)
+- `Pts90k` wrapper (because user input APIs and effects timers are in 1/90000s time base)
+- `UoMask` bitflags (menu call/title search and page UO mask tables)
 
 ### Public API shape for reuse
 
@@ -370,26 +370,27 @@ A plausible high-level API contract:
 - `NavSession::submit_input(input, now_pts)` → update focus/activation and produce effects.
 - `NavSession::render(target)` → optional: produce RGBA overlay frames or drawing ops.
 
-This mirrors how libbluray’s navigation mode works: `bd_read_ext` returns zero when an “event needs to be handled first,” and user input functions accept an explicit PTS in 90 kHz units. 
+This mirrors how libbluray’s navigation mode works: `bd_read_ext` returns zero when an “event needs to be handled first,” and user input functions accept an explicit PTS in 90 kHz units.
 
 ### Error model and versioning
 
 [REVERSE-ENGINEERED + INFERENCE] Use a layered error system:
 
-- **Parse errors**: signature/version mismatch (e.g., index expects `INDX0100`/`INDX0200` in libbluray; mismatches are observed in the wild and logged by implementations) and length checks.   
-- **Unsupported feature errors**: unknown “extension data” offsets, unknown opcode values, unimplemented set-system variants.   
+- **Parse errors**: signature/version mismatch (e.g., index expects `INDX0100`/`INDX0200` in libbluray; mismatches are observed in the wild and logged by implementations) and length checks.
+- **Unsupported feature errors**: unknown “extension data” offsets, unknown opcode values, unimplemented set-system variants.
 - **Runtime errors**: VM invalid state, illegal page/button references, missing stream PIDs.
-- **Environment errors**: encrypted content (AACS/BD+) or BD-J required paths/permissions, surfaced explicitly rather than “mysterious failures.”   
+- **Environment errors**: encrypted content (AACS/BD+) or BD-J required paths/permissions, surfaced explicitly rather than “mysterious failures.”
 
 Versioning recommendation: semantic versioning at the “umbrella crate” (`libhdmv`) with internal crates allowed to move faster, and a clearly documented stability policy for exposed structs that may need to evolve as more discs are tested.
 
 ### Authoring architecture proposal
 
-Authoring is substantially larger than playback. The evidence from ecosystem tools is that even muxers that can generate BDMV structure do not generally implement menu authoring. 
+Authoring is substantially larger than playback. The evidence from ecosystem tools is that even muxers that can generate BDMV structure do not generally implement menu authoring.
 
 A realistic staged plan is:
 
-**Stage one (v1): inspector + preview**  
+**Stage one (v1): inspector + preview**
+
 - parse and display what exists
 - decode and render menu overlays
 - trace VM events and button command sequences
@@ -431,15 +432,15 @@ BDMV authoring:
   - produce BDMV/BACKUP mirrors
 ```
 
-This is consistent with the artefacts surfaced by IG authoring tooling (per-state objects, palette recalculation, nav commands, `sound.bdmv`) and with the runtime contract that IGS can be multiplexed and timed via PTS/DTS. 
+This is consistent with the artefacts surfaced by IG authoring tooling (per-state objects, palette recalculation, nav commands, `sound.bdmv`) and with the runtime contract that IGS can be multiplexed and timed via PTS/DTS.
 
 ## Tauri v2 plugin design proposal and phased roadmap
 
 ### Plugin framing and responsibility split
 
-[AUTHORITATIVE DOC] Tauri v2 plugins are composed of a **Cargo crate** and an **optional NPM package** providing JS bindings for commands/events; they can additionally include mobile components. This makes it natural to keep nearly all HDMV logic in a reusable Rust crate and expose a thin, permissioned command/event surface via the plugin. 
+[AUTHORITATIVE DOC] Tauri v2 plugins are composed of a **Cargo crate** and an **optional NPM package** providing JS bindings for commands/events; they can additionally include mobile components. This makes it natural to keep nearly all HDMV logic in a reusable Rust crate and expose a thin, permissioned command/event surface via the plugin.
 
-[AUTHORITATIVE DOC] Tauri’s v2 security model uses **capabilities and permissions** to constrain what is exposed to the WebView frontend; permissions can enable/deny commands and map scopes to commands. For a plugin that reads disc images and large media structures, you want this as a first-order design input, not an afterthought. 
+[AUTHORITATIVE DOC] Tauri’s v2 security model uses **capabilities and permissions** to constrain what is exposed to the WebView frontend; permissions can enable/deny commands and map scopes to commands. For a plugin that reads disc images and large media structures, you want this as a first-order design input, not an afterthought.
 
 **Responsibility split (recommended)**
 
@@ -454,7 +455,7 @@ A Tauri plugin should avoid per-frame raw video/overlay streaming unless the UI 
 - **Menu preview** at controlled cadence (e.g., render-on-demand or fixed low FPS), suitable for authoring/inspection tools.
 - **Event trace** and **deterministic replay** primitives for debugging.
 
-[AUTHORITATIVE DOC] On the Tauri side, commands are registered via a single `generate_handler!` call, and the command system is a core primitive for backend invocation. 
+[AUTHORITATIVE DOC] On the Tauri side, commands are registered via a single `generate_handler!` call, and the command system is a core primitive for backend invocation.
 
 #### Example plugin API sketch (conceptual)
 
@@ -490,7 +491,7 @@ async fn hdmv_render_overlay_png(session: SessionId, now_pts_90k: i64, max_w: u3
 async fn hdmv_get_last_trace(session: SessionId) -> Result<Vec<TraceEvent>, PluginError>;
 ```
 
-This roughly matches the public libbluray interaction model: you drive navigation with explicit PTS (90 kHz), submit user input, consume queued events, and receive overlay outputs through a well-defined contract. 
+This roughly matches the public libbluray interaction model: you drive navigation with explicit PTS (90 kHz), submit user input, consume queued events, and receive overlay outputs through a well-defined contract.
 
 ### Data movement across Rust/JS boundary
 
@@ -500,13 +501,13 @@ This roughly matches the public libbluray interaction model: you drive navigatio
 - **Preview mode**: render overlay frames in Rust and send compressed images (PNG/WebP) at low rate, plus button hit-test rectangles for interactivity.
 - **High-fidelity mode**: keep rendering native-side (wgpu/skia) and present via a native window surface; use Tauri primarily as “controller UI” rather than as the renderer.
 
-If you do decide to stream pixels, note that overlays can be paletted + compressed; libbluray supports a compressed YUV overlay callback specifically because it can be optimised (colour conversion, drawing). That is a hint that pixel transport costs matter. 
+If you do decide to stream pixels, note that overlays can be paletted + compressed; libbluray supports a compressed YUV overlay callback specifically because it can be optimised (colour conversion, drawing). That is a hint that pixel transport costs matter.
 
 ### Security and packaging concerns
 
-[AUTHORITATIVE DOC] Capabilities and permissions should restrict which plugin commands are available to which windows/webviews and under what scopes. This is directly relevant when reading arbitrary filesystem paths for disc folders/ISOs. 
+[AUTHORITATIVE DOC] Capabilities and permissions should restrict which plugin commands are available to which windows/webviews and under what scopes. This is directly relevant when reading arbitrary filesystem paths for disc folders/ISOs.
 
-[AUTHORITATIVE DOC] When additional non-frontend files must ship with the app (e.g., sample fixtures, font caches for TextST previews, small reference assets), Tauri treats these as “resources” and provides guidance on embedding additional files in the bundle. 
+[AUTHORITATIVE DOC] When additional non-frontend files must ship with the app (e.g., sample fixtures, font caches for TextST previews, small reference assets), Tauri treats these as “resources” and provides guidance on embedding additional files in the bundle.
 
 ### Phased implementation roadmap
 
@@ -514,58 +515,69 @@ This roadmap explicitly separates “must implement” from “nice to have,” 
 
 **v1: parser/inspector foundation (high confidence)**  
 Must implement:
-- `index.bdmv` parsing with title/object type modelling and access flags.   
-- `MovieObject.bdmv` parsing: signature/version, object flags, command decoding (12-byte records).   
-- Instruction enum model mirroring BRANCH/CMP/SET/SETSYSTEM groups.   
+
+- `index.bdmv` parsing with title/object type modelling and access flags.
+- `MovieObject.bdmv` parsing: signature/version, object flags, command decoding (12-byte records).
+- Instruction enum model mirroring BRANCH/CMP/SET/SETSYSTEM groups.
 - CLI that prints: titles, first play/top menu mapping, object command dumps, and basic consistency checks.
 
 Nice to have:
+
 - partial MPLS/CLPI parse sufficient to map playlists to stream names (for inspection).
 
 **v1.1: HDMV VM + deterministic event model (medium confidence)**  
 Must implement:
-- register file (GPR/PSR), including key PSRs for menu page/button IDs.   
-- VM executor that emits events analogous to `HDMV_EVENT_*` (play title/playlist, seeks, still, menu directives).   
+
+- register file (GPR/PSR), including key PSRs for menu page/button IDs.
+- VM executor that emits events analogous to `HDMV_EVENT_*` (play title/playlist, seeks, still, menu directives).
 - trace/replay harness for VM execution using golden fixtures.
 
 Nice to have:
+
 - user operation mask propagation.
 
 **v1.2: IGS/PGS decode and render abstraction (medium-to-high confidence)**  
 Must implement:
-- IGS decode into pages/BOGs/buttons/effects/timeouts (minimum needed to show menus and respond to selection).   
-- PGS decode (or reuse a decoder) for subtitle plane overlays; at minimum support the segment types and paletted RLE decode path.   
+
+- IGS decode into pages/BOGs/buttons/effects/timeouts (minimum needed to show menus and respond to selection).
+- PGS decode (or reuse a decoder) for subtitle plane overlays; at minimum support the segment types and paletted RLE decode path.
 - CPU reference compositor producing RGBA output.
 
 Nice to have:
+
 - effect and animation fidelity (in/out effects, frame rate codes).
 
 **v1.3: menu preview engine (product-grade for tooling)**  
 Must implement:
-- focus navigation, activation, page transitions, enable/disable button behaviour, pop-up toggling.   
-- button hit testing (`mouse_select` equivalent) and key input mapping.   
+
+- focus navigation, activation, page transitions, enable/disable button behaviour, pop-up toggling.
+- button hit testing (`mouse_select` equivalent) and key input mapping.
 
 **v2: authoring (only if demanded)**  
 Must implement:
+
 - minimal IG authoring model + compiler for trivial menus
-- generation of `sound.bdmv` entries and consistent palette/object sets (as implied by authoring tooling)   
+- generation of `sound.bdmv` entries and consistent palette/object sets (as implied by authoring tooling)
 - robust BDMV metadata generation (index/movie objects/playlists) with compatibility tests.
 
 ### Validation strategy
 
 Because distributing commercial disc assets is legally fraught, validation should rely on a mix of synthetic fixtures and user-provided discs in local test runs.
 
-**Fixture strategy (repo-safe)**  
-- Generate minimal BDMV folders using muxers that can output basic structure (without menus), then add your own small `MovieObject.bdmv` fixtures and synthetic IGS/PGS streams. The absence of menu creation in common muxers is precisely why synthetic fixtures are valuable.   
-- Include tiny, self-authored PGS display sets to test palette/object/presentation/window/display segment parsing (segment types and codes are well defined in decoder references).   
+**Fixture strategy (repo-safe)**
 
-**Behavioural comparison (local-only, not redistributed)**  
-- Compare VM event traces and overlay outputs against libbluray via controlled runs: libbluray exposes an event queue (`bd_get_event`) and a navigation read API that returns when events need handling.   
-- For menu interactions, record sequences of inputs (keys/mouse) and compare resulting focus/button states and rendered overlays (hashes or perceptual diffs). libbluray explicitly supports mouse selection and user input with PTS.   
+- Generate minimal BDMV folders using muxers that can output basic structure (without menus), then add your own small `MovieObject.bdmv` fixtures and synthetic IGS/PGS streams. The absence of menu creation in common muxers is precisely why synthetic fixtures are valuable.
+- Include tiny, self-authored PGS display sets to test palette/object/presentation/window/display segment parsing (segment types and codes are well defined in decoder references).
 
-**Golden tests**  
-- “Golden JSON” for parsed structures (index, movie objects, decoded pages/buttons)  
-- “Golden trace” for VM execution (instruction-by-instruction, PSR/GPR changes)  
+**Behavioural comparison (local-only, not redistributed)**
+
+- Compare VM event traces and overlay outputs against libbluray via controlled runs: libbluray exposes an event queue (`bd_get_event`) and a navigation read API that returns when events need handling.
+- For menu interactions, record sequences of inputs (keys/mouse) and compare resulting focus/button states and rendered overlays (hashes or perceptual diffs). libbluray explicitly supports mouse selection and user input with PTS.
+
+**Golden tests**
+
+- “Golden JSON” for parsed structures (index, movie objects, decoded pages/buttons)
+- “Golden trace” for VM execution (instruction-by-instruction, PSR/GPR changes)
 - “Golden image” for composited overlays for deterministic IGS/PGS samples
 
 ## UHD Blu-ray (4K UHD BD) considerations
@@ -590,13 +602,13 @@ This section documents how UHD Blu-ray differs from standard BD and what those d
 
 #### Disc capacity tiers
 
-| Disc type | Capacity | Layers | Max data rate |
-|-----------|----------|--------|---------------|
-| BD-25 | 25 GB | 1 | 54 Mbit/s |
-| BD-50 | 50 GB | 2 | 54 Mbit/s |
-| BD-50 (UHD) | 50 GB | 2 | 82 Mbit/s |
-| BD-66 | 66 GB | 2 | 108 Mbit/s |
-| BD-100 | 100 GB | 3 | 128 Mbit/s |
+| Disc type   | Capacity | Layers | Max data rate |
+| ----------- | -------- | ------ | ------------- |
+| BD-25       | 25 GB    | 1      | 54 Mbit/s     |
+| BD-50       | 50 GB    | 2      | 54 Mbit/s     |
+| BD-50 (UHD) | 50 GB    | 2      | 82 Mbit/s     |
+| BD-66       | 66 GB    | 2      | 108 Mbit/s    |
+| BD-100      | 100 GB   | 3      | 128 Mbit/s    |
 
 BD-66 and BD-100 use 33.33 GB per layer (shorter pits/lands, same density as BDXL). Standard BD-R 50 GB dual-layer discs can be burned in UHD BD format and played on UHD BD players without encryption.
 
@@ -604,12 +616,12 @@ BD-66 and BD-100 use 33.33 GB per layer (shorter pits/lands, same density as BDX
 
 #### BDMV metadata version bump to 0300
 
-| File | Standard BD | UHD BD |
-|------|------------|--------|
-| `index.bdmv` | `INDX0200` | `INDX0300` |
-| `MovieObject.bdmv` | `MOBJ0200` | `MOBJ0300` |
-| `*.mpls` | `MPLS0200` | `MPLS0300` |
-| `*.clpi` | `HDMV0200` | `HDMV0300` |
+| File               | Standard BD | UHD BD     |
+| ------------------ | ----------- | ---------- |
+| `index.bdmv`       | `INDX0200`  | `INDX0300` |
+| `MovieObject.bdmv` | `MOBJ0200`  | `MOBJ0300` |
+| `*.mpls`           | `MPLS0200`  | `MPLS0300` |
+| `*.clpi`           | `HDMV0200`  | `HDMV0300` |
 
 The 0300 versions add extension data blocks for HDR metadata and HEVC stream descriptors. The core structure of each file remains the same — 0300 is additive, not a redesign.
 
@@ -629,14 +641,14 @@ HEVC is mandatory for UHD BD primary video at 4K. H.264 is not permitted at 3840
 
 When `stream_coding_type` is 0x24, the `StreamCodingInfo` structure in CLPI/MPLS has additional fields:
 
-| Field | Size (bits) | Values |
-|-------|-------------|--------|
-| VideoFormat | 4 | Value **8 = 2160p** (new; standard BD uses 1–7) |
-| FrameRate | 4 | Same as standard BD |
-| DynamicRangeType | 4 | **0 = SDR, 1 = HDR10, 2 = Dolby Vision** |
-| ColorSpace | 4 | **1 = BT.709, 2 = BT.2020** |
-| HDRPlusFlag | 1 | **1 = HDR10+ metadata present** |
-| CRFlag | 1 | Purpose not fully documented publicly |
+| Field            | Size (bits) | Values                                          |
+| ---------------- | ----------- | ----------------------------------------------- |
+| VideoFormat      | 4           | Value **8 = 2160p** (new; standard BD uses 1–7) |
+| FrameRate        | 4           | Same as standard BD                             |
+| DynamicRangeType | 4           | **0 = SDR, 1 = HDR10, 2 = Dolby Vision**        |
+| ColorSpace       | 4           | **1 = BT.709, 2 = BT.2020**                     |
+| HDRPlusFlag      | 1           | **1 = HDR10+ metadata present**                 |
+| CRFlag           | 1           | Purpose not fully documented publicly           |
 
 **Impact on `bdmv-parse`:** The CLPI/MPLS stream coding info parser needs a branch for 0x24 that reads the extended fields. The `VideoFormat` enum needs a `V2160p` variant. New enums needed for `DynamicRangeType`, `ColorSpace`, and `HDRPlusFlag`.
 
@@ -645,16 +657,19 @@ When `stream_coding_type` is 0x24, the `StreamCodingInfo` structure in CLPI/MPLS
 #### HDR metadata
 
 **HDR10 (mandatory on UHD BD with HDR content):**
+
 - Static metadata carried as SEI messages in the HEVC bitstream (SMPTE ST 2086 mastering display colour volume + CTA-861.3 content light levels)
 - Parameters: display primaries (R/G/B xy coordinates), white point, min/max luminance, MaxCLL, MaxFALL
 - In MPLS: extension data block 3.5 carries the static metadata descriptor
 
 **HDR10+ (optional, BDA spec v3.2+):**
+
 - Dynamic metadata (scene-by-scene or frame-by-frame tone mapping)
 - Carried as SEI messages (SMPTE ST 2094-40) in the HEVC bitstream
 - Detected via `HDRPlusFlag` in StreamCodingInfo when `stream_coding_type` is 0x24
 
 **Dolby Vision (optional):**
+
 - Uses **Profile 7** (dual-layer, dual-track) on UHD BD
 - **Base Layer (BL):** 3840×2160 HEVC Main 10, 4:2:0, 10-bit — fully HDR10 compatible
 - **Enhancement Layer (EL):** 1920×1080 HEVC Main 10, 4:2:0, 10-bit
@@ -672,9 +687,9 @@ When `stream_coding_type` is 0x24, the `StreamCodingInfo` structure in CLPI/MPLS
 
 Standard BD defines SubPath types 2–7. UHD BD adds:
 
-| Type | Purpose |
-|------|---------|
-| 8 | Stereoscopic 3D (SS Video) |
+| Type     | Purpose                                                        |
+| -------- | -------------------------------------------------------------- |
+| 8        | Stereoscopic 3D (SS Video)                                     |
 | (higher) | Dolby Vision EL sub-paths (type not fully documented publicly) |
 
 **Impact on `bdmv-parse`:** SubPath type should be an enum with an `Unknown(u8)` fallback. DV EL sub-paths can be identified by the stream coding type of the referenced clip rather than by a single SubPath type value.
@@ -699,13 +714,13 @@ The following design decisions in `libhdmv` and Spindle ensure UHD BD support ca
 
 ### UHD BD toolchain landscape
 
-| Tool | Status | UHD BD support |
-|------|--------|---------------|
-| tsMuxeR (jaminmc fork) | Active | HEVC muxing, HDR10, HDR10+, DV Profile 7 |
-| ffmpeg + x265 | Active | HEVC encoding with HDR10 static metadata, HDR10+ with plugin |
-| hdr10plus_tool (Rust) | Active | HDR10+ metadata extraction/injection for HEVC |
-| dovi_tool (Rust) | Active | Dolby Vision RPU metadata manipulation |
-| libbluray | Active | Full UHD BD parsing (v1.4.0+), HEVC 0x24, HDR flags, DV sub-paths, MPLS ext 3.5 |
+| Tool                   | Status | UHD BD support                                                                  |
+| ---------------------- | ------ | ------------------------------------------------------------------------------- |
+| tsMuxeR (jaminmc fork) | Active | HEVC muxing, HDR10, HDR10+, DV Profile 7                                        |
+| ffmpeg + x265          | Active | HEVC encoding with HDR10 static metadata, HDR10+ with plugin                    |
+| hdr10plus_tool (Rust)  | Active | HDR10+ metadata extraction/injection for HEVC                                   |
+| dovi_tool (Rust)       | Active | Dolby Vision RPU metadata manipulation                                          |
+| libbluray              | Active | Full UHD BD parsing (v1.4.0+), HEVC 0x24, HDR flags, DV sub-paths, MPLS ext 3.5 |
 
 Notable: `hdr10plus_tool` and `dovi_tool` are both Rust crates by the same author (quietvoid). These could be dependencies for Spindle's HDR metadata pipeline rather than reimplementing that functionality.
 
@@ -716,73 +731,73 @@ Notable: `hdr10plus_tool` and `dovi_tool` are both Rust crates by the same autho
 ### Risks and hardest unknowns
 
 **Spec access gap (high impact)**  
-The complete Blu-ray Disc specifications that formally define HDMV/IGS behaviour are not generally publicly accessible. The Blu-ray white paper is authoritative but explicitly notes that specifications were not finalised at the time and may be modified; therefore, some semantics must be treated as best-effort, validated against reference implementations. 
+The complete Blu-ray Disc specifications that formally define HDMV/IGS behaviour are not generally publicly accessible. The Blu-ray white paper is authoritative but explicitly notes that specifications were not finalised at the time and may be modified; therefore, some semantics must be treated as best-effort, validated against reference implementations.
 
 **Version drift in control files (medium-high impact)**  
-Index parsing in libbluray expects particular signature versions (e.g., `INDX0100`/`INDX0200`), and real-world logs show signature mismatches exist. UHD BD introduces version `0300` across all control files (`INDX0300`, `MOBJ0300`, `MPLS0300`, `HDMV0300`), adding extension data for HEVC and HDR metadata. Your Rust parser should be defensive: accept multiple known versions (0100, 0200, 0300), and surface unknown ones as structured warnings rather than hard failures where possible. 
+Index parsing in libbluray expects particular signature versions (e.g., `INDX0100`/`INDX0200`), and real-world logs show signature mismatches exist. UHD BD introduces version `0300` across all control files (`INDX0300`, `MOBJ0300`, `MPLS0300`, `HDMV0300`), adding extension data for HEVC and HDR metadata. Your Rust parser should be defensive: accept multiple known versions (0100, 0200, 0300), and surface unknown ones as structured warnings rather than hard failures where possible.
 
 **IGS behavioural fidelity (medium-high impact)**  
-Even with a decoded page/button model, correct behaviour depends on subtle rules: default button selection resolution, enable/disable interaction, effect timing, and how PSRs drive state restoration. libbluray’s graphics controller code indicates non-trivial state management around `PSR_MENU_PAGE_ID` and `PSR_SELECTED_BUTTON_ID`. 
+Even with a decoded page/button model, correct behaviour depends on subtle rules: default button selection resolution, enable/disable interaction, effect timing, and how PSRs drive state restoration. libbluray’s graphics controller code indicates non-trivial state management around `PSR_MENU_PAGE_ID` and `PSR_SELECTED_BUTTON_ID`.
 
 **BD-J scope creep (high impact)**  
-BD-J differs sharply: ARGB overlay output, Java VM threads, network/storage/security permissions. VLC’s behaviour demonstrates user-visible dependency on Java availability for BD-J menus, reinforcing that BD-J support should be a separate milestone (or delegated to libbluray/OpenJDK integration) rather than blended into initial HDMV goals. 
+BD-J differs sharply: ARGB overlay output, Java VM threads, network/storage/security permissions. VLC’s behaviour demonstrates user-visible dependency on Java availability for BD-J menus, reinforcing that BD-J support should be a separate milestone (or delegated to libbluray/OpenJDK integration) rather than blended into initial HDMV goals.
 
 **DRM/legality constraints (high impact for “disc playback”)**  
-Commercial disc playback is dominated by AACS/BD+ constraints. libbluray models these as error categories (`BD_ERROR_AACS`, `BD_ERROR_BDPLUS`) and surfaces “encrypted” conditions in events. A Rust `libhdmv` should plan for decrypted inputs first and treat DRM as out of scope. 
+Commercial disc playback is dominated by AACS/BD+ constraints. libbluray models these as error categories (`BD_ERROR_AACS`, `BD_ERROR_BDPLUS`) and surfaces “encrypted” conditions in events. A Rust `libhdmv` should plan for decrypted inputs first and treat DRM as out of scope.
 
 ### Final judgement
 
 **Is HDMV a good target for a new Rust library?**  
-Yes—*if the project is framed as navigation/menu decoding and preview, not as a full commercial Blu-ray player*. The HDMV surface area is bounded and strongly evidenced by open implementations: instructions are enumerable, control files are structured binaries, and the graphics model is decodable into a concrete scene representation. 
+Yes—_if the project is framed as navigation/menu decoding and preview, not as a full commercial Blu-ray player_. The HDMV surface area is bounded and strongly evidenced by open implementations: instructions are enumerable, control files are structured binaries, and the graphics model is decodable into a concrete scene representation.
 
 **Where can it provide unique value?**  
-A Rust-native implementation can differentiate on: safety (no UB), fuzz-hardening for parsers, strongly typed state machines, and ergonomic integration surfaces for modern desktop tooling (inspectors, menu previewers, validation/lint tools). The open ecosystem currently has clear gaps around authored-menu tooling and reusable, testable HDMV engines. 
+A Rust-native implementation can differentiate on: safety (no UB), fuzz-hardening for parsers, strongly typed state machines, and ergonomic integration surfaces for modern desktop tooling (inspectors, menu previewers, validation/lint tools). The open ecosystem currently has clear gaps around authored-menu tooling and reusable, testable HDMV engines.
 
 **Should the Tauri plugin be the product surface or an integration layer?**  
-Treat the plugin as a **thin integration layer**. Tauri v2’s plugin model (crate + optional NPM bindings) aligns well with keeping the substantive logic in `libhdmv` and exposing only the commands/events needed by the UI. The security/capabilities system further rewards a narrow plugin surface area for filesystem-heavy workloads. 
+Treat the plugin as a **thin integration layer**. Tauri v2’s plugin model (crate + optional NPM bindings) aligns well with keeping the substantive logic in `libhdmv` and exposing only the commands/events needed by the UI. The security/capabilities system further rewards a narrow plugin surface area for filesystem-heavy workloads.
 
 ### Recommended next steps
 
 1. **Write a SPEC.md-style “behavioural contract”** for your Rust engine modelled on the event split:
    - parse → VM events → player actions → graphics decode → overlay output,
-   - explicitly define the time base (90 kHz), input model, and expected event ordering.   
+   - explicitly define the time base (90 kHz), input model, and expected event ordering.
 
 2. **Implement `bdmv-parse` + `hdmv-insn` first**, with a JSON inspector CLI and golden fixtures:
-   - focus on `index.bdmv` and `MovieObject.bdmv` signatures, versions, length checks, and complete command decoding.   
+   - focus on `index.bdmv` and `MovieObject.bdmv` signatures, versions, length checks, and complete command decoding.
 
-3. **Add a minimal VM that emits events** (no graphics yet), and verify against synthetic MovieObject fixtures and local libbluray traces.   
+3. **Add a minimal VM that emits events** (no graphics yet), and verify against synthetic MovieObject fixtures and local libbluray traces.
 
 4. **Bring up IGS decode + rudimentary renderer**, initially targeting only:
    - pages, BOGs, default selected button, and static state images,
-   - then expand into effects and timeouts.   
+   - then expand into effects and timeouts.
 
-5. **Design the Tauri plugin only after `libhdmv` has a stable session API**, and incorporate permissions/capabilities from the start.   
+5. **Design the Tauri plugin only after `libhdmv` has a stable session API**, and incorporate permissions/capabilities from the start.
 
 ### Annotated bibliography and source list
 
 **Blu-ray Disc Association — “BD-ROM Audio Visual Application” white paper (March 2005).**  
-Authoritative early documentation of HDMV/BD-J concepts, graphics stream roles, and menu capabilities (always-on menus, multi-page menus, dynamic button enable/disable) and BD-J platform features (security model, storage, networking). Also explicitly describes Presentation Graphics as a frame-accurate overlay stream available in both modes, and ties interactive graphics visibility to PTS/DTS when multiplexed. 
+Authoritative early documentation of HDMV/BD-J concepts, graphics stream roles, and menu capabilities (always-on menus, multi-page menus, dynamic button enable/disable) and BD-J platform features (security model, storage, networking). Also explicitly describes Presentation Graphics as a frame-accurate overlay stream available in both modes, and ties interactive graphics visibility to PTS/DTS when multiplexed.
 
 **AACS LA — AACS “Blu-ray Disc Recordable Book” excerpts showing BDMV directory structure and encryption notes.**  
-Useful for confirming canonical directory structure and clarifying that, at least for recordable media, BDMV application structure is defined with clear separation between metadata and AV streams. 
+Useful for confirming canonical directory structure and clarifying that, at least for recordable media, BDMV application structure is defined with clear separation between metadata and AV streams.
 
 **libbluray source code (HDMV VM, parsers, IG/PG decoders, public API).**  
-Primary behavioural reference for implementers: enumerated instruction sets and system commands; file signatures/versions and command decoding layout; VM event model; IG decode structures (pages/BOGs/effects/timeouts); and overlay output contracts distinguishing HDMV (compressed YUV) from BD-J (ARGB + JVM threads). 
+Primary behavioural reference for implementers: enumerated instruction sets and system commands; file signatures/versions and command decoding layout; VM event model; IG decode structures (pages/BOGs/effects/timeouts); and overlay output contracts distinguishing HDMV (compressed YUV) from BD-J (ARGB + JVM threads).
 
 **FFmpeg — PGS subtitle decoder documentation/source.**  
-Concrete, implementable definition of PGS segment types and codes (palette/object/presentation/window/display), plus the RLE + 256-entry palette model that informs your overlay pipeline and fixture generation. 
+Concrete, implementable definition of PGS segment types and codes (palette/object/presentation/window/display), plus the RLE + 256-entry palette model that informs your overlay pipeline and fixture generation.
 
 **DVDLogic Software — IGEditor manual (2009–2010).**  
-Authoring-oriented evidence: menus as pages with button overlap groups; three-state button imagery; palette recalculation; navigation command editing; and direct mention of `sound.bdmv` editing plus integration with Sonic Scenarist BD, showing what practical HDMV authoring entails even when tools are proprietary. Also explicitly states register counts (4096 GPR, 128 PSR). 
+Authoring-oriented evidence: menus as pages with button overlap groups; three-state button imagery; palette recalculation; navigation command editing; and direct mention of `sound.bdmv` editing plus integration with Sonic Scenarist BD, showing what practical HDMV authoring entails even when tools are proprietary. Also explicitly states register counts (4096 GPR, 128 PSR).
 
 **tsMuxer repository and issue tracker.**  
-Shows the open-source ecosystem’s emphasis on muxing/structure generation and the practical demand for (but absence of) Blu-ray menu creation in common workflows. 
+Shows the open-source ecosystem’s emphasis on muxing/structure generation and the practical demand for (but absence of) Blu-ray menu creation in common workflows.
 
 **VLC Blu-ray module (`modules/access/bluray.c`).**  
-Demonstrates real-world integration and UX constraints: BD-J menu support depends on Java availability and may fall back to non-menu playback; also reflects overlay-plane abstractions consistent with libbluray’s output model. 
+Demonstrates real-world integration and UX constraints: BD-J menu support depends on Java availability and may fall back to non-menu playback; also reflects overlay-plane abstractions consistent with libbluray’s output model.
 
 **Tauri v2 documentation: plugin development + security (capabilities/permissions) + calling Rust.**  
-Defines the correct wrapper architecture for a plugin surface (crate + optional NPM bindings), and the security primitives (permissions/capabilities) that should constrain disc/ISO access and command exposure for a filesystem-heavy plugin. 
+Defines the correct wrapper architecture for a plugin surface (crate + optional NPM bindings), and the security primitives (permissions/capabilities) that should constrain disc/ISO access and command exposure for a filesystem-heavy plugin.
 
 **lw/BluRay Wiki — StreamCodingInfo and CLPI format documentation.**
 Community-maintained binary format documentation for CLPI and MPLS structures, including HEVC stream coding type 0x24 and associated fields (DynamicRangeType, ColorSpace, HDRPlusFlag). Essential reference for implementing UHD BD stream info parsing.

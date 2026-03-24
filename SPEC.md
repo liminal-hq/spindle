@@ -1026,21 +1026,21 @@ Should show:
 
 ```json
 {
-  "schemaVersion": 1,
-  "project": {
-    "id": "proj_001",
-    "name": "My DVD Project"
-  },
-  "disc": {
-    "family": "dvd-video",
-    "standard": "NTSC",
-    "capacityTarget": "DVD5",
-    "titlesets": []
-  },
-  "assets": [],
-  "menus": [],
-  "buildSettings": {},
-  "cache": {}
+	"schemaVersion": 1,
+	"project": {
+		"id": "proj_001",
+		"name": "My DVD Project"
+	},
+	"disc": {
+		"family": "dvd-video",
+		"standard": "NTSC",
+		"capacityTarget": "DVD5",
+		"titlesets": []
+	},
+	"assets": [],
+	"menus": [],
+	"buildSettings": {},
+	"cache": {}
 }
 ```
 
@@ -1692,15 +1692,15 @@ This section documents key architectural decisions made during implementation.
 
 Non-business-logic native extensions use **official Tauri v2 plugins**:
 
-| Plugin | Purpose |
-|--------|---------|
-| `@tauri-apps/plugin-dialog` | Open/save file dialogs |
-| `@tauri-apps/plugin-fs` | Filesystem read/write |
-| `@tauri-apps/plugin-store` | Persistent key-value settings |
+| Plugin                            | Purpose                          |
+| --------------------------------- | -------------------------------- |
+| `@tauri-apps/plugin-dialog`       | Open/save file dialogs           |
+| `@tauri-apps/plugin-fs`           | Filesystem read/write            |
+| `@tauri-apps/plugin-store`        | Persistent key-value settings    |
 | `@tauri-apps/plugin-window-state` | Window position/size persistence |
-| `@tauri-apps/plugin-shell` | External process execution |
-| `@tauri-apps/plugin-os` | Platform detection |
-| `@tauri-apps/plugin-opener` | Default application launching |
+| `@tauri-apps/plugin-shell`        | External process execution       |
+| `@tauri-apps/plugin-os`           | Platform detection               |
+| `@tauri-apps/plugin-opener`       | Default application launching    |
 
 Domain-specific business logic lives in a custom Tauri v2 plugin:
 
@@ -1761,4 +1761,3 @@ The design system is implemented as CSS custom properties in `design-system.css`
 - **Rust**: Unit tests in `models.rs` cover JSON round-trips, serialisation format, domain values, and field initialisation.
 - **Frontend**: Vitest with happy-dom and testing-library. Tests cover type helpers, constants, and project creation defaults.
 - **No Rust toolchain locally**: Rust tests run via Docker (`ghcr.io/liminal-hq/tauri-dev-desktop:latest`).
-

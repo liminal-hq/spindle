@@ -1325,4 +1325,3 @@ The right order for this application is:
 - keep the architecture ready for future BD backends without overbuilding them today
 
 If this sequence is followed, Spindle can grow in a disciplined way from a trustworthy DVD-first authoring environment into a broader optical-disc authoring platform.
-

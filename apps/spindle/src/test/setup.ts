@@ -3,4 +3,4 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: MIT
 
-import "@testing-library/jest-dom/vitest";
+import '@testing-library/jest-dom/vitest';

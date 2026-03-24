@@ -4,31 +4,31 @@
 // SPDX-License-Identifier: MIT
 
 export interface MenuItem {
-  id: string;
-  label: string;
-  icon?: React.ReactNode;
-  shortcut?: string;
-  disabled?: boolean;
-  checked?: boolean;
-  danger?: boolean;
-  action?: () => void;
-  children?: MenuItem[];
+	id: string;
+	label: string;
+	icon?: React.ReactNode;
+	shortcut?: string;
+	disabled?: boolean;
+	checked?: boolean;
+	danger?: boolean;
+	action?: () => void;
+	children?: MenuItem[];
 }
 
 export interface MenuSeparator {
-  type: "separator";
+	type: 'separator';
 }
 
 export interface MenuSection {
-  title?: string;
-  items: (MenuItem | MenuSeparator)[];
+	title?: string;
+	items: (MenuItem | MenuSeparator)[];
 }
 
 export interface MenuModel {
-  sections: MenuSection[];
+	sections: MenuSection[];
 }
 
 export interface MenuPosition {
-  x: number;
-  y: number;
+	x: number;
+	y: number;
 }

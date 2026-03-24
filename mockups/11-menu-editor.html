@@ -1,442 +1,662 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en-CA">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=1280">
-  <title>Spindle — Menu Editor</title>
-  <link rel="stylesheet" href="design-system.css">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
-  <style>
-    body { background: var(--bg-app); overflow: hidden; }
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=1280" />
+		<title>Spindle — Menu Editor</title>
+		<link rel="stylesheet" href="design-system.css" />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap"
+			rel="stylesheet"
+		/>
+		<style>
+			body {
+				background: var(--bg-app);
+				overflow: hidden;
+			}
 
-    .editor-layout {
-      display: grid;
-      grid-template-columns: 48px 1fr 280px;
-      height: 100vh;
-    }
+			.editor-layout {
+				display: grid;
+				grid-template-columns: 48px 1fr 280px;
+				height: 100vh;
+			}
 
-    /* -- Toolbar (left) -- */
-    .editor-toolbar {
-      background: var(--bg-sidebar);
-      border-right: 1px solid var(--border-subtle);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: var(--space-3) 0;
-      gap: var(--space-1);
-    }
-    .tool-btn {
-      width: 36px; height: 36px;
-      border-radius: var(--radius-md);
-      border: none;
-      background: transparent;
-      color: var(--text-muted);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      transition: all var(--transition-fast);
-    }
-    .tool-btn:hover { background: rgba(255,255,255,0.06); color: var(--text-secondary); }
-    .tool-btn--active { background: rgba(255,170,64,0.12); color: var(--brand-orange); }
+			/* -- Toolbar (left) -- */
+			.editor-toolbar {
+				background: var(--bg-sidebar);
+				border-right: 1px solid var(--border-subtle);
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				padding: var(--space-3) 0;
+				gap: var(--space-1);
+			}
+			.tool-btn {
+				width: 36px;
+				height: 36px;
+				border-radius: var(--radius-md);
+				border: none;
+				background: transparent;
+				color: var(--text-muted);
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				cursor: pointer;
+				transition: all var(--transition-fast);
+			}
+			.tool-btn:hover {
+				background: rgba(255, 255, 255, 0.06);
+				color: var(--text-secondary);
+			}
+			.tool-btn--active {
+				background: rgba(255, 170, 64, 0.12);
+				color: var(--brand-orange);
+			}
 
-    .tool-divider {
-      width: 24px;
-      height: 1px;
-      background: var(--border-subtle);
-      margin: var(--space-2) 0;
-    }
+			.tool-divider {
+				width: 24px;
+				height: 1px;
+				background: var(--border-subtle);
+				margin: var(--space-2) 0;
+			}
 
-    /* -- Canvas area -- */
-    .canvas-area {
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
+			/* -- Canvas area -- */
+			.canvas-area {
+				display: flex;
+				flex-direction: column;
+				overflow: hidden;
+			}
 
-    .canvas-header {
-      display: flex;
-      align-items: center;
-      gap: var(--space-3);
-      padding: var(--space-2) var(--space-4);
-      background: var(--bg-sidebar);
-      border-bottom: 1px solid var(--border-subtle);
-      font-size: var(--text-sm);
-    }
-    .canvas-header__title {
-      font-weight: 600;
-      color: var(--text-primary);
-    }
-    .canvas-header__zoom {
-      margin-left: auto;
-      display: flex;
-      align-items: center;
-      gap: var(--space-2);
-      font-size: var(--text-xs);
-      color: var(--text-muted);
-    }
+			.canvas-header {
+				display: flex;
+				align-items: center;
+				gap: var(--space-3);
+				padding: var(--space-2) var(--space-4);
+				background: var(--bg-sidebar);
+				border-bottom: 1px solid var(--border-subtle);
+				font-size: var(--text-sm);
+			}
+			.canvas-header__title {
+				font-weight: 600;
+				color: var(--text-primary);
+			}
+			.canvas-header__zoom {
+				margin-left: auto;
+				display: flex;
+				align-items: center;
+				gap: var(--space-2);
+				font-size: var(--text-xs);
+				color: var(--text-muted);
+			}
 
-    .canvas-viewport {
-      flex: 1;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: #0a0a0e;
-      background-image:
-        radial-gradient(circle at 50% 50%, rgba(255,170,64,0.02) 0%, transparent 70%);
-      overflow: auto;
-      padding: var(--space-6);
-    }
+			.canvas-viewport {
+				flex: 1;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				background: #0a0a0e;
+				background-image: radial-gradient(
+					circle at 50% 50%,
+					rgba(255, 170, 64, 0.02) 0%,
+					transparent 70%
+				);
+				overflow: auto;
+				padding: var(--space-6);
+			}
 
-    /* -- The DVD menu canvas (fixed aspect ratio) -- */
-    .menu-canvas {
-      width: 640px;
-      height: 480px;
-      position: relative;
-      border-radius: 4px;
-      overflow: hidden;
-      box-shadow: 0 8px 40px rgba(0,0,0,0.5);
-    }
+			/* -- The DVD menu canvas (fixed aspect ratio) -- */
+			.menu-canvas {
+				width: 640px;
+				height: 480px;
+				position: relative;
+				border-radius: 4px;
+				overflow: hidden;
+				box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
+			}
 
-    .menu-canvas__bg {
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(135deg, #1a1a2e 0%, #2d1f45 30%, #1a2040 70%, #0f1520 100%);
-    }
+			.menu-canvas__bg {
+				position: absolute;
+				inset: 0;
+				background: linear-gradient(135deg, #1a1a2e 0%, #2d1f45 30%, #1a2040 70%, #0f1520 100%);
+			}
 
-    /* Safe area guides */
-    .menu-canvas__safe-title {
-      position: absolute;
-      inset: 10%;
-      border: 1px dashed rgba(96,165,250,0.2);
-      pointer-events: none;
-    }
-    .menu-canvas__safe-action {
-      position: absolute;
-      inset: 5%;
-      border: 1px dashed rgba(46,198,106,0.15);
-      pointer-events: none;
-    }
-    .safe-label {
-      position: absolute;
-      font-size: 8px;
-      font-family: var(--font-mono);
-      letter-spacing: 0.04em;
-    }
-    .safe-label--title {
-      top: calc(10% - 12px);
-      left: 10%;
-      color: rgba(96,165,250,0.4);
-    }
-    .safe-label--action {
-      top: calc(5% - 12px);
-      left: 5%;
-      color: rgba(46,198,106,0.3);
-    }
+			/* Safe area guides */
+			.menu-canvas__safe-title {
+				position: absolute;
+				inset: 10%;
+				border: 1px dashed rgba(96, 165, 250, 0.2);
+				pointer-events: none;
+			}
+			.menu-canvas__safe-action {
+				position: absolute;
+				inset: 5%;
+				border: 1px dashed rgba(46, 198, 106, 0.15);
+				pointer-events: none;
+			}
+			.safe-label {
+				position: absolute;
+				font-size: 8px;
+				font-family: var(--font-mono);
+				letter-spacing: 0.04em;
+			}
+			.safe-label--title {
+				top: calc(10% - 12px);
+				left: 10%;
+				color: rgba(96, 165, 250, 0.4);
+			}
+			.safe-label--action {
+				top: calc(5% - 12px);
+				left: 5%;
+				color: rgba(46, 198, 106, 0.3);
+			}
 
-    /* Menu title text */
-    .menu-canvas__title {
-      position: absolute;
-      top: 12%;
-      left: 0; right: 0;
-      text-align: center;
-      font-family: var(--font-heading);
-      font-size: 22px;
-      font-weight: 700;
-      color: rgba(255,255,255,0.8);
-      letter-spacing: 0.04em;
-      text-shadow: 0 2px 8px rgba(0,0,0,0.4);
-    }
+			/* Menu title text */
+			.menu-canvas__title {
+				position: absolute;
+				top: 12%;
+				left: 0;
+				right: 0;
+				text-align: center;
+				font-family: var(--font-heading);
+				font-size: 22px;
+				font-weight: 700;
+				color: rgba(255, 255, 255, 0.8);
+				letter-spacing: 0.04em;
+				text-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+			}
 
-    /* Buttons on canvas */
-    .canvas-btn {
-      position: absolute;
-      border: 2px solid rgba(255,255,255,0.2);
-      border-radius: 6px;
-      background: rgba(0,0,0,0.3);
-      backdrop-filter: blur(4px);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-family: var(--font-heading);
-      font-size: 13px;
-      font-weight: 500;
-      color: rgba(255,255,255,0.8);
-      cursor: move;
-      transition: box-shadow var(--transition-fast);
-    }
-    .canvas-btn:hover {
-      border-color: rgba(255,255,255,0.3);
-      box-shadow: 0 2px 12px rgba(0,0,0,0.3);
-    }
-    .canvas-btn--selected {
-      border-color: var(--brand-orange);
-      box-shadow: 0 0 0 1px var(--brand-orange), 0 0 20px rgba(255,170,64,0.2);
-    }
+			/* Buttons on canvas */
+			.canvas-btn {
+				position: absolute;
+				border: 2px solid rgba(255, 255, 255, 0.2);
+				border-radius: 6px;
+				background: rgba(0, 0, 0, 0.3);
+				backdrop-filter: blur(4px);
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				font-family: var(--font-heading);
+				font-size: 13px;
+				font-weight: 500;
+				color: rgba(255, 255, 255, 0.8);
+				cursor: move;
+				transition: box-shadow var(--transition-fast);
+			}
+			.canvas-btn:hover {
+				border-color: rgba(255, 255, 255, 0.3);
+				box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+			}
+			.canvas-btn--selected {
+				border-color: var(--brand-orange);
+				box-shadow:
+					0 0 0 1px var(--brand-orange),
+					0 0 20px rgba(255, 170, 64, 0.2);
+			}
 
-    /* Resize handles */
-    .canvas-btn--selected::before,
-    .canvas-btn--selected::after {
-      content: '';
-      position: absolute;
-      width: 8px; height: 8px;
-      background: var(--brand-orange);
-      border-radius: 2px;
-    }
-    .canvas-btn--selected::before { top: -4px; left: -4px; }
-    .canvas-btn--selected::after { bottom: -4px; right: -4px; }
+			/* Resize handles */
+			.canvas-btn--selected::before,
+			.canvas-btn--selected::after {
+				content: '';
+				position: absolute;
+				width: 8px;
+				height: 8px;
+				background: var(--brand-orange);
+				border-radius: 2px;
+			}
+			.canvas-btn--selected::before {
+				top: -4px;
+				left: -4px;
+			}
+			.canvas-btn--selected::after {
+				bottom: -4px;
+				right: -4px;
+			}
 
-    /* -- Inspector panel (right) -- */
-    .inspector {
-      background: var(--bg-sidebar);
-      border-left: 1px solid var(--border-subtle);
-      overflow-y: auto;
-      padding: var(--space-4);
-    }
+			/* -- Inspector panel (right) -- */
+			.inspector {
+				background: var(--bg-sidebar);
+				border-left: 1px solid var(--border-subtle);
+				overflow-y: auto;
+				padding: var(--space-4);
+			}
 
-    .inspector__section {
-      margin-bottom: var(--space-5);
-    }
-    .inspector__section-title {
-      font-size: var(--text-xs);
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      color: var(--text-muted);
-      margin-bottom: var(--space-3);
-    }
+			.inspector__section {
+				margin-bottom: var(--space-5);
+			}
+			.inspector__section-title {
+				font-size: var(--text-xs);
+				font-weight: 600;
+				text-transform: uppercase;
+				letter-spacing: 0.06em;
+				color: var(--text-muted);
+				margin-bottom: var(--space-3);
+			}
 
-    .inspector__row {
-      display: flex;
-      align-items: center;
-      gap: var(--space-2);
-      margin-bottom: var(--space-2);
-    }
-    .inspector__label {
-      font-size: var(--text-xs);
-      color: var(--text-muted);
-      width: 50px;
-      flex-shrink: 0;
-    }
+			.inspector__row {
+				display: flex;
+				align-items: center;
+				gap: var(--space-2);
+				margin-bottom: var(--space-2);
+			}
+			.inspector__label {
+				font-size: var(--text-xs);
+				color: var(--text-muted);
+				width: 50px;
+				flex-shrink: 0;
+			}
 
-    .pos-input {
-      width: 60px;
-      padding: 3px 6px;
-      background: var(--bg-input);
-      border: 1px solid var(--border-subtle);
-      border-radius: var(--radius-sm);
-      font-family: var(--font-mono);
-      font-size: var(--text-xs);
-      color: var(--text-primary);
-      text-align: center;
-    }
-    .pos-input:focus {
-      outline: none;
-      border-color: var(--brand-orange);
-    }
+			.pos-input {
+				width: 60px;
+				padding: 3px 6px;
+				background: var(--bg-input);
+				border: 1px solid var(--border-subtle);
+				border-radius: var(--radius-sm);
+				font-family: var(--font-mono);
+				font-size: var(--text-xs);
+				color: var(--text-primary);
+				text-align: center;
+			}
+			.pos-input:focus {
+				outline: none;
+				border-color: var(--brand-orange);
+			}
 
-    /* -- Navigation arrows in inspector -- */
-    .nav-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      grid-template-rows: auto auto auto;
-      gap: 4px;
-      width: 140px;
-      margin: 0 auto;
-    }
-    .nav-cell {
-      height: 32px;
-      border: 1px solid var(--border-subtle);
-      border-radius: var(--radius-sm);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: var(--text-xs);
-      color: var(--text-muted);
-      cursor: pointer;
-      transition: all var(--transition-fast);
-    }
-    .nav-cell:hover { border-color: var(--border-default); color: var(--text-secondary); }
-    .nav-cell--center {
-      background: rgba(255,170,64,0.08);
-      border-color: rgba(255,170,64,0.2);
-      color: var(--brand-orange);
-      font-weight: 600;
-      font-size: 9px;
-    }
-    .nav-cell--empty { border-color: transparent; }
-  </style>
-</head>
-<body>
-  <div class="editor-layout">
+			/* -- Navigation arrows in inspector -- */
+			.nav-grid {
+				display: grid;
+				grid-template-columns: 1fr 1fr 1fr;
+				grid-template-rows: auto auto auto;
+				gap: 4px;
+				width: 140px;
+				margin: 0 auto;
+			}
+			.nav-cell {
+				height: 32px;
+				border: 1px solid var(--border-subtle);
+				border-radius: var(--radius-sm);
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				font-size: var(--text-xs);
+				color: var(--text-muted);
+				cursor: pointer;
+				transition: all var(--transition-fast);
+			}
+			.nav-cell:hover {
+				border-color: var(--border-default);
+				color: var(--text-secondary);
+			}
+			.nav-cell--center {
+				background: rgba(255, 170, 64, 0.08);
+				border-color: rgba(255, 170, 64, 0.2);
+				color: var(--brand-orange);
+				font-weight: 600;
+				font-size: 9px;
+			}
+			.nav-cell--empty {
+				border-color: transparent;
+			}
+		</style>
+	</head>
+	<body>
+		<div class="editor-layout">
+			<!-- ═══ Left Toolbar ═══ -->
+			<div class="editor-toolbar">
+				<button class="tool-btn tool-btn--active" title="Select">
+					<svg
+						width="16"
+						height="16"
+						viewBox="0 0 16 16"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="1.5"
+					>
+						<path d="M3 2l4 12 2-5 5-2z" />
+					</svg>
+				</button>
+				<button class="tool-btn" title="Move">
+					<svg
+						width="16"
+						height="16"
+						viewBox="0 0 16 16"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="1.5"
+					>
+						<path
+							d="M8 2v12M2 8h12M8 2l-2 2M8 2l2 2M8 14l-2-2M8 14l2-2M2 8l2-2M2 8l2 2M14 8l-2-2M14 8l-2 2"
+						/>
+					</svg>
+				</button>
+				<button class="tool-btn" title="Add Button">
+					<svg
+						width="16"
+						height="16"
+						viewBox="0 0 16 16"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="1.5"
+					>
+						<rect x="2" y="5" width="12" height="6" rx="1.5" />
+						<path d="M8 7v2M7 8h2" />
+					</svg>
+				</button>
+				<button class="tool-btn" title="Add Text">
+					<svg
+						width="16"
+						height="16"
+						viewBox="0 0 16 16"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="1.5"
+					>
+						<path d="M4 4h8M8 4v8M6 12h4" />
+					</svg>
+				</button>
 
-    <!-- ═══ Left Toolbar ═══ -->
-    <div class="editor-toolbar">
-      <button class="tool-btn tool-btn--active" title="Select">
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 2l4 12 2-5 5-2z"/></svg>
-      </button>
-      <button class="tool-btn" title="Move">
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2v12M2 8h12M8 2l-2 2M8 2l2 2M8 14l-2-2M8 14l2-2M2 8l2-2M2 8l2 2M14 8l-2-2M14 8l-2 2"/></svg>
-      </button>
-      <button class="tool-btn" title="Add Button">
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="5" width="12" height="6" rx="1.5"/><path d="M8 7v2M7 8h2"/></svg>
-      </button>
-      <button class="tool-btn" title="Add Text">
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 4h8M8 4v8M6 12h4"/></svg>
-      </button>
+				<div class="tool-divider"></div>
 
-      <div class="tool-divider"></div>
+				<button class="tool-btn" title="Align">
+					<svg
+						width="16"
+						height="16"
+						viewBox="0 0 16 16"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="1.5"
+					>
+						<line x1="2" y1="2" x2="2" y2="14" />
+						<rect x="5" y="4" width="8" height="3" rx="0.5" />
+						<rect x="5" y="9" width="6" height="3" rx="0.5" />
+					</svg>
+				</button>
+				<button class="tool-btn" title="Distribute">
+					<svg
+						width="16"
+						height="16"
+						viewBox="0 0 16 16"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="1.5"
+					>
+						<line x1="2" y1="2" x2="2" y2="14" />
+						<line x1="14" y1="2" x2="14" y2="14" />
+						<rect x="6" y="5" width="4" height="6" rx="0.5" />
+					</svg>
+				</button>
 
-      <button class="tool-btn" title="Align">
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="2" y1="2" x2="2" y2="14"/><rect x="5" y="4" width="8" height="3" rx="0.5"/><rect x="5" y="9" width="6" height="3" rx="0.5"/></svg>
-      </button>
-      <button class="tool-btn" title="Distribute">
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="2" y1="2" x2="2" y2="14"/><line x1="14" y1="2" x2="14" y2="14"/><rect x="6" y="5" width="4" height="6" rx="0.5"/></svg>
-      </button>
+				<div class="tool-divider"></div>
 
-      <div class="tool-divider"></div>
+				<button class="tool-btn" title="Toggle Safe Areas">
+					<svg
+						width="16"
+						height="16"
+						viewBox="0 0 16 16"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="1.5"
+					>
+						<rect x="2" y="2" width="12" height="12" rx="1" stroke-dasharray="2 2" />
+					</svg>
+				</button>
+				<button class="tool-btn" title="Snap to Grid">
+					<svg
+						width="16"
+						height="16"
+						viewBox="0 0 16 16"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="1.5"
+					>
+						<circle cx="4" cy="4" r="1" />
+						<circle cx="8" cy="4" r="1" />
+						<circle cx="12" cy="4" r="1" />
+						<circle cx="4" cy="8" r="1" />
+						<circle cx="8" cy="8" r="1" />
+						<circle cx="12" cy="8" r="1" />
+						<circle cx="4" cy="12" r="1" />
+						<circle cx="8" cy="12" r="1" />
+						<circle cx="12" cy="12" r="1" />
+					</svg>
+				</button>
+			</div>
 
-      <button class="tool-btn" title="Toggle Safe Areas">
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="12" height="12" rx="1" stroke-dasharray="2 2"/></svg>
-      </button>
-      <button class="tool-btn" title="Snap to Grid">
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="4" cy="4" r="1"/><circle cx="8" cy="4" r="1"/><circle cx="12" cy="4" r="1"/><circle cx="4" cy="8" r="1"/><circle cx="8" cy="8" r="1"/><circle cx="12" cy="8" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="8" cy="12" r="1"/><circle cx="12" cy="12" r="1"/></svg>
-      </button>
-    </div>
+			<!-- ═══ Canvas Area ═══ -->
+			<div class="canvas-area">
+				<div class="canvas-header">
+					<span class="canvas-header__title">Main Menu</span>
+					<span class="tag">720 × 480</span>
+					<span class="text-muted" style="font-size: var(--text-xs)">NTSC · 4:3 Display</span>
+					<div class="canvas-header__zoom">
+						<button class="btn btn--ghost btn--sm">−</button>
+						<span>100%</span>
+						<button class="btn btn--ghost btn--sm">+</button>
+						<button class="btn btn--ghost btn--sm">Fit</button>
+					</div>
+				</div>
 
-    <!-- ═══ Canvas Area ═══ -->
-    <div class="canvas-area">
-      <div class="canvas-header">
-        <span class="canvas-header__title">Main Menu</span>
-        <span class="tag">720 × 480</span>
-        <span class="text-muted" style="font-size:var(--text-xs);">NTSC · 4:3 Display</span>
-        <div class="canvas-header__zoom">
-          <button class="btn btn--ghost btn--sm">−</button>
-          <span>100%</span>
-          <button class="btn btn--ghost btn--sm">+</button>
-          <button class="btn btn--ghost btn--sm">Fit</button>
-        </div>
-      </div>
+				<div class="canvas-viewport">
+					<div class="menu-canvas">
+						<div class="menu-canvas__bg"></div>
 
-      <div class="canvas-viewport">
-        <div class="menu-canvas">
-          <div class="menu-canvas__bg"></div>
+						<!-- Safe area guides -->
+						<span class="safe-label safe-label--action">ACTION SAFE</span>
+						<div class="menu-canvas__safe-action"></div>
+						<span class="safe-label safe-label--title">TITLE SAFE</span>
+						<div class="menu-canvas__safe-title"></div>
 
-          <!-- Safe area guides -->
-          <span class="safe-label safe-label--action">ACTION SAFE</span>
-          <div class="menu-canvas__safe-action"></div>
-          <span class="safe-label safe-label--title">TITLE SAFE</span>
-          <div class="menu-canvas__safe-title"></div>
+						<!-- Title -->
+						<div class="menu-canvas__title">Wedding Highlights</div>
 
-          <!-- Title -->
-          <div class="menu-canvas__title">Wedding Highlights</div>
+						<!-- Buttons -->
+						<div
+							class="canvas-btn canvas-btn--selected"
+							style="left: 12%; top: 42%; width: 28%; height: 11%"
+						>
+							▶ Play Ceremony
+						</div>
+						<div class="canvas-btn" style="left: 12%; top: 58%; width: 28%; height: 11%">
+							▶ Play Reception
+						</div>
+						<div class="canvas-btn" style="left: 60%; top: 42%; width: 28%; height: 11%">
+							▶ Play Highlights
+						</div>
+						<div class="canvas-btn" style="left: 60%; top: 58%; width: 28%; height: 11%">
+							◆ Chapter Select
+						</div>
+					</div>
+				</div>
+			</div>
 
-          <!-- Buttons -->
-          <div class="canvas-btn canvas-btn--selected" style="left:12%;top:42%;width:28%;height:11%;">
-            ▶ Play Ceremony
-          </div>
-          <div class="canvas-btn" style="left:12%;top:58%;width:28%;height:11%;">
-            ▶ Play Reception
-          </div>
-          <div class="canvas-btn" style="left:60%;top:42%;width:28%;height:11%;">
-            ▶ Play Highlights
-          </div>
-          <div class="canvas-btn" style="left:60%;top:58%;width:28%;height:11%;">
-            ◆ Chapter Select
-          </div>
-        </div>
-      </div>
-    </div>
+			<!-- ═══ Inspector Panel ═══ -->
+			<div class="inspector">
+				<div class="inspector__section">
+					<div class="inspector__section-title">Selected Button</div>
+					<div class="form-group">
+						<label class="form-label">Label</label>
+						<input class="input" value="Play Ceremony" style="font-size: var(--text-sm)" />
+					</div>
+					<div class="form-group">
+						<label class="form-label">Action</label>
+						<select class="input input--select" style="font-size: var(--text-sm)">
+							<option>Play Title 1 — Ceremony</option>
+							<option>Play Title 2 — Reception</option>
+							<option>Play Title 3 — Highlights</option>
+							<option>Go to Menu: Chapter Select</option>
+						</select>
+					</div>
+				</div>
 
-    <!-- ═══ Inspector Panel ═══ -->
-    <div class="inspector">
-      <div class="inspector__section">
-        <div class="inspector__section-title">Selected Button</div>
-        <div class="form-group">
-          <label class="form-label">Label</label>
-          <input class="input" value="Play Ceremony" style="font-size:var(--text-sm);">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Action</label>
-          <select class="input input--select" style="font-size:var(--text-sm);">
-            <option>Play Title 1 — Ceremony</option>
-            <option>Play Title 2 — Reception</option>
-            <option>Play Title 3 — Highlights</option>
-            <option>Go to Menu: Chapter Select</option>
-          </select>
-        </div>
-      </div>
+				<div class="inspector__section">
+					<div class="inspector__section-title">Position & Size</div>
+					<div class="inspector__row">
+						<span class="inspector__label">X</span>
+						<input class="pos-input" value="77" />
+						<span class="inspector__label" style="width: auto; margin-left: var(--space-2)">Y</span>
+						<input class="pos-input" value="202" />
+					</div>
+					<div class="inspector__row">
+						<span class="inspector__label">W</span>
+						<input class="pos-input" value="179" />
+						<span class="inspector__label" style="width: auto; margin-left: var(--space-2)">H</span>
+						<input class="pos-input" value="53" />
+					</div>
+				</div>
 
-      <div class="inspector__section">
-        <div class="inspector__section-title">Position & Size</div>
-        <div class="inspector__row">
-          <span class="inspector__label">X</span>
-          <input class="pos-input" value="77">
-          <span class="inspector__label" style="width:auto;margin-left:var(--space-2);">Y</span>
-          <input class="pos-input" value="202">
-        </div>
-        <div class="inspector__row">
-          <span class="inspector__label">W</span>
-          <input class="pos-input" value="179">
-          <span class="inspector__label" style="width:auto;margin-left:var(--space-2);">H</span>
-          <input class="pos-input" value="53">
-        </div>
-      </div>
+				<div class="inspector__section">
+					<div class="inspector__section-title">Highlight States</div>
+					<div style="display: flex; gap: var(--space-2); margin-bottom: var(--space-2)">
+						<div
+							style="
+								flex: 1;
+								text-align: center;
+								padding: var(--space-2);
+								border: 1px solid var(--border-subtle);
+								border-radius: var(--radius-sm);
+								font-size: var(--text-xs);
+								color: var(--text-muted);
+							"
+						>
+							Normal
+							<div
+								style="
+									width: 100%;
+									height: 24px;
+									margin-top: 4px;
+									border-radius: 3px;
+									background: rgba(255, 255, 255, 0.08);
+									border: 1px solid rgba(255, 255, 255, 0.15);
+								"
+							></div>
+						</div>
+						<div
+							style="
+								flex: 1;
+								text-align: center;
+								padding: var(--space-2);
+								border: 1px solid rgba(255, 170, 64, 0.2);
+								border-radius: var(--radius-sm);
+								font-size: var(--text-xs);
+								color: var(--brand-orange);
+							"
+						>
+							Highlight
+							<div
+								style="
+									width: 100%;
+									height: 24px;
+									margin-top: 4px;
+									border-radius: 3px;
+									background: rgba(255, 170, 64, 0.15);
+									border: 1px solid var(--brand-orange);
+								"
+							></div>
+						</div>
+						<div
+							style="
+								flex: 1;
+								text-align: center;
+								padding: var(--space-2);
+								border: 1px solid var(--border-subtle);
+								border-radius: var(--radius-sm);
+								font-size: var(--text-xs);
+								color: var(--text-muted);
+							"
+						>
+							Select
+							<div
+								style="
+									width: 100%;
+									height: 24px;
+									margin-top: 4px;
+									border-radius: 3px;
+									background: rgba(244, 63, 94, 0.15);
+									border: 1px solid var(--brand-pink);
+								"
+							></div>
+						</div>
+					</div>
+				</div>
 
-      <div class="inspector__section">
-        <div class="inspector__section-title">Highlight States</div>
-        <div style="display:flex; gap:var(--space-2); margin-bottom:var(--space-2);">
-          <div style="flex:1;text-align:center;padding:var(--space-2);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);font-size:var(--text-xs);color:var(--text-muted);">
-            Normal
-            <div style="width:100%;height:24px;margin-top:4px;border-radius:3px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);"></div>
-          </div>
-          <div style="flex:1;text-align:center;padding:var(--space-2);border:1px solid rgba(255,170,64,0.2);border-radius:var(--radius-sm);font-size:var(--text-xs);color:var(--brand-orange);">
-            Highlight
-            <div style="width:100%;height:24px;margin-top:4px;border-radius:3px;background:rgba(255,170,64,0.15);border:1px solid var(--brand-orange);"></div>
-          </div>
-          <div style="flex:1;text-align:center;padding:var(--space-2);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);font-size:var(--text-xs);color:var(--text-muted);">
-            Select
-            <div style="width:100%;height:24px;margin-top:4px;border-radius:3px;background:rgba(244,63,94,0.15);border:1px solid var(--brand-pink);"></div>
-          </div>
-        </div>
-      </div>
+				<div class="inspector__section">
+					<div class="inspector__section-title">Navigation</div>
+					<div class="nav-grid">
+						<div class="nav-cell nav-cell--empty"></div>
+						<div class="nav-cell">↑ Btn 3</div>
+						<div class="nav-cell nav-cell--empty"></div>
+						<div class="nav-cell">← None</div>
+						<div class="nav-cell nav-cell--center">BTN 1</div>
+						<div class="nav-cell">→ Btn 3</div>
+						<div class="nav-cell nav-cell--empty"></div>
+						<div class="nav-cell">↓ Btn 2</div>
+						<div class="nav-cell nav-cell--empty"></div>
+					</div>
+					<div style="text-align: center; margin-top: var(--space-2)">
+						<button class="btn btn--ghost btn--sm" style="font-size: var(--text-xs)">
+							Edit Navigation Map
+						</button>
+					</div>
+				</div>
 
-      <div class="inspector__section">
-        <div class="inspector__section-title">Navigation</div>
-        <div class="nav-grid">
-          <div class="nav-cell nav-cell--empty"></div>
-          <div class="nav-cell">↑ Btn 3</div>
-          <div class="nav-cell nav-cell--empty"></div>
-          <div class="nav-cell">← None</div>
-          <div class="nav-cell nav-cell--center">BTN 1</div>
-          <div class="nav-cell">→ Btn 3</div>
-          <div class="nav-cell nav-cell--empty"></div>
-          <div class="nav-cell">↓ Btn 2</div>
-          <div class="nav-cell nav-cell--empty"></div>
-        </div>
-        <div style="text-align:center;margin-top:var(--space-2);">
-          <button class="btn btn--ghost btn--sm" style="font-size:var(--text-xs);">Edit Navigation Map</button>
-        </div>
-      </div>
-
-      <div class="inspector__section">
-        <div class="inspector__section-title">All Buttons</div>
-        <div style="font-size:var(--text-xs);">
-          <div style="display:flex;align-items:center;gap:var(--space-2);padding:4px 6px;background:rgba(255,170,64,0.08);border-radius:var(--radius-sm);margin-bottom:2px;color:var(--brand-orange);font-weight:500;">
-            <span>1</span> Play Ceremony
-          </div>
-          <div style="display:flex;align-items:center;gap:var(--space-2);padding:4px 6px;border-radius:var(--radius-sm);margin-bottom:2px;color:var(--text-secondary);">
-            <span style="color:var(--text-muted);">2</span> Play Reception
-          </div>
-          <div style="display:flex;align-items:center;gap:var(--space-2);padding:4px 6px;border-radius:var(--radius-sm);margin-bottom:2px;color:var(--text-secondary);">
-            <span style="color:var(--text-muted);">3</span> Play Highlights
-          </div>
-          <div style="display:flex;align-items:center;gap:var(--space-2);padding:4px 6px;border-radius:var(--radius-sm);color:var(--text-secondary);">
-            <span style="color:var(--text-muted);">4</span> Chapter Select
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</body>
+				<div class="inspector__section">
+					<div class="inspector__section-title">All Buttons</div>
+					<div style="font-size: var(--text-xs)">
+						<div
+							style="
+								display: flex;
+								align-items: center;
+								gap: var(--space-2);
+								padding: 4px 6px;
+								background: rgba(255, 170, 64, 0.08);
+								border-radius: var(--radius-sm);
+								margin-bottom: 2px;
+								color: var(--brand-orange);
+								font-weight: 500;
+							"
+						>
+							<span>1</span> Play Ceremony
+						</div>
+						<div
+							style="
+								display: flex;
+								align-items: center;
+								gap: var(--space-2);
+								padding: 4px 6px;
+								border-radius: var(--radius-sm);
+								margin-bottom: 2px;
+								color: var(--text-secondary);
+							"
+						>
+							<span style="color: var(--text-muted)">2</span> Play Reception
+						</div>
+						<div
+							style="
+								display: flex;
+								align-items: center;
+								gap: var(--space-2);
+								padding: 4px 6px;
+								border-radius: var(--radius-sm);
+								margin-bottom: 2px;
+								color: var(--text-secondary);
+							"
+						>
+							<span style="color: var(--text-muted)">3</span> Play Highlights
+						</div>
+						<div
+							style="
+								display: flex;
+								align-items: center;
+								gap: var(--space-2);
+								padding: 4px 6px;
+								border-radius: var(--radius-sm);
+								color: var(--text-secondary);
+							"
+						>
+							<span style="color: var(--text-muted)">4</span> Chapter Select
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</body>
 </html>
