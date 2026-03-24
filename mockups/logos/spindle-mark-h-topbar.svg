@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Spindle Mark H — "Disc Profile"
+       A disc seen from the side: two thick curved parentheses as the disc
+       edges with a spindle hub in the centre (ring with transparent hole). -->
+  <defs>
+    <!-- Bright outer gradient (stroke) -->
+    <linearGradient id="stroke-grad" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#CF5D22" />
+      <stop offset="50%" stop-color="#F19B18" />
+      <stop offset="100%" stop-color="#ffaa40" />
+    </linearGradient>
+    <!-- Darker inner gradient (fill) -->
+    <linearGradient id="fill-grad" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#7A3415" />
+      <stop offset="50%" stop-color="#A85A12" />
+      <stop offset="100%" stop-color="#CF5D22" />
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="512" height="512" fill="#0A0A0D" rx="64"/>
+
+  <!-- Left paren ( -->
+  <path d="M171 85 L128 85 C 42 170, 42 342, 128 427 L171 427 C 100 342, 100 170, 171 85 Z"
+        fill="url(#fill-grad)" stroke="url(#stroke-grad)" stroke-width="8" stroke-linejoin="round" />
+
+  <!-- Right paren ) -->
+  <path d="M341 85 L384 85 C 470 170, 470 342, 384 427 L341 427 C 412 342, 412 170, 341 85 Z"
+        fill="url(#fill-grad)" stroke="url(#stroke-grad)" stroke-width="8" stroke-linejoin="round" />
+
+  <!-- Spindle hub — annular ring (fill-rule cuts out the centre hole) -->
+  <path d="M256 216 a40 40 0 1 1 0 80 a40 40 0 1 1 0 -80 Z
+           M256 243 a13 13 0 1 0 0 26 a13 13 0 1 0 0 -26 Z"
+        fill="url(#fill-grad)" fill-rule="evenodd"
+        stroke="url(#stroke-grad)" stroke-width="5" />
+</svg>
