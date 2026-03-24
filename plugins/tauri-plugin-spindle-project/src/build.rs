@@ -244,11 +244,23 @@ pub fn generate_build_plan(
             .collect::<String>()
             .to_uppercase();
 
+        // Prefer genisoimage, fall back to mkisofs
+        let iso_tool = if std::process::Command::new("genisoimage")
+            .arg("--version")
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false)
+        {
+            "genisoimage"
+        } else {
+            "mkisofs"
+        };
+
         jobs.push(BuildJob::CreateIso {
             source_path: output_dir.display().to_string(),
             output_path: iso_path.display().to_string(),
             command: vec![
-                "genisoimage".to_string(),
+                iso_tool.to_string(),
                 "-dvd-video".to_string(),
                 "-V".to_string(),
                 volume_id,
@@ -403,6 +415,8 @@ fn build_ffmpeg_transcode_command(
             "lavfi".to_string(),
             "-i".to_string(),
             "anullsrc=r=48000:cl=stereo".to_string(),
+            "-map".to_string(),
+            "1:a".to_string(),
             "-shortest".to_string(),
             "-c:a".to_string(),
             "ac3".to_string(),
@@ -451,7 +465,7 @@ fn generate_dvdauthor_xml(
             xml.push_str("    <fpc>\n");
             xml.push_str(&format!(
                 "      {};\n",
-                playback_action_to_dvd_command(action)
+                playback_action_to_dvd_command(action, &project.disc)
             ));
             xml.push_str("    </fpc>\n");
         }
@@ -504,7 +518,7 @@ fn generate_dvdauthor_xml(
                 xml.push_str("        <post>\n");
                 xml.push_str(&format!(
                     "          {};\n",
-                    playback_action_to_dvd_command(action)
+                    playback_action_to_dvd_command(action, &project.disc)
                 ));
                 xml.push_str("        </post>\n");
             }
@@ -521,17 +535,41 @@ fn generate_dvdauthor_xml(
     Ok(xml)
 }
 
-fn playback_action_to_dvd_command(action: &PlaybackAction) -> String {
+fn playback_action_to_dvd_command(action: &PlaybackAction, disc: &Disc) -> String {
     match action {
-        PlaybackAction::PlayTitle { title_id: _ } => {
-            // dvdauthor uses 1-based title indices — caller should resolve,
-            // but for now we use a placeholder that maps by order
-            "jump title 1".to_string()
+        PlaybackAction::PlayTitle { title_id } => {
+            // Resolve title ID to 1-based dvdauthor index across all titlesets
+            let title_index = disc
+                .titlesets
+                .iter()
+                .flat_map(|ts| ts.titles.iter())
+                .position(|t| t.id == *title_id)
+                .map(|i| i + 1)
+                .unwrap_or(1);
+            format!("jump title {title_index}")
         }
         PlaybackAction::PlayChapter {
-            title_id: _,
-            chapter_id: _,
-        } => "jump title 1 chapter 1".to_string(),
+            title_id,
+            chapter_id,
+        } => {
+            let title_index = disc
+                .titlesets
+                .iter()
+                .flat_map(|ts| ts.titles.iter())
+                .position(|t| t.id == *title_id)
+                .map(|i| i + 1)
+                .unwrap_or(1);
+            // Resolve chapter ID to 1-based index within the title
+            let chapter_index = disc
+                .titlesets
+                .iter()
+                .flat_map(|ts| ts.titles.iter())
+                .find(|t| t.id == *title_id)
+                .and_then(|t| t.chapters.iter().position(|c| c.id == *chapter_id))
+                .map(|i| i + 1)
+                .unwrap_or(1);
+            format!("jump title {title_index} chapter {chapter_index}")
+        }
         PlaybackAction::ShowMenu { menu_id: _ } => "call vmgm menu".to_string(),
         PlaybackAction::Stop => "exit".to_string(),
     }

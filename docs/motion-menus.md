@@ -7,7 +7,7 @@ DVD-Video supports two types of menu presentation:
 1. **Still menus** — a single MPEG-2 still frame displayed indefinitely (current implementation)
 2. **Motion menus** — a looping MPEG-2 video clip with multiplexed subpicture highlights
 
-Motion *buttons* extend this further: instead of a static subpicture overlay, the highlight layer can be a sequence of frames that animates when a button is selected or activated.
+Motion _buttons_ extend this further: instead of a static subpicture overlay, the highlight layer can be a sequence of frames that animates when a button is selected or activated.
 
 This document describes the model, build pipeline changes, and UI additions needed to support both features.
 
@@ -33,7 +33,7 @@ There are two approaches to motion buttons on DVD-Video:
 
 **Approach 2 — Static overlay on localised video**: the button region contains encoded video (e.g., a looping thumbnail preview, animated icon, or visual effect) composited into the menu's background video stream at the button's bounding rectangle. The subpicture highlight overlay remains a standard static 4-colour image drawn on top. This is the more common technique in commercial DVDs — the "motion" comes from the video layer beneath a conventional highlight.
 
-Both approaches can be combined: a button with localised video underneath *and* animated highlights on top. The data model supports both independently.
+Both approaches can be combined: a button with localised video underneath _and_ animated highlights on top. The data model supports both independently.
 
 ### Constraints
 
@@ -50,22 +50,22 @@ Both approaches can be combined: a button with localised video underneath *and* 
 
 ```typescript
 interface Menu {
-  // ... existing fields ...
+	// ... existing fields ...
 
-  /** Whether this menu uses a still frame or looping video background. */
-  backgroundMode: 'still' | 'motion';
+	/** Whether this menu uses a still frame or looping video background. */
+	backgroundMode: 'still' | 'motion';
 
-  /** For motion menus: duration of the loop in seconds. */
-  motionDurationSecs: number | null;
+	/** For motion menus: duration of the loop in seconds. */
+	motionDurationSecs: number | null;
 
-  /** For motion menus: optional audio asset for background music/sound. */
-  motionAudioAssetId: string | null;
+	/** For motion menus: optional audio asset for background music/sound. */
+	motionAudioAssetId: string | null;
 
-  /** For motion menus: number of times to loop before executing the timeout action (0 = infinite). */
-  motionLoopCount: number;
+	/** For motion menus: number of times to loop before executing the timeout action (0 = infinite). */
+	motionLoopCount: number;
 
-  /** Action to execute if the menu times out (motion menus only). */
-  timeoutAction: PlaybackAction | null;
+	/** Action to execute if the menu times out (motion menus only). */
+	timeoutAction: PlaybackAction | null;
 }
 ```
 
@@ -73,47 +73,47 @@ interface Menu {
 
 ```typescript
 interface MenuButton {
-  // ... existing fields ...
+	// ... existing fields ...
 
-  /** Whether button highlights are static or animated. */
-  highlightMode: 'static' | 'animated';
+	/** Whether button highlights are static or animated. */
+	highlightMode: 'static' | 'animated';
 
-  /**
-   * For animated highlights: keyframes defining highlight appearance at
-   * specific timestamps within the motion loop. Each keyframe can override
-   * the button's highlight colour and opacity.
-   */
-  highlightKeyframes: HighlightKeyframe[];
+	/**
+	 * For animated highlights: keyframes defining highlight appearance at
+	 * specific timestamps within the motion loop. Each keyframe can override
+	 * the button's highlight colour and opacity.
+	 */
+	highlightKeyframes: HighlightKeyframe[];
 
-  /**
-   * Optional video asset whose content is composited into the menu's
-   * background video at this button's bounding rectangle. Used for
-   * motion buttons where the "animation" comes from a localised video
-   * region (e.g., a looping thumbnail preview) beneath a standard
-   * static highlight overlay.
-   *
-   * Only meaningful when the parent menu's backgroundMode is 'motion'.
-   * The video is cropped/scaled to fit the button bounds and composited
-   * into the menu background during the render step.
-   */
-  videoAssetId: string | null;
+	/**
+	 * Optional video asset whose content is composited into the menu's
+	 * background video at this button's bounding rectangle. Used for
+	 * motion buttons where the "animation" comes from a localised video
+	 * region (e.g., a looping thumbnail preview) beneath a standard
+	 * static highlight overlay.
+	 *
+	 * Only meaningful when the parent menu's backgroundMode is 'motion'.
+	 * The video is cropped/scaled to fit the button bounds and composited
+	 * into the menu background during the render step.
+	 */
+	videoAssetId: string | null;
 }
 
 interface HighlightKeyframe {
-  /** Timestamp within the motion loop (seconds from start). */
-  timestampSecs: number;
+	/** Timestamp within the motion loop (seconds from start). */
+	timestampSecs: number;
 
-  /** Override select colour at this keyframe (null = use menu default). */
-  selectColour: string | null;
+	/** Override select colour at this keyframe (null = use menu default). */
+	selectColour: string | null;
 
-  /** Override select opacity at this keyframe (null = use menu default). */
-  selectOpacity: number | null;
+	/** Override select opacity at this keyframe (null = use menu default). */
+	selectOpacity: number | null;
 
-  /** Override activate colour at this keyframe (null = use menu default). */
-  activateColour: string | null;
+	/** Override activate colour at this keyframe (null = use menu default). */
+	activateColour: string | null;
 
-  /** Override activate opacity at this keyframe (null = use menu default). */
-  activateOpacity: number | null;
+	/** Override activate opacity at this keyframe (null = use menu default). */
+	activateOpacity: number | null;
 }
 ```
 
@@ -180,11 +180,13 @@ pub video_asset_id: Option<String>,
 7. dvdauthor `<pgc>` with `<post> jump cell 1; </post>` for looping
 
 Step 2 uses an FFmpeg filter graph like:
+
 ```
 ffmpeg -i menu_bg.mpg -i button_video.mpg \
   -filter_complex "[1:v]scale=200:40[btn];[0:v][btn]overlay=260:100" \
   -c:v mpeg2video ... menu_composed.mpg
 ```
+
 Multiple button videos are chained with additional overlay filters.
 
 ### Build Plan Job Types
@@ -207,6 +209,7 @@ New `BuildJob` variant:
 ### dvdauthor XML Changes
 
 Still menu PGC (current):
+
 ```xml
 <pgc pause="inf">
   <vob file="menu_bg.mpg" pause="inf" />
@@ -214,6 +217,7 @@ Still menu PGC (current):
 ```
 
 Motion menu PGC (new):
+
 ```xml
 <pgc>
   <vob file="menu_motion.mpg" />
@@ -222,6 +226,7 @@ Motion menu PGC (new):
 ```
 
 With timeout (plays first title after 3 loops of a 15-second menu = 45 seconds):
+
 ```xml
 <pgc>
   <vob file="menu_motion.mpg" />
