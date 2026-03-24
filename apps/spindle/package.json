@@ -9,6 +9,7 @@
 		"preview": "vite preview",
 		"tauri": "tauri",
 		"test": "vitest run",
+		"test:ci": "mkdir -p ../../test-results/spindle && vitest run --reporter=default --reporter=junit --outputFile.junit=../../test-results/spindle/junit.xml",
 		"test:watch": "vitest"
 	},
 	"dependencies": {

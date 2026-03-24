@@ -13,6 +13,7 @@
 		"format:check": "prettier --check .",
 		"tauri": "pnpm --filter @liminal-hq/spindle tauri",
 		"test:js": "pnpm --filter @liminal-hq/spindle test",
+		"test:js:ci": "pnpm --filter @liminal-hq/spindle test:ci",
 		"test:rust": "cargo test --workspace --locked"
 	},
 	"devDependencies": {
