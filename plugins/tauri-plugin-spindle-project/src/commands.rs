@@ -186,6 +186,61 @@ pub(crate) async fn get_cache_dir<R: Runtime>(app: AppHandle<R>) -> Result<Strin
     Ok(thumb_dir.to_string_lossy().to_string())
 }
 
+/// Export a diagnostics bundle as a JSON string for troubleshooting.
+#[command]
+pub(crate) async fn export_diagnostics<R: Runtime>(
+    app: AppHandle<R>,
+    project: Option<SpindleProjectFile>,
+    build_log: Vec<String>,
+    validation_issues: Vec<ValidationIssue>,
+) -> Result<String> {
+    let toolchain = {
+        let tools = vec![
+            ("ffmpeg", "Video/audio transcoding"),
+            ("ffprobe", "Media inspection"),
+            ("dvdauthor", "DVD-Video authoring"),
+            ("spumux", "DVD subtitle/highlight overlay"),
+            ("genisoimage", "ISO 9660 image creation"),
+            ("mkisofs", "ISO 9660 image creation (alternative)"),
+        ];
+        tools
+            .into_iter()
+            .map(|(name, purpose)| {
+                let version = detect_tool_version(name);
+                ToolchainStatus {
+                    name: name.to_string(),
+                    purpose: purpose.to_string(),
+                    available: version.is_some(),
+                    version,
+                }
+            })
+            .collect::<Vec<_>>()
+    };
+
+    let bundle = serde_json::json!({
+        "spindle_version": "0.1.0",
+        "generated_at": chrono::Utc::now().to_rfc3339(),
+        "platform": std::env::consts::OS,
+        "arch": std::env::consts::ARCH,
+        "toolchain": toolchain,
+        "validation_issues": validation_issues,
+        "build_log": build_log,
+        "project_summary": project.as_ref().map(|p| serde_json::json!({
+            "name": p.project.name,
+            "schema_version": p.schema_version,
+            "standard": p.disc.standard,
+            "capacity_target": p.disc.capacity_target,
+            "titleset_count": p.disc.titlesets.len(),
+            "title_count": p.disc.titlesets.iter().map(|ts| ts.titles.len()).sum::<usize>(),
+            "asset_count": p.assets.len(),
+            "global_menu_count": p.disc.global_menus.len(),
+        })),
+    });
+
+    serde_json::to_string_pretty(&bundle)
+        .map_err(|e| crate::Error::Inspection(format!("Failed to serialise diagnostics: {e}")))
+}
+
 /// Status of an external tool in the authoring toolchain.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]

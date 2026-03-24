@@ -13,4 +13,5 @@ permissions = [
   "allow-cancel-build",
   "allow-auto-generate-menu-nav",
   "allow-check-toolchain",
+  "allow-export-diagnostics",
 ]
