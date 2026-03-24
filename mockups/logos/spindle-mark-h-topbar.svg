@@ -28,9 +28,9 @@
   <path d="M341 85 L384 85 C 470 170, 470 342, 384 427 L341 427 C 412 342, 412 170, 341 85 Z"
         fill="url(#fill-grad)" stroke="url(#stroke-grad)" stroke-width="8" stroke-linejoin="round" />
 
-  <!-- Spindle hub — annular ring (fill-rule cuts out the centre hole) -->
-  <path d="M256 216 a40 40 0 1 1 0 80 a40 40 0 1 1 0 -80 Z
-           M256 243 a13 13 0 1 0 0 26 a13 13 0 1 0 0 -26 Z"
+  <!-- Spindle hub — larger ring with bigger hole -->
+  <path d="M256 196 a60 60 0 1 1 0 120 a60 60 0 1 1 0 -120 Z
+           M256 236 a20 20 0 1 0 0 40 a20 20 0 1 0 0 -40 Z"
         fill="url(#fill-grad)" fill-rule="evenodd"
         stroke="url(#stroke-grad)" stroke-width="5" />
 </svg>
