@@ -67,7 +67,9 @@
 
 - Add at least one primary category label to every PR: `enhancement`, `bug`, `documentation`, `testing`, `ci`, `build`, or `chore`.
 - Add shared operational labels where they help clarify handling: `infrastructure`, `internal`, `release`, `blocked`, `epic`, or `skip-changelog`.
-- Add product and subsystem scope labels where helpful (for example, `cli`, `tui`, `core`, `store`, `context`, `inference`, `model`).
+- Add product and subsystem scope labels where helpful. Spindle currently supports:
+  - platform and technical scope: `frontend`, `backend`, `plugin`, `rust`, `tauri`, `desktop`, `developer-experience`, `performance`, `security`
+  - authoring and product scope: `planner`, `assets`, `titles`, `menus`, `chapters`, `build-pipeline`, `project-model`
 - Prefer the broader Liminal HQ label style over Conventional Commit terms for PR labelling. Use GitHub label categories like `enhancement` and `bug` instead of labels such as `feat` or `fix`.
 - Use `skip-changelog` only when a change should be excluded from generated release notes.
 - Keep labels accurate as scope changes during review.
