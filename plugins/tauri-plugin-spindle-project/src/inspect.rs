@@ -14,16 +14,20 @@ use crate::models::*;
 pub fn inspect(path: &str) -> crate::Result<Asset> {
     let output = Command::new("ffprobe")
         .args([
-            "-v", "quiet",
-            "-print_format", "json",
+            "-v",
+            "quiet",
+            "-print_format",
+            "json",
             "-show_format",
             "-show_streams",
             path,
         ])
         .output()
-        .map_err(|e| crate::Error::Inspection(format!(
-            "Failed to run ffprobe: {e}. Ensure ffprobe is installed and on the PATH."
-        )))?;
+        .map_err(|e| {
+            crate::Error::Inspection(format!(
+                "Failed to run ffprobe: {e}. Ensure ffprobe is installed and on the PATH."
+            ))
+        })?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
@@ -54,10 +58,7 @@ pub fn inspect(path: &str) -> crate::Result<Asset> {
         .and_then(|f| f.duration.as_deref())
         .and_then(|s| s.parse::<f64>().ok());
 
-    let container_format = probe
-        .format
-        .as_ref()
-        .and_then(|f| f.format_name.clone());
+    let container_format = probe.format.as_ref().and_then(|f| f.format_name.clone());
 
     let mut video_streams = Vec::new();
     let mut audio_streams = Vec::new();
@@ -67,7 +68,11 @@ pub fn inspect(path: &str) -> crate::Result<Asset> {
         match stream.codec_type.as_deref() {
             Some("video") => {
                 // Skip attached pictures (album art, etc.)
-                if stream.disposition.as_ref().is_some_and(|d| d.attached_pic == 1) {
+                if stream
+                    .disposition
+                    .as_ref()
+                    .is_some_and(|d| d.attached_pic == 1)
+                {
                     continue;
                 }
                 video_streams.push(VideoStreamInfo {
@@ -78,10 +83,7 @@ pub fn inspect(path: &str) -> crate::Result<Asset> {
                     frame_rate: parse_frame_rate(stream.r_frame_rate.as_deref()),
                     aspect_ratio: stream.display_aspect_ratio.clone(),
                     scan_type: detect_scan_type(&stream),
-                    bitrate_bps: stream
-                        .bit_rate
-                        .as_deref()
-                        .and_then(|s| s.parse().ok()),
+                    bitrate_bps: stream.bit_rate.as_deref().and_then(|s| s.parse().ok()),
                 });
             }
             Some("audio") => {
@@ -94,14 +96,8 @@ pub fn inspect(path: &str) -> crate::Result<Asset> {
                         .as_deref()
                         .and_then(|s| s.parse().ok())
                         .unwrap_or(0),
-                    language: stream
-                        .tags
-                        .as_ref()
-                        .and_then(|t| t.language.clone()),
-                    bitrate_bps: stream
-                        .bit_rate
-                        .as_deref()
-                        .and_then(|s| s.parse().ok()),
+                    language: stream.tags.as_ref().and_then(|t| t.language.clone()),
+                    bitrate_bps: stream.bit_rate.as_deref().and_then(|s| s.parse().ok()),
                 });
             }
             Some("subtitle") => {
@@ -109,10 +105,7 @@ pub fn inspect(path: &str) -> crate::Result<Asset> {
                 subtitle_streams.push(SubtitleStreamInfo {
                     index: stream.index,
                     codec: codec.clone(),
-                    language: stream
-                        .tags
-                        .as_ref()
-                        .and_then(|t| t.language.clone()),
+                    language: stream.tags.as_ref().and_then(|t| t.language.clone()),
                     subtitle_type: classify_subtitle_type(&codec),
                 });
             }
@@ -121,14 +114,9 @@ pub fn inspect(path: &str) -> crate::Result<Asset> {
     }
 
     // Compute fingerprint from file size + path (lightweight; full hashing is Phase 10)
-    let fingerprint = file_size_bytes
-        .map(|size| format!("{:x}-{}", size, file_name.len()));
+    let fingerprint = file_size_bytes.map(|size| format!("{:x}-{}", size, file_name.len()));
 
-    let compatibility = assess_dvd_compatibility(
-        &video_streams,
-        &audio_streams,
-        &container_format,
-    );
+    let compatibility = assess_dvd_compatibility(&video_streams, &audio_streams, &container_format);
 
     Ok(Asset {
         id: uuid::Uuid::new_v4().to_string(),
@@ -170,31 +158,34 @@ fn assess_dvd_compatibility(
     // Check if resolution is DVD-compliant
     let is_dvd_resolution = matches!(
         (video.width, video.height),
-        (720, 480) | (720, 576) | (704, 480) | (704, 576)
-        | (352, 480) | (352, 576) | (352, 240) | (352, 288)
+        (720, 480)
+            | (720, 576)
+            | (704, 480)
+            | (704, 576)
+            | (352, 480)
+            | (352, 576)
+            | (352, 240)
+            | (352, 288)
     );
 
     // Check if frame rate is DVD-compliant
     let is_dvd_framerate = video.frame_rate.map_or(true, |fr| {
-        (fr - 29.97).abs() < 0.1
-            || (fr - 25.0).abs() < 0.1
-            || (fr - 23.976).abs() < 0.1
+        (fr - 29.97).abs() < 0.1 || (fr - 25.0).abs() < 0.1 || (fr - 23.976).abs() < 0.1
     });
 
     // Check audio compatibility
-    let has_dvd_audio = audio_streams.is_empty() || audio_streams.iter().any(|a| {
-        matches!(
-            a.codec.as_str(),
-            "ac3" | "dts" | "pcm_s16le" | "pcm_s16be" | "mp2" | "lpcm"
-        )
-    });
+    let has_dvd_audio = audio_streams.is_empty()
+        || audio_streams.iter().any(|a| {
+            matches!(
+                a.codec.as_str(),
+                "ac3" | "dts" | "pcm_s16le" | "pcm_s16be" | "mp2" | "lpcm"
+            )
+        });
 
     if is_mpeg2 && is_dvd_resolution && is_dvd_framerate && is_mpeg_container && has_dvd_audio {
         CompatibilityAssessment::RemuxCompatible
     } else if is_mpeg2 && is_dvd_resolution && is_dvd_framerate {
         CompatibilityAssessment::TransformCompatible
-    } else if is_dvd_framerate {
-        CompatibilityAssessment::ReEncodeRequired
     } else {
         CompatibilityAssessment::ReEncodeRequired
     }
@@ -213,7 +204,9 @@ fn parse_frame_rate(rate: Option<&str>) -> Option<f64> {
     if let Some((num, den)) = rate.split_once('/') {
         let n: f64 = num.parse().ok()?;
         let d: f64 = den.parse().ok()?;
-        if d == 0.0 { return None; }
+        if d == 0.0 {
+            return None;
+        }
         Some(n / d)
     } else {
         rate.parse().ok()
@@ -288,24 +281,38 @@ mod tests {
 
     #[test]
     fn subtitle_type_classification() {
-        assert!(matches!(classify_subtitle_type("dvd_subtitle"), SubtitleType::Bitmap));
+        assert!(matches!(
+            classify_subtitle_type("dvd_subtitle"),
+            SubtitleType::Bitmap
+        ));
         assert!(matches!(classify_subtitle_type("srt"), SubtitleType::Text));
-        assert!(matches!(classify_subtitle_type("subrip"), SubtitleType::Text));
-        assert!(matches!(classify_subtitle_type("unknown_codec"), SubtitleType::Unknown));
+        assert!(matches!(
+            classify_subtitle_type("subrip"),
+            SubtitleType::Text
+        ));
+        assert!(matches!(
+            classify_subtitle_type("unknown_codec"),
+            SubtitleType::Unknown
+        ));
     }
 
     #[test]
     fn dvd_compatibility_remux_compatible() {
         let video = vec![VideoStreamInfo {
-            index: 0, codec: "mpeg2video".to_string(),
-            width: 720, height: 480, frame_rate: Some(29.97),
+            index: 0,
+            codec: "mpeg2video".to_string(),
+            width: 720,
+            height: 480,
+            frame_rate: Some(29.97),
             aspect_ratio: Some("16:9".to_string()),
             scan_type: Some("interlaced".to_string()),
             bitrate_bps: Some(6_000_000),
         }];
         let audio = vec![AudioStreamInfo {
-            index: 1, codec: "ac3".to_string(),
-            channels: 6, sample_rate: 48000,
+            index: 1,
+            codec: "ac3".to_string(),
+            channels: 6,
+            sample_rate: 48000,
             language: Some("eng".to_string()),
             bitrate_bps: Some(448_000),
         }];
@@ -319,9 +326,14 @@ mod tests {
     #[test]
     fn dvd_compatibility_transform_required() {
         let video = vec![VideoStreamInfo {
-            index: 0, codec: "mpeg2video".to_string(),
-            width: 720, height: 480, frame_rate: Some(29.97),
-            aspect_ratio: None, scan_type: None, bitrate_bps: None,
+            index: 0,
+            codec: "mpeg2video".to_string(),
+            width: 720,
+            height: 480,
+            frame_rate: Some(29.97),
+            aspect_ratio: None,
+            scan_type: None,
+            bitrate_bps: None,
         }];
         let audio = vec![];
         let container = Some("matroska".to_string());
@@ -334,9 +346,14 @@ mod tests {
     #[test]
     fn dvd_compatibility_reencode_required() {
         let video = vec![VideoStreamInfo {
-            index: 0, codec: "h264".to_string(),
-            width: 1920, height: 1080, frame_rate: Some(29.97),
-            aspect_ratio: None, scan_type: None, bitrate_bps: None,
+            index: 0,
+            codec: "h264".to_string(),
+            width: 1920,
+            height: 1080,
+            frame_rate: Some(29.97),
+            aspect_ratio: None,
+            scan_type: None,
+            bitrate_bps: None,
         }];
         let audio = vec![];
         let container = Some("mp4".to_string());

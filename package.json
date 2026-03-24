@@ -11,7 +11,9 @@
 		"dev": "pnpm --filter @liminal-hq/spindle dev",
 		"format": "prettier --write .",
 		"format:check": "prettier --check .",
-		"tauri": "pnpm --filter @liminal-hq/spindle tauri"
+		"tauri": "pnpm --filter @liminal-hq/spindle tauri",
+		"test:js": "pnpm --filter @liminal-hq/spindle test",
+		"test:rust": "cargo test --workspace --locked"
 	},
 	"devDependencies": {
 		"prettier": "^3.8.1"

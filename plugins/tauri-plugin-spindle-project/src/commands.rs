@@ -47,10 +47,7 @@ pub(crate) async fn validate_project<R: Runtime>(
 
 /// Inspect a media file and return its metadata as an Asset.
 #[command]
-pub(crate) async fn inspect_asset<R: Runtime>(
-    _app: AppHandle<R>,
-    path: String,
-) -> Result<Asset> {
+pub(crate) async fn inspect_asset<R: Runtime>(_app: AppHandle<R>, path: String) -> Result<Asset> {
     // ffprobe is a short-lived subprocess, so running it directly is fine.
     // The async command handler already runs on a worker thread in Tauri.
     crate::inspect::inspect(&path)

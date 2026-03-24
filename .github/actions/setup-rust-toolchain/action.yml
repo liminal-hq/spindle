@@ -1,0 +1,36 @@
+name: Setup Rust toolchain
+description: Resolve the workspace Rust channel and install requested components
+
+inputs:
+  components:
+    description: Comma-separated Rust components to install
+    required: false
+    default: ''
+
+outputs:
+  toolchain:
+    description: Resolved Rust toolchain channel
+    value: ${{ steps.resolve.outputs.toolchain }}
+
+runs:
+  using: composite
+  steps:
+    - name: Resolve Rust toolchain
+      id: resolve
+      shell: bash
+      run: |
+        set -euo pipefail
+        toolchain="$(awk -F '"' '/^[[:space:]]*channel[[:space:]]*=/ { print $2; exit }' rust-toolchain.toml)"
+
+        if [[ -z "${toolchain}" ]]; then
+          echo "Unable to resolve Rust toolchain from rust-toolchain.toml" >&2
+          exit 1
+        fi
+
+        echo "toolchain=${toolchain}" >> "${GITHUB_OUTPUT}"
+
+    - name: Set up Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        toolchain: ${{ steps.resolve.outputs.toolchain }}
+        components: ${{ inputs.components }}
