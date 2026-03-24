@@ -80,6 +80,13 @@ pub(crate) async fn execute_build<R: Runtime>(
     Ok(result)
 }
 
+/// Cancel a running build.
+#[command]
+pub(crate) async fn cancel_build<R: Runtime>(_app: AppHandle<R>) -> Result<()> {
+    build::cancel_build();
+    Ok(())
+}
+
 /// Auto-generate directional navigation for a menu's buttons based on geometry.
 #[command]
 pub(crate) async fn auto_generate_menu_nav<R: Runtime>(

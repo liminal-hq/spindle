@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: MIT
 
 import { useEffect } from 'react';
+import { open } from '@tauri-apps/plugin-dialog';
 import { useProjectStore } from '../store/project-store';
 import type { VideoStandard, CapacityTarget, AllocationStrategy } from '../types/project';
 import { CAPACITY_LABELS } from '../types/project';
@@ -115,6 +116,23 @@ export function SettingsPage() {
 								}))
 							}
 						/>
+						<button
+							className="btn btn--sm"
+							onClick={async () => {
+								const selected = await open({ directory: true });
+								if (selected) {
+									updateProject((p) => ({
+										...p,
+										buildSettings: {
+											...p.buildSettings,
+											outputDirectory: selected,
+										},
+									}));
+								}
+							}}
+						>
+							Browse…
+						</button>
 					</div>
 				</div>
 				<div className="settings__field">

@@ -58,6 +58,7 @@ export interface ProjectState {
 	generateBuildPlan: () => Promise<void>;
 	executeBuild: () => Promise<void>;
 	clearBuild: () => void;
+	cancelBuild: () => Promise<void>;
 	autoGenerateMenuNav: (menuId: string) => Promise<void>;
 	checkToolchain: () => Promise<void>;
 }
@@ -399,6 +400,17 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 			buildProgress: null,
 			buildLog: [],
 		});
+	},
+
+	cancelBuild: async () => {
+		try {
+			await invoke('plugin:spindle-project|cancel_build');
+			set((state) => ({
+				buildLog: [...state.buildLog, 'Cancellation requested…'],
+			}));
+		} catch {
+			// Best-effort cancellation
+		}
 	},
 
 	autoGenerateMenuNav: async (menuId) => {

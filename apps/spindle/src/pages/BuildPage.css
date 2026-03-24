@@ -46,6 +46,31 @@
 	margin-top: var(--space-2);
 }
 
+/* ── Build progress ──────────────────────────────────────── */
+
+.build__progress {
+	margin-bottom: var(--space-4);
+}
+
+.build__progress-bar {
+	height: 8px;
+	background: var(--bg-deep);
+	border-radius: var(--radius-sm);
+	overflow: hidden;
+	margin-bottom: var(--space-2);
+}
+
+.build__progress-fill {
+	height: 100%;
+	background: var(--brand-gradient);
+	border-radius: var(--radius-sm);
+	transition: width 0.3s ease;
+}
+
+.build__progress-label {
+	font-size: var(--text-xs);
+}
+
 /* ── Build log ────────────────────────────────────────────── */
 
 .build__log {

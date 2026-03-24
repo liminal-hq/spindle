@@ -5,10 +5,25 @@
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use serde::{Deserialize, Serialize};
 
 use crate::models::*;
+
+/// Global cancellation flag for the current build.
+/// Set to `true` to request cancellation; reset before each build.
+static BUILD_CANCELLED: AtomicBool = AtomicBool::new(false);
+
+/// Request cancellation of the running build.
+pub fn cancel_build() {
+    BUILD_CANCELLED.store(true, Ordering::SeqCst);
+}
+
+/// Check whether a cancellation has been requested.
+fn is_cancelled() -> bool {
+    BUILD_CANCELLED.load(Ordering::SeqCst)
+}
 
 // ── Build Plan ──────────────────────────────────────────────────────────────
 
@@ -542,10 +557,26 @@ pub fn execute_build_plan<F>(plan: &BuildPlan, mut on_progress: F) -> BuildResul
 where
     F: FnMut(BuildProgress),
 {
+    // Reset cancellation flag at the start of each build
+    BUILD_CANCELLED.store(false, Ordering::SeqCst);
+
     let total = plan.jobs.len();
     let mut log_lines = Vec::new();
 
     for (i, job) in plan.jobs.iter().enumerate() {
+        // Check for cancellation before each job
+        if is_cancelled() {
+            log_lines.push("Build cancelled by user.".to_string());
+            return BuildResult {
+                success: false,
+                output_directory: plan.output_directory.clone(),
+                iso_path: None,
+                log_lines,
+                failed_job_index: Some(i),
+                error_message: Some("Build cancelled by user.".to_string()),
+            };
+        }
+
         let label = job.label().to_string();
 
         on_progress(BuildProgress {

@@ -15,8 +15,10 @@ export function BuildPage() {
 	const buildStatus = useProjectStore((s) => s.buildStatus);
 	const buildResult = useProjectStore((s) => s.buildResult);
 	const buildLog = useProjectStore((s) => s.buildLog);
+	const buildProgress = useProjectStore((s) => s.buildProgress);
 	const generateBuildPlan = useProjectStore((s) => s.generateBuildPlan);
 	const executeBuild = useProjectStore((s) => s.executeBuild);
+	const cancelBuild = useProjectStore((s) => s.cancelBuild);
 	const clearBuild = useProjectStore((s) => s.clearBuild);
 
 	if (!project) return null;
@@ -79,6 +81,11 @@ export function BuildPage() {
 					>
 						{isBuilding ? 'Building…' : 'Build Disc'}
 					</button>
+					{isBuilding && (
+						<button className="btn btn--sm btn--danger" onClick={cancelBuild}>
+							Cancel
+						</button>
+					)}
 					{(buildStatus === 'complete' || buildStatus === 'error') && (
 						<button className="btn btn--sm" onClick={clearBuild}>
 							Clear
@@ -95,6 +102,27 @@ export function BuildPage() {
 					<p className="build__warning">Add at least one title to the project before building.</p>
 				)}
 			</div>
+
+			{/* Build progress */}
+			{isBuilding && buildProgress && (
+				<div className="card build__progress">
+					<div className="card__header">
+						<h3 className="card__title">Progress</h3>
+						<span className="text-muted">
+							Step {buildProgress.jobIndex + 1} of {buildProgress.totalJobs}
+						</span>
+					</div>
+					<div className="build__progress-bar">
+						<div
+							className="build__progress-fill"
+							style={{
+								width: `${((buildProgress.jobIndex + (buildProgress.status === 'complete' ? 1 : 0.5)) / buildProgress.totalJobs) * 100}%`,
+							}}
+						/>
+					</div>
+					<p className="build__progress-label text-muted">{buildProgress.currentLabel}</p>
+				</div>
+			)}
 
 			{/* Build result */}
 			{buildResult && (

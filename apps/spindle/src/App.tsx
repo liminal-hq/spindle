@@ -4,7 +4,9 @@
 // SPDX-License-Identifier: MIT
 
 import { useCallback, useEffect, useState } from 'react';
+import { listen } from '@tauri-apps/api/event';
 import { useProjectStore } from './store/project-store';
+import type { BuildProgress } from './types/project';
 import { Topbar } from './components/Topbar';
 import { Sidebar } from './components/Sidebar';
 import { Statusbar } from './components/Statusbar';
@@ -52,6 +54,23 @@ function App() {
 		window.addEventListener('keydown', handleKeyDown);
 		return () => window.removeEventListener('keydown', handleKeyDown);
 	}, [saveProject]);
+
+	// Build progress event listener
+	useEffect(() => {
+		const unlisten = listen<BuildProgress>('spindle://build-progress', (event) => {
+			const progress = event.payload;
+			useProjectStore.setState({
+				buildProgress: progress,
+				buildLog:
+					progress.output != null
+						? [...useProjectStore.getState().buildLog, progress.output]
+						: useProjectStore.getState().buildLog,
+			});
+		});
+		return () => {
+			unlisten.then((fn) => fn());
+		};
+	}, []);
 
 	const PageComponent = ROUTES[currentRoute] ?? ROUTES['/'];
 
