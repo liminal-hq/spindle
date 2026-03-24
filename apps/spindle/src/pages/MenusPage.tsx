@@ -382,16 +382,44 @@ function MenuEditor({
 						</div>
 					))}
 
-					{/* Navigation summary */}
+					{/* Navigation editor */}
 					<div className="menus__nav-summary">
 						<h4 className="menus__section-heading">Navigation</h4>
 						{menu.buttons.map((btn) => (
-							<div key={btn.id} className="menus__nav-row text-muted">
+							<div key={btn.id} className="menus__nav-editor-row">
 								<span className="menus__nav-btn-name">{btn.label}</span>
-								<span>↑ {navLabel(btn.navUp, menu.buttons)}</span>
-								<span>↓ {navLabel(btn.navDown, menu.buttons)}</span>
-								<span>← {navLabel(btn.navLeft, menu.buttons)}</span>
-								<span>→ {navLabel(btn.navRight, menu.buttons)}</span>
+								<div className="menus__nav-dirs">
+									{(
+										[
+											['navUp', '↑'],
+											['navDown', '↓'],
+											['navLeft', '←'],
+											['navRight', '→'],
+										] as const
+									).map(([field, arrow]) => (
+										<label key={field} className="menus__nav-dir">
+											<span className="menus__nav-arrow">{arrow}</span>
+											<select
+												className="menus__nav-select"
+												value={btn[field] ?? ''}
+												onChange={(e) =>
+													handleUpdateButton(btn.id, {
+														[field]: e.target.value || null,
+													})
+												}
+											>
+												<option value="">—</option>
+												{menu.buttons
+													.filter((b) => b.id !== btn.id)
+													.map((b) => (
+														<option key={b.id} value={b.id}>
+															{b.label}
+														</option>
+													))}
+											</select>
+										</label>
+									))}
+								</div>
 							</div>
 						))}
 					</div>
@@ -605,6 +633,8 @@ function MenuCanvas({
 			{backgroundLabel && (
 				<div className="menus__canvas-bg-label text-muted">{backgroundLabel}</div>
 			)}
+			{/* Navigation connection lines */}
+			<NavLines buttons={menu.buttons} canvasWidth={MENU_WIDTH} canvasHeight={canvasHeight} />
 			{/* Snap guide lines */}
 			{snapLines.map((line, i) =>
 				line.axis === 'x' ? (
@@ -668,6 +698,70 @@ function MenuCanvas({
 				</div>
 			))}
 		</div>
+	);
+}
+
+/** Direction-colour mapping for navigation lines. */
+const NAV_COLOURS: Record<string, string> = {
+	navUp: 'rgba(100, 200, 255, 0.5)',
+	navDown: 'rgba(255, 170, 64, 0.5)',
+	navLeft: 'rgba(180, 130, 255, 0.5)',
+	navRight: 'rgba(130, 255, 130, 0.5)',
+};
+
+/** SVG overlay that draws directional navigation arrows between buttons. */
+function NavLines({
+	buttons,
+	canvasWidth,
+	canvasHeight,
+}: {
+	buttons: MenuButton[];
+	canvasWidth: number;
+	canvasHeight: number;
+}) {
+	const lines: { x1: number; y1: number; x2: number; y2: number; colour: string }[] = [];
+
+	for (const btn of buttons) {
+		const cx1 = btn.bounds.x + btn.bounds.width / 2;
+		const cy1 = btn.bounds.y + btn.bounds.height / 2;
+
+		for (const field of ['navUp', 'navDown', 'navLeft', 'navRight'] as const) {
+			const targetId = btn[field];
+			if (!targetId) continue;
+			const target = buttons.find((b) => b.id === targetId);
+			if (!target) continue;
+			const cx2 = target.bounds.x + target.bounds.width / 2;
+			const cy2 = target.bounds.y + target.bounds.height / 2;
+			lines.push({ x1: cx1, y1: cy1, x2: cx2, y2: cy2, colour: NAV_COLOURS[field] });
+		}
+	}
+
+	if (lines.length === 0) return null;
+
+	return (
+		<svg
+			className="menus__nav-lines"
+			viewBox={`0 0 ${canvasWidth} ${canvasHeight}`}
+			preserveAspectRatio="none"
+		>
+			<defs>
+				<marker id="nav-arrow" markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto">
+					<path d="M0,0 L6,2 L0,4 Z" fill="rgba(255,255,255,0.6)" />
+				</marker>
+			</defs>
+			{lines.map((l, i) => (
+				<line
+					key={i}
+					x1={l.x1}
+					y1={l.y1}
+					x2={l.x2}
+					y2={l.y2}
+					stroke={l.colour}
+					strokeWidth="2"
+					markerEnd="url(#nav-arrow)"
+				/>
+			))}
+		</svg>
 	);
 }
 
@@ -926,12 +1020,6 @@ function stringToAction(
 	if (type === 'playTitle' && id) return { type: 'playTitle', titleId: id };
 	if (type === 'showMenu' && id) return { type: 'showMenu', menuId: id };
 	return null;
-}
-
-function navLabel(navId: string | null, buttons: MenuButton[]): string {
-	if (!navId) return '—';
-	const btn = buttons.find((b) => b.id === navId);
-	return btn ? btn.label : '?';
 }
 
 /** Convert a CSS hex colour + opacity to an rgba() string. */

@@ -28,6 +28,7 @@
 	padding: var(--space-3) var(--space-4);
 	cursor: pointer;
 	user-select: none;
+	overflow: hidden;
 }
 
 .assets__row--selected {
