@@ -1,20 +1,23 @@
-// Build page — configure and trigger the DVD authoring pipeline.
+// Build page — configure, preview, and execute the DVD authoring pipeline.
 //
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: MIT
 
-import { useState } from 'react';
 import { useProjectStore } from '../store/project-store';
+import type { BuildJob } from '../types/project';
 import './BuildPage.css';
-
-type BuildStatus = 'idle' | 'validating' | 'building' | 'complete' | 'error';
 
 export function BuildPage() {
 	const project = useProjectStore((s) => s.project);
 	const validationIssues = useProjectStore((s) => s.validationIssues);
 	const validateProject = useProjectStore((s) => s.validateProject);
-	const [buildStatus, setBuildStatus] = useState<BuildStatus>('idle');
-	const [buildLog, setBuildLog] = useState<string[]>([]);
+	const buildPlan = useProjectStore((s) => s.buildPlan);
+	const buildStatus = useProjectStore((s) => s.buildStatus);
+	const buildResult = useProjectStore((s) => s.buildResult);
+	const buildLog = useProjectStore((s) => s.buildLog);
+	const generateBuildPlan = useProjectStore((s) => s.generateBuildPlan);
+	const executeBuild = useProjectStore((s) => s.executeBuild);
+	const clearBuild = useProjectStore((s) => s.clearBuild);
 
 	if (!project) return null;
 
@@ -22,31 +25,10 @@ export function BuildPage() {
 	const titleCount = disc.titlesets.reduce((s, ts) => s + ts.titles.length, 0);
 	const errorCount = validationIssues.filter((i) => i.severity === 'error').length;
 	const canBuild = titleCount > 0 && errorCount === 0 && buildStatus === 'idle';
+	const isBuilding = buildStatus === 'building';
 
 	const handleValidate = async () => {
-		setBuildStatus('validating');
-		setBuildLog((prev) => [...prev, 'Running validation checks…']);
 		await validateProject();
-		setBuildStatus('idle');
-		setBuildLog((prev) => [...prev, 'Validation complete.']);
-	};
-
-	const handleBuild = async () => {
-		setBuildStatus('building');
-		setBuildLog([
-			'Starting DVD-Video build…',
-			`Target: ${disc.standard} ${disc.capacityTarget}`,
-			`Titles: ${titleCount}`,
-			`Output: ${project.buildSettings.outputDirectory ?? '(not set)'}`,
-			'',
-			'Build pipeline not yet connected.',
-			'This will orchestrate FFmpeg and dvdauthor in a future release.',
-		]);
-
-		// Simulate build progress (actual build pipeline is Phase 8-9)
-		await new Promise((r) => setTimeout(r, 1500));
-		setBuildStatus('complete');
-		setBuildLog((prev) => [...prev, '', 'Build pipeline placeholder complete.']);
 	};
 
 	return (
@@ -65,7 +47,7 @@ export function BuildPage() {
 					<div className="build__summary-item">
 						<span className="build__summary-label text-muted">Format</span>
 						<span>
-							{disc.standard} · {disc.capacityTarget}
+							{disc.standard} &middot; {disc.capacityTarget}
 						</span>
 					</div>
 					<div className="build__summary-item">
@@ -84,12 +66,24 @@ export function BuildPage() {
 					</div>
 				</div>
 				<div className="build__actions">
-					<button className="btn" onClick={handleValidate} disabled={buildStatus !== 'idle'}>
+					<button className="btn" onClick={handleValidate} disabled={isBuilding}>
 						Validate
 					</button>
-					<button className="btn btn--primary" onClick={handleBuild} disabled={!canBuild}>
-						Build Disc
+					<button className="btn" onClick={generateBuildPlan} disabled={!canBuild || isBuilding}>
+						Preview Plan
 					</button>
+					<button
+						className="btn btn--primary"
+						onClick={executeBuild}
+						disabled={!canBuild || isBuilding}
+					>
+						{isBuilding ? 'Building…' : 'Build Disc'}
+					</button>
+					{(buildStatus === 'complete' || buildStatus === 'error') && (
+						<button className="btn btn--sm" onClick={clearBuild}>
+							Clear
+						</button>
+					)}
 				</div>
 				{errorCount > 0 && (
 					<p className="build__warning">
@@ -102,20 +96,89 @@ export function BuildPage() {
 				)}
 			</div>
 
+			{/* Build result */}
+			{buildResult && (
+				<div
+					className={`card build__result ${buildResult.success ? 'build__result--success' : 'build__result--error'}`}
+				>
+					<div className="card__header">
+						<h3 className="card__title">
+							{buildResult.success ? 'Build Successful' : 'Build Failed'}
+						</h3>
+					</div>
+					<dl className="build__result-details">
+						<dt>Output</dt>
+						<dd className="build__summary-path">{buildResult.outputDirectory}</dd>
+						{buildResult.isoPath && (
+							<>
+								<dt>ISO</dt>
+								<dd className="build__summary-path">{buildResult.isoPath}</dd>
+							</>
+						)}
+						{buildResult.errorMessage && (
+							<>
+								<dt>Error</dt>
+								<dd className="build__error-msg">{buildResult.errorMessage}</dd>
+							</>
+						)}
+					</dl>
+				</div>
+			)}
+
+			{/* Build plan preview */}
+			{buildPlan && (
+				<div className="card build__plan">
+					<div className="card__header">
+						<h3 className="card__title">Build Plan</h3>
+						<span className="badge badge--neutral">
+							{buildPlan.summary.totalJobs} step{buildPlan.summary.totalJobs === 1 ? '' : 's'}
+						</span>
+					</div>
+					<div className="build__plan-summary">
+						<span>
+							{buildPlan.summary.transcodeJobs} transcode job
+							{buildPlan.summary.transcodeJobs === 1 ? '' : 's'}
+						</span>
+						<span>&middot;</span>
+						<span>
+							{buildPlan.summary.titlesCount} title{buildPlan.summary.titlesCount === 1 ? '' : 's'}
+						</span>
+						{buildPlan.summary.generateIso && (
+							<>
+								<span>&middot;</span>
+								<span>ISO generation</span>
+							</>
+						)}
+					</div>
+					<div className="build__plan-jobs">
+						{buildPlan.jobs.map((job, i) => (
+							<BuildJobRow key={i} job={job} index={i} />
+						))}
+					</div>
+
+					{/* dvdauthor XML preview */}
+					<details className="build__xml-preview">
+						<summary>dvdauthor XML</summary>
+						<pre className="build__xml-content">{buildPlan.dvdauthorXml}</pre>
+					</details>
+
+					{/* Command preview */}
+					{buildPlan.summary.estimatedCommands.length > 0 && (
+						<details className="build__xml-preview">
+							<summary>Commands ({buildPlan.summary.estimatedCommands.length})</summary>
+							<pre className="build__xml-content">
+								{buildPlan.summary.estimatedCommands.join('\n\n')}
+							</pre>
+						</details>
+					)}
+				</div>
+			)}
+
 			{/* Build log */}
 			{buildLog.length > 0 && (
 				<div className="card build__log">
 					<div className="card__header">
 						<h3 className="card__title">Build Log</h3>
-						<button
-							className="btn btn--sm"
-							onClick={() => {
-								setBuildLog([]);
-								setBuildStatus('idle');
-							}}
-						>
-							Clear
-						</button>
 					</div>
 					<pre className="build__log-output">{buildLog.join('\n')}</pre>
 				</div>
@@ -142,20 +205,74 @@ export function BuildPage() {
 	);
 }
 
-function StatusBadge({ status }: { status: BuildStatus }) {
-	const classMap: Record<BuildStatus, string> = {
+function BuildJobRow({ job, index }: { job: BuildJob; index: number }) {
+	const label = getJobLabel(job);
+	const icon = getJobIcon(job);
+
+	return (
+		<div className="build__job-row">
+			<span className="build__job-index">{index + 1}</span>
+			<span className="build__job-icon">{icon}</span>
+			<span className="build__job-label">{label}</span>
+			{'command' in job && job.command && (
+				<span className="build__job-cmd text-muted">{job.command[0]}</span>
+			)}
+		</div>
+	);
+}
+
+function getJobLabel(job: BuildJob): string {
+	switch (job.type) {
+		case 'prepareWorkspace':
+			return 'Prepare workspace';
+		case 'transcodeTitle':
+			return `Transcode "${job.titleName}"`;
+		case 'renderMenu':
+			return `Render menu "${job.menuName}"`;
+		case 'composeMenuHighlights':
+			return `Compose highlights for "${job.menuName}"`;
+		case 'authorDvd':
+			return 'Author DVD (dvdauthor)';
+		case 'createIso':
+			return 'Create ISO image';
+	}
+}
+
+function getJobIcon(job: BuildJob): string {
+	switch (job.type) {
+		case 'prepareWorkspace':
+			return '\u{1F4C1}';
+		case 'transcodeTitle':
+			return '\u{1F3AC}';
+		case 'renderMenu':
+			return '\u{1F5BC}';
+		case 'composeMenuHighlights':
+			return '\u{2728}';
+		case 'authorDvd':
+			return '\u{1F4BF}';
+		case 'createIso':
+			return '\u{1F4C0}';
+	}
+}
+
+function StatusBadge({ status }: { status: string }) {
+	const classMap: Record<string, string> = {
 		idle: 'badge--neutral',
-		validating: 'badge--light',
+		planning: 'badge--light',
 		building: 'badge--light',
 		complete: 'badge--remux',
 		error: 'badge--unsupported',
 	};
-	const labelMap: Record<BuildStatus, string> = {
+	const labelMap: Record<string, string> = {
 		idle: 'Ready',
-		validating: 'Validating…',
+		planning: 'Planning…',
 		building: 'Building…',
 		complete: 'Complete',
 		error: 'Error',
 	};
-	return <span className={`badge ${classMap[status]}`}>{labelMap[status]}</span>;
+	return (
+		<span className={`badge ${classMap[status] ?? 'badge--neutral'}`}>
+			{labelMap[status] ?? status}
+		</span>
+	);
 }

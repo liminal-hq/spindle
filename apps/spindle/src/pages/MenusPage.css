@@ -77,6 +77,41 @@
 .menus__editor-actions {
 	display: flex;
 	gap: var(--space-2);
+	align-items: center;
+	flex-wrap: wrap;
+}
+
+.menus__toggle {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	font-size: var(--text-xs);
+	color: var(--text-muted);
+	cursor: pointer;
+	white-space: nowrap;
+}
+
+.menus__bg-select {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	padding: var(--space-2) var(--space-4);
+	font-size: var(--text-xs);
+}
+
+.menus__select-sm {
+	background: var(--bg-input);
+	border: 1px solid var(--border-subtle);
+	border-radius: var(--radius-sm);
+	color: var(--text-primary);
+	font-size: var(--text-xs);
+	padding: var(--space-1) var(--space-2);
+	flex: 1;
+}
+
+.menus__select-sm:focus {
+	outline: none;
+	border-color: var(--brand-orange);
 }
 
 /* ── Canvas ───────────────────────────────────────────────── */
@@ -95,6 +130,43 @@
 	overflow: hidden;
 }
 
+.menus__canvas-bg--preview {
+	outline: 2px solid var(--brand-orange);
+	outline-offset: -2px;
+}
+
+.menus__canvas-bg--preview:focus {
+	outline-color: var(--brand-gold);
+}
+
+.menus__preview-hint {
+	position: absolute;
+	top: var(--space-2);
+	left: var(--space-3);
+	font-size: var(--text-xs);
+	z-index: 5;
+	pointer-events: none;
+}
+
+/* ── Safe-area guides ────────────────────────────────────── */
+
+.menus__safe-area {
+	position: absolute;
+	border: 1px dashed;
+	pointer-events: none;
+	z-index: 1;
+}
+
+.menus__safe-area--action {
+	border-color: rgba(255, 255, 0, 0.25);
+}
+
+.menus__safe-area--title {
+	border-color: rgba(0, 200, 255, 0.25);
+}
+
+/* ── Buttons on canvas ───────────────────────────────────── */
+
 .menus__canvas-button {
 	position: absolute;
 	display: flex;
@@ -108,6 +180,7 @@
 	color: var(--text-primary);
 	cursor: grab;
 	user-select: none;
+	z-index: 2;
 	transition:
 		background var(--transition-base),
 		box-shadow var(--transition-base);
@@ -126,6 +199,15 @@
 .menus__canvas-button--default {
 	border-color: var(--brand-gold);
 	box-shadow: 0 0 8px rgba(255, 209, 102, 0.3);
+}
+
+.menus__canvas-button--focused {
+	background: rgba(255, 170, 64, 0.4);
+	border-color: var(--brand-gold);
+	box-shadow:
+		0 0 12px rgba(255, 170, 64, 0.5),
+		0 0 24px rgba(255, 170, 64, 0.2);
+	z-index: 3;
 }
 
 /* ── Button properties ────────────────────────────────────── */
@@ -210,6 +292,27 @@
 .menus__button-remove:hover {
 	opacity: 1 !important;
 	color: var(--colour-error);
+}
+
+/* ── Navigation summary ──────────────────────────────────── */
+
+.menus__nav-summary {
+	margin-top: var(--space-4);
+	padding-top: var(--space-3);
+	border-top: 1px solid var(--border-subtle);
+}
+
+.menus__nav-row {
+	display: flex;
+	gap: var(--space-3);
+	padding: var(--space-1) 0;
+	font-size: var(--text-xs);
+}
+
+.menus__nav-btn-name {
+	min-width: 100px;
+	font-weight: 600;
+	color: var(--text-primary);
 }
 
 /* ── Empty state ──────────────────────────────────────────── */

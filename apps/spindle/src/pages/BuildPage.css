@@ -113,3 +113,112 @@
 	color: var(--text-muted);
 	flex-shrink: 0;
 }
+
+/* ── Build result ────────────────────────────────────────── */
+
+.build__result {
+	margin-bottom: var(--space-4);
+}
+
+.build__result--success {
+	border-color: var(--colour-success);
+}
+
+.build__result--error {
+	border-color: var(--colour-error);
+}
+
+.build__result-details {
+	display: grid;
+	grid-template-columns: auto 1fr;
+	gap: var(--space-2) var(--space-4);
+	font-size: var(--text-sm);
+}
+
+.build__result-details dt {
+	color: var(--text-muted);
+}
+
+.build__error-msg {
+	color: var(--colour-error);
+	font-family: var(--font-mono);
+	font-size: var(--text-xs);
+}
+
+/* ── Build plan ──────────────────────────────────────────── */
+
+.build__plan {
+	margin-bottom: var(--space-4);
+}
+
+.build__plan-summary {
+	display: flex;
+	gap: var(--space-2);
+	font-size: var(--text-sm);
+	color: var(--text-muted);
+	padding: var(--space-2) 0;
+}
+
+.build__plan-jobs {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-1);
+	margin-top: var(--space-3);
+}
+
+.build__job-row {
+	display: flex;
+	align-items: center;
+	gap: var(--space-3);
+	padding: var(--space-2) var(--space-3);
+	font-size: var(--text-sm);
+	border-radius: var(--radius-sm);
+	background: rgba(255, 255, 255, 0.02);
+}
+
+.build__job-index {
+	font-family: var(--font-mono);
+	font-size: var(--text-xs);
+	color: var(--text-muted);
+	min-width: 20px;
+}
+
+.build__job-icon {
+	font-size: var(--text-md);
+}
+
+.build__job-label {
+	flex: 1;
+}
+
+.build__job-cmd {
+	font-family: var(--font-mono);
+	font-size: var(--text-xs);
+}
+
+.build__xml-preview {
+	margin-top: var(--space-3);
+	font-size: var(--text-sm);
+}
+
+.build__xml-preview summary {
+	cursor: pointer;
+	color: var(--text-muted);
+	font-size: var(--text-sm);
+	padding: var(--space-2) 0;
+}
+
+.build__xml-content {
+	background: var(--bg-deep);
+	border: 1px solid var(--border-subtle);
+	border-radius: var(--radius-sm);
+	padding: var(--space-3);
+	font-family: var(--font-mono);
+	font-size: var(--text-xs);
+	color: var(--text-secondary);
+	overflow-x: auto;
+	max-height: 300px;
+	overflow-y: auto;
+	white-space: pre;
+	line-height: 1.5;
+}

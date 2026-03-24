@@ -6,4 +6,8 @@ permissions = [
   "allow-serialise-project",
   "allow-validate-project",
   "allow-inspect-asset",
+  "allow-generate-build-plan",
+  "allow-execute-build",
+  "allow-auto-generate-menu-nav",
+  "allow-check-toolchain",
 ]

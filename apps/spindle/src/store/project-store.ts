@@ -12,7 +12,14 @@ import type {
 	CreateProjectRequest,
 	ValidationIssue,
 	Asset,
+	BuildPlan,
+	BuildResult,
+	BuildProgress,
+	Menu,
+	ToolchainStatus,
 } from '../types/project';
+
+export type BuildStatus = 'idle' | 'planning' | 'building' | 'complete' | 'error';
 
 export interface ProjectState {
 	/** The current project data, or null if no project is loaded. */
@@ -25,6 +32,18 @@ export interface ProjectState {
 	validationIssues: ValidationIssue[];
 	/** Whether a project operation is in progress. */
 	isLoading: boolean;
+	/** Current build plan (from dry-run preview). */
+	buildPlan: BuildPlan | null;
+	/** Current build status. */
+	buildStatus: BuildStatus;
+	/** Build result from the last build attempt. */
+	buildResult: BuildResult | null;
+	/** Build progress events. */
+	buildProgress: BuildProgress | null;
+	/** Build log lines. */
+	buildLog: string[];
+	/** Detected toolchain status. */
+	toolchain: ToolchainStatus[];
 
 	// Actions
 	createProject: (req: CreateProjectRequest) => Promise<void>;
@@ -36,6 +55,11 @@ export interface ProjectState {
 	validateProject: () => Promise<void>;
 	importAssets: () => Promise<void>;
 	removeAsset: (assetId: string) => void;
+	generateBuildPlan: () => Promise<void>;
+	executeBuild: () => Promise<void>;
+	clearBuild: () => void;
+	autoGenerateMenuNav: (menuId: string) => Promise<void>;
+	checkToolchain: () => Promise<void>;
 }
 
 export const useProjectStore = create<ProjectState>((set, get) => ({
@@ -44,6 +68,12 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 	isDirty: false,
 	validationIssues: [],
 	isLoading: false,
+	buildPlan: null,
+	buildStatus: 'idle',
+	buildResult: null,
+	buildProgress: null,
+	buildLog: [],
+	toolchain: [],
 
 	createProject: async (req) => {
 		set({ isLoading: true });
@@ -141,7 +171,17 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 	},
 
 	closeProject: () => {
-		set({ project: null, filePath: null, isDirty: false, validationIssues: [] });
+		set({
+			project: null,
+			filePath: null,
+			isDirty: false,
+			validationIssues: [],
+			buildPlan: null,
+			buildStatus: 'idle',
+			buildResult: null,
+			buildProgress: null,
+			buildLog: [],
+		});
 	},
 
 	updateProject: (updater) => {
@@ -275,5 +315,151 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 			},
 			isDirty: true,
 		});
+	},
+
+	generateBuildPlan: async () => {
+		const { project } = get();
+		if (!project) return;
+
+		const outputDir =
+			project.buildSettings.outputDirectory ??
+			(await (async () => {
+				const selected = await save({
+					filters: [],
+					defaultPath: `${project.project.name}_DVD`,
+				});
+				if (selected) {
+					// Update the project with the chosen directory
+					get().updateProject((p) => ({
+						...p,
+						buildSettings: { ...p.buildSettings, outputDirectory: selected },
+					}));
+				}
+				return selected;
+			})());
+
+		if (!outputDir) return;
+
+		set({ buildStatus: 'planning' });
+		try {
+			const plan = await invoke<BuildPlan>('plugin:spindle-project|generate_build_plan', {
+				project,
+				outputDirectory: outputDir,
+			});
+			set({ buildPlan: plan, buildStatus: 'idle' });
+		} catch (e) {
+			set({
+				buildStatus: 'error',
+				buildLog: [`Build plan generation failed: ${e}`],
+			});
+		}
+	},
+
+	executeBuild: async () => {
+		const { project } = get();
+		if (!project) return;
+
+		const outputDir = project.buildSettings.outputDirectory;
+		if (!outputDir) {
+			set({ buildLog: ['No output directory set.'] });
+			return;
+		}
+
+		set({
+			buildStatus: 'building',
+			buildLog: ['Starting DVD-Video build…'],
+			buildResult: null,
+			buildProgress: null,
+		});
+
+		try {
+			const result = await invoke<BuildResult>('plugin:spindle-project|execute_build', {
+				project,
+				outputDirectory: outputDir,
+			});
+
+			set({
+				buildResult: result,
+				buildStatus: result.success ? 'complete' : 'error',
+				buildLog: result.logLines,
+			});
+		} catch (e) {
+			set({
+				buildStatus: 'error',
+				buildLog: (prev) => [...(Array.isArray(prev) ? prev : []), `Build failed: ${e}`],
+			} as Partial<ProjectState> as any);
+		}
+	},
+
+	clearBuild: () => {
+		set({
+			buildPlan: null,
+			buildStatus: 'idle',
+			buildResult: null,
+			buildProgress: null,
+			buildLog: [],
+		});
+	},
+
+	autoGenerateMenuNav: async (menuId) => {
+		const { project } = get();
+		if (!project) return;
+
+		// Find the menu
+		const globalMenu = project.disc.globalMenus.find((m) => m.id === menuId);
+		let foundMenu: Menu | undefined = globalMenu;
+		let scope: 'global' | 'titleset' = 'global';
+		let titlesetId: string | null = null;
+
+		if (!foundMenu) {
+			for (const ts of project.disc.titlesets) {
+				const tsMenu = ts.menus.find((m) => m.id === menuId);
+				if (tsMenu) {
+					foundMenu = tsMenu;
+					scope = 'titleset';
+					titlesetId = ts.id;
+					break;
+				}
+			}
+		}
+
+		if (!foundMenu) return;
+
+		const updated = await invoke<Menu>('plugin:spindle-project|auto_generate_menu_nav', {
+			menu: foundMenu,
+		});
+
+		get().updateProject((p) => {
+			if (scope === 'global') {
+				return {
+					...p,
+					disc: {
+						...p.disc,
+						globalMenus: p.disc.globalMenus.map((m) => (m.id === menuId ? updated : m)),
+					},
+				};
+			} else {
+				return {
+					...p,
+					disc: {
+						...p.disc,
+						titlesets: p.disc.titlesets.map((ts) =>
+							ts.id === titlesetId
+								? { ...ts, menus: ts.menus.map((m) => (m.id === menuId ? updated : m)) }
+								: ts,
+						),
+					},
+				};
+			}
+		});
+	},
+
+	checkToolchain: async () => {
+		try {
+			const statuses = await invoke<ToolchainStatus[]>('plugin:spindle-project|check_toolchain');
+			set({ toolchain: statuses });
+		} catch {
+			// Toolchain check is best-effort
+		}
 	},
 }));

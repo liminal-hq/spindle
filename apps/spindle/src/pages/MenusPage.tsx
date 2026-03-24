@@ -1,9 +1,9 @@
-// Menus page — define menu layouts, buttons, and navigation for the disc.
+// Menus page — define menu layouts, buttons, navigation, and visual editor.
 //
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: MIT
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { useProjectStore } from '../store/project-store';
 import type {
 	Menu,
@@ -17,11 +17,17 @@ import type {
 // DVD menu canvas dimensions vary by video standard
 const MENU_WIDTH = 720;
 const MENU_HEIGHT: Record<VideoStandard, number> = { NTSC: 480, PAL: 576 };
+
+// Safe-area margins (SMPTE RP 218 — 90% action-safe, 80% title-safe)
+const ACTION_SAFE_PCT = 0.05; // 5% from each edge
+const TITLE_SAFE_PCT = 0.1; // 10% from each edge
+
 import './MenusPage.css';
 
 export function MenusPage() {
 	const project = useProjectStore((s) => s.project);
 	const updateProject = useProjectStore((s) => s.updateProject);
+	const autoGenerateMenuNav = useProjectStore((s) => s.autoGenerateMenuNav);
 	const [selectedMenuId, setSelectedMenuId] = useState<string | null>(null);
 
 	if (!project) return null;
@@ -116,6 +122,7 @@ export function MenusPage() {
 							canvasHeight={MENU_HEIGHT[disc.standard]}
 							onUpdate={(updater) => handleUpdateMenu(selectedEntry.menu.id, updater)}
 							onRemove={() => handleRemoveMenu(selectedEntry.menu.id)}
+							onAutoNav={() => autoGenerateMenuNav(selectedEntry.menu.id)}
 						/>
 					)}
 				</div>
@@ -159,18 +166,22 @@ function MenuEditor({
 	canvasHeight,
 	onUpdate,
 	onRemove,
+	onAutoNav,
 }: {
 	menu: Menu;
 	project: SpindleProjectFile;
 	canvasHeight: number;
 	onUpdate: (updater: (m: Menu) => Menu) => void;
 	onRemove: () => void;
+	onAutoNav: () => void;
 }) {
 	const allTitles = project.disc.titlesets.flatMap((ts) => ts.titles);
 	const allMenus = [
 		...project.disc.globalMenus,
 		...project.disc.titlesets.flatMap((ts) => ts.menus),
 	];
+	const [showSafeArea, setShowSafeArea] = useState(true);
+	const [previewMode, setPreviewMode] = useState(false);
 
 	const handleAddButton = () => {
 		const newButton: MenuButton = {
@@ -208,7 +219,7 @@ function MenuEditor({
 
 	return (
 		<div className="menus__editor">
-			{/* Menu canvas (simplified) */}
+			{/* Menu canvas */}
 			<div className="menus__canvas card">
 				<div className="card__header">
 					<input
@@ -220,15 +231,78 @@ function MenuEditor({
 						<button className="btn btn--sm" onClick={handleAddButton}>
 							Add Button
 						</button>
+						<button
+							className="btn btn--sm"
+							onClick={onAutoNav}
+							title="Auto-generate directional navigation from button positions"
+						>
+							Auto Nav
+						</button>
+						<label className="menus__toggle" title="Show safe-area guides">
+							<input
+								type="checkbox"
+								checked={showSafeArea}
+								onChange={(e) => setShowSafeArea(e.target.checked)}
+							/>
+							Safe Area
+						</label>
+						<label className="menus__toggle" title="Preview navigation with arrow keys">
+							<input
+								type="checkbox"
+								checked={previewMode}
+								onChange={(e) => setPreviewMode(e.target.checked)}
+							/>
+							Preview
+						</label>
 						<button className="btn btn--sm btn--danger" onClick={onRemove}>
 							Delete Menu
 						</button>
 					</div>
 				</div>
 
+				{/* Background image assignment */}
+				<div className="menus__bg-select">
+					<label className="text-muted">Background: </label>
+					<select
+						className="menus__select-sm"
+						value={menu.backgroundAssetId ?? ''}
+						onChange={(e) =>
+							onUpdate((m) => ({
+								...m,
+								backgroundAssetId: e.target.value || null,
+							}))
+						}
+					>
+						<option value="">None (solid colour)</option>
+						{project.assets
+							.filter(
+								(a) =>
+									a.videoStreams.length > 0 || a.fileName.match(/\.(png|jpg|jpeg|bmp|tiff?)$/i),
+							)
+							.map((a) => (
+								<option key={a.id} value={a.id}>
+									{a.fileName}
+								</option>
+							))}
+					</select>
+				</div>
+
 				{/* Visual layout area */}
 				<div className="menus__canvas-area">
-					<MenuCanvas menu={menu} canvasHeight={canvasHeight} onUpdateButton={handleUpdateButton} />
+					{previewMode ? (
+						<NavigationPreview
+							menu={menu}
+							canvasHeight={canvasHeight}
+							showSafeArea={showSafeArea}
+						/>
+					) : (
+						<MenuCanvas
+							menu={menu}
+							canvasHeight={canvasHeight}
+							onUpdateButton={handleUpdateButton}
+							showSafeArea={showSafeArea}
+						/>
+					)}
 				</div>
 			</div>
 
@@ -289,6 +363,20 @@ function MenuEditor({
 							</button>
 						</div>
 					))}
+
+					{/* Navigation summary */}
+					<div className="menus__nav-summary">
+						<h4 className="menus__section-heading">Navigation</h4>
+						{menu.buttons.map((btn) => (
+							<div key={btn.id} className="menus__nav-row text-muted">
+								<span className="menus__nav-btn-name">{btn.label}</span>
+								<span>↑ {navLabel(btn.navUp, menu.buttons)}</span>
+								<span>↓ {navLabel(btn.navDown, menu.buttons)}</span>
+								<span>← {navLabel(btn.navLeft, menu.buttons)}</span>
+								<span>→ {navLabel(btn.navRight, menu.buttons)}</span>
+							</div>
+						))}
+					</div>
 				</div>
 			)}
 		</div>
@@ -299,10 +387,12 @@ function MenuCanvas({
 	menu,
 	canvasHeight,
 	onUpdateButton,
+	showSafeArea,
 }: {
 	menu: Menu;
 	canvasHeight: number;
 	onUpdateButton: (buttonId: string, updates: Partial<MenuButton>) => void;
+	showSafeArea: boolean;
 }) {
 	const canvasRef = useRef<HTMLDivElement>(null);
 	const dragState = useRef<{
@@ -372,6 +462,29 @@ function MenuCanvas({
 			ref={canvasRef}
 			style={{ aspectRatio: `${MENU_WIDTH} / ${canvasHeight}` }}
 		>
+			{/* Safe-area guides */}
+			{showSafeArea && (
+				<>
+					<div
+						className="menus__safe-area menus__safe-area--action"
+						style={{
+							left: `${ACTION_SAFE_PCT * 100}%`,
+							top: `${ACTION_SAFE_PCT * 100}%`,
+							right: `${ACTION_SAFE_PCT * 100}%`,
+							bottom: `${ACTION_SAFE_PCT * 100}%`,
+						}}
+					/>
+					<div
+						className="menus__safe-area menus__safe-area--title"
+						style={{
+							left: `${TITLE_SAFE_PCT * 100}%`,
+							top: `${TITLE_SAFE_PCT * 100}%`,
+							right: `${TITLE_SAFE_PCT * 100}%`,
+							bottom: `${TITLE_SAFE_PCT * 100}%`,
+						}}
+					/>
+				</>
+			)}
 			{menu.buttons.map((btn) => (
 				<div
 					key={btn.id}
@@ -383,6 +496,114 @@ function MenuCanvas({
 						height: `${(btn.bounds.height / canvasHeight) * 100}%`,
 					}}
 					onMouseDown={(e) => handleMouseDown(e, btn)}
+				>
+					{btn.label}
+				</div>
+			))}
+		</div>
+	);
+}
+
+/** Keyboard-navigable preview of menu button focus. */
+function NavigationPreview({
+	menu,
+	canvasHeight,
+	showSafeArea,
+}: {
+	menu: Menu;
+	canvasHeight: number;
+	showSafeArea: boolean;
+}) {
+	const [focusedId, setFocusedId] = useState<string | null>(
+		menu.defaultButtonId ?? menu.buttons[0]?.id ?? null,
+	);
+	const containerRef = useRef<HTMLDivElement>(null);
+
+	// Focus the container so it receives key events
+	useEffect(() => {
+		containerRef.current?.focus();
+	}, []);
+
+	const handleKeyDown = useCallback(
+		(e: React.KeyboardEvent) => {
+			const btn = menu.buttons.find((b) => b.id === focusedId);
+			if (!btn) return;
+
+			let nextId: string | null = null;
+
+			switch (e.key) {
+				case 'ArrowUp':
+					nextId = btn.navUp;
+					break;
+				case 'ArrowDown':
+					nextId = btn.navDown;
+					break;
+				case 'ArrowLeft':
+					nextId = btn.navLeft;
+					break;
+				case 'ArrowRight':
+					nextId = btn.navRight;
+					break;
+				case 'Enter':
+				case ' ':
+					// Visual feedback for activation
+					break;
+				default:
+					return;
+			}
+
+			e.preventDefault();
+			if (nextId) {
+				setFocusedId(nextId);
+			}
+		},
+		[focusedId, menu.buttons],
+	);
+
+	return (
+		<div
+			className="menus__canvas-bg menus__canvas-bg--preview"
+			ref={containerRef}
+			tabIndex={0}
+			onKeyDown={handleKeyDown}
+			style={{ aspectRatio: `${MENU_WIDTH} / ${canvasHeight}` }}
+		>
+			{showSafeArea && (
+				<>
+					<div
+						className="menus__safe-area menus__safe-area--action"
+						style={{
+							left: `${ACTION_SAFE_PCT * 100}%`,
+							top: `${ACTION_SAFE_PCT * 100}%`,
+							right: `${ACTION_SAFE_PCT * 100}%`,
+							bottom: `${ACTION_SAFE_PCT * 100}%`,
+						}}
+					/>
+					<div
+						className="menus__safe-area menus__safe-area--title"
+						style={{
+							left: `${TITLE_SAFE_PCT * 100}%`,
+							top: `${TITLE_SAFE_PCT * 100}%`,
+							right: `${TITLE_SAFE_PCT * 100}%`,
+							bottom: `${TITLE_SAFE_PCT * 100}%`,
+						}}
+					/>
+				</>
+			)}
+			<div className="menus__preview-hint text-muted">
+				Use arrow keys to navigate. Press Enter to activate.
+			</div>
+			{menu.buttons.map((btn) => (
+				<div
+					key={btn.id}
+					className={`menus__canvas-button ${btn.id === focusedId ? 'menus__canvas-button--focused' : ''} ${menu.defaultButtonId === btn.id ? 'menus__canvas-button--default' : ''}`}
+					style={{
+						left: `${(btn.bounds.x / MENU_WIDTH) * 100}%`,
+						top: `${(btn.bounds.y / canvasHeight) * 100}%`,
+						width: `${(btn.bounds.width / MENU_WIDTH) * 100}%`,
+						height: `${(btn.bounds.height / canvasHeight) * 100}%`,
+					}}
+					onClick={() => setFocusedId(btn.id)}
 				>
 					{btn.label}
 				</div>
@@ -436,4 +657,10 @@ function stringToAction(
 	if (type === 'playTitle' && id) return { type: 'playTitle', titleId: id };
 	if (type === 'showMenu' && id) return { type: 'showMenu', menuId: id };
 	return null;
+}
+
+function navLabel(navId: string | null, buttons: MenuButton[]): string {
+	if (!navId) return '—';
+	const btn = buttons.find((b) => b.id === navId);
+	return btn ? btn.label : '?';
 }

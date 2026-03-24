@@ -213,6 +213,93 @@ export interface ValidationIssue {
 	context: string | null;
 }
 
+// ── Build Pipeline ──────────────────────────────────────────────────────────
+
+export interface BuildPlan {
+	jobs: BuildJob[];
+	outputDirectory: string;
+	workingDirectory: string;
+	dvdauthorXml: string;
+	summary: BuildSummary;
+}
+
+export interface BuildSummary {
+	totalJobs: number;
+	transcodeJobs: number;
+	titlesCount: number;
+	menusCount: number;
+	generateIso: boolean;
+	estimatedCommands: string[];
+}
+
+export type BuildJob =
+	| { type: 'prepareWorkspace'; directories: string[] }
+	| {
+			type: 'transcodeTitle';
+			titleId: string;
+			titleName: string;
+			sourcePath: string;
+			outputPath: string;
+			command: string[];
+			label: string;
+	  }
+	| {
+			type: 'renderMenu';
+			menuId: string;
+			menuName: string;
+			outputPath: string;
+			command: string[];
+			label: string;
+	  }
+	| {
+			type: 'composeMenuHighlights';
+			menuId: string;
+			menuName: string;
+			inputPath: string;
+			outputPath: string;
+			spumuxXml: string;
+			command: string[];
+			label: string;
+	  }
+	| {
+			type: 'authorDvd';
+			xmlPath: string;
+			outputPath: string;
+			command: string[];
+			label: string;
+	  }
+	| {
+			type: 'createIso';
+			sourcePath: string;
+			outputPath: string;
+			command: string[];
+			label: string;
+	  };
+
+export interface BuildProgress {
+	jobIndex: number;
+	totalJobs: number;
+	currentLabel: string;
+	status: 'starting' | 'running' | 'complete' | 'failed';
+	output: string | null;
+}
+
+export interface BuildResult {
+	success: boolean;
+	outputDirectory: string;
+	isoPath: string | null;
+	logLines: string[];
+	failedJobIndex: number | null;
+	errorMessage: string | null;
+}
+
+export interface ToolchainStatus {
+	name: string;
+	purpose: string;
+	available: boolean;
+	version: string | null;
+}
+
 // ── Command Payloads ────────────────────────────────────────────────────────
 
 export interface CreateProjectRequest {
