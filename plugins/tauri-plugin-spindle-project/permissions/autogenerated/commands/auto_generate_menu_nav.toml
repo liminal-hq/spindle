@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-auto-generate-menu-nav"
+description = "Enables the auto_generate_menu_nav command without any pre-configured scope."
+commands.allow = ["auto_generate_menu_nav"]
+
+[[permission]]
+identifier = "deny-auto-generate-menu-nav"
+description = "Denies the auto_generate_menu_nav command without any pre-configured scope."
+commands.deny = ["auto_generate_menu_nav"]

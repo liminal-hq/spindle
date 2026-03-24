@@ -321,6 +321,63 @@ pub struct Menu {
     pub background_asset_id: Option<String>,
     pub buttons: Vec<MenuButton>,
     pub default_button_id: Option<String>,
+    /// Highlight colours for the subpicture overlay (DVD 4-colour palette).
+    #[serde(default)]
+    pub highlight_colours: MenuHighlightColours,
+    /// Whether the background is a still frame or looping video (Stage 2).
+    #[serde(default)]
+    pub background_mode: BackgroundMode,
+    /// Duration of the motion loop in seconds (motion menus only).
+    #[serde(default)]
+    pub motion_duration_secs: Option<f64>,
+    /// Optional audio asset for motion menu background music.
+    #[serde(default)]
+    pub motion_audio_asset_id: Option<String>,
+    /// Number of times to loop before timeout action (0 = infinite, motion only).
+    #[serde(default)]
+    pub motion_loop_count: u32,
+    /// Action when a motion menu times out after looping.
+    #[serde(default)]
+    pub timeout_action: Option<PlaybackAction>,
+}
+
+/// Whether a menu background is a still frame or looping video.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "kebab-case")]
+pub enum BackgroundMode {
+    #[default]
+    Still,
+    Motion,
+}
+
+/// DVD subpicture highlight palette colours.
+///
+/// DVD menus use a 4-colour CLUT (colour look-up table) for button overlays.
+/// The "select" colour is shown when a button is navigated to; the "activate"
+/// colour flashes briefly when the button is pressed. Colours are stored as
+/// CSS-style hex strings (e.g. "#ffaa40").
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MenuHighlightColours {
+    /// Colour shown over a button when it is selected/focused.
+    pub select_colour: String,
+    /// Opacity of the select highlight (0.0–1.0).
+    pub select_opacity: f64,
+    /// Colour shown briefly when a button is activated/pressed.
+    pub activate_colour: String,
+    /// Opacity of the activate highlight (0.0–1.0).
+    pub activate_opacity: f64,
+}
+
+impl Default for MenuHighlightColours {
+    fn default() -> Self {
+        Self {
+            select_colour: "#ffaa40".to_string(),
+            select_opacity: 0.6,
+            activate_colour: "#ffffff".to_string(),
+            activate_opacity: 0.8,
+        }
+    }
 }
 
 /// A navigable button within a menu.
@@ -335,6 +392,40 @@ pub struct MenuButton {
     pub nav_down: Option<String>,
     pub nav_left: Option<String>,
     pub nav_right: Option<String>,
+    /// Whether button highlights are static or animated (Stage 2).
+    #[serde(default)]
+    pub highlight_mode: HighlightMode,
+    /// Animated highlight keyframes (Stage 2).
+    #[serde(default)]
+    pub highlight_keyframes: Vec<HighlightKeyframe>,
+    /// Video asset composited into the menu background at this button's bounds (Stage 2).
+    #[serde(default)]
+    pub video_asset_id: Option<String>,
+}
+
+/// Whether button highlights are static or animated over the motion loop.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "kebab-case")]
+pub enum HighlightMode {
+    #[default]
+    Static,
+    Animated,
+}
+
+/// A keyframe for animated button highlights within a motion menu loop.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HighlightKeyframe {
+    /// Timestamp within the motion loop (seconds from start).
+    pub timestamp_secs: f64,
+    /// Override select colour at this keyframe (None = use menu default).
+    pub select_colour: Option<String>,
+    /// Override select opacity at this keyframe (None = use menu default).
+    pub select_opacity: Option<f64>,
+    /// Override activate colour at this keyframe (None = use menu default).
+    pub activate_colour: Option<String>,
+    /// Override activate opacity at this keyframe (None = use menu default).
+    pub activate_opacity: Option<f64>,
 }
 
 /// Button position and size in menu coordinates.
@@ -385,6 +476,8 @@ pub struct Asset {
     pub subtitle_streams: Vec<SubtitleStreamInfo>,
     pub compatibility: Option<CompatibilityAssessment>,
     pub fingerprint: Option<String>,
+    #[serde(default)]
+    pub thumbnail_path: Option<String>,
 }
 
 impl Asset {
@@ -401,6 +494,7 @@ impl Asset {
             subtitle_streams: Vec::new(),
             compatibility: None,
             fingerprint: None,
+            thumbnail_path: None,
         }
     }
 }

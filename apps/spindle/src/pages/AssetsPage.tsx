@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: MIT
 
 import { useState } from 'react';
+import { convertFileSrc } from '@tauri-apps/api/core';
 import { useProjectStore } from '../store/project-store';
 import type { Asset, CompatibilityAssessment } from '../types/project';
 import './AssetsPage.css';
@@ -12,6 +13,7 @@ export function AssetsPage() {
 	const project = useProjectStore((s) => s.project);
 	const importAssets = useProjectStore((s) => s.importAssets);
 	const removeAsset = useProjectStore((s) => s.removeAsset);
+	const relinkAsset = useProjectStore((s) => s.relinkAsset);
 	const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
 
 	if (!project) return null;
@@ -49,6 +51,7 @@ export function AssetsPage() {
 								removeAsset(selectedAsset.id);
 								setSelectedAssetId(null);
 							}}
+							onRelink={() => relinkAsset(selectedAsset.id)}
 						/>
 					)}
 				</div>
@@ -103,6 +106,11 @@ function AssetRow({
 			tabIndex={0}
 			onKeyDown={(e) => e.key === 'Enter' && onSelect()}
 		>
+			{asset.thumbnailPath ? (
+				<img className="assets__row-thumb" src={convertFileSrc(asset.thumbnailPath)} alt="" />
+			) : (
+				<div className="assets__row-thumb assets__row-thumb--placeholder" />
+			)}
 			<div className="assets__row-main">
 				<span className="assets__row-name">{asset.fileName}</span>
 				<div className="assets__row-meta text-muted">
@@ -127,15 +135,36 @@ function AssetRow({
 	);
 }
 
-function AssetDetail({ asset, onRemove }: { asset: Asset; onRemove: () => void }) {
+function AssetDetail({
+	asset,
+	onRemove,
+	onRelink,
+}: {
+	asset: Asset;
+	onRemove: () => void;
+	onRelink: () => void;
+}) {
 	return (
 		<div className="assets__detail card">
 			<div className="card__header">
 				<h3 className="card__title">{asset.fileName}</h3>
-				<button className="btn btn--sm btn--danger" onClick={onRemove}>
-					Remove
-				</button>
+				<div className="assets__detail-actions">
+					<button className="btn btn--sm" onClick={onRelink}>
+						Relink…
+					</button>
+					<button className="btn btn--sm btn--danger" onClick={onRemove}>
+						Remove
+					</button>
+				</div>
 			</div>
+
+			{asset.thumbnailPath && (
+				<img
+					className="assets__detail-thumb"
+					src={convertFileSrc(asset.thumbnailPath)}
+					alt={`Thumbnail for ${asset.fileName}`}
+				/>
+			)}
 
 			<div className="assets__detail-section">
 				<h4 className="assets__detail-heading">File Info</h4>

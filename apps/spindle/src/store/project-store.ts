@@ -12,7 +12,14 @@ import type {
 	CreateProjectRequest,
 	ValidationIssue,
 	Asset,
+	BuildPlan,
+	BuildResult,
+	BuildProgress,
+	Menu,
+	ToolchainStatus,
 } from '../types/project';
+
+export type BuildStatus = 'idle' | 'planning' | 'building' | 'complete' | 'error';
 
 export interface ProjectState {
 	/** The current project data, or null if no project is loaded. */
@@ -25,6 +32,18 @@ export interface ProjectState {
 	validationIssues: ValidationIssue[];
 	/** Whether a project operation is in progress. */
 	isLoading: boolean;
+	/** Current build plan (from dry-run preview). */
+	buildPlan: BuildPlan | null;
+	/** Current build status. */
+	buildStatus: BuildStatus;
+	/** Build result from the last build attempt. */
+	buildResult: BuildResult | null;
+	/** Build progress events. */
+	buildProgress: BuildProgress | null;
+	/** Build log lines. */
+	buildLog: string[];
+	/** Detected toolchain status. */
+	toolchain: ToolchainStatus[];
 
 	// Actions
 	createProject: (req: CreateProjectRequest) => Promise<void>;
@@ -36,6 +55,13 @@ export interface ProjectState {
 	validateProject: () => Promise<void>;
 	importAssets: () => Promise<void>;
 	removeAsset: (assetId: string) => void;
+	relinkAsset: (assetId: string) => Promise<void>;
+	generateBuildPlan: () => Promise<void>;
+	executeBuild: () => Promise<void>;
+	clearBuild: () => void;
+	cancelBuild: () => Promise<void>;
+	autoGenerateMenuNav: (menuId: string) => Promise<void>;
+	checkToolchain: () => Promise<void>;
 }
 
 export const useProjectStore = create<ProjectState>((set, get) => ({
@@ -44,6 +70,12 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 	isDirty: false,
 	validationIssues: [],
 	isLoading: false,
+	buildPlan: null,
+	buildStatus: 'idle',
+	buildResult: null,
+	buildProgress: null,
+	buildLog: [],
+	toolchain: [],
 
 	createProject: async (req) => {
 		set({ isLoading: true });
@@ -141,7 +173,17 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 	},
 
 	closeProject: () => {
-		set({ project: null, filePath: null, isDirty: false, validationIssues: [] });
+		set({
+			project: null,
+			filePath: null,
+			isDirty: false,
+			validationIssues: [],
+			buildPlan: null,
+			buildStatus: 'idle',
+			buildResult: null,
+			buildProgress: null,
+			buildLog: [],
+		});
 	},
 
 	updateProject: (updater) => {
@@ -213,6 +255,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 				subtitleStreams: [],
 				compatibility: null,
 				fingerprint: null,
+				thumbnailPath: null,
 			};
 		});
 
@@ -224,7 +267,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 			isDirty: true,
 		});
 
-		// Trigger inspection for each new asset
+		// Trigger inspection and thumbnail extraction for each new asset
 		for (const asset of newAssets) {
 			try {
 				const inspected = await invoke<Asset>('plugin:spindle-project|inspect_asset', {
@@ -233,14 +276,40 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 				// Merge inspection results, preserving the ID we assigned
 				const { project: current } = get();
 				if (!current) break;
+				const merged = { ...inspected, id: asset.id };
 				set({
 					project: {
 						...current,
-						assets: current.assets.map((a) =>
-							a.id === asset.id ? { ...inspected, id: asset.id } : a,
-						),
+						assets: current.assets.map((a) => (a.id === asset.id ? merged : a)),
 					},
 				});
+
+				// Extract thumbnail if the asset has video streams
+				if (inspected.videoStreams.length > 0) {
+					try {
+						const thumbDir = await invoke<string>('plugin:spindle-project|get_cache_dir');
+						const thumbPath = `${thumbDir}/thumb_${asset.id}.jpg`;
+						const seekTo = Math.min(1, inspected.durationSecs ?? 0);
+						await invoke('plugin:spindle-project|extract_thumbnail', {
+							sourcePath: asset.sourcePath,
+							outputPath: thumbPath,
+							timestampSecs: seekTo,
+						});
+						const { project: afterThumb } = get();
+						if (afterThumb) {
+							set({
+								project: {
+									...afterThumb,
+									assets: afterThumb.assets.map((a) =>
+										a.id === asset.id ? { ...a, thumbnailPath: thumbPath } : a,
+									),
+								},
+							});
+						}
+					} catch {
+						// Thumbnail extraction is best-effort
+					}
+				}
 			} catch {
 				// Inspection failed — asset stays as stub with null metadata
 			}
@@ -275,5 +344,233 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 			},
 			isDirty: true,
 		});
+	},
+
+	relinkAsset: async (assetId) => {
+		const { project } = get();
+		if (!project) return;
+
+		const asset = project.assets.find((a) => a.id === assetId);
+		if (!asset) return;
+
+		const selected = await open({
+			multiple: false,
+			filters: [
+				{
+					name: 'Media Files',
+					extensions: [
+						'mpg',
+						'mpeg',
+						'vob',
+						'm2v',
+						'mp4',
+						'mkv',
+						'avi',
+						'mov',
+						'ts',
+						'ac3',
+						'dts',
+						'lpcm',
+						'wav',
+						'mp2',
+						'mp3',
+						'aac',
+						'sub',
+						'idx',
+						'srt',
+						'sup',
+					],
+				},
+			],
+		});
+		if (!selected) return;
+
+		const newPath = Array.isArray(selected) ? selected[0] : selected;
+		const newFileName = newPath.split(/[/\\]/).pop() ?? newPath;
+
+		// Update path immediately
+		set({
+			project: {
+				...project,
+				assets: project.assets.map((a) =>
+					a.id === assetId ? { ...a, sourcePath: newPath, fileName: newFileName } : a,
+				),
+			},
+			isDirty: true,
+		});
+
+		// Re-inspect the relinked file
+		try {
+			const inspected = await invoke<Asset>('plugin:spindle-project|inspect_asset', {
+				path: newPath,
+			});
+			const { project: current } = get();
+			if (!current) return;
+			set({
+				project: {
+					...current,
+					assets: current.assets.map((a) => (a.id === assetId ? { ...inspected, id: assetId } : a)),
+				},
+			});
+		} catch {
+			// Re-inspection failed — keep the path update
+		}
+	},
+
+	generateBuildPlan: async () => {
+		const { project } = get();
+		if (!project) return;
+
+		const outputDir =
+			project.buildSettings.outputDirectory ??
+			(await (async () => {
+				const selected = await save({
+					filters: [],
+					defaultPath: `${project.project.name}_DVD`,
+				});
+				if (selected) {
+					// Update the project with the chosen directory
+					get().updateProject((p) => ({
+						...p,
+						buildSettings: { ...p.buildSettings, outputDirectory: selected },
+					}));
+				}
+				return selected;
+			})());
+
+		if (!outputDir) return;
+
+		set({ buildStatus: 'planning' });
+		try {
+			const plan = await invoke<BuildPlan>('plugin:spindle-project|generate_build_plan', {
+				project,
+				outputDirectory: outputDir,
+			});
+			set({ buildPlan: plan, buildStatus: 'idle' });
+		} catch (e) {
+			set({
+				buildStatus: 'error',
+				buildLog: [`Build plan generation failed: ${e}`],
+			});
+		}
+	},
+
+	executeBuild: async () => {
+		const { project } = get();
+		if (!project) return;
+
+		const outputDir = project.buildSettings.outputDirectory;
+		if (!outputDir) {
+			set({ buildLog: ['No output directory set.'] });
+			return;
+		}
+
+		set({
+			buildStatus: 'building',
+			buildLog: ['Starting DVD-Video build…'],
+			buildResult: null,
+			buildProgress: null,
+		});
+
+		try {
+			const result = await invoke<BuildResult>('plugin:spindle-project|execute_build', {
+				project,
+				outputDirectory: outputDir,
+			});
+
+			set({
+				buildResult: result,
+				buildStatus: result.success ? 'complete' : 'error',
+				buildLog: result.logLines,
+			});
+		} catch (e) {
+			set((state) => ({
+				buildStatus: 'error' as const,
+				buildLog: [...state.buildLog, `Build failed: ${e}`],
+			}));
+		}
+	},
+
+	clearBuild: () => {
+		set({
+			buildPlan: null,
+			buildStatus: 'idle',
+			buildResult: null,
+			buildProgress: null,
+			buildLog: [],
+		});
+	},
+
+	cancelBuild: async () => {
+		try {
+			await invoke('plugin:spindle-project|cancel_build');
+			set((state) => ({
+				buildLog: [...state.buildLog, 'Cancellation requested…'],
+			}));
+		} catch {
+			// Best-effort cancellation
+		}
+	},
+
+	autoGenerateMenuNav: async (menuId) => {
+		const { project } = get();
+		if (!project) return;
+
+		// Find the menu
+		const globalMenu = project.disc.globalMenus.find((m) => m.id === menuId);
+		let foundMenu: Menu | undefined = globalMenu;
+		let scope: 'global' | 'titleset' = 'global';
+		let titlesetId: string | null = null;
+
+		if (!foundMenu) {
+			for (const ts of project.disc.titlesets) {
+				const tsMenu = ts.menus.find((m) => m.id === menuId);
+				if (tsMenu) {
+					foundMenu = tsMenu;
+					scope = 'titleset';
+					titlesetId = ts.id;
+					break;
+				}
+			}
+		}
+
+		if (!foundMenu) return;
+
+		const updated = await invoke<Menu>('plugin:spindle-project|auto_generate_menu_nav', {
+			menu: foundMenu,
+		});
+
+		get().updateProject((p) => {
+			if (scope === 'global') {
+				return {
+					...p,
+					disc: {
+						...p.disc,
+						globalMenus: p.disc.globalMenus.map((m) => (m.id === menuId ? updated : m)),
+					},
+				};
+			} else {
+				return {
+					...p,
+					disc: {
+						...p.disc,
+						titlesets: p.disc.titlesets.map((ts) =>
+							ts.id === titlesetId
+								? { ...ts, menus: ts.menus.map((m) => (m.id === menuId ? updated : m)) }
+								: ts,
+						),
+					},
+				};
+			}
+		});
+	},
+
+	checkToolchain: async () => {
+		try {
+			const statuses = await invoke<ToolchainStatus[]>('plugin:spindle-project|check_toolchain');
+			set({ toolchain: statuses });
+		} catch {
+			// Toolchain check is best-effort
+		}
 	},
 }));

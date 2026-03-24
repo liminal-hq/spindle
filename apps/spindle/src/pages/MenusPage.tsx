@@ -1,27 +1,35 @@
-// Menus page — define menu layouts, buttons, and navigation for the disc.
+// Menus page — define menu layouts, buttons, navigation, and visual editor.
 //
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: MIT
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { useProjectStore } from '../store/project-store';
 import type {
 	Menu,
 	MenuButton,
+	MenuHighlightColours,
 	ButtonBounds,
 	PlaybackAction,
 	SpindleProjectFile,
 	VideoStandard,
 } from '../types/project';
+import { DEFAULT_HIGHLIGHT_COLOURS } from '../types/project';
 
 // DVD menu canvas dimensions vary by video standard
 const MENU_WIDTH = 720;
 const MENU_HEIGHT: Record<VideoStandard, number> = { NTSC: 480, PAL: 576 };
+
+// Safe-area margins (SMPTE RP 218 — 90% action-safe, 80% title-safe)
+const ACTION_SAFE_PCT = 0.05; // 5% from each edge
+const TITLE_SAFE_PCT = 0.1; // 10% from each edge
+
 import './MenusPage.css';
 
 export function MenusPage() {
 	const project = useProjectStore((s) => s.project);
 	const updateProject = useProjectStore((s) => s.updateProject);
+	const autoGenerateMenuNav = useProjectStore((s) => s.autoGenerateMenuNav);
 	const [selectedMenuId, setSelectedMenuId] = useState<string | null>(null);
 
 	if (!project) return null;
@@ -46,6 +54,12 @@ export function MenusPage() {
 			backgroundAssetId: null,
 			buttons: [],
 			defaultButtonId: null,
+			highlightColours: { ...DEFAULT_HIGHLIGHT_COLOURS },
+			backgroundMode: 'still',
+			motionDurationSecs: null,
+			motionAudioAssetId: null,
+			motionLoopCount: 0,
+			timeoutAction: null,
 		};
 		updateProject((p) => ({
 			...p,
@@ -116,6 +130,7 @@ export function MenusPage() {
 							canvasHeight={MENU_HEIGHT[disc.standard]}
 							onUpdate={(updater) => handleUpdateMenu(selectedEntry.menu.id, updater)}
 							onRemove={() => handleRemoveMenu(selectedEntry.menu.id)}
+							onAutoNav={() => autoGenerateMenuNav(selectedEntry.menu.id)}
 						/>
 					)}
 				</div>
@@ -159,18 +174,27 @@ function MenuEditor({
 	canvasHeight,
 	onUpdate,
 	onRemove,
+	onAutoNav,
 }: {
 	menu: Menu;
 	project: SpindleProjectFile;
 	canvasHeight: number;
 	onUpdate: (updater: (m: Menu) => Menu) => void;
 	onRemove: () => void;
+	onAutoNav: () => void;
 }) {
 	const allTitles = project.disc.titlesets.flatMap((ts) => ts.titles);
 	const allMenus = [
 		...project.disc.globalMenus,
 		...project.disc.titlesets.flatMap((ts) => ts.menus),
 	];
+	const [showSafeArea, setShowSafeArea] = useState(true);
+	const [previewMode, setPreviewMode] = useState(false);
+
+	const backgroundAsset = menu.backgroundAssetId
+		? (project.assets.find((a) => a.id === menu.backgroundAssetId) ?? null)
+		: null;
+	const backgroundAssetLabel = backgroundAsset ? backgroundAsset.fileName : null;
 
 	const handleAddButton = () => {
 		const newButton: MenuButton = {
@@ -187,6 +211,9 @@ function MenuEditor({
 			navDown: null,
 			navLeft: null,
 			navRight: null,
+			highlightMode: 'static',
+			highlightKeyframes: [],
+			videoAssetId: null,
 		};
 		onUpdate((m) => ({ ...m, buttons: [...m.buttons, newButton] }));
 	};
@@ -208,7 +235,7 @@ function MenuEditor({
 
 	return (
 		<div className="menus__editor">
-			{/* Menu canvas (simplified) */}
+			{/* Menu canvas */}
 			<div className="menus__canvas card">
 				<div className="card__header">
 					<input
@@ -220,15 +247,80 @@ function MenuEditor({
 						<button className="btn btn--sm" onClick={handleAddButton}>
 							Add Button
 						</button>
+						<button
+							className="btn btn--sm"
+							onClick={onAutoNav}
+							title="Auto-generate directional navigation from button positions"
+						>
+							Auto Nav
+						</button>
+						<label className="menus__toggle" title="Show safe-area guides">
+							<input
+								type="checkbox"
+								checked={showSafeArea}
+								onChange={(e) => setShowSafeArea(e.target.checked)}
+							/>
+							Safe Area
+						</label>
+						<label className="menus__toggle" title="Preview navigation with arrow keys">
+							<input
+								type="checkbox"
+								checked={previewMode}
+								onChange={(e) => setPreviewMode(e.target.checked)}
+							/>
+							Preview
+						</label>
 						<button className="btn btn--sm btn--danger" onClick={onRemove}>
 							Delete Menu
 						</button>
 					</div>
 				</div>
 
+				{/* Background image assignment */}
+				<div className="menus__bg-select">
+					<label className="text-muted">Background: </label>
+					<select
+						className="menus__select-sm"
+						value={menu.backgroundAssetId ?? ''}
+						onChange={(e) =>
+							onUpdate((m) => ({
+								...m,
+								backgroundAssetId: e.target.value || null,
+							}))
+						}
+					>
+						<option value="">None (solid colour)</option>
+						{project.assets
+							.filter(
+								(a) =>
+									a.videoStreams.length > 0 || a.fileName.match(/\.(png|jpg|jpeg|bmp|tiff?)$/i),
+							)
+							.map((a) => (
+								<option key={a.id} value={a.id}>
+									{a.fileName}
+								</option>
+							))}
+					</select>
+				</div>
+
 				{/* Visual layout area */}
 				<div className="menus__canvas-area">
-					<MenuCanvas menu={menu} canvasHeight={canvasHeight} onUpdateButton={handleUpdateButton} />
+					{previewMode ? (
+						<NavigationPreview
+							menu={menu}
+							canvasHeight={canvasHeight}
+							showSafeArea={showSafeArea}
+							backgroundLabel={backgroundAssetLabel}
+						/>
+					) : (
+						<MenuCanvas
+							menu={menu}
+							canvasHeight={canvasHeight}
+							onUpdateButton={handleUpdateButton}
+							showSafeArea={showSafeArea}
+							backgroundLabel={backgroundAssetLabel}
+						/>
+					)}
 				</div>
 			</div>
 
@@ -289,41 +381,152 @@ function MenuEditor({
 							</button>
 						</div>
 					))}
+
+					{/* Navigation editor */}
+					<div className="menus__nav-summary">
+						<h4 className="menus__section-heading">Navigation</h4>
+						{menu.buttons.map((btn) => (
+							<div key={btn.id} className="menus__nav-editor-row">
+								<span className="menus__nav-btn-name">{btn.label}</span>
+								<div className="menus__nav-dirs">
+									{(
+										[
+											['navUp', '↑'],
+											['navDown', '↓'],
+											['navLeft', '←'],
+											['navRight', '→'],
+										] as const
+									).map(([field, arrow]) => (
+										<label key={field} className="menus__nav-dir">
+											<span className="menus__nav-arrow">{arrow}</span>
+											<select
+												className="menus__nav-select"
+												value={btn[field] ?? ''}
+												onChange={(e) =>
+													handleUpdateButton(btn.id, {
+														[field]: e.target.value || null,
+													})
+												}
+											>
+												<option value="">—</option>
+												{menu.buttons
+													.filter((b) => b.id !== btn.id)
+													.map((b) => (
+														<option key={b.id} value={b.id}>
+															{b.label}
+														</option>
+													))}
+											</select>
+										</label>
+									))}
+								</div>
+							</div>
+						))}
+					</div>
 				</div>
 			)}
+
+			{/* Highlight colours */}
+			<div className="card menus__highlights">
+				<h4 className="menus__section-heading">Overlay Highlight Colours</h4>
+				<p className="menus__highlights-hint text-muted">
+					DVD menus use a subpicture overlay with a 4-colour palette. The select colour is shown
+					when a button is focused; the activate colour flashes when pressed.
+				</p>
+				<HighlightColourEditor
+					colours={menu.highlightColours}
+					onChange={(colours) => onUpdate((m) => ({ ...m, highlightColours: colours }))}
+				/>
+			</div>
 		</div>
 	);
 }
+
+/** Snap threshold in menu coordinates. */
+const SNAP_THRESHOLD = 8;
+
+/** Minimum button size in menu coordinates. */
+const MIN_BUTTON_SIZE = 30;
+
+type ResizeEdge = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw';
 
 function MenuCanvas({
 	menu,
 	canvasHeight,
 	onUpdateButton,
+	showSafeArea,
+	backgroundLabel,
 }: {
 	menu: Menu;
 	canvasHeight: number;
 	onUpdateButton: (buttonId: string, updates: Partial<MenuButton>) => void;
+	showSafeArea: boolean;
+	backgroundLabel: string | null;
 }) {
 	const canvasRef = useRef<HTMLDivElement>(null);
 	const dragState = useRef<{
 		buttonId: string;
+		mode: 'move' | ResizeEdge;
 		startX: number;
 		startY: number;
 		startBounds: ButtonBounds;
 	} | null>(null);
+	const [snapLines, setSnapLines] = useState<{ axis: 'x' | 'y'; pos: number }[]>([]);
 
-	const handleMouseDown = useCallback(
-		(e: React.MouseEvent, btn: MenuButton) => {
+	/** Compute snap targets from other buttons (edges + centres). */
+	const getSnapTargets = useCallback(
+		(excludeId: string) => {
+			const xs: number[] = [];
+			const ys: number[] = [];
+			for (const btn of menu.buttons) {
+				if (btn.id === excludeId) continue;
+				xs.push(btn.bounds.x, btn.bounds.x + btn.bounds.width, btn.bounds.x + btn.bounds.width / 2);
+				ys.push(
+					btn.bounds.y,
+					btn.bounds.y + btn.bounds.height,
+					btn.bounds.y + btn.bounds.height / 2,
+				);
+			}
+			// Canvas edges and centres
+			xs.push(0, MENU_WIDTH / 2, MENU_WIDTH);
+			ys.push(0, canvasHeight / 2, canvasHeight);
+			return { xs, ys };
+		},
+		[menu.buttons, canvasHeight],
+	);
+
+	/** Snap a value to the nearest target within threshold. */
+	const snapValue = (val: number, targets: number[]): { snapped: number; line: number | null } => {
+		let closest = val;
+		let minDist = SNAP_THRESHOLD + 1;
+		let line: number | null = null;
+		for (const t of targets) {
+			const d = Math.abs(val - t);
+			if (d < minDist) {
+				minDist = d;
+				closest = t;
+				line = t;
+			}
+		}
+		return minDist <= SNAP_THRESHOLD ? { snapped: closest, line } : { snapped: val, line: null };
+	};
+
+	const startDrag = useCallback(
+		(e: React.MouseEvent, btn: MenuButton, mode: 'move' | ResizeEdge) => {
 			e.preventDefault();
+			e.stopPropagation();
 			const canvas = canvasRef.current;
 			if (!canvas) return;
 
 			dragState.current = {
 				buttonId: btn.id,
+				mode,
 				startX: e.clientX,
 				startY: e.clientY,
 				startBounds: { ...btn.bounds },
 			};
+
+			const targets = getSnapTargets(btn.id);
 
 			const handleMouseMove = (moveEvent: MouseEvent) => {
 				const state = dragState.current;
@@ -332,30 +535,84 @@ function MenuCanvas({
 				const rect = canvas.getBoundingClientRect();
 				const scaleX = MENU_WIDTH / rect.width;
 				const scaleY = canvasHeight / rect.height;
-
 				const dx = (moveEvent.clientX - state.startX) * scaleX;
 				const dy = (moveEvent.clientY - state.startY) * scaleY;
+				const sb = state.startBounds;
 
-				const newX = Math.max(
-					0,
-					Math.min(MENU_WIDTH - state.startBounds.width, state.startBounds.x + dx),
-				);
-				const newY = Math.max(
-					0,
-					Math.min(canvasHeight - state.startBounds.height, state.startBounds.y + dy),
-				);
+				let bounds: ButtonBounds;
+				if (state.mode === 'move') {
+					let newX = sb.x + dx;
+					let newY = sb.y + dy;
+					newX = Math.max(0, Math.min(MENU_WIDTH - sb.width, newX));
+					newY = Math.max(0, Math.min(canvasHeight - sb.height, newY));
 
-				onUpdateButton(state.buttonId, {
-					bounds: {
-						...state.startBounds,
-						x: Math.round(newX),
-						y: Math.round(newY),
-					},
-				});
+					// Snap edges and centre
+					const lines: { axis: 'x' | 'y'; pos: number }[] = [];
+					const sLeft = snapValue(newX, targets.xs);
+					const sRight = snapValue(newX + sb.width, targets.xs);
+					const sCx = snapValue(newX + sb.width / 2, targets.xs);
+					if (sLeft.line != null) {
+						newX = sLeft.snapped;
+						lines.push({ axis: 'x', pos: sLeft.line });
+					} else if (sRight.line != null) {
+						newX = sRight.snapped - sb.width;
+						lines.push({ axis: 'x', pos: sRight.line });
+					} else if (sCx.line != null) {
+						newX = sCx.snapped - sb.width / 2;
+						lines.push({ axis: 'x', pos: sCx.line });
+					}
+
+					const sTop = snapValue(newY, targets.ys);
+					const sBottom = snapValue(newY + sb.height, targets.ys);
+					const sCy = snapValue(newY + sb.height / 2, targets.ys);
+					if (sTop.line != null) {
+						newY = sTop.snapped;
+						lines.push({ axis: 'y', pos: sTop.line });
+					} else if (sBottom.line != null) {
+						newY = sBottom.snapped - sb.height;
+						lines.push({ axis: 'y', pos: sBottom.line });
+					} else if (sCy.line != null) {
+						newY = sCy.snapped - sb.height / 2;
+						lines.push({ axis: 'y', pos: sCy.line });
+					}
+
+					setSnapLines(lines);
+					bounds = { x: Math.round(newX), y: Math.round(newY), width: sb.width, height: sb.height };
+				} else {
+					// Resize
+					let { x, y, width, height } = sb;
+					const m = state.mode;
+					if (m.includes('e')) width = Math.max(MIN_BUTTON_SIZE, sb.width + dx);
+					if (m.includes('w')) {
+						width = Math.max(MIN_BUTTON_SIZE, sb.width - dx);
+						x = sb.x + sb.width - width;
+					}
+					if (m.includes('s')) height = Math.max(MIN_BUTTON_SIZE, sb.height + dy);
+					if (m.includes('n')) {
+						height = Math.max(MIN_BUTTON_SIZE, sb.height - dy);
+						y = sb.y + sb.height - height;
+					}
+
+					x = Math.max(0, Math.min(MENU_WIDTH - MIN_BUTTON_SIZE, x));
+					y = Math.max(0, Math.min(canvasHeight - MIN_BUTTON_SIZE, y));
+					if (x + width > MENU_WIDTH) width = MENU_WIDTH - x;
+					if (y + height > canvasHeight) height = canvasHeight - y;
+
+					setSnapLines([]);
+					bounds = {
+						x: Math.round(x),
+						y: Math.round(y),
+						width: Math.round(width),
+						height: Math.round(height),
+					};
+				}
+
+				onUpdateButton(state.buttonId, { bounds });
 			};
 
 			const handleMouseUp = () => {
 				dragState.current = null;
+				setSnapLines([]);
 				document.removeEventListener('mousemove', handleMouseMove);
 				document.removeEventListener('mouseup', handleMouseUp);
 			};
@@ -363,7 +620,7 @@ function MenuCanvas({
 			document.addEventListener('mousemove', handleMouseMove);
 			document.addEventListener('mouseup', handleMouseUp);
 		},
-		[onUpdateButton, canvasHeight],
+		[onUpdateButton, canvasHeight, getSnapTargets],
 	);
 
 	return (
@@ -372,6 +629,51 @@ function MenuCanvas({
 			ref={canvasRef}
 			style={{ aspectRatio: `${MENU_WIDTH} / ${canvasHeight}` }}
 		>
+			{/* Background label */}
+			{backgroundLabel && (
+				<div className="menus__canvas-bg-label text-muted">{backgroundLabel}</div>
+			)}
+			{/* Navigation connection lines */}
+			<NavLines buttons={menu.buttons} canvasWidth={MENU_WIDTH} canvasHeight={canvasHeight} />
+			{/* Snap guide lines */}
+			{snapLines.map((line, i) =>
+				line.axis === 'x' ? (
+					<div
+						key={`snap-${i}`}
+						className="menus__snap-line menus__snap-line--v"
+						style={{ left: `${(line.pos / MENU_WIDTH) * 100}%` }}
+					/>
+				) : (
+					<div
+						key={`snap-${i}`}
+						className="menus__snap-line menus__snap-line--h"
+						style={{ top: `${(line.pos / canvasHeight) * 100}%` }}
+					/>
+				),
+			)}
+			{/* Safe-area guides */}
+			{showSafeArea && (
+				<>
+					<div
+						className="menus__safe-area menus__safe-area--action"
+						style={{
+							left: `${ACTION_SAFE_PCT * 100}%`,
+							top: `${ACTION_SAFE_PCT * 100}%`,
+							right: `${ACTION_SAFE_PCT * 100}%`,
+							bottom: `${ACTION_SAFE_PCT * 100}%`,
+						}}
+					/>
+					<div
+						className="menus__safe-area menus__safe-area--title"
+						style={{
+							left: `${TITLE_SAFE_PCT * 100}%`,
+							top: `${TITLE_SAFE_PCT * 100}%`,
+							right: `${TITLE_SAFE_PCT * 100}%`,
+							bottom: `${TITLE_SAFE_PCT * 100}%`,
+						}}
+					/>
+				</>
+			)}
 			{menu.buttons.map((btn) => (
 				<div
 					key={btn.id}
@@ -382,11 +684,293 @@ function MenuCanvas({
 						width: `${(btn.bounds.width / MENU_WIDTH) * 100}%`,
 						height: `${(btn.bounds.height / canvasHeight) * 100}%`,
 					}}
-					onMouseDown={(e) => handleMouseDown(e, btn)}
+					onMouseDown={(e) => startDrag(e, btn, 'move')}
 				>
 					{btn.label}
+					{/* Resize handles */}
+					{(['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'] as ResizeEdge[]).map((edge) => (
+						<div
+							key={edge}
+							className={`menus__resize-handle menus__resize-handle--${edge}`}
+							onMouseDown={(e) => startDrag(e, btn, edge)}
+						/>
+					))}
 				</div>
 			))}
+		</div>
+	);
+}
+
+/** Direction-colour mapping for navigation lines. */
+const NAV_COLOURS: Record<string, string> = {
+	navUp: 'rgba(100, 200, 255, 0.5)',
+	navDown: 'rgba(255, 170, 64, 0.5)',
+	navLeft: 'rgba(180, 130, 255, 0.5)',
+	navRight: 'rgba(130, 255, 130, 0.5)',
+};
+
+/** SVG overlay that draws directional navigation arrows between buttons. */
+function NavLines({
+	buttons,
+	canvasWidth,
+	canvasHeight,
+}: {
+	buttons: MenuButton[];
+	canvasWidth: number;
+	canvasHeight: number;
+}) {
+	const lines: { x1: number; y1: number; x2: number; y2: number; colour: string }[] = [];
+
+	for (const btn of buttons) {
+		const cx1 = btn.bounds.x + btn.bounds.width / 2;
+		const cy1 = btn.bounds.y + btn.bounds.height / 2;
+
+		for (const field of ['navUp', 'navDown', 'navLeft', 'navRight'] as const) {
+			const targetId = btn[field];
+			if (!targetId) continue;
+			const target = buttons.find((b) => b.id === targetId);
+			if (!target) continue;
+			const cx2 = target.bounds.x + target.bounds.width / 2;
+			const cy2 = target.bounds.y + target.bounds.height / 2;
+			lines.push({ x1: cx1, y1: cy1, x2: cx2, y2: cy2, colour: NAV_COLOURS[field] });
+		}
+	}
+
+	if (lines.length === 0) return null;
+
+	return (
+		<svg
+			className="menus__nav-lines"
+			viewBox={`0 0 ${canvasWidth} ${canvasHeight}`}
+			preserveAspectRatio="none"
+		>
+			<defs>
+				<marker id="nav-arrow" markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto">
+					<path d="M0,0 L6,2 L0,4 Z" fill="rgba(255,255,255,0.6)" />
+				</marker>
+			</defs>
+			{lines.map((l, i) => (
+				<line
+					key={i}
+					x1={l.x1}
+					y1={l.y1}
+					x2={l.x2}
+					y2={l.y2}
+					stroke={l.colour}
+					strokeWidth="2"
+					markerEnd="url(#nav-arrow)"
+				/>
+			))}
+		</svg>
+	);
+}
+
+/** Keyboard-navigable preview of menu button focus. */
+function NavigationPreview({
+	menu,
+	canvasHeight,
+	showSafeArea,
+	backgroundLabel,
+}: {
+	menu: Menu;
+	canvasHeight: number;
+	showSafeArea: boolean;
+	backgroundLabel: string | null;
+}) {
+	const [focusedId, setFocusedId] = useState<string | null>(
+		menu.defaultButtonId ?? menu.buttons[0]?.id ?? null,
+	);
+	const containerRef = useRef<HTMLDivElement>(null);
+
+	// Focus the container so it receives key events
+	useEffect(() => {
+		containerRef.current?.focus();
+	}, []);
+
+	const handleKeyDown = useCallback(
+		(e: React.KeyboardEvent) => {
+			const btn = menu.buttons.find((b) => b.id === focusedId);
+			if (!btn) return;
+
+			let nextId: string | null = null;
+
+			switch (e.key) {
+				case 'ArrowUp':
+					nextId = btn.navUp;
+					break;
+				case 'ArrowDown':
+					nextId = btn.navDown;
+					break;
+				case 'ArrowLeft':
+					nextId = btn.navLeft;
+					break;
+				case 'ArrowRight':
+					nextId = btn.navRight;
+					break;
+				case 'Enter':
+				case ' ':
+					// Visual feedback for activation
+					break;
+				default:
+					return;
+			}
+
+			e.preventDefault();
+			if (nextId) {
+				setFocusedId(nextId);
+			}
+		},
+		[focusedId, menu.buttons],
+	);
+
+	return (
+		<div
+			className="menus__canvas-bg menus__canvas-bg--preview"
+			ref={containerRef}
+			tabIndex={0}
+			onKeyDown={handleKeyDown}
+			style={{ aspectRatio: `${MENU_WIDTH} / ${canvasHeight}` }}
+		>
+			{backgroundLabel && (
+				<div className="menus__canvas-bg-label text-muted">{backgroundLabel}</div>
+			)}
+			{showSafeArea && (
+				<>
+					<div
+						className="menus__safe-area menus__safe-area--action"
+						style={{
+							left: `${ACTION_SAFE_PCT * 100}%`,
+							top: `${ACTION_SAFE_PCT * 100}%`,
+							right: `${ACTION_SAFE_PCT * 100}%`,
+							bottom: `${ACTION_SAFE_PCT * 100}%`,
+						}}
+					/>
+					<div
+						className="menus__safe-area menus__safe-area--title"
+						style={{
+							left: `${TITLE_SAFE_PCT * 100}%`,
+							top: `${TITLE_SAFE_PCT * 100}%`,
+							right: `${TITLE_SAFE_PCT * 100}%`,
+							bottom: `${TITLE_SAFE_PCT * 100}%`,
+						}}
+					/>
+				</>
+			)}
+			<div className="menus__preview-hint text-muted">
+				Use arrow keys to navigate. Press Enter to activate.
+			</div>
+			{menu.buttons.map((btn) => {
+				const isFocused = btn.id === focusedId;
+				const hl = menu.highlightColours;
+				return (
+					<div
+						key={btn.id}
+						className={`menus__canvas-button ${isFocused ? 'menus__canvas-button--focused' : ''} ${menu.defaultButtonId === btn.id ? 'menus__canvas-button--default' : ''}`}
+						style={{
+							left: `${(btn.bounds.x / MENU_WIDTH) * 100}%`,
+							top: `${(btn.bounds.y / canvasHeight) * 100}%`,
+							width: `${(btn.bounds.width / MENU_WIDTH) * 100}%`,
+							height: `${(btn.bounds.height / canvasHeight) * 100}%`,
+							...(isFocused
+								? {
+										background: hexToRgba(hl.selectColour, hl.selectOpacity),
+										borderColor: hl.selectColour,
+										boxShadow: `0 0 12px ${hexToRgba(hl.selectColour, 0.5)}, 0 0 24px ${hexToRgba(hl.selectColour, 0.2)}`,
+									}
+								: {}),
+						}}
+						onClick={() => setFocusedId(btn.id)}
+					>
+						{btn.label}
+					</div>
+				);
+			})}
+		</div>
+	);
+}
+
+/** Editor for DVD subpicture overlay highlight colours. */
+function HighlightColourEditor({
+	colours,
+	onChange,
+}: {
+	colours: MenuHighlightColours;
+	onChange: (colours: MenuHighlightColours) => void;
+}) {
+	return (
+		<div className="menus__colour-grid">
+			<div className="menus__colour-field">
+				<label className="menus__colour-label">Select Colour</label>
+				<div className="menus__colour-row">
+					<input
+						type="color"
+						className="menus__colour-input"
+						value={colours.selectColour}
+						onChange={(e) => onChange({ ...colours, selectColour: e.target.value })}
+					/>
+					<input
+						className="menus__colour-hex"
+						value={colours.selectColour}
+						onChange={(e) => onChange({ ...colours, selectColour: e.target.value })}
+						maxLength={7}
+					/>
+				</div>
+				<div className="menus__colour-row">
+					<label className="text-muted">Opacity</label>
+					<input
+						type="range"
+						min="0"
+						max="1"
+						step="0.05"
+						value={colours.selectOpacity}
+						onChange={(e) => onChange({ ...colours, selectOpacity: Number(e.target.value) })}
+					/>
+					<span className="text-muted">{Math.round(colours.selectOpacity * 100)}%</span>
+				</div>
+				<div
+					className="menus__colour-swatch"
+					style={{
+						background: colours.selectColour,
+						opacity: colours.selectOpacity,
+					}}
+				/>
+			</div>
+			<div className="menus__colour-field">
+				<label className="menus__colour-label">Activate Colour</label>
+				<div className="menus__colour-row">
+					<input
+						type="color"
+						className="menus__colour-input"
+						value={colours.activateColour}
+						onChange={(e) => onChange({ ...colours, activateColour: e.target.value })}
+					/>
+					<input
+						className="menus__colour-hex"
+						value={colours.activateColour}
+						onChange={(e) => onChange({ ...colours, activateColour: e.target.value })}
+						maxLength={7}
+					/>
+				</div>
+				<div className="menus__colour-row">
+					<label className="text-muted">Opacity</label>
+					<input
+						type="range"
+						min="0"
+						max="1"
+						step="0.05"
+						value={colours.activateOpacity}
+						onChange={(e) => onChange({ ...colours, activateOpacity: Number(e.target.value) })}
+					/>
+					<span className="text-muted">{Math.round(colours.activateOpacity * 100)}%</span>
+				</div>
+				<div
+					className="menus__colour-swatch"
+					style={{
+						background: colours.activateColour,
+						opacity: colours.activateOpacity,
+					}}
+				/>
+			</div>
 		</div>
 	);
 }
@@ -436,4 +1020,13 @@ function stringToAction(
 	if (type === 'playTitle' && id) return { type: 'playTitle', titleId: id };
 	if (type === 'showMenu' && id) return { type: 'showMenu', menuId: id };
 	return null;
+}
+
+/** Convert a CSS hex colour + opacity to an rgba() string. */
+function hexToRgba(hex: string, opacity: number): string {
+	const h = hex.replace('#', '');
+	const r = parseInt(h.substring(0, 2), 16) || 0;
+	const g = parseInt(h.substring(2, 4), 16) || 0;
+	const b = parseInt(h.substring(4, 6), 16) || 0;
+	return `rgba(${r}, ${g}, ${b}, ${opacity})`;
 }

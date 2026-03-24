@@ -15,6 +15,7 @@ mod desktop;
 #[cfg(mobile)]
 mod mobile;
 
+pub mod build;
 mod commands;
 mod error;
 mod inspect;
@@ -47,6 +48,14 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::serialise_project,
             commands::validate_project,
             commands::inspect_asset,
+            commands::extract_thumbnail,
+            commands::get_cache_dir,
+            commands::generate_build_plan,
+            commands::execute_build,
+            commands::cancel_build,
+            commands::auto_generate_menu_nav,
+            commands::check_toolchain,
+            commands::export_diagnostics,
         ])
         .setup(|app, api| {
             #[cfg(mobile)]

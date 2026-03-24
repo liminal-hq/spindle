@@ -28,6 +28,7 @@
 	padding: var(--space-3) var(--space-4);
 	cursor: pointer;
 	user-select: none;
+	overflow: hidden;
 }
 
 .titles__row--selected {
@@ -83,6 +84,9 @@
 .titles__row-name {
 	font-weight: 600;
 	font-size: var(--text-sm);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 
 .titles__row-asset {
@@ -242,6 +246,11 @@
 	color: var(--text-muted);
 	white-space: nowrap;
 	cursor: pointer;
+}
+
+.titles__hint {
+	font-size: var(--text-xs);
+	margin-bottom: var(--space-2);
 }
 
 /* ── Empty state ──────────────────────────────────────────── */

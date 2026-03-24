@@ -6,4 +6,12 @@ permissions = [
   "allow-serialise-project",
   "allow-validate-project",
   "allow-inspect-asset",
+  "allow-extract-thumbnail",
+  "allow-get-cache-dir",
+  "allow-generate-build-plan",
+  "allow-execute-build",
+  "allow-cancel-build",
+  "allow-auto-generate-menu-nav",
+  "allow-check-toolchain",
+  "allow-export-diagnostics",
 ]

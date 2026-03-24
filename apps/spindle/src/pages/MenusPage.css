@@ -2,6 +2,7 @@
 
 .menus {
 	max-width: 1200px;
+	overflow: hidden;
 }
 
 /* ── Layout ───────────────────────────────────────────────── */
@@ -56,6 +57,7 @@
 	display: flex;
 	flex-direction: column;
 	gap: var(--space-4);
+	min-width: 0;
 }
 
 .menus__editor-name {
@@ -77,6 +79,41 @@
 .menus__editor-actions {
 	display: flex;
 	gap: var(--space-2);
+	align-items: center;
+	flex-wrap: wrap;
+}
+
+.menus__toggle {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	font-size: var(--text-xs);
+	color: var(--text-muted);
+	cursor: pointer;
+	white-space: nowrap;
+}
+
+.menus__bg-select {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	padding: var(--space-2) var(--space-4);
+	font-size: var(--text-xs);
+}
+
+.menus__select-sm {
+	background: var(--bg-input);
+	border: 1px solid var(--border-subtle);
+	border-radius: var(--radius-sm);
+	color: var(--text-primary);
+	font-size: var(--text-xs);
+	padding: var(--space-1) var(--space-2);
+	flex: 1;
+}
+
+.menus__select-sm:focus {
+	outline: none;
+	border-color: var(--brand-orange);
 }
 
 /* ── Canvas ───────────────────────────────────────────────── */
@@ -95,6 +132,54 @@
 	overflow: hidden;
 }
 
+.menus__canvas-bg--preview {
+	outline: 2px solid var(--brand-orange);
+	outline-offset: -2px;
+}
+
+.menus__canvas-bg--preview:focus {
+	outline-color: var(--brand-gold);
+}
+
+.menus__preview-hint {
+	position: absolute;
+	top: var(--space-2);
+	left: var(--space-3);
+	font-size: var(--text-xs);
+	z-index: 5;
+	pointer-events: none;
+}
+
+/* ── Safe-area guides ────────────────────────────────────── */
+
+.menus__safe-area {
+	position: absolute;
+	border: 1px dashed;
+	pointer-events: none;
+	z-index: 1;
+}
+
+.menus__safe-area--action {
+	border-color: rgba(255, 255, 0, 0.25);
+}
+
+.menus__safe-area--title {
+	border-color: rgba(0, 200, 255, 0.25);
+}
+
+/* ── Navigation lines on canvas ──────────────────────────── */
+
+.menus__nav-lines {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	pointer-events: none;
+	z-index: 1;
+}
+
+/* ── Buttons on canvas ───────────────────────────────────── */
+
 .menus__canvas-button {
 	position: absolute;
 	display: flex;
@@ -108,6 +193,7 @@
 	color: var(--text-primary);
 	cursor: grab;
 	user-select: none;
+	z-index: 2;
 	transition:
 		background var(--transition-base),
 		box-shadow var(--transition-base);
@@ -126,6 +212,116 @@
 .menus__canvas-button--default {
 	border-color: var(--brand-gold);
 	box-shadow: 0 0 8px rgba(255, 209, 102, 0.3);
+}
+
+.menus__canvas-button--focused {
+	background: rgba(255, 170, 64, 0.4);
+	border-color: var(--brand-gold);
+	box-shadow:
+		0 0 12px rgba(255, 170, 64, 0.5),
+		0 0 24px rgba(255, 170, 64, 0.2);
+	z-index: 3;
+}
+
+/* ── Resize handles ──────────────────────────────────────── */
+
+.menus__resize-handle {
+	position: absolute;
+	z-index: 4;
+}
+
+/* Corner handles */
+.menus__resize-handle--nw,
+.menus__resize-handle--ne,
+.menus__resize-handle--sw,
+.menus__resize-handle--se {
+	width: 8px;
+	height: 8px;
+	background: var(--brand-orange);
+	border-radius: 50%;
+	opacity: 0;
+	transition: opacity var(--transition-base);
+}
+
+.menus__canvas-button:hover .menus__resize-handle--nw,
+.menus__canvas-button:hover .menus__resize-handle--ne,
+.menus__canvas-button:hover .menus__resize-handle--sw,
+.menus__canvas-button:hover .menus__resize-handle--se {
+	opacity: 1;
+}
+
+.menus__resize-handle--nw {
+	top: -4px;
+	left: -4px;
+	cursor: nw-resize;
+}
+.menus__resize-handle--ne {
+	top: -4px;
+	right: -4px;
+	cursor: ne-resize;
+}
+.menus__resize-handle--sw {
+	bottom: -4px;
+	left: -4px;
+	cursor: sw-resize;
+}
+.menus__resize-handle--se {
+	bottom: -4px;
+	right: -4px;
+	cursor: se-resize;
+}
+
+/* Edge handles */
+.menus__resize-handle--n,
+.menus__resize-handle--s {
+	left: 8px;
+	right: 8px;
+	height: 4px;
+	cursor: ns-resize;
+}
+
+.menus__resize-handle--n {
+	top: -2px;
+}
+.menus__resize-handle--s {
+	bottom: -2px;
+}
+
+.menus__resize-handle--e,
+.menus__resize-handle--w {
+	top: 8px;
+	bottom: 8px;
+	width: 4px;
+	cursor: ew-resize;
+}
+
+.menus__resize-handle--e {
+	right: -2px;
+}
+.menus__resize-handle--w {
+	left: -2px;
+}
+
+/* ── Snap guide lines ────────────────────────────────────── */
+
+.menus__snap-line {
+	position: absolute;
+	z-index: 5;
+	pointer-events: none;
+}
+
+.menus__snap-line--v {
+	top: 0;
+	bottom: 0;
+	width: 1px;
+	background: rgba(255, 100, 100, 0.6);
+}
+
+.menus__snap-line--h {
+	left: 0;
+	right: 0;
+	height: 1px;
+	background: rgba(255, 100, 100, 0.6);
 }
 
 /* ── Button properties ────────────────────────────────────── */
@@ -210,6 +406,165 @@
 .menus__button-remove:hover {
 	opacity: 1 !important;
 	color: var(--colour-error);
+}
+
+/* ── Navigation summary ──────────────────────────────────── */
+
+.menus__nav-summary {
+	margin-top: var(--space-4);
+	padding-top: var(--space-3);
+	border-top: 1px solid var(--border-subtle);
+}
+
+.menus__nav-editor-row {
+	display: flex;
+	align-items: center;
+	gap: var(--space-3);
+	padding: var(--space-2) 0;
+	font-size: var(--text-xs);
+}
+
+.menus__nav-editor-row + .menus__nav-editor-row {
+	border-top: 1px solid var(--border-subtle);
+}
+
+.menus__nav-btn-name {
+	min-width: 80px;
+	font-weight: 600;
+	color: var(--text-primary);
+	font-size: var(--text-xs);
+}
+
+.menus__nav-dirs {
+	display: flex;
+	gap: var(--space-2);
+	flex-wrap: wrap;
+	flex: 1;
+}
+
+.menus__nav-dir {
+	display: flex;
+	align-items: center;
+	gap: 2px;
+	cursor: pointer;
+}
+
+.menus__nav-arrow {
+	color: var(--text-muted);
+	font-size: var(--text-xs);
+	min-width: 14px;
+	text-align: center;
+}
+
+.menus__nav-select {
+	background: var(--bg-input);
+	border: 1px solid var(--border-subtle);
+	border-radius: var(--radius-sm);
+	color: var(--text-primary);
+	font-size: var(--text-xs);
+	padding: 2px var(--space-1);
+	min-width: 80px;
+}
+
+.menus__nav-select:focus {
+	outline: none;
+	border-color: var(--brand-orange);
+}
+
+/* ── Background label on canvas ──────────────────────────── */
+
+.menus__canvas-bg-label {
+	position: absolute;
+	bottom: var(--space-2);
+	right: var(--space-3);
+	font-size: var(--text-xs);
+	z-index: 1;
+	pointer-events: none;
+	opacity: 0.5;
+}
+
+/* ── Highlight colour editor ─────────────────────────────── */
+
+.menus__highlights {
+	padding: var(--space-4);
+}
+
+.menus__highlights-hint {
+	font-size: var(--text-xs);
+	margin-bottom: var(--space-3);
+	line-height: 1.5;
+}
+
+.menus__colour-grid {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: var(--space-4);
+}
+
+.menus__colour-field {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2);
+}
+
+.menus__colour-label {
+	font-size: var(--text-xs);
+	font-weight: 600;
+	color: var(--text-primary);
+}
+
+.menus__colour-row {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	font-size: var(--text-xs);
+}
+
+.menus__colour-input {
+	width: 32px;
+	height: 24px;
+	border: 1px solid var(--border-subtle);
+	border-radius: var(--radius-sm);
+	background: none;
+	cursor: pointer;
+	padding: 0;
+}
+
+.menus__colour-input::-webkit-color-swatch-wrapper {
+	padding: 2px;
+}
+
+.menus__colour-input::-webkit-color-swatch {
+	border: none;
+	border-radius: 2px;
+}
+
+.menus__colour-hex {
+	width: 72px;
+	background: var(--bg-input);
+	border: 1px solid var(--border-subtle);
+	border-radius: var(--radius-sm);
+	color: var(--text-primary);
+	font-size: var(--text-xs);
+	font-family: var(--font-mono);
+	padding: var(--space-1) var(--space-2);
+}
+
+.menus__colour-hex:focus {
+	outline: none;
+	border-color: var(--brand-orange);
+}
+
+.menus__colour-row input[type='range'] {
+	flex: 1;
+	accent-color: var(--brand-orange);
+}
+
+.menus__colour-swatch {
+	width: 100%;
+	height: 20px;
+	border-radius: var(--radius-sm);
+	border: 1px solid var(--border-subtle);
 }
 
 /* ── Empty state ──────────────────────────────────────────── */

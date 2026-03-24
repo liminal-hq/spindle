@@ -5,7 +5,12 @@
 
 import { useProjectStore } from '../store/project-store';
 import { CAPACITY_LABELS, CAPACITY_BYTES } from '../types/project';
-import type { VideoStandard, CapacityTarget, AllocationStrategy } from '../types/project';
+import type {
+	VideoStandard,
+	CapacityTarget,
+	AllocationStrategy,
+	PlaybackAction,
+} from '../types/project';
 import './OverviewPage.css';
 
 export function OverviewPage() {
@@ -179,6 +184,40 @@ export function OverviewPage() {
 							Generate ISO image
 						</label>
 					</div>
+					<div className="overview__setting">
+						<label className="overview__setting-label">First Play</label>
+						<select
+							className="overview__setting-select"
+							value={firstPlayToString(disc.firstPlayAction)}
+							onChange={(e) =>
+								updateProject((p) => ({
+									...p,
+									disc: {
+										...p.disc,
+										firstPlayAction: stringToFirstPlay(e.target.value),
+									},
+								}))
+							}
+						>
+							<option value="">None</option>
+							<optgroup label="Play Title">
+								{disc.titlesets
+									.flatMap((ts) => ts.titles)
+									.map((t) => (
+										<option key={t.id} value={`playTitle:${t.id}`}>
+											{t.name}
+										</option>
+									))}
+							</optgroup>
+							<optgroup label="Show Menu">
+								{[...disc.globalMenus, ...disc.titlesets.flatMap((ts) => ts.menus)].map((m) => (
+									<option key={m.id} value={`showMenu:${m.id}`}>
+										{m.name}
+									</option>
+								))}
+							</optgroup>
+						</select>
+					</div>
 				</div>
 			</div>
 		</div>
@@ -234,4 +273,24 @@ function formatBytes(bytes: number): string {
 	if (bytes >= 1_000_000_000) return `${(bytes / 1_000_000_000).toFixed(1)} GB`;
 	if (bytes >= 1_000_000) return `${(bytes / 1_000_000).toFixed(1)} MB`;
 	return `${bytes} B`;
+}
+
+function firstPlayToString(action: PlaybackAction | null): string {
+	if (!action) return '';
+	switch (action.type) {
+		case 'playTitle':
+			return `playTitle:${action.titleId}`;
+		case 'showMenu':
+			return `showMenu:${action.menuId}`;
+		default:
+			return '';
+	}
+}
+
+function stringToFirstPlay(str: string): PlaybackAction | null {
+	if (!str) return null;
+	const [type, id] = str.split(':');
+	if (type === 'playTitle' && id) return { type: 'playTitle', titleId: id };
+	if (type === 'showMenu' && id) return { type: 'showMenu', menuId: id };
+	return null;
 }

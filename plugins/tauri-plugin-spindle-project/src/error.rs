@@ -24,6 +24,9 @@ pub enum Error {
     #[error("Media inspection failed: {0}")]
     Inspection(String),
 
+    #[error("Build failed: {0}")]
+    Build(String),
+
     #[cfg(mobile)]
     #[error(transparent)]
     PluginInvoke(#[from] tauri::plugin::mobile::PluginInvokeError),
