@@ -92,19 +92,38 @@ jobs:
       - name: Set up Rust toolchain
         uses: ./.github/actions/setup-rust-toolchain
 
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@nextest
+
       - name: Restore Rust cache
         uses: Swatinem/rust-cache@v2
 
       - name: Run Rust tests
         id: rust_tests
-        run: pnpm test:rust
+        run: pnpm test:rust:ci
+
+      - name: Upload Rust test artefacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-test-results
+          path: target/nextest/ci/junit.xml
+          if-no-files-found: error
+
+      - name: Publish Rust unit test results
+        if: always()
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        with:
+          check_name: Spindle Rust tests
+          files: target/nextest/ci/junit.xml
 
       - name: Publish results
         if: always()
         run: |
           echo "## Rust tests" >> "${GITHUB_STEP_SUMMARY}"
           echo "- Result: \`${{ steps.rust_tests.outcome }}\`" >> "${GITHUB_STEP_SUMMARY}"
-          echo "- Command: \`pnpm test:rust\`" >> "${GITHUB_STEP_SUMMARY}"
+          echo "- Command: \`pnpm test:rust:ci\`" >> "${GITHUB_STEP_SUMMARY}"
+          echo "- Test artefact: \`target/nextest/ci/junit.xml\`" >> "${GITHUB_STEP_SUMMARY}"
 
   js-build:
     name: JS build

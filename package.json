@@ -14,7 +14,8 @@
 		"tauri": "pnpm --filter @liminal-hq/spindle tauri",
 		"test:js": "pnpm --filter @liminal-hq/spindle test",
 		"test:js:ci": "pnpm --filter @liminal-hq/spindle test:ci",
-		"test:rust": "cargo test --workspace --locked"
+		"test:rust": "cargo nextest run --workspace --locked",
+		"test:rust:ci": "mkdir -p test-results/rust && cargo nextest run --workspace --locked --config-file nextest.toml --profile ci"
 	},
 	"devDependencies": {
 		"prettier": "^3.8.1"
