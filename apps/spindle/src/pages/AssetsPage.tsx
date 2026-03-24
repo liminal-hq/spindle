@@ -107,11 +107,7 @@ function AssetRow({
 			onKeyDown={(e) => e.key === 'Enter' && onSelect()}
 		>
 			{asset.thumbnailPath ? (
-				<img
-					className="assets__row-thumb"
-					src={convertFileSrc(asset.thumbnailPath)}
-					alt=""
-				/>
+				<img className="assets__row-thumb" src={convertFileSrc(asset.thumbnailPath)} alt="" />
 			) : (
 				<div className="assets__row-thumb assets__row-thumb--placeholder" />
 			)}
@@ -139,7 +135,15 @@ function AssetRow({
 	);
 }
 
-function AssetDetail({ asset, onRemove, onRelink }: { asset: Asset; onRemove: () => void; onRelink: () => void }) {
+function AssetDetail({
+	asset,
+	onRemove,
+	onRelink,
+}: {
+	asset: Asset;
+	onRemove: () => void;
+	onRelink: () => void;
+}) {
 	return (
 		<div className="assets__detail card">
 			<div className="card__header">

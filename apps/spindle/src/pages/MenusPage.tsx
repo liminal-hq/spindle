@@ -453,7 +453,11 @@ function MenuCanvas({
 			for (const btn of menu.buttons) {
 				if (btn.id === excludeId) continue;
 				xs.push(btn.bounds.x, btn.bounds.x + btn.bounds.width, btn.bounds.x + btn.bounds.width / 2);
-				ys.push(btn.bounds.y, btn.bounds.y + btn.bounds.height, btn.bounds.y + btn.bounds.height / 2);
+				ys.push(
+					btn.bounds.y,
+					btn.bounds.y + btn.bounds.height,
+					btn.bounds.y + btn.bounds.height / 2,
+				);
 			}
 			// Canvas edges and centres
 			xs.push(0, MENU_WIDTH / 2, MENU_WIDTH);
@@ -519,16 +523,30 @@ function MenuCanvas({
 					const sLeft = snapValue(newX, targets.xs);
 					const sRight = snapValue(newX + sb.width, targets.xs);
 					const sCx = snapValue(newX + sb.width / 2, targets.xs);
-					if (sLeft.line != null) { newX = sLeft.snapped; lines.push({ axis: 'x', pos: sLeft.line }); }
-					else if (sRight.line != null) { newX = sRight.snapped - sb.width; lines.push({ axis: 'x', pos: sRight.line }); }
-					else if (sCx.line != null) { newX = sCx.snapped - sb.width / 2; lines.push({ axis: 'x', pos: sCx.line }); }
+					if (sLeft.line != null) {
+						newX = sLeft.snapped;
+						lines.push({ axis: 'x', pos: sLeft.line });
+					} else if (sRight.line != null) {
+						newX = sRight.snapped - sb.width;
+						lines.push({ axis: 'x', pos: sRight.line });
+					} else if (sCx.line != null) {
+						newX = sCx.snapped - sb.width / 2;
+						lines.push({ axis: 'x', pos: sCx.line });
+					}
 
 					const sTop = snapValue(newY, targets.ys);
 					const sBottom = snapValue(newY + sb.height, targets.ys);
 					const sCy = snapValue(newY + sb.height / 2, targets.ys);
-					if (sTop.line != null) { newY = sTop.snapped; lines.push({ axis: 'y', pos: sTop.line }); }
-					else if (sBottom.line != null) { newY = sBottom.snapped - sb.height; lines.push({ axis: 'y', pos: sBottom.line }); }
-					else if (sCy.line != null) { newY = sCy.snapped - sb.height / 2; lines.push({ axis: 'y', pos: sCy.line }); }
+					if (sTop.line != null) {
+						newY = sTop.snapped;
+						lines.push({ axis: 'y', pos: sTop.line });
+					} else if (sBottom.line != null) {
+						newY = sBottom.snapped - sb.height;
+						lines.push({ axis: 'y', pos: sBottom.line });
+					} else if (sCy.line != null) {
+						newY = sCy.snapped - sb.height / 2;
+						lines.push({ axis: 'y', pos: sCy.line });
+					}
 
 					setSnapLines(lines);
 					bounds = { x: Math.round(newX), y: Math.round(newY), width: sb.width, height: sb.height };
@@ -537,9 +555,15 @@ function MenuCanvas({
 					let { x, y, width, height } = sb;
 					const m = state.mode;
 					if (m.includes('e')) width = Math.max(MIN_BUTTON_SIZE, sb.width + dx);
-					if (m.includes('w')) { width = Math.max(MIN_BUTTON_SIZE, sb.width - dx); x = sb.x + sb.width - width; }
+					if (m.includes('w')) {
+						width = Math.max(MIN_BUTTON_SIZE, sb.width - dx);
+						x = sb.x + sb.width - width;
+					}
 					if (m.includes('s')) height = Math.max(MIN_BUTTON_SIZE, sb.height + dy);
-					if (m.includes('n')) { height = Math.max(MIN_BUTTON_SIZE, sb.height - dy); y = sb.y + sb.height - height; }
+					if (m.includes('n')) {
+						height = Math.max(MIN_BUTTON_SIZE, sb.height - dy);
+						y = sb.y + sb.height - height;
+					}
 
 					x = Math.max(0, Math.min(MENU_WIDTH - MIN_BUTTON_SIZE, x));
 					y = Math.max(0, Math.min(canvasHeight - MIN_BUTTON_SIZE, y));
@@ -547,7 +571,12 @@ function MenuCanvas({
 					if (y + height > canvasHeight) height = canvasHeight - y;
 
 					setSnapLines([]);
-					bounds = { x: Math.round(x), y: Math.round(y), width: Math.round(width), height: Math.round(height) };
+					bounds = {
+						x: Math.round(x),
+						y: Math.round(y),
+						width: Math.round(width),
+						height: Math.round(height),
+					};
 				}
 
 				onUpdateButton(state.buttonId, { bounds });

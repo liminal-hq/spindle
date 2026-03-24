@@ -90,7 +90,11 @@ export function SettingsPage() {
 					Export a diagnostics bundle for troubleshooting. Includes toolchain status, validation
 					results, build log, and project summary (no media files).
 				</p>
-				<button className="btn btn--sm" style={{ marginTop: 'var(--space-3)' }} onClick={handleExportDiagnostics}>
+				<button
+					className="btn btn--sm"
+					style={{ marginTop: 'var(--space-3)' }}
+					onClick={handleExportDiagnostics}
+				>
 					Export Diagnostics…
 				</button>
 			</div>

@@ -333,7 +333,8 @@ impl<R: Runtime> SpindleProject<R> {
             issues.push(ValidationIssue {
                 severity: IssueSeverity::Info,
                 code: "build.no-output-dir".to_string(),
-                message: "No output directory is set. You will be prompted when building.".to_string(),
+                message: "No output directory is set. You will be prompted when building."
+                    .to_string(),
                 context: None,
             });
         }

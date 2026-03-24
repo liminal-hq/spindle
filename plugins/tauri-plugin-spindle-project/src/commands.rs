@@ -189,7 +189,7 @@ pub(crate) async fn get_cache_dir<R: Runtime>(app: AppHandle<R>) -> Result<Strin
 /// Export a diagnostics bundle as a JSON string for troubleshooting.
 #[command]
 pub(crate) async fn export_diagnostics<R: Runtime>(
-    app: AppHandle<R>,
+    _app: AppHandle<R>,
     project: Option<SpindleProjectFile>,
     build_log: Vec<String>,
     validation_issues: Vec<ValidationIssue>,

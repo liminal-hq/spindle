@@ -359,9 +359,26 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 				{
 					name: 'Media Files',
 					extensions: [
-						'mpg', 'mpeg', 'vob', 'm2v', 'mp4', 'mkv', 'avi', 'mov', 'ts',
-						'ac3', 'dts', 'lpcm', 'wav', 'mp2', 'mp3', 'aac',
-						'sub', 'idx', 'srt', 'sup',
+						'mpg',
+						'mpeg',
+						'vob',
+						'm2v',
+						'mp4',
+						'mkv',
+						'avi',
+						'mov',
+						'ts',
+						'ac3',
+						'dts',
+						'lpcm',
+						'wav',
+						'mp2',
+						'mp3',
+						'aac',
+						'sub',
+						'idx',
+						'srt',
+						'sup',
 					],
 				},
 			],
@@ -392,9 +409,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 			set({
 				project: {
 					...current,
-					assets: current.assets.map((a) =>
-						a.id === assetId ? { ...inspected, id: assetId } : a,
-					),
+					assets: current.assets.map((a) => (a.id === assetId ? { ...inspected, id: assetId } : a)),
 				},
 			});
 		} catch {
@@ -469,10 +484,10 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 				buildLog: result.logLines,
 			});
 		} catch (e) {
-			set({
-				buildStatus: 'error',
-				buildLog: (prev) => [...(Array.isArray(prev) ? prev : []), `Build failed: ${e}`],
-			} as Partial<ProjectState> as any);
+			set((state) => ({
+				buildStatus: 'error' as const,
+				buildLog: [...state.buildLog, `Build failed: ${e}`],
+			}));
 		}
 	},
 

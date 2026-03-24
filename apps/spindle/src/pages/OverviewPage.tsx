@@ -5,7 +5,12 @@
 
 import { useProjectStore } from '../store/project-store';
 import { CAPACITY_LABELS, CAPACITY_BYTES } from '../types/project';
-import type { VideoStandard, CapacityTarget, AllocationStrategy, PlaybackAction } from '../types/project';
+import type {
+	VideoStandard,
+	CapacityTarget,
+	AllocationStrategy,
+	PlaybackAction,
+} from '../types/project';
 import './OverviewPage.css';
 
 export function OverviewPage() {
@@ -205,10 +210,7 @@ export function OverviewPage() {
 									))}
 							</optgroup>
 							<optgroup label="Show Menu">
-								{[
-									...disc.globalMenus,
-									...disc.titlesets.flatMap((ts) => ts.menus),
-								].map((m) => (
+								{[...disc.globalMenus, ...disc.titlesets.flatMap((ts) => ts.menus)].map((m) => (
 									<option key={m.id} value={`showMenu:${m.id}`}>
 										{m.name}
 									</option>

@@ -9,11 +9,14 @@ Default permissions for the spindle-project plugin
 - `allow-serialise-project`
 - `allow-validate-project`
 - `allow-inspect-asset`
+- `allow-extract-thumbnail`
+- `allow-get-cache-dir`
 - `allow-generate-build-plan`
 - `allow-execute-build`
 - `allow-cancel-build`
 - `allow-auto-generate-menu-nav`
 - `allow-check-toolchain`
+- `allow-export-diagnostics`
 
 ## Permission Table
 
@@ -157,6 +160,58 @@ Denies the execute_build command without any pre-configured scope.
 <tr>
 <td>
 
+`spindle-project:allow-export-diagnostics`
+
+</td>
+<td>
+
+Enables the export_diagnostics command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`spindle-project:deny-export-diagnostics`
+
+</td>
+<td>
+
+Denies the export_diagnostics command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`spindle-project:allow-extract-thumbnail`
+
+</td>
+<td>
+
+Enables the extract_thumbnail command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`spindle-project:deny-extract-thumbnail`
+
+</td>
+<td>
+
+Denies the extract_thumbnail command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
 `spindle-project:allow-generate-build-plan`
 
 </td>
@@ -176,6 +231,32 @@ Enables the generate_build_plan command without any pre-configured scope.
 <td>
 
 Denies the generate_build_plan command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`spindle-project:allow-get-cache-dir`
+
+</td>
+<td>
+
+Enables the get_cache_dir command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`spindle-project:deny-get-cache-dir`
+
+</td>
+<td>
+
+Denies the get_cache_dir command without any pre-configured scope.
 
 </td>
 </tr>

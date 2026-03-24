@@ -55,9 +55,7 @@ pub struct BuildSummary {
 #[serde(rename_all = "camelCase", tag = "type")]
 pub enum BuildJob {
     /// Create the working directory structure.
-    PrepareWorkspace {
-        directories: Vec<String>,
-    },
+    PrepareWorkspace { directories: Vec<String> },
     /// Transcode a title's video and audio to DVD-compliant MPEG-2 PS.
     TranscodeTitle {
         title_id: String,
@@ -197,23 +195,18 @@ pub fn generate_build_plan(
         .collect();
 
     for (_, title) in &all_titles {
-        let source_asset_id = title
-            .source_asset_id
-            .as_deref()
-            .ok_or_else(|| crate::Error::Build(format!("Title \"{}\" has no source asset", title.name)))?;
+        let source_asset_id = title.source_asset_id.as_deref().ok_or_else(|| {
+            crate::Error::Build(format!("Title \"{}\" has no source asset", title.name))
+        })?;
 
-        let asset = assets
-            .get(source_asset_id)
-            .ok_or_else(|| crate::Error::Build(format!("Asset not found for title \"{}\"", title.name)))?;
+        let asset = assets.get(source_asset_id).ok_or_else(|| {
+            crate::Error::Build(format!("Asset not found for title \"{}\"", title.name))
+        })?;
 
         let output_path = titles_dir.join(format!("{}.mpg", sanitise_filename(&title.id)));
 
-        let command = build_ffmpeg_transcode_command(
-            &asset.source_path,
-            &output_path,
-            title,
-            &project.disc,
-        );
+        let command =
+            build_ffmpeg_transcode_command(&asset.source_path, &output_path, title, &project.disc);
 
         jobs.push(BuildJob::TranscodeTitle {
             title_id: title.id.clone(),
@@ -243,7 +236,13 @@ pub fn generate_build_plan(
     // 4. Optionally create ISO
     if project.build_settings.generate_iso {
         let iso_path = output_dir.join(format!("{}.iso", sanitise_filename(&project.project.name)));
-        let volume_id = project.project.name.chars().take(32).collect::<String>().to_uppercase();
+        let volume_id = project
+            .project
+            .name
+            .chars()
+            .take(32)
+            .collect::<String>()
+            .to_uppercase();
 
         jobs.push(BuildJob::CreateIso {
             source_path: output_dir.display().to_string(),
@@ -307,10 +306,7 @@ fn build_ffmpeg_transcode_command(
 
     // Video mapping and encoding
     if let Some(ref vm) = title.video_mapping {
-        cmd.extend([
-            "-map".to_string(),
-            format!("0:{}", vm.source_stream_index),
-        ]);
+        cmd.extend(["-map".to_string(), format!("0:{}", vm.source_stream_index)]);
     }
 
     let profile = title.video_output_profile.unwrap_or(VideoOutputProfile {
@@ -351,10 +347,7 @@ fn build_ffmpeg_transcode_command(
 
     // Audio mapping and encoding
     for (i, am) in title.audio_mappings.iter().enumerate() {
-        cmd.extend([
-            "-map".to_string(),
-            format!("0:{}", am.source_stream_index),
-        ]);
+        cmd.extend(["-map".to_string(), format!("0:{}", am.source_stream_index)]);
 
         match am.copy_mode {
             CopyMode::Copy => {
@@ -456,7 +449,10 @@ fn generate_dvdauthor_xml(
         // First play PGC
         if let Some(ref action) = project.disc.first_play_action {
             xml.push_str("    <fpc>\n");
-            xml.push_str(&format!("      {};\n", playback_action_to_dvd_command(action)));
+            xml.push_str(&format!(
+                "      {};\n",
+                playback_action_to_dvd_command(action)
+            ));
             xml.push_str("    </fpc>\n");
         }
 
@@ -754,7 +750,13 @@ fn run_command(args: &[String]) -> std::result::Result<String, String> {
 
 fn sanitise_filename(name: &str) -> String {
     name.chars()
-        .map(|c| if c.is_alphanumeric() || c == '-' || c == '_' { c } else { '_' })
+        .map(|c| {
+            if c.is_alphanumeric() || c == '-' || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
         .collect()
 }
 
@@ -776,7 +778,12 @@ pub fn auto_generate_navigation(menu: &mut Menu) {
     let centres: Vec<(f64, f64)> = menu
         .buttons
         .iter()
-        .map(|b| (b.bounds.x + b.bounds.width / 2.0, b.bounds.y + b.bounds.height / 2.0))
+        .map(|b| {
+            (
+                b.bounds.x + b.bounds.width / 2.0,
+                b.bounds.y + b.bounds.height / 2.0,
+            )
+        })
         .collect();
 
     let n = menu.buttons.len();
@@ -792,38 +799,41 @@ pub fn auto_generate_navigation(menu: &mut Menu) {
         let mut best_left: Option<(usize, f64)> = None;
         let mut best_right: Option<(usize, f64)> = None;
 
-        for j in 0..n {
+        for (j, &(ox, oy)) in centres.iter().enumerate() {
             if i == j {
                 continue;
             }
-            let (ox, oy) = centres[j];
             let dx = ox - cx;
             let dy = oy - cy;
             let dist = (dx * dx + dy * dy).sqrt();
 
             // Up: other button is above (dy < 0) and primarily vertical
-            if dy < 0.0 && dy.abs() >= dx.abs() * 0.5 {
-                if best_up.is_none() || dist < best_up.unwrap().1 {
-                    best_up = Some((j, dist));
-                }
+            if dy < 0.0
+                && dy.abs() >= dx.abs() * 0.5
+                && (best_up.is_none() || dist < best_up.unwrap().1)
+            {
+                best_up = Some((j, dist));
             }
             // Down: other button is below (dy > 0)
-            if dy > 0.0 && dy.abs() >= dx.abs() * 0.5 {
-                if best_down.is_none() || dist < best_down.unwrap().1 {
-                    best_down = Some((j, dist));
-                }
+            if dy > 0.0
+                && dy.abs() >= dx.abs() * 0.5
+                && (best_down.is_none() || dist < best_down.unwrap().1)
+            {
+                best_down = Some((j, dist));
             }
             // Left: other button is to the left (dx < 0)
-            if dx < 0.0 && dx.abs() >= dy.abs() * 0.5 {
-                if best_left.is_none() || dist < best_left.unwrap().1 {
-                    best_left = Some((j, dist));
-                }
+            if dx < 0.0
+                && dx.abs() >= dy.abs() * 0.5
+                && (best_left.is_none() || dist < best_left.unwrap().1)
+            {
+                best_left = Some((j, dist));
             }
             // Right: other button is to the right (dx > 0)
-            if dx > 0.0 && dx.abs() >= dy.abs() * 0.5 {
-                if best_right.is_none() || dist < best_right.unwrap().1 {
-                    best_right = Some((j, dist));
-                }
+            if dx > 0.0
+                && dx.abs() >= dy.abs() * 0.5
+                && (best_right.is_none() || dist < best_right.unwrap().1)
+            {
+                best_right = Some((j, dist));
             }
         }
 
@@ -883,6 +893,7 @@ mod tests {
             subtitle_streams: vec![],
             compatibility: Some(CompatibilityAssessment::ReEncodeRequired),
             fingerprint: None,
+            thumbnail_path: None,
         };
 
         let title = Title {
@@ -979,7 +990,10 @@ mod tests {
         let project = test_project();
         let plan = generate_build_plan(&project, "/tmp/dvd_output").unwrap();
 
-        let transcode = plan.jobs.iter().find(|j| matches!(j, BuildJob::TranscodeTitle { .. }));
+        let transcode = plan
+            .jobs
+            .iter()
+            .find(|j| matches!(j, BuildJob::TranscodeTitle { .. }));
         assert!(transcode.is_some());
 
         let cmd = transcode.unwrap().command().unwrap();
@@ -1154,7 +1168,10 @@ mod tests {
 
     #[test]
     fn xml_escape_handles_special_chars() {
-        assert_eq!(xml_escape("a&b<c>d\"e'f"), "a&amp;b&lt;c&gt;d&quot;e&apos;f");
+        assert_eq!(
+            xml_escape("a&b<c>d\"e'f"),
+            "a&amp;b&lt;c&gt;d&quot;e&apos;f"
+        );
     }
 
     #[test]

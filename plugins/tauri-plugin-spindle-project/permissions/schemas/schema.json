@@ -355,6 +355,30 @@
           "markdownDescription": "Denies the execute_build command without any pre-configured scope."
         },
         {
+          "description": "Enables the export_diagnostics command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-export-diagnostics",
+          "markdownDescription": "Enables the export_diagnostics command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the export_diagnostics command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-export-diagnostics",
+          "markdownDescription": "Denies the export_diagnostics command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the extract_thumbnail command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-extract-thumbnail",
+          "markdownDescription": "Enables the extract_thumbnail command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the extract_thumbnail command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-extract-thumbnail",
+          "markdownDescription": "Denies the extract_thumbnail command without any pre-configured scope."
+        },
+        {
           "description": "Enables the generate_build_plan command without any pre-configured scope.",
           "type": "string",
           "const": "allow-generate-build-plan",
@@ -365,6 +389,18 @@
           "type": "string",
           "const": "deny-generate-build-plan",
           "markdownDescription": "Denies the generate_build_plan command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the get_cache_dir command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-get-cache-dir",
+          "markdownDescription": "Enables the get_cache_dir command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_cache_dir command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-get-cache-dir",
+          "markdownDescription": "Denies the get_cache_dir command without any pre-configured scope."
         },
         {
           "description": "Enables the inspect_asset command without any pre-configured scope.",
@@ -415,10 +451,10 @@
           "markdownDescription": "Denies the validate_project command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the spindle-project plugin\n#### This default permission set includes:\n\n- `allow-create-project`\n- `allow-parse-project`\n- `allow-serialise-project`\n- `allow-validate-project`\n- `allow-inspect-asset`\n- `allow-generate-build-plan`\n- `allow-execute-build`\n- `allow-cancel-build`\n- `allow-auto-generate-menu-nav`\n- `allow-check-toolchain`",
+          "description": "Default permissions for the spindle-project plugin\n#### This default permission set includes:\n\n- `allow-create-project`\n- `allow-parse-project`\n- `allow-serialise-project`\n- `allow-validate-project`\n- `allow-inspect-asset`\n- `allow-extract-thumbnail`\n- `allow-get-cache-dir`\n- `allow-generate-build-plan`\n- `allow-execute-build`\n- `allow-cancel-build`\n- `allow-auto-generate-menu-nav`\n- `allow-check-toolchain`\n- `allow-export-diagnostics`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the spindle-project plugin\n#### This default permission set includes:\n\n- `allow-create-project`\n- `allow-parse-project`\n- `allow-serialise-project`\n- `allow-validate-project`\n- `allow-inspect-asset`\n- `allow-generate-build-plan`\n- `allow-execute-build`\n- `allow-cancel-build`\n- `allow-auto-generate-menu-nav`\n- `allow-check-toolchain`"
+          "markdownDescription": "Default permissions for the spindle-project plugin\n#### This default permission set includes:\n\n- `allow-create-project`\n- `allow-parse-project`\n- `allow-serialise-project`\n- `allow-validate-project`\n- `allow-inspect-asset`\n- `allow-extract-thumbnail`\n- `allow-get-cache-dir`\n- `allow-generate-build-plan`\n- `allow-execute-build`\n- `allow-cancel-build`\n- `allow-auto-generate-menu-nav`\n- `allow-check-toolchain`\n- `allow-export-diagnostics`"
         }
       ]
     }
