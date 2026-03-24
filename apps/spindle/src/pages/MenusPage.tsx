@@ -55,6 +55,11 @@ export function MenusPage() {
 			buttons: [],
 			defaultButtonId: null,
 			highlightColours: { ...DEFAULT_HIGHLIGHT_COLOURS },
+			backgroundMode: 'still',
+			motionDurationSecs: null,
+			motionAudioAssetId: null,
+			motionLoopCount: 0,
+			timeoutAction: null,
 		};
 		updateProject((p) => ({
 			...p,
@@ -206,6 +211,9 @@ function MenuEditor({
 			navDown: null,
 			navLeft: null,
 			navRight: null,
+			highlightMode: 'static',
+			highlightKeyframes: [],
+			videoAssetId: null,
 		};
 		onUpdate((m) => ({ ...m, buttons: [...m.buttons, newButton] }));
 	};

@@ -324,6 +324,30 @@ pub struct Menu {
     /// Highlight colours for the subpicture overlay (DVD 4-colour palette).
     #[serde(default)]
     pub highlight_colours: MenuHighlightColours,
+    /// Whether the background is a still frame or looping video (Stage 2).
+    #[serde(default)]
+    pub background_mode: BackgroundMode,
+    /// Duration of the motion loop in seconds (motion menus only).
+    #[serde(default)]
+    pub motion_duration_secs: Option<f64>,
+    /// Optional audio asset for motion menu background music.
+    #[serde(default)]
+    pub motion_audio_asset_id: Option<String>,
+    /// Number of times to loop before timeout action (0 = infinite, motion only).
+    #[serde(default)]
+    pub motion_loop_count: u32,
+    /// Action when a motion menu times out after looping.
+    #[serde(default)]
+    pub timeout_action: Option<PlaybackAction>,
+}
+
+/// Whether a menu background is a still frame or looping video.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "kebab-case")]
+pub enum BackgroundMode {
+    #[default]
+    Still,
+    Motion,
 }
 
 /// DVD subpicture highlight palette colours.
@@ -368,6 +392,40 @@ pub struct MenuButton {
     pub nav_down: Option<String>,
     pub nav_left: Option<String>,
     pub nav_right: Option<String>,
+    /// Whether button highlights are static or animated (Stage 2).
+    #[serde(default)]
+    pub highlight_mode: HighlightMode,
+    /// Animated highlight keyframes (Stage 2).
+    #[serde(default)]
+    pub highlight_keyframes: Vec<HighlightKeyframe>,
+    /// Video asset composited into the menu background at this button's bounds (Stage 2).
+    #[serde(default)]
+    pub video_asset_id: Option<String>,
+}
+
+/// Whether button highlights are static or animated over the motion loop.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "kebab-case")]
+pub enum HighlightMode {
+    #[default]
+    Static,
+    Animated,
+}
+
+/// A keyframe for animated button highlights within a motion menu loop.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HighlightKeyframe {
+    /// Timestamp within the motion loop (seconds from start).
+    pub timestamp_secs: f64,
+    /// Override select colour at this keyframe (None = use menu default).
+    pub select_colour: Option<String>,
+    /// Override select opacity at this keyframe (None = use menu default).
+    pub select_opacity: Option<f64>,
+    /// Override activate colour at this keyframe (None = use menu default).
+    pub activate_colour: Option<String>,
+    /// Override activate opacity at this keyframe (None = use menu default).
+    pub activate_opacity: Option<f64>,
 }
 
 /// Button position and size in menu coordinates.

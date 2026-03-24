@@ -977,6 +977,9 @@ mod tests {
                     nav_down: None,
                     nav_left: None,
                     nav_right: None,
+                    highlight_mode: HighlightMode::default(),
+                    highlight_keyframes: Vec::new(),
+                    video_asset_id: None,
                 },
                 MenuButton {
                     id: "b2".to_string(),
@@ -992,10 +995,18 @@ mod tests {
                     nav_down: None,
                     nav_left: None,
                     nav_right: None,
+                    highlight_mode: HighlightMode::default(),
+                    highlight_keyframes: Vec::new(),
+                    video_asset_id: None,
                 },
             ],
             default_button_id: None,
             highlight_colours: MenuHighlightColours::default(),
+            background_mode: BackgroundMode::default(),
+            motion_duration_secs: None,
+            motion_audio_asset_id: None,
+            motion_loop_count: 0,
+            timeout_action: None,
         };
 
         auto_generate_navigation(&mut menu);
@@ -1026,6 +1037,9 @@ mod tests {
                     nav_down: None,
                     nav_left: None,
                     nav_right: None,
+                    highlight_mode: HighlightMode::default(),
+                    highlight_keyframes: Vec::new(),
+                    video_asset_id: None,
                 },
                 MenuButton {
                     id: "tr".to_string(),
@@ -1041,6 +1055,9 @@ mod tests {
                     nav_down: None,
                     nav_left: None,
                     nav_right: None,
+                    highlight_mode: HighlightMode::default(),
+                    highlight_keyframes: Vec::new(),
+                    video_asset_id: None,
                 },
                 MenuButton {
                     id: "bl".to_string(),
@@ -1056,6 +1073,9 @@ mod tests {
                     nav_down: None,
                     nav_left: None,
                     nav_right: None,
+                    highlight_mode: HighlightMode::default(),
+                    highlight_keyframes: Vec::new(),
+                    video_asset_id: None,
                 },
                 MenuButton {
                     id: "br".to_string(),
@@ -1071,10 +1091,18 @@ mod tests {
                     nav_down: None,
                     nav_left: None,
                     nav_right: None,
+                    highlight_mode: HighlightMode::default(),
+                    highlight_keyframes: Vec::new(),
+                    video_asset_id: None,
                 },
             ],
             default_button_id: None,
             highlight_colours: MenuHighlightColours::default(),
+            background_mode: BackgroundMode::default(),
+            motion_duration_secs: None,
+            motion_audio_asset_id: None,
+            motion_loop_count: 0,
+            timeout_action: None,
         };
 
         auto_generate_navigation(&mut menu);

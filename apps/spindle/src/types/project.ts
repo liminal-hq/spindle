@@ -126,6 +126,9 @@ export interface ChapterPoint {
 
 // ── Menus ───────────────────────────────────────────────────────────────────
 
+export type BackgroundMode = 'still' | 'motion';
+export type HighlightMode = 'static' | 'animated';
+
 export interface Menu {
 	id: string;
 	name: string;
@@ -134,6 +137,16 @@ export interface Menu {
 	defaultButtonId: string | null;
 	/** DVD subpicture highlight palette colours. */
 	highlightColours: MenuHighlightColours;
+	/** Whether the background is a still frame or looping video (Stage 2). */
+	backgroundMode: BackgroundMode;
+	/** Duration of the motion loop in seconds (motion menus only). */
+	motionDurationSecs: number | null;
+	/** Optional audio asset for motion menu background music. */
+	motionAudioAssetId: string | null;
+	/** Number of times to loop before timeout action (0 = infinite, motion only). */
+	motionLoopCount: number;
+	/** Action when a motion menu times out after looping. */
+	timeoutAction: PlaybackAction | null;
 }
 
 /** DVD subpicture highlight palette for button overlays. */
@@ -157,6 +170,20 @@ export interface MenuButton {
 	navDown: string | null;
 	navLeft: string | null;
 	navRight: string | null;
+	/** Whether button highlights are static or animated (Stage 2). */
+	highlightMode: HighlightMode;
+	/** Animated highlight keyframes (Stage 2). */
+	highlightKeyframes: HighlightKeyframe[];
+	/** Video asset composited into the menu background at this button's bounds (Stage 2). */
+	videoAssetId: string | null;
+}
+
+export interface HighlightKeyframe {
+	timestampSecs: number;
+	selectColour: string | null;
+	selectOpacity: number | null;
+	activateColour: string | null;
+	activateOpacity: number | null;
 }
 
 export interface ButtonBounds {
