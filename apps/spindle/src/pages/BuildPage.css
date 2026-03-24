@@ -71,6 +71,45 @@
 	font-size: var(--text-xs);
 }
 
+/* ── QA Scorecard ────────────────────────────────────────── */
+
+.build__scorecard {
+	margin-bottom: var(--space-4);
+}
+
+.build__scorecard-grid {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: var(--space-2);
+}
+
+.build__scorecard-item {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	font-size: var(--text-sm);
+	padding: var(--space-1) 0;
+}
+
+.build__scorecard-icon {
+	font-weight: 700;
+	width: 16px;
+	text-align: center;
+}
+
+.build__scorecard-icon--pass {
+	color: var(--colour-success);
+}
+
+.build__scorecard-icon--fail {
+	color: var(--colour-error);
+}
+
+.build__scorecard-summary {
+	margin-top: var(--space-3);
+	font-size: var(--text-xs);
+}
+
 /* ── Build log ────────────────────────────────────────────── */
 
 .build__log {

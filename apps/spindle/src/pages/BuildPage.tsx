@@ -3,8 +3,9 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: MIT
 
+import { useEffect } from 'react';
 import { useProjectStore } from '../store/project-store';
-import type { BuildJob } from '../types/project';
+import type { BuildJob, ValidationIssue } from '../types/project';
 import './BuildPage.css';
 
 export function BuildPage() {
@@ -20,6 +21,11 @@ export function BuildPage() {
 	const executeBuild = useProjectStore((s) => s.executeBuild);
 	const cancelBuild = useProjectStore((s) => s.cancelBuild);
 	const clearBuild = useProjectStore((s) => s.clearBuild);
+
+	// Auto-validate on mount
+	useEffect(() => {
+		if (project) validateProject();
+	}, [project, validateProject]);
 
 	if (!project) return null;
 
@@ -102,6 +108,12 @@ export function BuildPage() {
 					<p className="build__warning">Add at least one title to the project before building.</p>
 				)}
 			</div>
+
+			{/* QA Scorecard */}
+			<QaScorecard
+				project={project}
+				validationIssues={validationIssues}
+			/>
 
 			{/* Build progress */}
 			{isBuilding && buildProgress && (
@@ -281,6 +293,62 @@ function getJobIcon(job: BuildJob): string {
 		case 'createIso':
 			return '\u{1F4C0}';
 	}
+}
+
+function QaScorecard({
+	project,
+	validationIssues,
+}: {
+	project: import('../types/project').SpindleProjectFile;
+	validationIssues: ValidationIssue[];
+}) {
+	const disc = project.disc;
+	const titleCount = disc.titlesets.reduce((s, ts) => s + ts.titles.length, 0);
+	const menuCount =
+		disc.globalMenus.length + disc.titlesets.reduce((s, ts) => s + ts.menus.length, 0);
+	const errors = validationIssues.filter((i) => i.severity === 'error').length;
+	const warnings = validationIssues.filter((i) => i.severity === 'warning').length;
+
+	const checks = [
+		{ label: 'Has titles', pass: titleCount > 0 },
+		{ label: 'All titles have sources', pass: !validationIssues.some((i) => i.code === 'title.no-source') },
+		{ label: 'All titles have video mapping', pass: !validationIssues.some((i) => i.code === 'title.no-video-mapping') },
+		{ label: 'All titles have output profile', pass: !validationIssues.some((i) => i.code === 'title.no-output-profile') },
+		{ label: 'First-play action set', pass: disc.firstPlayAction != null },
+		{ label: 'Menus have buttons', pass: menuCount === 0 || !validationIssues.some((i) => i.code === 'menu.no-buttons') },
+		{ label: 'No dangling references', pass: !validationIssues.some((i) => i.code.includes('dangling')) },
+		{ label: 'Output directory set', pass: project.buildSettings.outputDirectory != null },
+	];
+
+	const passCount = checks.filter((c) => c.pass).length;
+
+	return (
+		<div className="card build__scorecard">
+			<div className="card__header">
+				<h3 className="card__title">QA Scorecard</h3>
+				<span className={`badge ${passCount === checks.length ? 'badge--remux' : errors > 0 ? 'badge--unsupported' : 'badge--light'}`}>
+					{passCount}/{checks.length}
+				</span>
+			</div>
+			<div className="build__scorecard-grid">
+				{checks.map((check) => (
+					<div key={check.label} className="build__scorecard-item">
+						<span className={`build__scorecard-icon ${check.pass ? 'build__scorecard-icon--pass' : 'build__scorecard-icon--fail'}`}>
+							{check.pass ? '\u2713' : '\u2717'}
+						</span>
+						<span>{check.label}</span>
+					</div>
+				))}
+			</div>
+			{(errors > 0 || warnings > 0) && (
+				<p className="build__scorecard-summary text-muted">
+					{errors > 0 && <span>{errors} error{errors !== 1 ? 's' : ''}</span>}
+					{errors > 0 && warnings > 0 && <span> · </span>}
+					{warnings > 0 && <span>{warnings} warning{warnings !== 1 ? 's' : ''}</span>}
+				</p>
+			)}
+		</div>
+	);
 }
 
 function StatusBadge({ status }: { status: string }) {
