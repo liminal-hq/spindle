@@ -352,4 +352,3 @@ The long-term release direction should be:
 - **bundle them as sidecars**
 - **wrap them behind Rust backend adapters**
 - **treat system-installed tools as an optional expert path, not the default**
-

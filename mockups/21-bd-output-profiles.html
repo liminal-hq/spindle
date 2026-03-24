@@ -1,386 +1,537 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en-CA">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=1280">
-  <title>Spindle — BD Output Profiles</title>
-  <link rel="stylesheet" href="design-system.css">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
-  <style>
-    body { background: var(--bg-panel); }
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=1280" />
+		<title>Spindle — BD Output Profiles</title>
+		<link rel="stylesheet" href="design-system.css" />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap"
+			rel="stylesheet"
+		/>
+		<style>
+			body {
+				background: var(--bg-panel);
+			}
 
-    /* -- BD accent override -- */
-    .bd-accent { color: var(--brand-blue); }
-    .bd-gradient {
-      background: linear-gradient(135deg, #3A7BD5, #22d3ee);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-    }
+			/* -- BD accent override -- */
+			.bd-accent {
+				color: var(--brand-blue);
+			}
+			.bd-gradient {
+				background: linear-gradient(135deg, #3a7bd5, #22d3ee);
+				-webkit-background-clip: text;
+				-webkit-text-fill-color: transparent;
+				background-clip: text;
+			}
 
-    .profiles-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-      gap: var(--space-3);
-      max-width: 960px;
-    }
+			.profiles-grid {
+				display: grid;
+				grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+				gap: var(--space-3);
+				max-width: 960px;
+			}
 
-    .profile-card {
-      background: var(--bg-card);
-      border: 1px solid var(--border-subtle);
-      border-radius: var(--radius-lg);
-      padding: var(--space-4);
-      cursor: pointer;
-      transition: all var(--transition-base);
-      position: relative;
-    }
-    .profile-card:hover {
-      border-color: var(--border-default);
-      box-shadow: var(--shadow-card);
-    }
-    .profile-card--selected {
-      border-color: var(--brand-blue);
-      background: rgba(96,165,250,0.04);
-      box-shadow: 0 0 20px rgba(96,165,250,0.08);
-    }
+			.profile-card {
+				background: var(--bg-card);
+				border: 1px solid var(--border-subtle);
+				border-radius: var(--radius-lg);
+				padding: var(--space-4);
+				cursor: pointer;
+				transition: all var(--transition-base);
+				position: relative;
+			}
+			.profile-card:hover {
+				border-color: var(--border-default);
+				box-shadow: var(--shadow-card);
+			}
+			.profile-card--selected {
+				border-color: var(--brand-blue);
+				background: rgba(96, 165, 250, 0.04);
+				box-shadow: 0 0 20px rgba(96, 165, 250, 0.08);
+			}
 
-    .profile-card__check {
-      position: absolute;
-      top: var(--space-3);
-      right: var(--space-3);
-      width: 20px; height: 20px;
-      border-radius: 50%;
-      background: var(--brand-blue);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      opacity: 0;
-    }
-    .profile-card--selected .profile-card__check { opacity: 1; }
+			.profile-card__check {
+				position: absolute;
+				top: var(--space-3);
+				right: var(--space-3);
+				width: 20px;
+				height: 20px;
+				border-radius: 50%;
+				background: var(--brand-blue);
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				opacity: 0;
+			}
+			.profile-card--selected .profile-card__check {
+				opacity: 1;
+			}
 
-    .profile-card__name {
-      font-family: var(--font-heading);
-      font-size: var(--text-md);
-      font-weight: 700;
-      margin-bottom: var(--space-1);
-    }
-    .profile-card__res {
-      font-family: var(--font-mono);
-      font-size: var(--text-sm);
-      color: var(--text-secondary);
-      margin-bottom: var(--space-2);
-    }
-    .profile-card__desc {
-      font-size: var(--text-xs);
-      color: var(--text-muted);
-      line-height: 1.5;
-    }
+			.profile-card__name {
+				font-family: var(--font-heading);
+				font-size: var(--text-md);
+				font-weight: 700;
+				margin-bottom: var(--space-1);
+			}
+			.profile-card__res {
+				font-family: var(--font-mono);
+				font-size: var(--text-sm);
+				color: var(--text-secondary);
+				margin-bottom: var(--space-2);
+			}
+			.profile-card__desc {
+				font-size: var(--text-xs);
+				color: var(--text-muted);
+				line-height: 1.5;
+			}
 
-    /* -- Raster mini-vis -- */
-    .raster-mini {
-      width: 100%;
-      height: 56px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-bottom: var(--space-3);
-    }
-    .raster-mini__box {
-      border: 1.5px solid var(--border-default);
-      border-radius: 3px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-family: var(--font-mono);
-      font-size: 9px;
-      color: var(--text-muted);
-      background: rgba(255,255,255,0.02);
-    }
-    .raster-mini__box--selected {
-      border-color: var(--brand-blue);
-      color: var(--brand-blue);
-      background: rgba(96,165,250,0.04);
-    }
+			/* -- Raster mini-vis -- */
+			.raster-mini {
+				width: 100%;
+				height: 56px;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				margin-bottom: var(--space-3);
+			}
+			.raster-mini__box {
+				border: 1.5px solid var(--border-default);
+				border-radius: 3px;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				font-family: var(--font-mono);
+				font-size: 9px;
+				color: var(--text-muted);
+				background: rgba(255, 255, 255, 0.02);
+			}
+			.raster-mini__box--selected {
+				border-color: var(--brand-blue);
+				color: var(--brand-blue);
+				background: rgba(96, 165, 250, 0.04);
+			}
 
-    /* -- Codec section -- */
-    .codec-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap: var(--space-3);
-      max-width: 720px;
-    }
-    .codec-card {
-      padding: var(--space-4);
-      border: 1px solid var(--border-subtle);
-      border-radius: var(--radius-lg);
-      cursor: pointer;
-      transition: all var(--transition-fast);
-      background: var(--bg-card);
-    }
-    .codec-card:hover { border-color: var(--border-default); }
-    .codec-card--selected {
-      border-color: var(--brand-blue);
-      background: rgba(96,165,250,0.04);
-    }
-    .codec-card__name {
-      font-weight: 600;
-      font-size: var(--text-md);
-      margin-bottom: var(--space-1);
-    }
-    .codec-card__detail {
-      font-size: var(--text-xs);
-      color: var(--text-muted);
-      line-height: 1.5;
-    }
+			/* -- Codec section -- */
+			.codec-grid {
+				display: grid;
+				grid-template-columns: 1fr 1fr 1fr;
+				gap: var(--space-3);
+				max-width: 720px;
+			}
+			.codec-card {
+				padding: var(--space-4);
+				border: 1px solid var(--border-subtle);
+				border-radius: var(--radius-lg);
+				cursor: pointer;
+				transition: all var(--transition-fast);
+				background: var(--bg-card);
+			}
+			.codec-card:hover {
+				border-color: var(--border-default);
+			}
+			.codec-card--selected {
+				border-color: var(--brand-blue);
+				background: rgba(96, 165, 250, 0.04);
+			}
+			.codec-card__name {
+				font-weight: 600;
+				font-size: var(--text-md);
+				margin-bottom: var(--space-1);
+			}
+			.codec-card__detail {
+				font-size: var(--text-xs);
+				color: var(--text-muted);
+				line-height: 1.5;
+			}
 
-    /* -- Audio table -- */
-    .audio-row {
-      display: grid;
-      grid-template-columns: 1fr 120px 100px 80px 100px;
-      align-items: center;
-      gap: var(--space-3);
-      padding: var(--space-3) var(--space-4);
-      background: var(--bg-card);
-      border: 1px solid var(--border-subtle);
-      border-radius: var(--radius-md);
-      margin-bottom: var(--space-2);
-    }
+			/* -- Audio table -- */
+			.audio-row {
+				display: grid;
+				grid-template-columns: 1fr 120px 100px 80px 100px;
+				align-items: center;
+				gap: var(--space-3);
+				padding: var(--space-3) var(--space-4);
+				background: var(--bg-card);
+				border: 1px solid var(--border-subtle);
+				border-radius: var(--radius-md);
+				margin-bottom: var(--space-2);
+			}
 
-    .section-title {
-      font-family: var(--font-heading);
-      font-size: var(--text-md);
-      font-weight: 600;
-      margin-bottom: var(--space-1);
-    }
-    .section-desc {
-      font-size: var(--text-xs);
-      color: var(--text-muted);
-      margin-bottom: var(--space-4);
-    }
-    .section-block {
-      margin-bottom: var(--space-8);
-    }
+			.section-title {
+				font-family: var(--font-heading);
+				font-size: var(--text-md);
+				font-weight: 600;
+				margin-bottom: var(--space-1);
+			}
+			.section-desc {
+				font-size: var(--text-xs);
+				color: var(--text-muted);
+				margin-bottom: var(--space-4);
+			}
+			.section-block {
+				margin-bottom: var(--space-8);
+			}
 
-    /* -- Format banner -- */
-    .format-banner {
-      display: flex;
-      align-items: center;
-      gap: var(--space-3);
-      padding: var(--space-3) var(--space-4);
-      background: rgba(96,165,250,0.05);
-      border: 1px solid rgba(96,165,250,0.15);
-      border-radius: var(--radius-md);
-      margin-bottom: var(--space-6);
-      font-size: var(--text-sm);
-    }
-    .format-banner__icon {
-      width: 32px; height: 32px;
-      border-radius: 8px;
-      background: rgba(96,165,250,0.12);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-    }
-  </style>
-</head>
-<body>
-  <div style="padding: var(--space-6); max-width: 1000px;">
+			/* -- Format banner -- */
+			.format-banner {
+				display: flex;
+				align-items: center;
+				gap: var(--space-3);
+				padding: var(--space-3) var(--space-4);
+				background: rgba(96, 165, 250, 0.05);
+				border: 1px solid rgba(96, 165, 250, 0.15);
+				border-radius: var(--radius-md);
+				margin-bottom: var(--space-6);
+				font-size: var(--text-sm);
+			}
+			.format-banner__icon {
+				width: 32px;
+				height: 32px;
+				border-radius: 8px;
+				background: rgba(96, 165, 250, 0.12);
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				flex-shrink: 0;
+			}
+		</style>
+	</head>
+	<body>
+		<div style="padding: var(--space-6); max-width: 1000px">
+			<div class="page-header">
+				<div>
+					<h1 class="page-title">Output Profiles</h1>
+					<p class="text-muted" style="font-size: var(--text-sm); margin-top: 2px">
+						Blu-ray Disc video, codec, and audio configuration
+					</p>
+				</div>
+			</div>
 
-    <div class="page-header">
-      <div>
-        <h1 class="page-title">Output Profiles</h1>
-        <p class="text-muted" style="font-size:var(--text-sm); margin-top:2px;">Blu-ray Disc video, codec, and audio configuration</p>
-      </div>
-    </div>
+			<!-- Format Banner -->
+			<div class="format-banner">
+				<div class="format-banner__icon">
+					<svg
+						width="16"
+						height="16"
+						viewBox="0 0 16 16"
+						fill="none"
+						stroke="var(--brand-blue)"
+						stroke-width="1.5"
+					>
+						<circle cx="8" cy="8" r="6" />
+						<circle cx="8" cy="8" r="2" />
+					</svg>
+				</div>
+				<div>
+					<span style="font-weight: 600; color: var(--brand-blue)">Blu-ray Disc</span>
+					<span class="text-muted"> · BD-25 · Profiles shown are BD-legal output targets</span>
+				</div>
+			</div>
 
-    <!-- Format Banner -->
-    <div class="format-banner">
-      <div class="format-banner__icon">
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="var(--brand-blue)" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="2"/></svg>
-      </div>
-      <div>
-        <span style="font-weight:600;color:var(--brand-blue);">Blu-ray Disc</span>
-        <span class="text-muted"> · BD-25 · Profiles shown are BD-legal output targets</span>
-      </div>
-    </div>
+			<!-- ═══ Video Resolution ═══ -->
+			<div class="section-block">
+				<div class="section-title">Video Resolution</div>
+				<div class="section-desc">
+					Blu-ray supports multiple HD and SD rasters. Select the primary output resolution.
+				</div>
 
-    <!-- ═══ Video Resolution ═══ -->
-    <div class="section-block">
-      <div class="section-title">Video Resolution</div>
-      <div class="section-desc">Blu-ray supports multiple HD and SD rasters. Select the primary output resolution.</div>
+				<div class="profiles-grid">
+					<div class="profile-card profile-card--selected">
+						<div class="profile-card__check">
+							<svg
+								width="10"
+								height="10"
+								viewBox="0 0 12 12"
+								fill="none"
+								stroke="white"
+								stroke-width="2"
+							>
+								<path d="M2 6l3 3 5-5" />
+							</svg>
+						</div>
+						<div class="raster-mini">
+							<div
+								class="raster-mini__box raster-mini__box--selected"
+								style="width: 96px; height: 54px"
+							>
+								1920×1080
+							</div>
+						</div>
+						<div class="profile-card__name bd-gradient">1080p</div>
+						<div class="profile-card__res">1920 × 1080 · Progressive</div>
+						<div class="profile-card__desc">Full HD. Maximum quality for Blu-ray.</div>
+					</div>
 
-      <div class="profiles-grid">
-        <div class="profile-card profile-card--selected">
-          <div class="profile-card__check"><svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="white" stroke-width="2"><path d="M2 6l3 3 5-5"/></svg></div>
-          <div class="raster-mini">
-            <div class="raster-mini__box raster-mini__box--selected" style="width:96px;height:54px;">1920×1080</div>
-          </div>
-          <div class="profile-card__name bd-gradient">1080p</div>
-          <div class="profile-card__res">1920 × 1080 · Progressive</div>
-          <div class="profile-card__desc">Full HD. Maximum quality for Blu-ray.</div>
-        </div>
+					<div class="profile-card">
+						<div class="profile-card__check">
+							<svg
+								width="10"
+								height="10"
+								viewBox="0 0 12 12"
+								fill="none"
+								stroke="white"
+								stroke-width="2"
+							>
+								<path d="M2 6l3 3 5-5" />
+							</svg>
+						</div>
+						<div class="raster-mini">
+							<div class="raster-mini__box" style="width: 96px; height: 54px">1920×1080</div>
+						</div>
+						<div class="profile-card__name">1080i</div>
+						<div class="profile-card__res">1920 × 1080 · Interlaced</div>
+						<div class="profile-card__desc">
+							Full HD interlaced. Common for broadcast source material.
+						</div>
+					</div>
 
-        <div class="profile-card">
-          <div class="profile-card__check"><svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="white" stroke-width="2"><path d="M2 6l3 3 5-5"/></svg></div>
-          <div class="raster-mini">
-            <div class="raster-mini__box" style="width:96px;height:54px;">1920×1080</div>
-          </div>
-          <div class="profile-card__name">1080i</div>
-          <div class="profile-card__res">1920 × 1080 · Interlaced</div>
-          <div class="profile-card__desc">Full HD interlaced. Common for broadcast source material.</div>
-        </div>
+					<div class="profile-card">
+						<div class="profile-card__check">
+							<svg
+								width="10"
+								height="10"
+								viewBox="0 0 12 12"
+								fill="none"
+								stroke="white"
+								stroke-width="2"
+							>
+								<path d="M2 6l3 3 5-5" />
+							</svg>
+						</div>
+						<div class="raster-mini">
+							<div class="raster-mini__box" style="width: 80px; height: 45px">1280×720</div>
+						</div>
+						<div class="profile-card__name">720p</div>
+						<div class="profile-card__res">1280 × 720 · Progressive</div>
+						<div class="profile-card__desc">HD. Lower bitrate, good for longer content.</div>
+					</div>
 
-        <div class="profile-card">
-          <div class="profile-card__check"><svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="white" stroke-width="2"><path d="M2 6l3 3 5-5"/></svg></div>
-          <div class="raster-mini">
-            <div class="raster-mini__box" style="width:80px;height:45px;">1280×720</div>
-          </div>
-          <div class="profile-card__name">720p</div>
-          <div class="profile-card__res">1280 × 720 · Progressive</div>
-          <div class="profile-card__desc">HD. Lower bitrate, good for longer content.</div>
-        </div>
+					<div class="profile-card">
+						<div class="profile-card__check">
+							<svg
+								width="10"
+								height="10"
+								viewBox="0 0 12 12"
+								fill="none"
+								stroke="white"
+								stroke-width="2"
+							>
+								<path d="M2 6l3 3 5-5" />
+							</svg>
+						</div>
+						<div class="raster-mini">
+							<div class="raster-mini__box" style="width: 54px; height: 36px">720×480</div>
+						</div>
+						<div class="profile-card__name">480p / 576p</div>
+						<div class="profile-card__res">SD · NTSC or PAL</div>
+						<div class="profile-card__desc">
+							Standard definition on Blu-ray media. Niche use cases.
+						</div>
+					</div>
+				</div>
+			</div>
 
-        <div class="profile-card">
-          <div class="profile-card__check"><svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="white" stroke-width="2"><path d="M2 6l3 3 5-5"/></svg></div>
-          <div class="raster-mini">
-            <div class="raster-mini__box" style="width:54px;height:36px;">720×480</div>
-          </div>
-          <div class="profile-card__name">480p / 576p</div>
-          <div class="profile-card__res">SD · NTSC or PAL</div>
-          <div class="profile-card__desc">Standard definition on Blu-ray media. Niche use cases.</div>
-        </div>
-      </div>
-    </div>
+			<!-- ═══ Video Codec ═══ -->
+			<div class="section-block">
+				<div class="section-title">Video Codec</div>
+				<div class="section-desc">
+					Blu-ray supports three video codecs. H.264 AVC is the most common for authored content.
+				</div>
 
-    <!-- ═══ Video Codec ═══ -->
-    <div class="section-block">
-      <div class="section-title">Video Codec</div>
-      <div class="section-desc">Blu-ray supports three video codecs. H.264 AVC is the most common for authored content.</div>
+				<div class="codec-grid">
+					<div class="codec-card codec-card--selected">
+						<div class="codec-card__name bd-gradient">H.264 AVC</div>
+						<div class="codec-card__detail">
+							Best balance of quality and compatibility. Mandatory decoder on all BD players.
+							Recommended for most projects.
+						</div>
+						<div style="margin-top: var(--space-2)">
+							<span class="badge badge--light">Recommended</span>
+						</div>
+					</div>
+					<div class="codec-card">
+						<div class="codec-card__name">HEVC (H.265)</div>
+						<div class="codec-card__detail">
+							Higher compression efficiency. Supported on UHD Blu-ray players. Best for 4K or
+							high-bitrate content.
+						</div>
+						<div style="margin-top: var(--space-2)">
+							<span class="badge badge--neutral">UHD Players</span>
+						</div>
+					</div>
+					<div class="codec-card">
+						<div class="codec-card__name">MPEG-2</div>
+						<div class="codec-card__detail">
+							Legacy codec. Maximum compatibility but lower compression. Requires higher bitrates
+							for equivalent quality.
+						</div>
+						<div style="margin-top: var(--space-2)">
+							<span class="badge badge--neutral">Legacy</span>
+						</div>
+					</div>
+				</div>
+			</div>
 
-      <div class="codec-grid">
-        <div class="codec-card codec-card--selected">
-          <div class="codec-card__name bd-gradient">H.264 AVC</div>
-          <div class="codec-card__detail">
-            Best balance of quality and compatibility. Mandatory decoder on all BD players. Recommended for most projects.
-          </div>
-          <div style="margin-top:var(--space-2);">
-            <span class="badge badge--light">Recommended</span>
-          </div>
-        </div>
-        <div class="codec-card">
-          <div class="codec-card__name">HEVC (H.265)</div>
-          <div class="codec-card__detail">
-            Higher compression efficiency. Supported on UHD Blu-ray players. Best for 4K or high-bitrate content.
-          </div>
-          <div style="margin-top:var(--space-2);">
-            <span class="badge badge--neutral">UHD Players</span>
-          </div>
-        </div>
-        <div class="codec-card">
-          <div class="codec-card__name">MPEG-2</div>
-          <div class="codec-card__detail">
-            Legacy codec. Maximum compatibility but lower compression. Requires higher bitrates for equivalent quality.
-          </div>
-          <div style="margin-top:var(--space-2);">
-            <span class="badge badge--neutral">Legacy</span>
-          </div>
-        </div>
-      </div>
-    </div>
+			<!-- ═══ Audio Targets ═══ -->
+			<div class="section-block">
+				<div class="section-title">Audio Output Targets</div>
+				<div class="section-desc">
+					Blu-ray supports lossless and lossy audio formats with up to 7.1 channels.
+				</div>
 
-    <!-- ═══ Audio Targets ═══ -->
-    <div class="section-block">
-      <div class="section-title">Audio Output Targets</div>
-      <div class="section-desc">Blu-ray supports lossless and lossy audio formats with up to 7.1 channels.</div>
+				<div style="max-width: 760px">
+					<div
+						style="
+							display: grid;
+							grid-template-columns: 1fr 120px 100px 80px 100px;
+							gap: var(--space-3);
+							padding: 0 var(--space-4) var(--space-2);
+							font-size: var(--text-xs);
+							font-weight: 600;
+							text-transform: uppercase;
+							letter-spacing: 0.06em;
+							color: var(--text-muted);
+						"
+					>
+						<span>Format</span>
+						<span>Bitrate</span>
+						<span>Channels</span>
+						<span>Type</span>
+						<span>Status</span>
+					</div>
 
-      <div style="max-width:760px;">
-        <div style="display:grid;grid-template-columns:1fr 120px 100px 80px 100px;gap:var(--space-3);padding:0 var(--space-4) var(--space-2);font-size:var(--text-xs);font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);">
-          <span>Format</span>
-          <span>Bitrate</span>
-          <span>Channels</span>
-          <span>Type</span>
-          <span>Status</span>
-        </div>
+					<div class="audio-row">
+						<div>
+							<div style="font-weight: 600; font-size: var(--text-sm); color: var(--text-primary)">
+								DTS-HD Master Audio
+							</div>
+							<div style="font-size: var(--text-xs); color: var(--text-muted)">
+								Lossless · Bit-for-bit identical to source
+							</div>
+						</div>
+						<span
+							style="
+								font-size: var(--text-xs);
+								color: var(--text-secondary);
+								font-family: var(--font-mono);
+							"
+							>Variable</span
+						>
+						<span class="tag">Up to 7.1</span>
+						<span class="badge badge--remux" style="font-size: 9px">Lossless</span>
+						<span class="badge badge--neutral">Available</span>
+					</div>
 
-        <div class="audio-row">
-          <div>
-            <div style="font-weight:600;font-size:var(--text-sm);color:var(--text-primary);">DTS-HD Master Audio</div>
-            <div style="font-size:var(--text-xs);color:var(--text-muted);">Lossless · Bit-for-bit identical to source</div>
-          </div>
-          <span style="font-size:var(--text-xs);color:var(--text-secondary);font-family:var(--font-mono);">Variable</span>
-          <span class="tag">Up to 7.1</span>
-          <span class="badge badge--remux" style="font-size:9px;">Lossless</span>
-          <span class="badge badge--neutral">Available</span>
-        </div>
+					<div class="audio-row">
+						<div>
+							<div style="font-weight: 600; font-size: var(--text-sm); color: var(--text-primary)">
+								Dolby TrueHD
+							</div>
+							<div style="font-size: var(--text-xs); color: var(--text-muted)">
+								Lossless · Includes Atmos metadata support
+							</div>
+						</div>
+						<span
+							style="
+								font-size: var(--text-xs);
+								color: var(--text-secondary);
+								font-family: var(--font-mono);
+							"
+							>Variable</span
+						>
+						<span class="tag">Up to 7.1</span>
+						<span class="badge badge--remux" style="font-size: 9px">Lossless</span>
+						<span class="badge badge--neutral">Available</span>
+					</div>
 
-        <div class="audio-row">
-          <div>
-            <div style="font-weight:600;font-size:var(--text-sm);color:var(--text-primary);">Dolby TrueHD</div>
-            <div style="font-size:var(--text-xs);color:var(--text-muted);">Lossless · Includes Atmos metadata support</div>
-          </div>
-          <span style="font-size:var(--text-xs);color:var(--text-secondary);font-family:var(--font-mono);">Variable</span>
-          <span class="tag">Up to 7.1</span>
-          <span class="badge badge--remux" style="font-size:9px;">Lossless</span>
-          <span class="badge badge--neutral">Available</span>
-        </div>
+					<div class="audio-row">
+						<div>
+							<div style="font-weight: 600; font-size: var(--text-sm); color: var(--text-primary)">
+								LPCM
+							</div>
+							<div style="font-size: var(--text-xs); color: var(--text-muted)">
+								Uncompressed · Highest fidelity · Large
+							</div>
+						</div>
+						<span
+							style="
+								font-size: var(--text-xs);
+								color: var(--text-secondary);
+								font-family: var(--font-mono);
+							"
+							>6,144 kbps</span
+						>
+						<span class="tag">Up to 7.1</span>
+						<span class="badge badge--remux" style="font-size: 9px">Lossless</span>
+						<span class="badge badge--neutral">Available</span>
+					</div>
 
-        <div class="audio-row">
-          <div>
-            <div style="font-weight:600;font-size:var(--text-sm);color:var(--text-primary);">LPCM</div>
-            <div style="font-size:var(--text-xs);color:var(--text-muted);">Uncompressed · Highest fidelity · Large</div>
-          </div>
-          <span style="font-size:var(--text-xs);color:var(--text-secondary);font-family:var(--font-mono);">6,144 kbps</span>
-          <span class="tag">Up to 7.1</span>
-          <span class="badge badge--remux" style="font-size:9px;">Lossless</span>
-          <span class="badge badge--neutral">Available</span>
-        </div>
+					<div class="audio-row">
+						<div>
+							<div style="font-weight: 600; font-size: var(--text-sm); color: var(--text-primary)">
+								DTS-HD High Resolution
+							</div>
+							<div style="font-size: var(--text-xs); color: var(--text-muted)">
+								Lossy · Higher quality than core DTS
+							</div>
+						</div>
+						<select
+							class="input input--select"
+							style="padding: 3px 28px 3px 8px; font-size: var(--text-xs)"
+						>
+							<option>768 kbps</option>
+							<option>1,536 kbps</option>
+						</select>
+						<span class="tag">Up to 7.1</span>
+						<span class="badge badge--reencode" style="font-size: 9px">Lossy</span>
+						<span class="badge badge--neutral">Available</span>
+					</div>
 
-        <div class="audio-row">
-          <div>
-            <div style="font-weight:600;font-size:var(--text-sm);color:var(--text-primary);">DTS-HD High Resolution</div>
-            <div style="font-size:var(--text-xs);color:var(--text-muted);">Lossy · Higher quality than core DTS</div>
-          </div>
-          <select class="input input--select" style="padding:3px 28px 3px 8px;font-size:var(--text-xs);">
-            <option>768 kbps</option>
-            <option>1,536 kbps</option>
-          </select>
-          <span class="tag">Up to 7.1</span>
-          <span class="badge badge--reencode" style="font-size:9px;">Lossy</span>
-          <span class="badge badge--neutral">Available</span>
-        </div>
+					<div class="audio-row">
+						<div>
+							<div style="font-weight: 600; font-size: var(--text-sm); color: var(--text-primary)">
+								Dolby Digital Plus (E-AC-3)
+							</div>
+							<div style="font-size: var(--text-xs); color: var(--text-muted)">
+								Lossy · Enhanced AC-3 with higher bitrate ceiling
+							</div>
+						</div>
+						<select
+							class="input input--select"
+							style="padding: 3px 28px 3px 8px; font-size: var(--text-xs)"
+						>
+							<option>640 kbps</option>
+							<option>768 kbps</option>
+							<option>1,024 kbps</option>
+						</select>
+						<span class="tag">Up to 7.1</span>
+						<span class="badge badge--reencode" style="font-size: 9px">Lossy</span>
+						<span class="badge badge--neutral">Available</span>
+					</div>
 
-        <div class="audio-row">
-          <div>
-            <div style="font-weight:600;font-size:var(--text-sm);color:var(--text-primary);">Dolby Digital Plus (E-AC-3)</div>
-            <div style="font-size:var(--text-xs);color:var(--text-muted);">Lossy · Enhanced AC-3 with higher bitrate ceiling</div>
-          </div>
-          <select class="input input--select" style="padding:3px 28px 3px 8px;font-size:var(--text-xs);">
-            <option>640 kbps</option>
-            <option>768 kbps</option>
-            <option>1,024 kbps</option>
-          </select>
-          <span class="tag">Up to 7.1</span>
-          <span class="badge badge--reencode" style="font-size:9px;">Lossy</span>
-          <span class="badge badge--neutral">Available</span>
-        </div>
-
-        <div class="audio-row">
-          <div>
-            <div style="font-weight:600;font-size:var(--text-sm);color:var(--text-primary);">AC-3 (Dolby Digital)</div>
-            <div style="font-size:var(--text-xs);color:var(--text-muted);">Lossy · Maximum compatibility · Required as fallback</div>
-          </div>
-          <select class="input input--select" style="padding:3px 28px 3px 8px;font-size:var(--text-xs);">
-            <option>448 kbps</option>
-            <option>640 kbps</option>
-          </select>
-          <span class="tag">5.1</span>
-          <span class="badge badge--reencode" style="font-size:9px;">Lossy</span>
-          <span class="badge badge--light" style="font-size:9px;">Default</span>
-        </div>
-      </div>
-    </div>
-
-  </div>
-</body>
+					<div class="audio-row">
+						<div>
+							<div style="font-weight: 600; font-size: var(--text-sm); color: var(--text-primary)">
+								AC-3 (Dolby Digital)
+							</div>
+							<div style="font-size: var(--text-xs); color: var(--text-muted)">
+								Lossy · Maximum compatibility · Required as fallback
+							</div>
+						</div>
+						<select
+							class="input input--select"
+							style="padding: 3px 28px 3px 8px; font-size: var(--text-xs)"
+						>
+							<option>448 kbps</option>
+							<option>640 kbps</option>
+						</select>
+						<span class="tag">5.1</span>
+						<span class="badge badge--reencode" style="font-size: 9px">Lossy</span>
+						<span class="badge badge--light" style="font-size: 9px">Default</span>
+					</div>
+				</div>
+			</div>
+		</div>
+	</body>
 </html>

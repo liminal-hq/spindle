@@ -20,10 +20,7 @@ pub struct SpindleProject<R: Runtime>(AppHandle<R>);
 
 impl<R: Runtime> SpindleProject<R> {
     /// Create a new project with the given settings.
-    pub fn create_project(
-        &self,
-        req: CreateProjectRequest,
-    ) -> crate::Result<SpindleProjectFile> {
+    pub fn create_project(&self, req: CreateProjectRequest) -> crate::Result<SpindleProjectFile> {
         let mut project = SpindleProjectFile::default();
         project.project.name = req.name;
         project.disc.standard = req.standard;
@@ -51,10 +48,7 @@ impl<R: Runtime> SpindleProject<R> {
     }
 
     /// Serialise a project to pretty-printed JSON.
-    pub fn serialise_project(
-        &self,
-        project: &SpindleProjectFile,
-    ) -> crate::Result<String> {
+    pub fn serialise_project(&self, project: &SpindleProjectFile) -> crate::Result<String> {
         let json = serde_json::to_string_pretty(project)?;
         Ok(json)
     }
@@ -130,10 +124,7 @@ impl<R: Runtime> SpindleProject<R> {
                     issues.push(ValidationIssue {
                         severity: IssueSeverity::Error,
                         code: "title.no-video-mapping".to_string(),
-                        message: format!(
-                            "Title \"{}\" has no video stream selected.",
-                            title.name
-                        ),
+                        message: format!("Title \"{}\" has no video stream selected.", title.name),
                         context: Some(title.id.clone()),
                     });
                 }

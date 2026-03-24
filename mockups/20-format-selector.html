@@ -1,355 +1,453 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en-CA">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=1280">
-  <title>Spindle — Format Selector</title>
-  <link rel="stylesheet" href="design-system.css">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
-  <style>
-    body { background: var(--bg-app); }
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=1280" />
+		<title>Spindle — Format Selector</title>
+		<link rel="stylesheet" href="design-system.css" />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap"
+			rel="stylesheet"
+		/>
+		<style>
+			body {
+				background: var(--bg-app);
+			}
 
-    .selector-page {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      padding: var(--space-8);
-    }
+			.selector-page {
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				justify-content: center;
+				min-height: 100vh;
+				padding: var(--space-8);
+			}
 
-    .selector-header {
-      text-align: center;
-      margin-bottom: var(--space-8);
-    }
-    .selector-header h1 {
-      font-family: var(--font-heading);
-      font-size: var(--text-2xl);
-      font-weight: 700;
-      margin-bottom: var(--space-2);
-    }
+			.selector-header {
+				text-align: center;
+				margin-bottom: var(--space-8);
+			}
+			.selector-header h1 {
+				font-family: var(--font-heading);
+				font-size: var(--text-2xl);
+				font-weight: 700;
+				margin-bottom: var(--space-2);
+			}
 
-    /* -- Format cards -- */
-    .format-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: var(--space-6);
-      max-width: 720px;
-      width: 100%;
-    }
+			/* -- Format cards -- */
+			.format-grid {
+				display: grid;
+				grid-template-columns: 1fr 1fr;
+				gap: var(--space-6);
+				max-width: 720px;
+				width: 100%;
+			}
 
-    .format-card {
-      background: var(--bg-card);
-      border: 2px solid var(--border-subtle);
-      border-radius: var(--radius-xl);
-      padding: var(--space-8) var(--space-6);
-      text-align: center;
-      cursor: pointer;
-      transition: all var(--transition-base);
-      position: relative;
-      overflow: hidden;
-    }
-    .format-card:hover {
-      border-color: var(--border-default);
-      background: var(--bg-card-hover);
-      box-shadow: var(--shadow-panel);
-      transform: translateY(-2px);
-    }
-    .format-card--selected {
-      border-color: var(--brand-orange);
-      background: rgba(255,170,64,0.04);
-      box-shadow: 0 0 30px rgba(255,170,64,0.1);
-    }
+			.format-card {
+				background: var(--bg-card);
+				border: 2px solid var(--border-subtle);
+				border-radius: var(--radius-xl);
+				padding: var(--space-8) var(--space-6);
+				text-align: center;
+				cursor: pointer;
+				transition: all var(--transition-base);
+				position: relative;
+				overflow: hidden;
+			}
+			.format-card:hover {
+				border-color: var(--border-default);
+				background: var(--bg-card-hover);
+				box-shadow: var(--shadow-panel);
+				transform: translateY(-2px);
+			}
+			.format-card--selected {
+				border-color: var(--brand-orange);
+				background: rgba(255, 170, 64, 0.04);
+				box-shadow: 0 0 30px rgba(255, 170, 64, 0.1);
+			}
 
-    .format-card__check {
-      position: absolute;
-      top: var(--space-4);
-      right: var(--space-4);
-      width: 26px; height: 26px;
-      border-radius: 50%;
-      background: var(--brand-orange);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      opacity: 0;
-      transition: opacity var(--transition-fast);
-    }
-    .format-card--selected .format-card__check { opacity: 1; }
+			.format-card__check {
+				position: absolute;
+				top: var(--space-4);
+				right: var(--space-4);
+				width: 26px;
+				height: 26px;
+				border-radius: 50%;
+				background: var(--brand-orange);
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				opacity: 0;
+				transition: opacity var(--transition-fast);
+			}
+			.format-card--selected .format-card__check {
+				opacity: 1;
+			}
 
-    /* Disc icon area */
-    .format-card__icon {
-      width: 100px;
-      height: 100px;
-      margin: 0 auto var(--space-5);
-      position: relative;
-    }
+			/* Disc icon area */
+			.format-card__icon {
+				width: 100px;
+				height: 100px;
+				margin: 0 auto var(--space-5);
+				position: relative;
+			}
 
-    .format-card__name {
-      font-family: var(--font-heading);
-      font-size: var(--text-xl);
-      font-weight: 700;
-      margin-bottom: var(--space-2);
-    }
+			.format-card__name {
+				font-family: var(--font-heading);
+				font-size: var(--text-xl);
+				font-weight: 700;
+				margin-bottom: var(--space-2);
+			}
 
-    .format-card__desc {
-      font-size: var(--text-sm);
-      color: var(--text-muted);
-      line-height: 1.6;
-      margin-bottom: var(--space-4);
-    }
+			.format-card__desc {
+				font-size: var(--text-sm);
+				color: var(--text-muted);
+				line-height: 1.6;
+				margin-bottom: var(--space-4);
+			}
 
-    .format-card__specs {
-      text-align: left;
-      padding: var(--space-3);
-      background: rgba(255,255,255,0.02);
-      border-radius: var(--radius-md);
-      border: 1px solid var(--border-subtle);
-    }
-    .format-spec {
-      display: flex;
-      justify-content: space-between;
-      padding: 3px 0;
-      font-size: var(--text-xs);
-    }
-    .format-spec__label { color: var(--text-muted); }
-    .format-spec__value { color: var(--text-secondary); font-weight: 500; }
+			.format-card__specs {
+				text-align: left;
+				padding: var(--space-3);
+				background: rgba(255, 255, 255, 0.02);
+				border-radius: var(--radius-md);
+				border: 1px solid var(--border-subtle);
+			}
+			.format-spec {
+				display: flex;
+				justify-content: space-between;
+				padding: 3px 0;
+				font-size: var(--text-xs);
+			}
+			.format-spec__label {
+				color: var(--text-muted);
+			}
+			.format-spec__value {
+				color: var(--text-secondary);
+				font-weight: 500;
+			}
 
-    .format-card__badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      margin-top: var(--space-3);
-      padding: 4px 12px;
-      border-radius: 20px;
-      font-size: var(--text-xs);
-      font-weight: 600;
-    }
-    .format-card__badge--ready {
-      background: rgba(46,198,106,0.12);
-      color: var(--colour-success);
-    }
-    .format-card__badge--coming {
-      background: rgba(96,165,250,0.12);
-      color: var(--brand-blue);
-    }
+			.format-card__badge {
+				display: inline-flex;
+				align-items: center;
+				gap: 4px;
+				margin-top: var(--space-3);
+				padding: 4px 12px;
+				border-radius: 20px;
+				font-size: var(--text-xs);
+				font-weight: 600;
+			}
+			.format-card__badge--ready {
+				background: rgba(46, 198, 106, 0.12);
+				color: var(--colour-success);
+			}
+			.format-card__badge--coming {
+				background: rgba(96, 165, 250, 0.12);
+				color: var(--brand-blue);
+			}
 
-    /* -- Sub-options that appear after selection -- */
-    .sub-options {
-      max-width: 720px;
-      width: 100%;
-      margin-top: var(--space-6);
-      animation: fade-in 0.3s ease;
-    }
-    .sub-options__row {
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap: var(--space-3);
-    }
-    .sub-opt {
-      padding: var(--space-3);
-      border: 1px solid var(--border-subtle);
-      border-radius: var(--radius-md);
-      text-align: center;
-      cursor: pointer;
-      transition: all var(--transition-fast);
-      background: var(--bg-card);
-    }
-    .sub-opt:hover { border-color: var(--border-default); }
-    .sub-opt--selected {
-      border-color: var(--brand-orange);
-      background: rgba(255,170,64,0.04);
-    }
-    .sub-opt__name {
-      font-weight: 600;
-      font-size: var(--text-sm);
-      margin-bottom: 2px;
-    }
-    .sub-opt__detail {
-      font-size: var(--text-xs);
-      color: var(--text-muted);
-    }
+			/* -- Sub-options that appear after selection -- */
+			.sub-options {
+				max-width: 720px;
+				width: 100%;
+				margin-top: var(--space-6);
+				animation: fade-in 0.3s ease;
+			}
+			.sub-options__row {
+				display: grid;
+				grid-template-columns: 1fr 1fr 1fr;
+				gap: var(--space-3);
+			}
+			.sub-opt {
+				padding: var(--space-3);
+				border: 1px solid var(--border-subtle);
+				border-radius: var(--radius-md);
+				text-align: center;
+				cursor: pointer;
+				transition: all var(--transition-fast);
+				background: var(--bg-card);
+			}
+			.sub-opt:hover {
+				border-color: var(--border-default);
+			}
+			.sub-opt--selected {
+				border-color: var(--brand-orange);
+				background: rgba(255, 170, 64, 0.04);
+			}
+			.sub-opt__name {
+				font-weight: 600;
+				font-size: var(--text-sm);
+				margin-bottom: 2px;
+			}
+			.sub-opt__detail {
+				font-size: var(--text-xs);
+				color: var(--text-muted);
+			}
 
-    /* -- Project name input below -- */
-    .project-setup {
-      max-width: 720px;
-      width: 100%;
-      margin-top: var(--space-6);
-    }
+			/* -- Project name input below -- */
+			.project-setup {
+				max-width: 720px;
+				width: 100%;
+				margin-top: var(--space-6);
+			}
 
-    .setup-row {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: var(--space-4);
-      margin-bottom: var(--space-4);
-    }
-  </style>
-</head>
-<body>
-  <div class="selector-page">
+			.setup-row {
+				display: grid;
+				grid-template-columns: 1fr 1fr;
+				gap: var(--space-4);
+				margin-bottom: var(--space-4);
+			}
+		</style>
+	</head>
+	<body>
+		<div class="selector-page">
+			<div class="selector-header">
+				<svg
+					width="40"
+					height="40"
+					viewBox="0 0 48 48"
+					fill="none"
+					style="margin-bottom: var(--space-3)"
+				>
+					<defs>
+						<linearGradient id="lg" x1="0" y1="0" x2="48" y2="48">
+							<stop offset="0%" stop-color="#CF5D22" />
+							<stop offset="100%" stop-color="#F19B18" />
+						</linearGradient>
+					</defs>
+					<path
+						d="M8 8L16 8L16 12L12 12L12 36L16 36L16 40L8 40Z"
+						stroke="url(#lg)"
+						stroke-width="2"
+						fill="none"
+					/>
+					<path
+						d="M40 8L32 8L32 12L36 12L36 36L32 36L32 40L40 40Z"
+						stroke="url(#lg)"
+						stroke-width="2"
+						fill="none"
+					/>
+					<line x1="24" y1="12" x2="24" y2="36" stroke="url(#lg)" stroke-width="2" opacity="0.5" />
+				</svg>
+				<h1>New Project</h1>
+				<p class="text-muted" style="font-size: var(--text-md)">
+					Choose a disc format to get started
+				</p>
+			</div>
 
-    <div class="selector-header">
-      <svg width="40" height="40" viewBox="0 0 48 48" fill="none" style="margin-bottom:var(--space-3);">
-        <defs><linearGradient id="lg" x1="0" y1="0" x2="48" y2="48"><stop offset="0%" stop-color="#CF5D22"/><stop offset="100%" stop-color="#F19B18"/></linearGradient></defs>
-        <path d="M8 8L16 8L16 12L12 12L12 36L16 36L16 40L8 40Z" stroke="url(#lg)" stroke-width="2" fill="none"/>
-        <path d="M40 8L32 8L32 12L36 12L36 36L32 36L32 40L40 40Z" stroke="url(#lg)" stroke-width="2" fill="none"/>
-        <line x1="24" y1="12" x2="24" y2="36" stroke="url(#lg)" stroke-width="2" opacity="0.5"/>
-      </svg>
-      <h1>New Project</h1>
-      <p class="text-muted" style="font-size:var(--text-md);">Choose a disc format to get started</p>
-    </div>
+			<!-- ═══ Format Cards ═══ -->
+			<div class="format-grid">
+				<!-- DVD-Video -->
+				<div class="format-card format-card--selected">
+					<div class="format-card__check">
+						<svg
+							width="12"
+							height="12"
+							viewBox="0 0 12 12"
+							fill="none"
+							stroke="var(--text-inverse)"
+							stroke-width="2"
+						>
+							<path d="M2 6l3 3 5-5" />
+						</svg>
+					</div>
 
-    <!-- ═══ Format Cards ═══ -->
-    <div class="format-grid">
+					<div class="format-card__icon">
+						<svg viewBox="0 0 100 100" width="100" height="100" fill="none">
+							<circle cx="50" cy="50" r="44" stroke="#CF5D22" stroke-width="2" opacity="0.6" />
+							<circle cx="50" cy="50" r="36" stroke="#CF5D22" stroke-width="0.5" opacity="0.2" />
+							<circle cx="50" cy="50" r="28" stroke="#CF5D22" stroke-width="0.5" opacity="0.15" />
+							<circle cx="50" cy="50" r="14" stroke="#CF5D22" stroke-width="1.5" opacity="0.4" />
+							<circle cx="50" cy="50" r="5" fill="#F19B18" opacity="0.8" />
+						</svg>
+					</div>
 
-      <!-- DVD-Video -->
-      <div class="format-card format-card--selected">
-        <div class="format-card__check">
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="var(--text-inverse)" stroke-width="2"><path d="M2 6l3 3 5-5"/></svg>
-        </div>
+					<div class="format-card__name text-gradient">DVD-Video</div>
+					<div class="format-card__desc">
+						Standard-definition optical disc. MPEG-2 video, AC-3/LPCM audio, still and motion menus.
+					</div>
 
-        <div class="format-card__icon">
-          <svg viewBox="0 0 100 100" width="100" height="100" fill="none">
-            <circle cx="50" cy="50" r="44" stroke="#CF5D22" stroke-width="2" opacity="0.6"/>
-            <circle cx="50" cy="50" r="36" stroke="#CF5D22" stroke-width="0.5" opacity="0.2"/>
-            <circle cx="50" cy="50" r="28" stroke="#CF5D22" stroke-width="0.5" opacity="0.15"/>
-            <circle cx="50" cy="50" r="14" stroke="#CF5D22" stroke-width="1.5" opacity="0.4"/>
-            <circle cx="50" cy="50" r="5" fill="#F19B18" opacity="0.8"/>
-          </svg>
-        </div>
+					<div class="format-card__specs">
+						<div class="format-spec">
+							<span class="format-spec__label">Resolution</span>
+							<span class="format-spec__value">720×480 (NTSC) / 720×576 (PAL)</span>
+						</div>
+						<div class="format-spec">
+							<span class="format-spec__label">Video Codec</span>
+							<span class="format-spec__value">MPEG-2</span>
+						</div>
+						<div class="format-spec">
+							<span class="format-spec__label">Capacity</span>
+							<span class="format-spec__value">4.7 GB (DVD-5) / 8.5 GB (DVD-9)</span>
+						</div>
+						<div class="format-spec">
+							<span class="format-spec__label">Max Bitrate</span>
+							<span class="format-spec__value">9.8 Mbps</span>
+						</div>
+					</div>
 
-        <div class="format-card__name text-gradient">DVD-Video</div>
-        <div class="format-card__desc">Standard-definition optical disc. MPEG-2 video, AC-3/LPCM audio, still and motion menus.</div>
+					<div class="format-card__badge format-card__badge--ready">
+						<svg
+							width="10"
+							height="10"
+							viewBox="0 0 16 16"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+						>
+							<circle cx="8" cy="8" r="6" />
+							<path d="M5 8l2 2 4-4" />
+						</svg>
+						Fully Supported
+					</div>
+				</div>
 
-        <div class="format-card__specs">
-          <div class="format-spec">
-            <span class="format-spec__label">Resolution</span>
-            <span class="format-spec__value">720×480 (NTSC) / 720×576 (PAL)</span>
-          </div>
-          <div class="format-spec">
-            <span class="format-spec__label">Video Codec</span>
-            <span class="format-spec__value">MPEG-2</span>
-          </div>
-          <div class="format-spec">
-            <span class="format-spec__label">Capacity</span>
-            <span class="format-spec__value">4.7 GB (DVD-5) / 8.5 GB (DVD-9)</span>
-          </div>
-          <div class="format-spec">
-            <span class="format-spec__label">Max Bitrate</span>
-            <span class="format-spec__value">9.8 Mbps</span>
-          </div>
-        </div>
+				<!-- Blu-ray -->
+				<div class="format-card">
+					<div class="format-card__check">
+						<svg
+							width="12"
+							height="12"
+							viewBox="0 0 12 12"
+							fill="none"
+							stroke="var(--text-inverse)"
+							stroke-width="2"
+						>
+							<path d="M2 6l3 3 5-5" />
+						</svg>
+					</div>
 
-        <div class="format-card__badge format-card__badge--ready">
-          <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="8" r="6"/><path d="M5 8l2 2 4-4"/></svg>
-          Fully Supported
-        </div>
-      </div>
+					<div class="format-card__icon">
+						<svg viewBox="0 0 100 100" width="100" height="100" fill="none">
+							<circle cx="50" cy="50" r="44" stroke="#60a5fa" stroke-width="2" opacity="0.6" />
+							<circle cx="50" cy="50" r="38" stroke="#60a5fa" stroke-width="0.5" opacity="0.15" />
+							<circle cx="50" cy="50" r="32" stroke="#60a5fa" stroke-width="0.5" opacity="0.12" />
+							<circle cx="50" cy="50" r="26" stroke="#60a5fa" stroke-width="0.5" opacity="0.1" />
+							<circle cx="50" cy="50" r="14" stroke="#60a5fa" stroke-width="1.5" opacity="0.4" />
+							<circle cx="50" cy="50" r="5" fill="#60a5fa" opacity="0.8" />
+							<!-- BD blue sheen -->
+							<path
+								d="M 50 6 A 44 44 0 0 1 90 30"
+								stroke="#22d3ee"
+								stroke-width="1"
+								stroke-linecap="round"
+								opacity="0.3"
+							/>
+						</svg>
+					</div>
 
-      <!-- Blu-ray -->
-      <div class="format-card">
-        <div class="format-card__check">
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="var(--text-inverse)" stroke-width="2"><path d="M2 6l3 3 5-5"/></svg>
-        </div>
+					<div class="format-card__name" style="color: var(--brand-blue)">Blu-ray Disc</div>
+					<div class="format-card__desc">
+						High-definition optical disc. H.264/HEVC video, lossless audio, popup menus, BD-J
+						interactivity.
+					</div>
 
-        <div class="format-card__icon">
-          <svg viewBox="0 0 100 100" width="100" height="100" fill="none">
-            <circle cx="50" cy="50" r="44" stroke="#60a5fa" stroke-width="2" opacity="0.6"/>
-            <circle cx="50" cy="50" r="38" stroke="#60a5fa" stroke-width="0.5" opacity="0.15"/>
-            <circle cx="50" cy="50" r="32" stroke="#60a5fa" stroke-width="0.5" opacity="0.12"/>
-            <circle cx="50" cy="50" r="26" stroke="#60a5fa" stroke-width="0.5" opacity="0.1"/>
-            <circle cx="50" cy="50" r="14" stroke="#60a5fa" stroke-width="1.5" opacity="0.4"/>
-            <circle cx="50" cy="50" r="5" fill="#60a5fa" opacity="0.8"/>
-            <!-- BD blue sheen -->
-            <path d="M 50 6 A 44 44 0 0 1 90 30" stroke="#22d3ee" stroke-width="1" stroke-linecap="round" opacity="0.3"/>
-          </svg>
-        </div>
+					<div class="format-card__specs">
+						<div class="format-spec">
+							<span class="format-spec__label">Resolution</span>
+							<span class="format-spec__value">1920×1080, 1280×720, SD</span>
+						</div>
+						<div class="format-spec">
+							<span class="format-spec__label">Video Codecs</span>
+							<span class="format-spec__value">H.264 AVC, HEVC, MPEG-2</span>
+						</div>
+						<div class="format-spec">
+							<span class="format-spec__label">Capacity</span>
+							<span class="format-spec__value">25 GB (BD-25) / 50 GB (BD-50)</span>
+						</div>
+						<div class="format-spec">
+							<span class="format-spec__label">Max Bitrate</span>
+							<span class="format-spec__value">40 Mbps</span>
+						</div>
+					</div>
 
-        <div class="format-card__name" style="color:var(--brand-blue);">Blu-ray Disc</div>
-        <div class="format-card__desc">High-definition optical disc. H.264/HEVC video, lossless audio, popup menus, BD-J interactivity.</div>
+					<div class="format-card__badge format-card__badge--coming">
+						<svg
+							width="10"
+							height="10"
+							viewBox="0 0 16 16"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="1.5"
+						>
+							<circle cx="8" cy="8" r="6" />
+							<path d="M8 5v3M8 10v1" />
+						</svg>
+						Coming Soon
+					</div>
+				</div>
+			</div>
 
-        <div class="format-card__specs">
-          <div class="format-spec">
-            <span class="format-spec__label">Resolution</span>
-            <span class="format-spec__value">1920×1080, 1280×720, SD</span>
-          </div>
-          <div class="format-spec">
-            <span class="format-spec__label">Video Codecs</span>
-            <span class="format-spec__value">H.264 AVC, HEVC, MPEG-2</span>
-          </div>
-          <div class="format-spec">
-            <span class="format-spec__label">Capacity</span>
-            <span class="format-spec__value">25 GB (BD-25) / 50 GB (BD-50)</span>
-          </div>
-          <div class="format-spec">
-            <span class="format-spec__label">Max Bitrate</span>
-            <span class="format-spec__value">40 Mbps</span>
-          </div>
-        </div>
+			<!-- ═══ Sub-options (shown when DVD selected) ═══ -->
+			<div class="sub-options">
+				<h3 style="font-size: var(--text-md); margin-bottom: var(--space-3)">Video Standard</h3>
+				<div class="sub-options__row">
+					<div class="sub-opt sub-opt--selected">
+						<div class="sub-opt__name">NTSC</div>
+						<div class="sub-opt__detail">29.97 fps · 720×480 · North America, Japan</div>
+					</div>
+					<div class="sub-opt">
+						<div class="sub-opt__name">PAL</div>
+						<div class="sub-opt__detail">25 fps · 720×576 · Europe, Australia</div>
+					</div>
+					<div class="sub-opt">
+						<div class="sub-opt__name">Auto-detect</div>
+						<div class="sub-opt__detail">Match first imported asset</div>
+					</div>
+				</div>
+			</div>
 
-        <div class="format-card__badge format-card__badge--coming">
-          <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 5v3M8 10v1"/></svg>
-          Coming Soon
-        </div>
-      </div>
-    </div>
+			<!-- ═══ Disc Size ═══ -->
+			<div class="sub-options" style="margin-top: var(--space-4)">
+				<h3 style="font-size: var(--text-md); margin-bottom: var(--space-3)">Disc Capacity</h3>
+				<div class="sub-options__row" style="grid-template-columns: 1fr 1fr">
+					<div class="sub-opt sub-opt--selected">
+						<div class="sub-opt__name">DVD-5</div>
+						<div class="sub-opt__detail">4.7 GB · Single layer</div>
+					</div>
+					<div class="sub-opt">
+						<div class="sub-opt__name">DVD-9</div>
+						<div class="sub-opt__detail">8.5 GB · Dual layer</div>
+					</div>
+				</div>
+			</div>
 
-    <!-- ═══ Sub-options (shown when DVD selected) ═══ -->
-    <div class="sub-options">
-      <h3 style="font-size:var(--text-md); margin-bottom:var(--space-3);">Video Standard</h3>
-      <div class="sub-options__row">
-        <div class="sub-opt sub-opt--selected">
-          <div class="sub-opt__name">NTSC</div>
-          <div class="sub-opt__detail">29.97 fps · 720×480 · North America, Japan</div>
-        </div>
-        <div class="sub-opt">
-          <div class="sub-opt__name">PAL</div>
-          <div class="sub-opt__detail">25 fps · 720×576 · Europe, Australia</div>
-        </div>
-        <div class="sub-opt">
-          <div class="sub-opt__name">Auto-detect</div>
-          <div class="sub-opt__detail">Match first imported asset</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ═══ Disc Size ═══ -->
-    <div class="sub-options" style="margin-top:var(--space-4);">
-      <h3 style="font-size:var(--text-md); margin-bottom:var(--space-3);">Disc Capacity</h3>
-      <div class="sub-options__row" style="grid-template-columns:1fr 1fr;">
-        <div class="sub-opt sub-opt--selected">
-          <div class="sub-opt__name">DVD-5</div>
-          <div class="sub-opt__detail">4.7 GB · Single layer</div>
-        </div>
-        <div class="sub-opt">
-          <div class="sub-opt__name">DVD-9</div>
-          <div class="sub-opt__detail">8.5 GB · Dual layer</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ═══ Project Name ═══ -->
-    <div class="project-setup">
-      <div class="setup-row">
-        <div class="form-group">
-          <label class="form-label">Project Name</label>
-          <input class="input" value="Untitled Project" style="font-size:var(--text-md);">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Save Location</label>
-          <div class="flex gap-2">
-            <input class="input" value="~/Documents/Spindle/" style="font-family:var(--font-mono);font-size:var(--text-xs);">
-            <button class="btn">Browse</button>
-          </div>
-        </div>
-      </div>
-      <div style="text-align:right;">
-        <button class="btn" style="margin-right:var(--space-2);">Cancel</button>
-        <button class="btn btn--primary" style="padding:var(--space-3) var(--space-6);">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="var(--text-inverse)" stroke-width="1.5"><path d="M8 2v12M2 8h12"/></svg>
-          Create Project
-        </button>
-      </div>
-    </div>
-  </div>
-</body>
+			<!-- ═══ Project Name ═══ -->
+			<div class="project-setup">
+				<div class="setup-row">
+					<div class="form-group">
+						<label class="form-label">Project Name</label>
+						<input class="input" value="Untitled Project" style="font-size: var(--text-md)" />
+					</div>
+					<div class="form-group">
+						<label class="form-label">Save Location</label>
+						<div class="flex gap-2">
+							<input
+								class="input"
+								value="~/Documents/Spindle/"
+								style="font-family: var(--font-mono); font-size: var(--text-xs)"
+							/>
+							<button class="btn">Browse</button>
+						</div>
+					</div>
+				</div>
+				<div style="text-align: right">
+					<button class="btn" style="margin-right: var(--space-2)">Cancel</button>
+					<button class="btn btn--primary" style="padding: var(--space-3) var(--space-6)">
+						<svg
+							width="14"
+							height="14"
+							viewBox="0 0 16 16"
+							fill="none"
+							stroke="var(--text-inverse)"
+							stroke-width="1.5"
+						>
+							<path d="M8 2v12M2 8h12" />
+						</svg>
+						Create Project
+					</button>
+				</div>
+			</div>
+		</div>
+	</body>
 </html>

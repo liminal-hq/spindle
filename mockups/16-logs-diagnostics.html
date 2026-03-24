@@ -1,335 +1,454 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en-CA">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=1280">
-  <title>Spindle — Logs &amp; Diagnostics</title>
-  <link rel="stylesheet" href="design-system.css">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
-  <style>
-    body { background: var(--bg-panel); }
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=1280" />
+		<title>Spindle — Logs &amp; Diagnostics</title>
+		<link rel="stylesheet" href="design-system.css" />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap"
+			rel="stylesheet"
+		/>
+		<style>
+			body {
+				background: var(--bg-panel);
+			}
 
-    .logs-layout {
-      display: grid;
-      grid-template-columns: 1fr 280px;
-      gap: var(--space-4);
-      max-width: 1040px;
-      height: calc(100vh - 120px);
-    }
+			.logs-layout {
+				display: grid;
+				grid-template-columns: 1fr 280px;
+				gap: var(--space-4);
+				max-width: 1040px;
+				height: calc(100vh - 120px);
+			}
 
-    /* -- Log viewer -- */
-    .log-viewer {
-      background: var(--bg-app);
-      border: 1px solid var(--border-subtle);
-      border-radius: var(--radius-lg);
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
+			/* -- Log viewer -- */
+			.log-viewer {
+				background: var(--bg-app);
+				border: 1px solid var(--border-subtle);
+				border-radius: var(--radius-lg);
+				display: flex;
+				flex-direction: column;
+				overflow: hidden;
+			}
 
-    .log-toolbar {
-      display: flex;
-      align-items: center;
-      gap: var(--space-2);
-      padding: var(--space-2) var(--space-3);
-      border-bottom: 1px solid var(--border-subtle);
-      background: var(--bg-sidebar);
-    }
+			.log-toolbar {
+				display: flex;
+				align-items: center;
+				gap: var(--space-2);
+				padding: var(--space-2) var(--space-3);
+				border-bottom: 1px solid var(--border-subtle);
+				background: var(--bg-sidebar);
+			}
 
-    .log-content {
-      flex: 1;
-      overflow-y: auto;
-      padding: var(--space-3);
-      font-family: var(--font-mono);
-      font-size: 11px;
-      line-height: 1.7;
-    }
+			.log-content {
+				flex: 1;
+				overflow-y: auto;
+				padding: var(--space-3);
+				font-family: var(--font-mono);
+				font-size: 11px;
+				line-height: 1.7;
+			}
 
-    .log-line {
-      display: flex;
-      gap: var(--space-3);
-      padding: 1px 0;
-    }
-    .log-line:hover {
-      background: rgba(255,255,255,0.02);
-    }
-    .log-line__time {
-      color: var(--text-muted);
-      flex-shrink: 0;
-      width: 70px;
-    }
-    .log-line__level {
-      flex-shrink: 0;
-      width: 42px;
-      font-weight: 600;
-      text-transform: uppercase;
-      font-size: 9px;
-      padding-top: 2px;
-    }
-    .log-line__level--info { color: var(--brand-blue); }
-    .log-line__level--warn { color: var(--colour-warning); }
-    .log-line__level--ok   { color: var(--colour-success); }
-    .log-line__level--cmd  { color: var(--brand-orange); }
-    .log-line__level--err  { color: var(--colour-error); }
+			.log-line {
+				display: flex;
+				gap: var(--space-3);
+				padding: 1px 0;
+			}
+			.log-line:hover {
+				background: rgba(255, 255, 255, 0.02);
+			}
+			.log-line__time {
+				color: var(--text-muted);
+				flex-shrink: 0;
+				width: 70px;
+			}
+			.log-line__level {
+				flex-shrink: 0;
+				width: 42px;
+				font-weight: 600;
+				text-transform: uppercase;
+				font-size: 9px;
+				padding-top: 2px;
+			}
+			.log-line__level--info {
+				color: var(--brand-blue);
+			}
+			.log-line__level--warn {
+				color: var(--colour-warning);
+			}
+			.log-line__level--ok {
+				color: var(--colour-success);
+			}
+			.log-line__level--cmd {
+				color: var(--brand-orange);
+			}
+			.log-line__level--err {
+				color: var(--colour-error);
+			}
 
-    .log-line__msg { color: var(--text-secondary); flex: 1; word-break: break-all; }
-    .log-line__msg--dim { color: var(--text-muted); }
+			.log-line__msg {
+				color: var(--text-secondary);
+				flex: 1;
+				word-break: break-all;
+			}
+			.log-line__msg--dim {
+				color: var(--text-muted);
+			}
 
-    /* -- Filter chips in toolbar -- */
-    .log-filter {
-      padding: 2px 8px;
-      font-size: 9px;
-      font-weight: 600;
-      border-radius: 10px;
-      border: 1px solid var(--border-subtle);
-      background: transparent;
-      color: var(--text-muted);
-      cursor: pointer;
-      transition: all var(--transition-fast);
-    }
-    .log-filter:hover { border-color: var(--border-default); }
-    .log-filter--active {
-      background: rgba(255,170,64,0.1);
-      border-color: rgba(255,170,64,0.3);
-      color: var(--brand-orange);
-    }
+			/* -- Filter chips in toolbar -- */
+			.log-filter {
+				padding: 2px 8px;
+				font-size: 9px;
+				font-weight: 600;
+				border-radius: 10px;
+				border: 1px solid var(--border-subtle);
+				background: transparent;
+				color: var(--text-muted);
+				cursor: pointer;
+				transition: all var(--transition-fast);
+			}
+			.log-filter:hover {
+				border-color: var(--border-default);
+			}
+			.log-filter--active {
+				background: rgba(255, 170, 64, 0.1);
+				border-color: rgba(255, 170, 64, 0.3);
+				color: var(--brand-orange);
+			}
 
-    /* -- Sidebar panels -- */
-    .diag-panel {
-      background: var(--bg-card);
-      border: 1px solid var(--border-subtle);
-      border-radius: var(--radius-lg);
-      padding: var(--space-3);
-      margin-bottom: var(--space-3);
-    }
-    .diag-panel__title {
-      font-size: var(--text-xs);
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      color: var(--text-muted);
-      margin-bottom: var(--space-2);
-    }
-    .diag-row {
-      display: flex;
-      justify-content: space-between;
-      padding: 3px 0;
-      font-size: var(--text-xs);
-    }
-    .diag-row__label { color: var(--text-muted); }
-    .diag-row__value { color: var(--text-primary); font-weight: 500; }
-  </style>
-</head>
-<body>
-  <div style="padding: var(--space-6); max-width: 1100px;">
+			/* -- Sidebar panels -- */
+			.diag-panel {
+				background: var(--bg-card);
+				border: 1px solid var(--border-subtle);
+				border-radius: var(--radius-lg);
+				padding: var(--space-3);
+				margin-bottom: var(--space-3);
+			}
+			.diag-panel__title {
+				font-size: var(--text-xs);
+				font-weight: 600;
+				text-transform: uppercase;
+				letter-spacing: 0.06em;
+				color: var(--text-muted);
+				margin-bottom: var(--space-2);
+			}
+			.diag-row {
+				display: flex;
+				justify-content: space-between;
+				padding: 3px 0;
+				font-size: var(--text-xs);
+			}
+			.diag-row__label {
+				color: var(--text-muted);
+			}
+			.diag-row__value {
+				color: var(--text-primary);
+				font-weight: 500;
+			}
+		</style>
+	</head>
+	<body>
+		<div style="padding: var(--space-6); max-width: 1100px">
+			<div class="page-header">
+				<div>
+					<h1 class="page-title">Logs &amp; Diagnostics</h1>
+					<p class="text-muted" style="font-size: var(--text-sm); margin-top: 2px">
+						Build log · 142 entries · Last build completed 3 min ago
+					</p>
+				</div>
+				<div class="flex gap-2">
+					<button class="btn">
+						<svg
+							width="14"
+							height="14"
+							viewBox="0 0 16 16"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="1.5"
+						>
+							<path d="M4 12V8l4-6 4 6v4" />
+						</svg>
+						Export Diagnostics
+					</button>
+					<button class="btn btn--ghost">Clear</button>
+				</div>
+			</div>
 
-    <div class="page-header">
-      <div>
-        <h1 class="page-title">Logs &amp; Diagnostics</h1>
-        <p class="text-muted" style="font-size:var(--text-sm); margin-top:2px;">Build log · 142 entries · Last build completed 3 min ago</p>
-      </div>
-      <div class="flex gap-2">
-        <button class="btn">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 12V8l4-6 4 6v4"/></svg>
-          Export Diagnostics
-        </button>
-        <button class="btn btn--ghost">Clear</button>
-      </div>
-    </div>
+			<div class="logs-layout">
+				<!-- ═══ Log Viewer ═══ -->
+				<div class="log-viewer">
+					<div class="log-toolbar">
+						<svg
+							width="14"
+							height="14"
+							viewBox="0 0 16 16"
+							fill="none"
+							stroke="var(--text-muted)"
+							stroke-width="1.5"
+						>
+							<circle cx="7" cy="7" r="4.5" />
+							<path d="M10.5 10.5L14 14" />
+						</svg>
+						<input
+							class="input"
+							placeholder="Filter logs..."
+							style="
+								border: none;
+								background: transparent;
+								padding: 2px 4px;
+								font-size: var(--text-xs);
+								flex: 1;
+							"
+						/>
+						<div class="flex gap-1">
+							<span class="log-filter log-filter--active">All</span>
+							<span class="log-filter">Info</span>
+							<span class="log-filter">Warn</span>
+							<span class="log-filter">Error</span>
+							<span class="log-filter">Cmd</span>
+						</div>
+					</div>
 
-    <div class="logs-layout">
-      <!-- ═══ Log Viewer ═══ -->
-      <div class="log-viewer">
-        <div class="log-toolbar">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="var(--text-muted)" stroke-width="1.5"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L14 14"/></svg>
-          <input class="input" placeholder="Filter logs..." style="border:none;background:transparent;padding:2px 4px;font-size:var(--text-xs);flex:1;">
-          <div class="flex gap-1">
-            <span class="log-filter log-filter--active">All</span>
-            <span class="log-filter">Info</span>
-            <span class="log-filter">Warn</span>
-            <span class="log-filter">Error</span>
-            <span class="log-filter">Cmd</span>
-          </div>
-        </div>
+					<div class="log-content">
+						<div class="log-line">
+							<span class="log-line__time">13:42:01</span>
+							<span class="log-line__level log-line__level--info">INFO</span>
+							<span class="log-line__msg">Build started — mode: final, backend: dvd-video</span>
+						</div>
+						<div class="log-line">
+							<span class="log-line__time">13:42:01</span>
+							<span class="log-line__level log-line__level--ok">PASS</span>
+							<span class="log-line__msg"
+								>Project validation: 3 titles, 2 menus, all assets linked</span
+							>
+						</div>
+						<div class="log-line">
+							<span class="log-line__time">13:42:02</span>
+							<span class="log-line__level log-line__level--cmd">CMD</span>
+							<span class="log-line__msg"
+								>ffprobe -v quiet -print_format json -show_streams ceremony_full.mpg</span
+							>
+						</div>
+						<div class="log-line">
+							<span class="log-line__time">13:42:03</span>
+							<span class="log-line__level log-line__level--info">INFO</span>
+							<span class="log-line__msg"
+								>ceremony_full.mpg: MPEG-2, 720×480, 29.97fps — remux eligible</span
+							>
+						</div>
+						<div class="log-line">
+							<span class="log-line__time">13:42:03</span>
+							<span class="log-line__level log-line__level--cmd">CMD</span>
+							<span class="log-line__msg"
+								>ffprobe -v quiet -print_format json -show_streams reception_edit_v2.mp4</span
+							>
+						</div>
+						<div class="log-line">
+							<span class="log-line__time">13:42:04</span>
+							<span class="log-line__level log-line__level--warn">WARN</span>
+							<span class="log-line__msg"
+								>reception_edit_v2.mp4: H.264 → requires re-encode to MPEG-2</span
+							>
+						</div>
+						<div class="log-line">
+							<span class="log-line__time">13:42:04</span>
+							<span class="log-line__level log-line__level--warn">WARN</span>
+							<span class="log-line__msg"
+								>highlights_final.mp4: 1920×1080 → will downscale to 720×480</span
+							>
+						</div>
+						<div class="log-line">
+							<span class="log-line__time">13:42:05</span>
+							<span class="log-line__level log-line__level--ok">PASS</span>
+							<span class="log-line__msg">Backend resolved: dvdauthor 0.7.2, spumux 0.7.2</span>
+						</div>
+						<div class="log-line">
+							<span class="log-line__time">13:42:05</span>
+							<span class="log-line__level log-line__level--cmd">CMD</span>
+							<span class="log-line__msg"
+								>ffmpeg -i ceremony_full.mpg -c copy -target ntsc-dvd title_01.mpg</span
+							>
+						</div>
+						<div class="log-line">
+							<span class="log-line__time">13:42:06</span>
+							<span class="log-line__level log-line__level--ok">PASS</span>
+							<span class="log-line__msg">Title 1 (Ceremony): stream copy complete — 2.14 GB</span>
+						</div>
+						<div class="log-line">
+							<span class="log-line__time">13:42:06</span>
+							<span class="log-line__level log-line__level--cmd">CMD</span>
+							<span class="log-line__msg"
+								>ffmpeg -i reception_edit_v2.mp4 -target ntsc-dvd -b:v 4600k title_02.mpg</span
+							>
+						</div>
+						<div class="log-line">
+							<span class="log-line__time">13:42:06</span>
+							<span class="log-line__level log-line__level--info">INFO</span>
+							<span class="log-line__msg log-line__msg--dim"
+								>Encoding Title 2 (Reception)… frame=0 fps=0</span
+							>
+						</div>
+						<div class="log-line">
+							<span class="log-line__time">13:45:12</span>
+							<span class="log-line__level log-line__level--ok">PASS</span>
+							<span class="log-line__msg"
+								>Title 2 (Reception): encode complete — 1.31 GB, 186s</span
+							>
+						</div>
+						<div class="log-line">
+							<span class="log-line__time">13:45:12</span>
+							<span class="log-line__level log-line__level--cmd">CMD</span>
+							<span class="log-line__msg"
+								>ffmpeg -i highlights_final.mp4 -target ntsc-dvd -b:v 7500k -vf scale=720:480
+								title_03.mpg</span
+							>
+						</div>
+						<div class="log-line">
+							<span class="log-line__time">13:46:02</span>
+							<span class="log-line__level log-line__level--ok">PASS</span>
+							<span class="log-line__msg"
+								>Title 3 (Highlights): encode complete — 0.72 GB, 50s</span
+							>
+						</div>
+						<div class="log-line">
+							<span class="log-line__time">13:46:03</span>
+							<span class="log-line__level log-line__level--cmd">CMD</span>
+							<span class="log-line__msg"
+								>spumux -s0 menu_highlight.xml &lt; menu_bg.mpg &gt; menu_final.mpg</span
+							>
+						</div>
+						<div class="log-line">
+							<span class="log-line__time">13:46:04</span>
+							<span class="log-line__level log-line__level--cmd">CMD</span>
+							<span class="log-line__msg">dvdauthor -o VIDEO_TS/ -x dvdauthor.xml</span>
+						</div>
+						<div class="log-line">
+							<span class="log-line__time">13:46:08</span>
+							<span class="log-line__level log-line__level--ok">PASS</span>
+							<span class="log-line__msg">VIDEO_TS authored successfully — 4.09 GB</span>
+						</div>
+						<div class="log-line">
+							<span class="log-line__time">13:46:08</span>
+							<span class="log-line__level log-line__level--ok">PASS</span>
+							<span class="log-line__msg">Build complete — 4 min 7 sec total</span>
+						</div>
+					</div>
+				</div>
 
-        <div class="log-content">
-          <div class="log-line">
-            <span class="log-line__time">13:42:01</span>
-            <span class="log-line__level log-line__level--info">INFO</span>
-            <span class="log-line__msg">Build started — mode: final, backend: dvd-video</span>
-          </div>
-          <div class="log-line">
-            <span class="log-line__time">13:42:01</span>
-            <span class="log-line__level log-line__level--ok">PASS</span>
-            <span class="log-line__msg">Project validation: 3 titles, 2 menus, all assets linked</span>
-          </div>
-          <div class="log-line">
-            <span class="log-line__time">13:42:02</span>
-            <span class="log-line__level log-line__level--cmd">CMD</span>
-            <span class="log-line__msg">ffprobe -v quiet -print_format json -show_streams ceremony_full.mpg</span>
-          </div>
-          <div class="log-line">
-            <span class="log-line__time">13:42:03</span>
-            <span class="log-line__level log-line__level--info">INFO</span>
-            <span class="log-line__msg">ceremony_full.mpg: MPEG-2, 720×480, 29.97fps — remux eligible</span>
-          </div>
-          <div class="log-line">
-            <span class="log-line__time">13:42:03</span>
-            <span class="log-line__level log-line__level--cmd">CMD</span>
-            <span class="log-line__msg">ffprobe -v quiet -print_format json -show_streams reception_edit_v2.mp4</span>
-          </div>
-          <div class="log-line">
-            <span class="log-line__time">13:42:04</span>
-            <span class="log-line__level log-line__level--warn">WARN</span>
-            <span class="log-line__msg">reception_edit_v2.mp4: H.264 → requires re-encode to MPEG-2</span>
-          </div>
-          <div class="log-line">
-            <span class="log-line__time">13:42:04</span>
-            <span class="log-line__level log-line__level--warn">WARN</span>
-            <span class="log-line__msg">highlights_final.mp4: 1920×1080 → will downscale to 720×480</span>
-          </div>
-          <div class="log-line">
-            <span class="log-line__time">13:42:05</span>
-            <span class="log-line__level log-line__level--ok">PASS</span>
-            <span class="log-line__msg">Backend resolved: dvdauthor 0.7.2, spumux 0.7.2</span>
-          </div>
-          <div class="log-line">
-            <span class="log-line__time">13:42:05</span>
-            <span class="log-line__level log-line__level--cmd">CMD</span>
-            <span class="log-line__msg">ffmpeg -i ceremony_full.mpg -c copy -target ntsc-dvd title_01.mpg</span>
-          </div>
-          <div class="log-line">
-            <span class="log-line__time">13:42:06</span>
-            <span class="log-line__level log-line__level--ok">PASS</span>
-            <span class="log-line__msg">Title 1 (Ceremony): stream copy complete — 2.14 GB</span>
-          </div>
-          <div class="log-line">
-            <span class="log-line__time">13:42:06</span>
-            <span class="log-line__level log-line__level--cmd">CMD</span>
-            <span class="log-line__msg">ffmpeg -i reception_edit_v2.mp4 -target ntsc-dvd -b:v 4600k title_02.mpg</span>
-          </div>
-          <div class="log-line">
-            <span class="log-line__time">13:42:06</span>
-            <span class="log-line__level log-line__level--info">INFO</span>
-            <span class="log-line__msg log-line__msg--dim">Encoding Title 2 (Reception)… frame=0 fps=0</span>
-          </div>
-          <div class="log-line">
-            <span class="log-line__time">13:45:12</span>
-            <span class="log-line__level log-line__level--ok">PASS</span>
-            <span class="log-line__msg">Title 2 (Reception): encode complete — 1.31 GB, 186s</span>
-          </div>
-          <div class="log-line">
-            <span class="log-line__time">13:45:12</span>
-            <span class="log-line__level log-line__level--cmd">CMD</span>
-            <span class="log-line__msg">ffmpeg -i highlights_final.mp4 -target ntsc-dvd -b:v 7500k -vf scale=720:480 title_03.mpg</span>
-          </div>
-          <div class="log-line">
-            <span class="log-line__time">13:46:02</span>
-            <span class="log-line__level log-line__level--ok">PASS</span>
-            <span class="log-line__msg">Title 3 (Highlights): encode complete — 0.72 GB, 50s</span>
-          </div>
-          <div class="log-line">
-            <span class="log-line__time">13:46:03</span>
-            <span class="log-line__level log-line__level--cmd">CMD</span>
-            <span class="log-line__msg">spumux -s0 menu_highlight.xml &lt; menu_bg.mpg &gt; menu_final.mpg</span>
-          </div>
-          <div class="log-line">
-            <span class="log-line__time">13:46:04</span>
-            <span class="log-line__level log-line__level--cmd">CMD</span>
-            <span class="log-line__msg">dvdauthor -o VIDEO_TS/ -x dvdauthor.xml</span>
-          </div>
-          <div class="log-line">
-            <span class="log-line__time">13:46:08</span>
-            <span class="log-line__level log-line__level--ok">PASS</span>
-            <span class="log-line__msg">VIDEO_TS authored successfully — 4.09 GB</span>
-          </div>
-          <div class="log-line">
-            <span class="log-line__time">13:46:08</span>
-            <span class="log-line__level log-line__level--ok">PASS</span>
-            <span class="log-line__msg">Build complete — 4 min 7 sec total</span>
-          </div>
-        </div>
-      </div>
+				<!-- ═══ Sidebar ═══ -->
+				<div style="overflow-y: auto">
+					<div class="diag-panel">
+						<div class="diag-panel__title">Build Result</div>
+						<div
+							style="
+								display: flex;
+								align-items: center;
+								gap: var(--space-2);
+								margin-bottom: var(--space-2);
+							"
+						>
+							<span class="badge badge--remux" style="padding: 4px 12px">Success</span>
+						</div>
+						<div class="diag-row">
+							<span class="diag-row__label">Duration</span>
+							<span class="diag-row__value">4 min 7 sec</span>
+						</div>
+						<div class="diag-row">
+							<span class="diag-row__label">Output</span>
+							<span class="diag-row__value mono" style="font-size: 9px">VIDEO_TS/</span>
+						</div>
+						<div class="diag-row">
+							<span class="diag-row__label">Size</span>
+							<span class="diag-row__value">4.09 GB</span>
+						</div>
+					</div>
 
-      <!-- ═══ Sidebar ═══ -->
-      <div style="overflow-y:auto;">
-        <div class="diag-panel">
-          <div class="diag-panel__title">Build Result</div>
-          <div style="display:flex;align-items:center;gap:var(--space-2);margin-bottom:var(--space-2);">
-            <span class="badge badge--remux" style="padding:4px 12px;">Success</span>
-          </div>
-          <div class="diag-row">
-            <span class="diag-row__label">Duration</span>
-            <span class="diag-row__value">4 min 7 sec</span>
-          </div>
-          <div class="diag-row">
-            <span class="diag-row__label">Output</span>
-            <span class="diag-row__value mono" style="font-size:9px;">VIDEO_TS/</span>
-          </div>
-          <div class="diag-row">
-            <span class="diag-row__label">Size</span>
-            <span class="diag-row__value">4.09 GB</span>
-          </div>
-        </div>
+					<div class="diag-panel">
+						<div class="diag-panel__title">Toolchain Versions</div>
+						<div class="diag-row">
+							<span class="diag-row__label">ffmpeg</span>
+							<span class="diag-row__value mono">8.1.2</span>
+						</div>
+						<div class="diag-row">
+							<span class="diag-row__label">ffprobe</span>
+							<span class="diag-row__value mono">8.1.2</span>
+						</div>
+						<div class="diag-row">
+							<span class="diag-row__label">dvdauthor</span>
+							<span class="diag-row__value mono">0.7.2</span>
+						</div>
+						<div class="diag-row">
+							<span class="diag-row__label">spumux</span>
+							<span class="diag-row__value mono">0.7.2</span>
+						</div>
+					</div>
 
-        <div class="diag-panel">
-          <div class="diag-panel__title">Toolchain Versions</div>
-          <div class="diag-row">
-            <span class="diag-row__label">ffmpeg</span>
-            <span class="diag-row__value mono">8.1.2</span>
-          </div>
-          <div class="diag-row">
-            <span class="diag-row__label">ffprobe</span>
-            <span class="diag-row__value mono">8.1.2</span>
-          </div>
-          <div class="diag-row">
-            <span class="diag-row__label">dvdauthor</span>
-            <span class="diag-row__value mono">0.7.2</span>
-          </div>
-          <div class="diag-row">
-            <span class="diag-row__label">spumux</span>
-            <span class="diag-row__value mono">0.7.2</span>
-          </div>
-        </div>
+					<div class="diag-panel">
+						<div class="diag-panel__title">Commands Executed</div>
+						<div class="diag-row">
+							<span class="diag-row__label">ffprobe</span>
+							<span class="diag-row__value">3 calls</span>
+						</div>
+						<div class="diag-row">
+							<span class="diag-row__label">ffmpeg</span>
+							<span class="diag-row__value">3 calls</span>
+						</div>
+						<div class="diag-row">
+							<span class="diag-row__label">spumux</span>
+							<span class="diag-row__value">2 calls</span>
+						</div>
+						<div class="diag-row">
+							<span class="diag-row__label">dvdauthor</span>
+							<span class="diag-row__value">1 call</span>
+						</div>
+					</div>
 
-        <div class="diag-panel">
-          <div class="diag-panel__title">Commands Executed</div>
-          <div class="diag-row">
-            <span class="diag-row__label">ffprobe</span>
-            <span class="diag-row__value">3 calls</span>
-          </div>
-          <div class="diag-row">
-            <span class="diag-row__label">ffmpeg</span>
-            <span class="diag-row__value">3 calls</span>
-          </div>
-          <div class="diag-row">
-            <span class="diag-row__label">spumux</span>
-            <span class="diag-row__value">2 calls</span>
-          </div>
-          <div class="diag-row">
-            <span class="diag-row__label">dvdauthor</span>
-            <span class="diag-row__value">1 call</span>
-          </div>
-        </div>
+					<div class="diag-panel">
+						<div class="diag-panel__title">Warnings</div>
+						<div
+							style="
+								font-size: var(--text-xs);
+								color: var(--colour-warning);
+								display: flex;
+								align-items: center;
+								gap: var(--space-1);
+								margin-bottom: 4px;
+							"
+						>
+							<svg
+								width="10"
+								height="10"
+								viewBox="0 0 16 16"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="1.5"
+							>
+								<path d="M8 2L1 14h14L8 2z" />
+							</svg>
+							2 warnings during build
+						</div>
+						<div style="font-size: var(--text-xs); color: var(--text-muted); padding-left: 14px">
+							• H.264 → MPEG-2 re-encode<br />
+							• 1080p → 480p downscale
+						</div>
+					</div>
 
-        <div class="diag-panel">
-          <div class="diag-panel__title">Warnings</div>
-          <div style="font-size:var(--text-xs);color:var(--colour-warning);display:flex;align-items:center;gap:var(--space-1);margin-bottom:4px;">
-            <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2L1 14h14L8 2z"/></svg>
-            2 warnings during build
-          </div>
-          <div style="font-size:var(--text-xs);color:var(--text-muted);padding-left:14px;">
-            • H.264 → MPEG-2 re-encode<br>
-            • 1080p → 480p downscale
-          </div>
-        </div>
-
-        <button class="btn w-full" style="justify-content:center;margin-top:var(--space-2);">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 10v4h12v-4M8 2v8M5 5l3-3 3 3"/></svg>
-          Export Full Diagnostics
-        </button>
-      </div>
-    </div>
-  </div>
-</body>
+					<button class="btn w-full" style="justify-content: center; margin-top: var(--space-2)">
+						<svg
+							width="14"
+							height="14"
+							viewBox="0 0 16 16"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="1.5"
+						>
+							<path d="M2 10v4h12v-4M8 2v8M5 5l3-3 3 3" />
+						</svg>
+						Export Full Diagnostics
+					</button>
+				</div>
+			</div>
+		</div>
+	</body>
 </html>

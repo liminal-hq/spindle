@@ -1,361 +1,465 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en-CA">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=1280">
-  <title>Spindle — Disc Planner</title>
-  <link rel="stylesheet" href="design-system.css">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
-  <style>
-    body { background: var(--bg-panel); }
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=1280" />
+		<title>Spindle — Disc Planner</title>
+		<link rel="stylesheet" href="design-system.css" />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap"
+			rel="stylesheet"
+		/>
+		<style>
+			body {
+				background: var(--bg-panel);
+			}
 
-    /* -- Large capacity visualisation -- */
-    .disc-visual {
-      position: relative;
-      margin-bottom: var(--space-6);
-    }
+			/* -- Large capacity visualisation -- */
+			.disc-visual {
+				position: relative;
+				margin-bottom: var(--space-6);
+			}
 
-    .disc-ring {
-      width: 200px;
-      height: 200px;
-      margin: 0 auto;
-      position: relative;
-    }
-    .disc-ring svg {
-      transform: rotate(-90deg);
-    }
-    .disc-ring__center {
-      position: absolute;
-      inset: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-    }
-    .disc-ring__percent {
-      font-family: var(--font-heading);
-      font-size: var(--text-3xl);
-      font-weight: 700;
-      line-height: 1;
-    }
-    .disc-ring__label {
-      font-size: var(--text-xs);
-      color: var(--text-muted);
-      margin-top: 2px;
-    }
+			.disc-ring {
+				width: 200px;
+				height: 200px;
+				margin: 0 auto;
+				position: relative;
+			}
+			.disc-ring svg {
+				transform: rotate(-90deg);
+			}
+			.disc-ring__center {
+				position: absolute;
+				inset: 0;
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				justify-content: center;
+			}
+			.disc-ring__percent {
+				font-family: var(--font-heading);
+				font-size: var(--text-3xl);
+				font-weight: 700;
+				line-height: 1;
+			}
+			.disc-ring__label {
+				font-size: var(--text-xs);
+				color: var(--text-muted);
+				margin-top: 2px;
+			}
 
-    /* -- Stacked bar -- */
-    .planner-bar {
-      margin: var(--space-4) 0;
-    }
-    .planner-bar__row {
-      display: flex;
-      height: 36px;
-      border-radius: var(--radius-md);
-      overflow: hidden;
-      border: 1px solid var(--border-subtle);
-    }
-    .planner-bar__seg {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: var(--text-xs);
-      font-weight: 600;
-      color: rgba(0,0,0,0.7);
-      transition: width var(--transition-slow);
-      position: relative;
-      overflow: hidden;
-    }
-    .planner-bar__seg:hover {
-      filter: brightness(1.1);
-    }
+			/* -- Stacked bar -- */
+			.planner-bar {
+				margin: var(--space-4) 0;
+			}
+			.planner-bar__row {
+				display: flex;
+				height: 36px;
+				border-radius: var(--radius-md);
+				overflow: hidden;
+				border: 1px solid var(--border-subtle);
+			}
+			.planner-bar__seg {
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				font-size: var(--text-xs);
+				font-weight: 600;
+				color: rgba(0, 0, 0, 0.7);
+				transition: width var(--transition-slow);
+				position: relative;
+				overflow: hidden;
+			}
+			.planner-bar__seg:hover {
+				filter: brightness(1.1);
+			}
 
-    .planner-legend {
-      display: flex;
-      gap: var(--space-4);
-      margin-top: var(--space-2);
-      flex-wrap: wrap;
-    }
-    .planner-legend__item {
-      display: flex;
-      align-items: center;
-      gap: var(--space-1);
-      font-size: var(--text-xs);
-      color: var(--text-secondary);
-    }
-    .planner-legend__dot {
-      width: 10px; height: 10px;
-      border-radius: 2px;
-    }
+			.planner-legend {
+				display: flex;
+				gap: var(--space-4);
+				margin-top: var(--space-2);
+				flex-wrap: wrap;
+			}
+			.planner-legend__item {
+				display: flex;
+				align-items: center;
+				gap: var(--space-1);
+				font-size: var(--text-xs);
+				color: var(--text-secondary);
+			}
+			.planner-legend__dot {
+				width: 10px;
+				height: 10px;
+				border-radius: 2px;
+			}
 
-    /* -- Per-title bitrate cards -- */
-    .bitrate-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-      gap: var(--space-4);
-      margin-top: var(--space-6);
-    }
+			/* -- Per-title bitrate cards -- */
+			.bitrate-grid {
+				display: grid;
+				grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+				gap: var(--space-4);
+				margin-top: var(--space-6);
+			}
 
-    .bitrate-card {
-      background: var(--bg-card);
-      border: 1px solid var(--border-subtle);
-      border-radius: var(--radius-lg);
-      padding: var(--space-4);
-    }
-    .bitrate-card__header {
-      display: flex;
-      align-items: center;
-      gap: var(--space-2);
-      margin-bottom: var(--space-3);
-    }
-    .bitrate-card__num {
-      width: 28px; height: 28px;
-      border-radius: 6px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-family: var(--font-heading);
-      font-weight: 700;
-      font-size: var(--text-sm);
-    }
+			.bitrate-card {
+				background: var(--bg-card);
+				border: 1px solid var(--border-subtle);
+				border-radius: var(--radius-lg);
+				padding: var(--space-4);
+			}
+			.bitrate-card__header {
+				display: flex;
+				align-items: center;
+				gap: var(--space-2);
+				margin-bottom: var(--space-3);
+			}
+			.bitrate-card__num {
+				width: 28px;
+				height: 28px;
+				border-radius: 6px;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				font-family: var(--font-heading);
+				font-weight: 700;
+				font-size: var(--text-sm);
+			}
 
-    .bitrate-meter {
-      height: 8px;
-      background: rgba(255,255,255,0.06);
-      border-radius: 4px;
-      overflow: hidden;
-      margin: var(--space-2) 0;
-    }
-    .bitrate-meter__fill {
-      height: 100%;
-      border-radius: 4px;
-      transition: width var(--transition-base);
-    }
+			.bitrate-meter {
+				height: 8px;
+				background: rgba(255, 255, 255, 0.06);
+				border-radius: 4px;
+				overflow: hidden;
+				margin: var(--space-2) 0;
+			}
+			.bitrate-meter__fill {
+				height: 100%;
+				border-radius: 4px;
+				transition: width var(--transition-base);
+			}
 
-    .bitrate-row {
-      display: flex;
-      justify-content: space-between;
-      font-size: var(--text-xs);
-      padding: 2px 0;
-    }
-    .bitrate-row__label { color: var(--text-muted); }
-    .bitrate-row__value { color: var(--text-primary); font-weight: 500; }
+			.bitrate-row {
+				display: flex;
+				justify-content: space-between;
+				font-size: var(--text-xs);
+				padding: 2px 0;
+			}
+			.bitrate-row__label {
+				color: var(--text-muted);
+			}
+			.bitrate-row__value {
+				color: var(--text-primary);
+				font-weight: 500;
+			}
 
-    /* -- Summary stats -- */
-    .planner-stats {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: var(--space-4);
-      margin-bottom: var(--space-6);
-    }
+			/* -- Summary stats -- */
+			.planner-stats {
+				display: grid;
+				grid-template-columns: repeat(4, 1fr);
+				gap: var(--space-4);
+				margin-bottom: var(--space-6);
+			}
 
-    .stat-card {
-      background: var(--bg-card);
-      border: 1px solid var(--border-subtle);
-      border-radius: var(--radius-lg);
-      padding: var(--space-4);
-      text-align: center;
-    }
-    .stat-card__value {
-      font-family: var(--font-heading);
-      font-size: var(--text-2xl);
-      font-weight: 700;
-      line-height: 1;
-      margin-bottom: var(--space-1);
-    }
-    .stat-card__label {
-      font-size: var(--text-xs);
-      color: var(--text-muted);
-    }
+			.stat-card {
+				background: var(--bg-card);
+				border: 1px solid var(--border-subtle);
+				border-radius: var(--radius-lg);
+				padding: var(--space-4);
+				text-align: center;
+			}
+			.stat-card__value {
+				font-family: var(--font-heading);
+				font-size: var(--text-2xl);
+				font-weight: 700;
+				line-height: 1;
+				margin-bottom: var(--space-1);
+			}
+			.stat-card__label {
+				font-size: var(--text-xs);
+				color: var(--text-muted);
+			}
 
-    /* -- Allocation strategy selector -- */
-    .strategy-selector {
-      display: flex;
-      gap: var(--space-2);
-      margin-bottom: var(--space-4);
-    }
-    .strategy-opt {
-      padding: var(--space-2) var(--space-4);
-      border: 1px solid var(--border-subtle);
-      border-radius: var(--radius-md);
-      font-size: var(--text-xs);
-      font-weight: 500;
-      color: var(--text-muted);
-      cursor: pointer;
-      transition: all var(--transition-fast);
-    }
-    .strategy-opt:hover { border-color: var(--border-default); color: var(--text-secondary); }
-    .strategy-opt--active {
-      border-color: var(--brand-orange);
-      background: rgba(255,170,64,0.06);
-      color: var(--brand-orange);
-    }
-  </style>
-</head>
-<body>
-  <div style="padding: var(--space-6); max-width: 1000px;">
+			/* -- Allocation strategy selector -- */
+			.strategy-selector {
+				display: flex;
+				gap: var(--space-2);
+				margin-bottom: var(--space-4);
+			}
+			.strategy-opt {
+				padding: var(--space-2) var(--space-4);
+				border: 1px solid var(--border-subtle);
+				border-radius: var(--radius-md);
+				font-size: var(--text-xs);
+				font-weight: 500;
+				color: var(--text-muted);
+				cursor: pointer;
+				transition: all var(--transition-fast);
+			}
+			.strategy-opt:hover {
+				border-color: var(--border-default);
+				color: var(--text-secondary);
+			}
+			.strategy-opt--active {
+				border-color: var(--brand-orange);
+				background: rgba(255, 170, 64, 0.06);
+				color: var(--brand-orange);
+			}
+		</style>
+	</head>
+	<body>
+		<div style="padding: var(--space-6); max-width: 1000px">
+			<div class="page-header">
+				<div>
+					<h1 class="page-title">Disc Planner</h1>
+					<p class="text-muted" style="font-size: var(--text-sm); margin-top: 2px">
+						Capacity planning and bitrate allocation
+					</p>
+				</div>
+				<div class="flex gap-2">
+					<select class="input input--select" style="width: 140px; font-size: var(--text-sm)">
+						<option>DVD-5 (4.7 GB)</option>
+						<option>DVD-9 (8.5 GB)</option>
+					</select>
+				</div>
+			</div>
 
-    <div class="page-header">
-      <div>
-        <h1 class="page-title">Disc Planner</h1>
-        <p class="text-muted" style="font-size:var(--text-sm); margin-top:2px;">Capacity planning and bitrate allocation</p>
-      </div>
-      <div class="flex gap-2">
-        <select class="input input--select" style="width:140px;font-size:var(--text-sm);">
-          <option>DVD-5 (4.7 GB)</option>
-          <option>DVD-9 (8.5 GB)</option>
-        </select>
-      </div>
-    </div>
+			<!-- ═══ Summary Stats ═══ -->
+			<div class="planner-stats">
+				<div class="stat-card">
+					<div class="stat-card__value text-gradient">4.09</div>
+					<div class="stat-card__label">GB Used</div>
+				</div>
+				<div class="stat-card">
+					<div class="stat-card__value" style="color: var(--colour-success)">0.61</div>
+					<div class="stat-card__label">GB Free</div>
+				</div>
+				<div class="stat-card">
+					<div class="stat-card__value" style="color: var(--colour-warning)">87%</div>
+					<div class="stat-card__label">Utilisation</div>
+				</div>
+				<div class="stat-card">
+					<div class="stat-card__value">95:47</div>
+					<div class="stat-card__label">Total Duration</div>
+				</div>
+			</div>
 
-    <!-- ═══ Summary Stats ═══ -->
-    <div class="planner-stats">
-      <div class="stat-card">
-        <div class="stat-card__value text-gradient">4.09</div>
-        <div class="stat-card__label">GB Used</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-card__value" style="color:var(--colour-success);">0.61</div>
-        <div class="stat-card__label">GB Free</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-card__value" style="color:var(--colour-warning);">87%</div>
-        <div class="stat-card__label">Utilisation</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-card__value">95:47</div>
-        <div class="stat-card__label">Total Duration</div>
-      </div>
-    </div>
+			<!-- ═══ Capacity Bar ═══ -->
+			<div class="planner-bar">
+				<div
+					style="
+						display: flex;
+						justify-content: space-between;
+						margin-bottom: var(--space-1);
+						font-size: var(--text-xs);
+						color: var(--text-muted);
+					"
+				>
+					<span>0 GB</span>
+					<span>4.70 GB (DVD-5)</span>
+				</div>
+				<div class="planner-bar__row">
+					<div class="planner-bar__seg" style="width: 35%; background: var(--brand-orange)">
+						T1 · 1.64 GB
+					</div>
+					<div class="planner-bar__seg" style="width: 28%; background: var(--brand-pink)">
+						T2 · 1.31 GB
+					</div>
+					<div class="planner-bar__seg" style="width: 15%; background: var(--brand-purple)">
+						T3 · 0.72 GB
+					</div>
+					<div
+						class="planner-bar__seg"
+						style="width: 4%; background: rgba(96, 165, 250, 0.6); font-size: 9px"
+					>
+						A
+					</div>
+					<div
+						class="planner-bar__seg"
+						style="width: 5%; background: rgba(167, 139, 250, 0.5); font-size: 9px"
+					>
+						Menu
+					</div>
+					<div
+						class="planner-bar__seg"
+						style="
+							width: 2%;
+							background: rgba(255, 255, 255, 0.08);
+							font-size: 9px;
+							color: var(--text-muted);
+						"
+					>
+						OH
+					</div>
+					<div
+						class="planner-bar__seg"
+						style="width: 11%; background: rgba(255, 255, 255, 0.04); color: var(--text-muted)"
+					>
+						Free
+					</div>
+				</div>
+				<div class="planner-legend">
+					<div class="planner-legend__item">
+						<div class="planner-legend__dot" style="background: var(--brand-orange)"></div>
+						Ceremony Video
+					</div>
+					<div class="planner-legend__item">
+						<div class="planner-legend__dot" style="background: var(--brand-pink)"></div>
+						Reception Video
+					</div>
+					<div class="planner-legend__item">
+						<div class="planner-legend__dot" style="background: var(--brand-purple)"></div>
+						Highlights Video
+					</div>
+					<div class="planner-legend__item">
+						<div class="planner-legend__dot" style="background: rgba(96, 165, 250, 0.6)"></div>
+						Audio Streams
+					</div>
+					<div class="planner-legend__item">
+						<div class="planner-legend__dot" style="background: rgba(167, 139, 250, 0.5)"></div>
+						Menu Assets
+					</div>
+					<div class="planner-legend__item">
+						<div class="planner-legend__dot" style="background: rgba(255, 255, 255, 0.08)"></div>
+						Overhead / Safety
+					</div>
+				</div>
+			</div>
 
-    <!-- ═══ Capacity Bar ═══ -->
-    <div class="planner-bar">
-      <div style="display:flex;justify-content:space-between;margin-bottom:var(--space-1);font-size:var(--text-xs);color:var(--text-muted);">
-        <span>0 GB</span>
-        <span>4.70 GB (DVD-5)</span>
-      </div>
-      <div class="planner-bar__row">
-        <div class="planner-bar__seg" style="width:35%;background:var(--brand-orange);">T1 · 1.64 GB</div>
-        <div class="planner-bar__seg" style="width:28%;background:var(--brand-pink);">T2 · 1.31 GB</div>
-        <div class="planner-bar__seg" style="width:15%;background:var(--brand-purple);">T3 · 0.72 GB</div>
-        <div class="planner-bar__seg" style="width:4%;background:rgba(96,165,250,0.6);font-size:9px;">A</div>
-        <div class="planner-bar__seg" style="width:5%;background:rgba(167,139,250,0.5);font-size:9px;">Menu</div>
-        <div class="planner-bar__seg" style="width:2%;background:rgba(255,255,255,0.08);font-size:9px;color:var(--text-muted);">OH</div>
-        <div class="planner-bar__seg" style="width:11%;background:rgba(255,255,255,0.04);color:var(--text-muted);">Free</div>
-      </div>
-      <div class="planner-legend">
-        <div class="planner-legend__item"><div class="planner-legend__dot" style="background:var(--brand-orange);"></div>Ceremony Video</div>
-        <div class="planner-legend__item"><div class="planner-legend__dot" style="background:var(--brand-pink);"></div>Reception Video</div>
-        <div class="planner-legend__item"><div class="planner-legend__dot" style="background:var(--brand-purple);"></div>Highlights Video</div>
-        <div class="planner-legend__item"><div class="planner-legend__dot" style="background:rgba(96,165,250,0.6);"></div>Audio Streams</div>
-        <div class="planner-legend__item"><div class="planner-legend__dot" style="background:rgba(167,139,250,0.5);"></div>Menu Assets</div>
-        <div class="planner-legend__item"><div class="planner-legend__dot" style="background:rgba(255,255,255,0.08);"></div>Overhead / Safety</div>
-      </div>
-    </div>
+			<!-- ═══ Allocation Strategy ═══ -->
+			<div style="margin-top: var(--space-6)">
+				<h3 style="font-size: var(--text-md); margin-bottom: var(--space-2)">
+					Allocation Strategy
+				</h3>
+				<div class="strategy-selector">
+					<div class="strategy-opt">Equal Share</div>
+					<div class="strategy-opt strategy-opt--active">Duration Weighted</div>
+					<div class="strategy-opt">Priority Weighted</div>
+				</div>
+			</div>
 
-    <!-- ═══ Allocation Strategy ═══ -->
-    <div style="margin-top:var(--space-6);">
-      <h3 style="font-size:var(--text-md);margin-bottom:var(--space-2);">Allocation Strategy</h3>
-      <div class="strategy-selector">
-        <div class="strategy-opt">Equal Share</div>
-        <div class="strategy-opt strategy-opt--active">Duration Weighted</div>
-        <div class="strategy-opt">Priority Weighted</div>
-      </div>
-    </div>
+			<!-- ═══ Per-Title Bitrate Cards ═══ -->
+			<div class="bitrate-grid">
+				<!-- Title 1 -->
+				<div class="bitrate-card">
+					<div class="bitrate-card__header">
+						<div
+							class="bitrate-card__num"
+							style="background: rgba(255, 170, 64, 0.12); color: var(--brand-orange)"
+						>
+							1
+						</div>
+						<div>
+							<div style="font-weight: 600; font-size: var(--text-sm)">Ceremony</div>
+							<div style="font-size: var(--text-xs); color: var(--text-muted)">
+								45:12 · Full D1 · Remux
+							</div>
+						</div>
+					</div>
+					<div class="bitrate-row">
+						<span class="bitrate-row__label">Video Bitrate</span>
+						<span class="bitrate-row__value mono">6,200 kbps</span>
+					</div>
+					<div class="bitrate-meter">
+						<div
+							class="bitrate-meter__fill"
+							style="width: 63%; background: var(--brand-orange)"
+						></div>
+					</div>
+					<div class="bitrate-row">
+						<span class="bitrate-row__label">Audio (2× AC-3)</span>
+						<span class="bitrate-row__value mono">384 kbps</span>
+					</div>
+					<div class="bitrate-row">
+						<span class="bitrate-row__label">Estimated Size</span>
+						<span class="bitrate-row__value">1.64 GB</span>
+					</div>
+					<div class="bitrate-row">
+						<span class="bitrate-row__label">Quality</span>
+						<span class="badge badge--remux" style="font-size: 9px">Excellent</span>
+					</div>
+				</div>
 
-    <!-- ═══ Per-Title Bitrate Cards ═══ -->
-    <div class="bitrate-grid">
+				<!-- Title 2 -->
+				<div class="bitrate-card">
+					<div class="bitrate-card__header">
+						<div
+							class="bitrate-card__num"
+							style="background: rgba(244, 63, 94, 0.12); color: var(--brand-pink)"
+						>
+							2
+						</div>
+						<div>
+							<div style="font-weight: 600; font-size: var(--text-sm)">Reception</div>
+							<div style="font-size: var(--text-xs); color: var(--text-muted)">
+								38:05 · Full D1 · Re-encode
+							</div>
+						</div>
+					</div>
+					<div class="bitrate-row">
+						<span class="bitrate-row__label">Video Bitrate</span>
+						<span class="bitrate-row__value mono">4,600 kbps</span>
+					</div>
+					<div class="bitrate-meter">
+						<div
+							class="bitrate-meter__fill"
+							style="width: 47%; background: var(--brand-pink)"
+						></div>
+					</div>
+					<div class="bitrate-row">
+						<span class="bitrate-row__label">Audio (1× AC-3)</span>
+						<span class="bitrate-row__value mono">192 kbps</span>
+					</div>
+					<div class="bitrate-row">
+						<span class="bitrate-row__label">Estimated Size</span>
+						<span class="bitrate-row__value">1.31 GB</span>
+					</div>
+					<div class="bitrate-row">
+						<span class="bitrate-row__label">Quality</span>
+						<span class="badge badge--light" style="font-size: 9px">Good</span>
+					</div>
+				</div>
 
-      <!-- Title 1 -->
-      <div class="bitrate-card">
-        <div class="bitrate-card__header">
-          <div class="bitrate-card__num" style="background:rgba(255,170,64,0.12);color:var(--brand-orange);">1</div>
-          <div>
-            <div style="font-weight:600;font-size:var(--text-sm);">Ceremony</div>
-            <div style="font-size:var(--text-xs);color:var(--text-muted);">45:12 · Full D1 · Remux</div>
-          </div>
-        </div>
-        <div class="bitrate-row">
-          <span class="bitrate-row__label">Video Bitrate</span>
-          <span class="bitrate-row__value mono">6,200 kbps</span>
-        </div>
-        <div class="bitrate-meter">
-          <div class="bitrate-meter__fill" style="width:63%;background:var(--brand-orange);"></div>
-        </div>
-        <div class="bitrate-row">
-          <span class="bitrate-row__label">Audio (2× AC-3)</span>
-          <span class="bitrate-row__value mono">384 kbps</span>
-        </div>
-        <div class="bitrate-row">
-          <span class="bitrate-row__label">Estimated Size</span>
-          <span class="bitrate-row__value">1.64 GB</span>
-        </div>
-        <div class="bitrate-row">
-          <span class="bitrate-row__label">Quality</span>
-          <span class="badge badge--remux" style="font-size:9px;">Excellent</span>
-        </div>
-      </div>
-
-      <!-- Title 2 -->
-      <div class="bitrate-card">
-        <div class="bitrate-card__header">
-          <div class="bitrate-card__num" style="background:rgba(244,63,94,0.12);color:var(--brand-pink);">2</div>
-          <div>
-            <div style="font-weight:600;font-size:var(--text-sm);">Reception</div>
-            <div style="font-size:var(--text-xs);color:var(--text-muted);">38:05 · Full D1 · Re-encode</div>
-          </div>
-        </div>
-        <div class="bitrate-row">
-          <span class="bitrate-row__label">Video Bitrate</span>
-          <span class="bitrate-row__value mono">4,600 kbps</span>
-        </div>
-        <div class="bitrate-meter">
-          <div class="bitrate-meter__fill" style="width:47%;background:var(--brand-pink);"></div>
-        </div>
-        <div class="bitrate-row">
-          <span class="bitrate-row__label">Audio (1× AC-3)</span>
-          <span class="bitrate-row__value mono">192 kbps</span>
-        </div>
-        <div class="bitrate-row">
-          <span class="bitrate-row__label">Estimated Size</span>
-          <span class="bitrate-row__value">1.31 GB</span>
-        </div>
-        <div class="bitrate-row">
-          <span class="bitrate-row__label">Quality</span>
-          <span class="badge badge--light" style="font-size:9px;">Good</span>
-        </div>
-      </div>
-
-      <!-- Title 3 -->
-      <div class="bitrate-card">
-        <div class="bitrate-card__header">
-          <div class="bitrate-card__num" style="background:rgba(167,139,250,0.12);color:var(--brand-purple);">3</div>
-          <div>
-            <div style="font-weight:600;font-size:var(--text-sm);">Highlights</div>
-            <div style="font-size:var(--text-xs);color:var(--text-muted);">12:30 · Full D1 · Re-encode</div>
-          </div>
-        </div>
-        <div class="bitrate-row">
-          <span class="bitrate-row__label">Video Bitrate</span>
-          <span class="bitrate-row__value mono">7,500 kbps</span>
-        </div>
-        <div class="bitrate-meter">
-          <div class="bitrate-meter__fill" style="width:77%;background:var(--brand-purple);"></div>
-        </div>
-        <div class="bitrate-row">
-          <span class="bitrate-row__label">Audio (1× AC-3)</span>
-          <span class="bitrate-row__value mono">192 kbps</span>
-        </div>
-        <div class="bitrate-row">
-          <span class="bitrate-row__label">Estimated Size</span>
-          <span class="bitrate-row__value">0.72 GB</span>
-        </div>
-        <div class="bitrate-row">
-          <span class="bitrate-row__label">Quality</span>
-          <span class="badge badge--remux" style="font-size:9px;">Excellent</span>
-        </div>
-      </div>
-    </div>
-  </div>
-</body>
+				<!-- Title 3 -->
+				<div class="bitrate-card">
+					<div class="bitrate-card__header">
+						<div
+							class="bitrate-card__num"
+							style="background: rgba(167, 139, 250, 0.12); color: var(--brand-purple)"
+						>
+							3
+						</div>
+						<div>
+							<div style="font-weight: 600; font-size: var(--text-sm)">Highlights</div>
+							<div style="font-size: var(--text-xs); color: var(--text-muted)">
+								12:30 · Full D1 · Re-encode
+							</div>
+						</div>
+					</div>
+					<div class="bitrate-row">
+						<span class="bitrate-row__label">Video Bitrate</span>
+						<span class="bitrate-row__value mono">7,500 kbps</span>
+					</div>
+					<div class="bitrate-meter">
+						<div
+							class="bitrate-meter__fill"
+							style="width: 77%; background: var(--brand-purple)"
+						></div>
+					</div>
+					<div class="bitrate-row">
+						<span class="bitrate-row__label">Audio (1× AC-3)</span>
+						<span class="bitrate-row__value mono">192 kbps</span>
+					</div>
+					<div class="bitrate-row">
+						<span class="bitrate-row__label">Estimated Size</span>
+						<span class="bitrate-row__value">0.72 GB</span>
+					</div>
+					<div class="bitrate-row">
+						<span class="bitrate-row__label">Quality</span>
+						<span class="badge badge--remux" style="font-size: 9px">Excellent</span>
+					</div>
+				</div>
+			</div>
+		</div>
+	</body>
 </html>

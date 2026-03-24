@@ -1,27 +1,31 @@
 .statusbar {
-  grid-area: status;
-  display: flex;
-  align-items: center;
-  padding: 0 var(--space-4);
-  background: var(--bg-sidebar);
-  border-top: 1px solid var(--border-subtle);
-  font-size: var(--text-xs);
-  color: var(--text-muted);
-  gap: var(--space-4);
+	grid-area: status;
+	display: flex;
+	align-items: center;
+	padding: 0 var(--space-4);
+	background: var(--bg-sidebar);
+	border-top: 1px solid var(--border-subtle);
+	font-size: var(--text-xs);
+	color: var(--text-muted);
+	gap: var(--space-4);
 }
 
 .statusbar__segment {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
+	display: flex;
+	align-items: center;
+	gap: var(--space-1);
 }
 
 .statusbar__dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--colour-success);
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	background: var(--colour-success);
 }
 
-.statusbar__dot--warning { background: var(--colour-warning); }
-.statusbar__dot--error   { background: var(--colour-error); }
+.statusbar__dot--warning {
+	background: var(--colour-warning);
+}
+.statusbar__dot--error {
+	background: var(--colour-error);
+}

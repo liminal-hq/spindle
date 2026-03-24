@@ -1,9 +1,9 @@
 {
-  "extends": "../../tsconfig.base.json",
-  "compilerOptions": {
-    "composite": true,
-    "noEmit": false,
-    "allowSyntheticDefaultImports": true
-  },
-  "include": ["vite.config.ts"]
+	"extends": "../../tsconfig.base.json",
+	"compilerOptions": {
+		"composite": true,
+		"noEmit": false,
+		"allowSyntheticDefaultImports": true
+	},
+	"include": ["vite.config.ts"]
 }

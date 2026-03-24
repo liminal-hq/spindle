@@ -44,10 +44,7 @@ impl<R: Runtime> SpindleProject<R> {
             .map_err(Into::into)
     }
 
-    pub fn serialise_project(
-        &self,
-        project: &SpindleProjectFile,
-    ) -> crate::Result<String> {
+    pub fn serialise_project(&self, project: &SpindleProjectFile) -> crate::Result<String> {
         self.0
             .run_mobile_plugin("serialiseProject", project)
             .map_err(Into::into)

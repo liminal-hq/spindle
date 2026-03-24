@@ -1,0 +1,236 @@
+name: Workspace Quality and Validation CI
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  actions: read
+  checks: write
+  contents: read
+  packages: read
+  pull-requests: write
+
+jobs:
+  rust-fmt:
+    name: Rust format
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/liminal-hq/tauri-ci-desktop:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Rust toolchain
+        uses: ./.github/actions/setup-rust-toolchain
+        with:
+          components: rustfmt
+
+      - name: Check Rust formatting
+        id: rust_fmt
+        run: cargo fmt --all -- --check
+
+      - name: Publish results
+        if: always()
+        run: |
+          echo "## Rust formatting" >> "${GITHUB_STEP_SUMMARY}"
+          echo "- Result: \`${{ steps.rust_fmt.outcome }}\`" >> "${GITHUB_STEP_SUMMARY}"
+          echo "- Command: \`cargo fmt --all -- --check\`" >> "${GITHUB_STEP_SUMMARY}"
+
+  rust-clippy:
+    name: Rust clippy
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/liminal-hq/tauri-ci-desktop:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Rust toolchain
+        uses: ./.github/actions/setup-rust-toolchain
+        with:
+          components: clippy
+
+      - name: Restore Rust cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Run Clippy
+        id: rust_clippy
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+
+      - name: Publish results
+        if: always()
+        run: |
+          echo "## Rust clippy" >> "${GITHUB_STEP_SUMMARY}"
+          echo "- Result: \`${{ steps.rust_clippy.outcome }}\`" >> "${GITHUB_STEP_SUMMARY}"
+          echo "- Command: \`cargo clippy --workspace --all-targets --locked -- -D warnings\`" >> "${GITHUB_STEP_SUMMARY}"
+
+  rust-test:
+    name: Rust test
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/liminal-hq/tauri-ci-desktop:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Rust toolchain
+        uses: ./.github/actions/setup-rust-toolchain
+
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@nextest
+
+      - name: Restore Rust cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Run Rust tests
+        id: rust_tests
+        run: pnpm test:rust:ci
+
+      - name: Upload Rust test artefacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-test-results
+          path: target/nextest/ci/junit.xml
+          if-no-files-found: error
+
+      - name: Publish Rust unit test results
+        if: always()
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        with:
+          check_name: Spindle Rust tests
+          files: target/nextest/ci/junit.xml
+
+      - name: Publish results
+        if: always()
+        run: |
+          echo "## Rust tests" >> "${GITHUB_STEP_SUMMARY}"
+          echo "- Result: \`${{ steps.rust_tests.outcome }}\`" >> "${GITHUB_STEP_SUMMARY}"
+          echo "- Command: \`pnpm test:rust:ci\`" >> "${GITHUB_STEP_SUMMARY}"
+          echo "- Test artefact: \`target/nextest/ci/junit.xml\`" >> "${GITHUB_STEP_SUMMARY}"
+
+  js-build:
+    name: JS build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build the workspace app
+        id: js_build
+        run: pnpm build
+
+      - name: Publish results
+        if: always()
+        run: |
+          echo "## JavaScript build" >> "${GITHUB_STEP_SUMMARY}"
+          echo "- Result: \`${{ steps.js_build.outcome }}\`" >> "${GITHUB_STEP_SUMMARY}"
+          echo "- Command: \`pnpm build\`" >> "${GITHUB_STEP_SUMMARY}"
+
+  js-format:
+    name: JS format
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check workspace formatting
+        id: js_format
+        run: pnpm format:check
+
+      - name: Publish results
+        if: always()
+        run: |
+          echo "## JavaScript formatting" >> "${GITHUB_STEP_SUMMARY}"
+          echo "- Result: \`${{ steps.js_format.outcome }}\`" >> "${GITHUB_STEP_SUMMARY}"
+          echo "- Command: \`pnpm format:check\`" >> "${GITHUB_STEP_SUMMARY}"
+
+  js-test:
+    name: JS test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run JS tests
+        id: js_tests
+        run: pnpm test:js:ci
+
+      - name: Upload JS test artefacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: js-test-results
+          path: test-results/spindle/junit.xml
+          if-no-files-found: error
+
+      - name: Publish unit test results
+        if: always()
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        with:
+          check_name: Spindle JS tests
+          files: test-results/spindle/junit.xml
+
+      - name: Publish results
+        if: always()
+        run: |
+          echo "## JavaScript tests" >> "${GITHUB_STEP_SUMMARY}"
+          echo "- Result: \`${{ steps.js_tests.outcome }}\`" >> "${GITHUB_STEP_SUMMARY}"
+          echo "- Command: \`pnpm test:js:ci\`" >> "${GITHUB_STEP_SUMMARY}"
+          echo "- Test artefact: \`test-results/spindle/junit.xml\`" >> "${GITHUB_STEP_SUMMARY}"

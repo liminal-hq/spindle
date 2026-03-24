@@ -1,202 +1,202 @@
 /* Chapters page styles */
 
 .chapters {
-  max-width: 1200px;
+	max-width: 1200px;
 }
 
 /* ── Layout ───────────────────────────────────────────────── */
 
 .chapters__layout {
-  display: grid;
-  grid-template-columns: 260px 1fr;
-  gap: var(--space-4);
-  align-items: start;
+	display: grid;
+	grid-template-columns: 260px 1fr;
+	gap: var(--space-4);
+	align-items: start;
 }
 
 /* ── Title sidebar ────────────────────────────────────────── */
 
 .chapters__section-heading {
-  font-family: var(--font-heading);
-  font-size: var(--text-xs);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-muted);
-  margin-bottom: var(--space-3);
+	font-family: var(--font-heading);
+	font-size: var(--text-xs);
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.06em;
+	color: var(--text-muted);
+	margin-bottom: var(--space-3);
 }
 
 .chapters__title-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2);
 }
 
 .chapters__title-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--space-3) var(--space-4);
-  cursor: pointer;
-  user-select: none;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: var(--space-3) var(--space-4);
+	cursor: pointer;
+	user-select: none;
 }
 
 .chapters__title-item--selected {
-  border-color: var(--brand-orange);
-  background: rgba(255, 170, 64, 0.04);
+	border-color: var(--brand-orange);
+	background: rgba(255, 170, 64, 0.04);
 }
 
 .chapters__title-name {
-  font-weight: 600;
-  font-size: var(--text-sm);
+	font-weight: 600;
+	font-size: var(--text-sm);
 }
 
 /* ── Editor area ──────────────────────────────────────────── */
 
 .chapters__editor {
-  min-height: 300px;
+	min-height: 300px;
 }
 
 .chapters__select-prompt,
 .chapters__no-chapters {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 300px;
-  text-align: center;
-  gap: var(--space-3);
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	height: 300px;
+	text-align: center;
+	gap: var(--space-3);
 }
 
 /* ── Timeline ─────────────────────────────────────────────── */
 
 .chapters__timeline {
-  margin-bottom: var(--space-5);
+	margin-bottom: var(--space-5);
 }
 
 .chapters__timeline-bar {
-  position: relative;
-  height: 32px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
+	position: relative;
+	height: 32px;
+	background: rgba(255, 255, 255, 0.03);
+	border: 1px solid var(--border-subtle);
+	border-radius: var(--radius-md);
 }
 
 .chapters__timeline-mark {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 2px;
-  background: var(--brand-orange);
-  border-radius: 1px;
-  cursor: pointer;
-  transition: background var(--transition-base);
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	width: 2px;
+	background: var(--brand-orange);
+	border-radius: 1px;
+	cursor: pointer;
+	transition: background var(--transition-base);
 }
 
 .chapters__timeline-mark:hover {
-  background: var(--brand-gold);
-  box-shadow: 0 0 6px rgba(255, 170, 64, 0.4);
+	background: var(--brand-gold);
+	box-shadow: 0 0 6px rgba(255, 170, 64, 0.4);
 }
 
 .chapters__timeline-labels {
-  display: flex;
-  justify-content: space-between;
-  font-size: var(--text-xs);
-  color: var(--text-muted);
-  margin-top: var(--space-1);
+	display: flex;
+	justify-content: space-between;
+	font-size: var(--text-xs);
+	color: var(--text-muted);
+	margin-top: var(--space-1);
 }
 
 /* ── Chapter rows ─────────────────────────────────────────── */
 
 .chapters__list {
-  display: flex;
-  flex-direction: column;
+	display: flex;
+	flex-direction: column;
 }
 
 .chapters__row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid var(--border-subtle);
+	display: flex;
+	align-items: center;
+	gap: var(--space-3);
+	padding: var(--space-3) var(--space-4);
+	border-bottom: 1px solid var(--border-subtle);
 }
 
 .chapters__row:first-child {
-  border-top: 1px solid var(--border-subtle);
+	border-top: 1px solid var(--border-subtle);
 }
 
 .chapters__row-index {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--text-muted);
-  min-width: 24px;
-  text-align: center;
+	font-family: var(--font-mono);
+	font-size: var(--text-xs);
+	color: var(--text-muted);
+	min-width: 24px;
+	text-align: center;
 }
 
 .chapters__row-name {
-  flex: 1;
-  background: none;
-  border: none;
-  border-bottom: 1px solid transparent;
-  color: var(--text-primary);
-  font-size: var(--text-sm);
-  padding: var(--space-1) 0;
+	flex: 1;
+	background: none;
+	border: none;
+	border-bottom: 1px solid transparent;
+	color: var(--text-primary);
+	font-size: var(--text-sm);
+	padding: var(--space-1) 0;
 }
 
 .chapters__row-name:focus {
-  outline: none;
-  border-bottom-color: var(--brand-orange);
+	outline: none;
+	border-bottom-color: var(--brand-orange);
 }
 
 .chapters__row-time {
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  background: var(--bg-input);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
-  color: var(--text-primary);
-  padding: var(--space-1) var(--space-2);
-  width: 100px;
-  text-align: center;
+	font-family: var(--font-mono);
+	font-size: var(--text-sm);
+	background: var(--bg-input);
+	border: 1px solid var(--border-subtle);
+	border-radius: var(--radius-sm);
+	color: var(--text-primary);
+	padding: var(--space-1) var(--space-2);
+	width: 100px;
+	text-align: center;
 }
 
 .chapters__row-time:focus {
-  outline: none;
-  border-color: var(--brand-orange);
+	outline: none;
+	border-color: var(--brand-orange);
 }
 
 .chapters__row-remove {
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  font-size: var(--text-lg);
-  cursor: pointer;
-  padding: var(--space-1);
-  opacity: 0;
-  transition: opacity var(--transition-base);
+	background: none;
+	border: none;
+	color: var(--text-muted);
+	font-size: var(--text-lg);
+	cursor: pointer;
+	padding: var(--space-1);
+	opacity: 0;
+	transition: opacity var(--transition-base);
 }
 
 .chapters__row:hover .chapters__row-remove {
-  opacity: 0.5;
+	opacity: 0.5;
 }
 
 .chapters__row-remove:hover {
-  opacity: 1 !important;
-  color: var(--colour-error);
+	opacity: 1 !important;
+	color: var(--colour-error);
 }
 
 /* ── Empty state ──────────────────────────────────────────── */
 
 .chapters__empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 60vh;
-  text-align: center;
-  gap: var(--space-4);
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	height: 60vh;
+	text-align: center;
+	gap: var(--space-4);
 }
 
 .chapters__empty h2 {
-  font-family: var(--font-heading);
-  margin-bottom: 0;
+	font-family: var(--font-heading);
+	margin-bottom: 0;
 }

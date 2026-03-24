@@ -1,278 +1,502 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en-CA">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=1280">
-  <title>Spindle — Build (Blu-ray)</title>
-  <link rel="stylesheet" href="design-system.css">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
-  <style>
-    body { background: var(--bg-panel); }
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=1280" />
+		<title>Spindle — Build (Blu-ray)</title>
+		<link rel="stylesheet" href="design-system.css" />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap"
+			rel="stylesheet"
+		/>
+		<style>
+			body {
+				background: var(--bg-panel);
+			}
 
-    .build-layout {
-      display: grid;
-      grid-template-columns: 1fr 320px;
-      gap: var(--space-6);
-      max-width: 1000px;
-    }
-    .build-section { margin-bottom: var(--space-5); }
-    .build-section__title {
-      font-family: var(--font-heading);
-      font-size: var(--text-md);
-      font-weight: 600;
-      margin-bottom: var(--space-3);
-      display: flex;
-      align-items: center;
-      gap: var(--space-2);
-    }
+			.build-layout {
+				display: grid;
+				grid-template-columns: 1fr 320px;
+				gap: var(--space-6);
+				max-width: 1000px;
+			}
+			.build-section {
+				margin-bottom: var(--space-5);
+			}
+			.build-section__title {
+				font-family: var(--font-heading);
+				font-size: var(--text-md);
+				font-weight: 600;
+				margin-bottom: var(--space-3);
+				display: flex;
+				align-items: center;
+				gap: var(--space-2);
+			}
 
-    .mode-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: var(--space-3);
-    }
-    .mode-card {
-      padding: var(--space-4);
-      border: 1px solid var(--border-subtle);
-      border-radius: var(--radius-lg);
-      cursor: pointer;
-      transition: all var(--transition-fast);
-      background: var(--bg-card);
-    }
-    .mode-card:hover { border-color: var(--border-default); }
-    .mode-card--selected {
-      border-color: var(--brand-blue);
-      background: rgba(96,165,250,0.04);
-    }
-    .mode-card__name { font-weight: 600; font-size: var(--text-sm); margin-bottom: var(--space-1); }
-    .mode-card__desc { font-size: var(--text-xs); color: var(--text-muted); line-height: 1.5; }
+			.mode-grid {
+				display: grid;
+				grid-template-columns: 1fr 1fr;
+				gap: var(--space-3);
+			}
+			.mode-card {
+				padding: var(--space-4);
+				border: 1px solid var(--border-subtle);
+				border-radius: var(--radius-lg);
+				cursor: pointer;
+				transition: all var(--transition-fast);
+				background: var(--bg-card);
+			}
+			.mode-card:hover {
+				border-color: var(--border-default);
+			}
+			.mode-card--selected {
+				border-color: var(--brand-blue);
+				background: rgba(96, 165, 250, 0.04);
+			}
+			.mode-card__name {
+				font-weight: 600;
+				font-size: var(--text-sm);
+				margin-bottom: var(--space-1);
+			}
+			.mode-card__desc {
+				font-size: var(--text-xs);
+				color: var(--text-muted);
+				line-height: 1.5;
+			}
 
-    .dest-field { display: flex; gap: var(--space-2); }
-    .dest-field .input { font-family: var(--font-mono); font-size: var(--text-xs); }
+			.dest-field {
+				display: flex;
+				gap: var(--space-2);
+			}
+			.dest-field .input {
+				font-family: var(--font-mono);
+				font-size: var(--text-xs);
+			}
 
-    .checklist-item {
-      display: flex;
-      align-items: center;
-      gap: var(--space-2);
-      padding: var(--space-2) 0;
-      font-size: var(--text-sm);
-    }
-    .checklist-icon {
-      width: 18px; height: 18px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-    }
-    .checklist-icon--ok { background: rgba(46,198,106,0.15); color: var(--colour-success); }
-    .checklist-icon--warn { background: rgba(251,191,36,0.15); color: var(--colour-warning); }
+			.checklist-item {
+				display: flex;
+				align-items: center;
+				gap: var(--space-2);
+				padding: var(--space-2) 0;
+				font-size: var(--text-sm);
+			}
+			.checklist-icon {
+				width: 18px;
+				height: 18px;
+				border-radius: 50%;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				flex-shrink: 0;
+			}
+			.checklist-icon--ok {
+				background: rgba(46, 198, 106, 0.15);
+				color: var(--colour-success);
+			}
+			.checklist-icon--warn {
+				background: rgba(251, 191, 36, 0.15);
+				color: var(--colour-warning);
+			}
 
-    .build-summary {
-      background: var(--bg-card);
-      border: 1px solid var(--border-subtle);
-      border-radius: var(--radius-lg);
-      padding: var(--space-4);
-    }
-    .build-summary__row {
-      display: flex;
-      justify-content: space-between;
-      padding: 4px 0;
-      font-size: var(--text-sm);
-    }
-    .build-summary__label { color: var(--text-muted); }
-    .build-summary__value { color: var(--text-primary); font-weight: 500; }
+			.build-summary {
+				background: var(--bg-card);
+				border: 1px solid var(--border-subtle);
+				border-radius: var(--radius-lg);
+				padding: var(--space-4);
+			}
+			.build-summary__row {
+				display: flex;
+				justify-content: space-between;
+				padding: 4px 0;
+				font-size: var(--text-sm);
+			}
+			.build-summary__label {
+				color: var(--text-muted);
+			}
+			.build-summary__value {
+				color: var(--text-primary);
+				font-weight: 500;
+			}
 
-    .build-actions {
-      display: flex;
-      flex-direction: column;
-      gap: var(--space-2);
-      margin-top: var(--space-4);
-    }
-    .build-actions .btn { justify-content: center; width: 100%; }
+			.build-actions {
+				display: flex;
+				flex-direction: column;
+				gap: var(--space-2);
+				margin-top: var(--space-4);
+			}
+			.build-actions .btn {
+				justify-content: center;
+				width: 100%;
+			}
 
-    .bd-gradient {
-      background: linear-gradient(135deg, #3A7BD5, #22d3ee);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-    }
-  </style>
-</head>
-<body>
-  <div style="padding: var(--space-6); max-width: 1060px;">
+			.bd-gradient {
+				background: linear-gradient(135deg, #3a7bd5, #22d3ee);
+				-webkit-background-clip: text;
+				-webkit-text-fill-color: transparent;
+				background-clip: text;
+			}
+		</style>
+	</head>
+	<body>
+		<div style="padding: var(--space-6); max-width: 1060px">
+			<div class="page-header">
+				<div>
+					<h1 class="page-title">Build</h1>
+					<p class="text-muted" style="font-size: var(--text-sm); margin-top: 2px">
+						Configure and start Blu-ray disc build
+					</p>
+				</div>
+			</div>
 
-    <div class="page-header">
-      <div>
-        <h1 class="page-title">Build</h1>
-        <p class="text-muted" style="font-size:var(--text-sm); margin-top:2px;">Configure and start Blu-ray disc build</p>
-      </div>
-    </div>
+			<div class="build-layout">
+				<div>
+					<!-- Build Mode -->
+					<div class="build-section">
+						<div class="build-section__title">
+							<svg
+								width="16"
+								height="16"
+								viewBox="0 0 16 16"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="1.5"
+							>
+								<path d="M4 14V8l4-6 4 6v6" />
+								<line x1="4" y1="10" x2="12" y2="10" />
+							</svg>
+							Build Mode
+						</div>
+						<div class="mode-grid">
+							<div class="mode-card">
+								<div class="mode-card__name">Draft</div>
+								<div class="mode-card__desc">
+									Lower quality, faster encode. Good for testing BDMV structure and menus.
+								</div>
+							</div>
+							<div class="mode-card mode-card--selected">
+								<div class="mode-card__name" style="color: var(--brand-blue)">Final</div>
+								<div class="mode-card__desc">
+									Full quality encoding. Use for production-ready BDMV output.
+								</div>
+							</div>
+							<div class="mode-card">
+								<div class="mode-card__name">Menu Only</div>
+								<div class="mode-card__desc">
+									Rebuild IG menus without re-encoding video. Fast iteration on menu design.
+								</div>
+							</div>
+							<div class="mode-card">
+								<div class="mode-card__name">Validation</div>
+								<div class="mode-card__desc">
+									Dry-run BD compliance validation. Checks everything without writing output.
+								</div>
+							</div>
+						</div>
+					</div>
 
-    <div class="build-layout">
-      <div>
-        <!-- Build Mode -->
-        <div class="build-section">
-          <div class="build-section__title">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 14V8l4-6 4 6v6"/><line x1="4" y1="10" x2="12" y2="10"/></svg>
-            Build Mode
-          </div>
-          <div class="mode-grid">
-            <div class="mode-card">
-              <div class="mode-card__name">Draft</div>
-              <div class="mode-card__desc">Lower quality, faster encode. Good for testing BDMV structure and menus.</div>
-            </div>
-            <div class="mode-card mode-card--selected">
-              <div class="mode-card__name" style="color:var(--brand-blue);">Final</div>
-              <div class="mode-card__desc">Full quality encoding. Use for production-ready BDMV output.</div>
-            </div>
-            <div class="mode-card">
-              <div class="mode-card__name">Menu Only</div>
-              <div class="mode-card__desc">Rebuild IG menus without re-encoding video. Fast iteration on menu design.</div>
-            </div>
-            <div class="mode-card">
-              <div class="mode-card__name">Validation</div>
-              <div class="mode-card__desc">Dry-run BD compliance validation. Checks everything without writing output.</div>
-            </div>
-          </div>
-        </div>
+					<!-- Output Destination -->
+					<div class="build-section">
+						<div class="build-section__title">
+							<svg
+								width="16"
+								height="16"
+								viewBox="0 0 16 16"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="1.5"
+							>
+								<path d="M2 4l4-2h8v12H2z" />
+								<path d="M2 4h6l1 2h5" />
+							</svg>
+							Output Destination
+						</div>
+						<div class="dest-field">
+							<input
+								class="input"
+								value="/home/scott/Videos/indie-film/build/"
+								style="font-family: var(--font-mono); font-size: var(--text-xs)"
+							/>
+							<button class="btn">Browse</button>
+						</div>
+						<div
+							style="
+								margin-top: var(--space-3);
+								display: flex;
+								flex-direction: column;
+								gap: var(--space-2);
+							"
+						>
+							<label
+								style="
+									display: flex;
+									align-items: center;
+									gap: var(--space-2);
+									font-size: var(--text-sm);
+									color: var(--text-secondary);
+									cursor: pointer;
+								"
+							>
+								<input type="checkbox" checked style="accent-color: var(--brand-blue)" />
+								Generate ISO image after BDMV build
+							</label>
+							<label
+								style="
+									display: flex;
+									align-items: center;
+									gap: var(--space-2);
+									font-size: var(--text-sm);
+									color: var(--text-secondary);
+									cursor: pointer;
+								"
+							>
+								<input type="checkbox" style="accent-color: var(--brand-blue)" />
+								Verify UDF filesystem after ISO creation
+							</label>
+						</div>
+					</div>
 
-        <!-- Output Destination -->
-        <div class="build-section">
-          <div class="build-section__title">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4l4-2h8v12H2z"/><path d="M2 4h6l1 2h5"/></svg>
-            Output Destination
-          </div>
-          <div class="dest-field">
-            <input class="input" value="/home/scott/Videos/indie-film/build/" style="font-family:var(--font-mono);font-size:var(--text-xs);">
-            <button class="btn">Browse</button>
-          </div>
-          <div style="margin-top:var(--space-3);display:flex;flex-direction:column;gap:var(--space-2);">
-            <label style="display:flex;align-items:center;gap:var(--space-2);font-size:var(--text-sm);color:var(--text-secondary);cursor:pointer;">
-              <input type="checkbox" checked style="accent-color:var(--brand-blue);">
-              Generate ISO image after BDMV build
-            </label>
-            <label style="display:flex;align-items:center;gap:var(--space-2);font-size:var(--text-sm);color:var(--text-secondary);cursor:pointer;">
-              <input type="checkbox" style="accent-color:var(--brand-blue);">
-              Verify UDF filesystem after ISO creation
-            </label>
-          </div>
-        </div>
+					<!-- Backend -->
+					<div class="build-section">
+						<div class="build-section__title">
+							<svg
+								width="16"
+								height="16"
+								viewBox="0 0 16 16"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="1.5"
+							>
+								<circle cx="8" cy="8" r="6" />
+								<circle cx="8" cy="8" r="2" />
+							</svg>
+							Backend
+						</div>
+						<div
+							style="
+								display: flex;
+								align-items: center;
+								gap: var(--space-3);
+								padding: var(--space-3);
+								background: var(--bg-card);
+								border: 1px solid var(--border-subtle);
+								border-radius: var(--radius-md);
+							"
+						>
+							<div
+								style="
+									width: 32px;
+									height: 32px;
+									border-radius: 8px;
+									background: rgba(96, 165, 250, 0.1);
+									display: flex;
+									align-items: center;
+									justify-content: center;
+								"
+							>
+								<svg
+									width="16"
+									height="16"
+									viewBox="0 0 16 16"
+									fill="none"
+									stroke="var(--brand-blue)"
+									stroke-width="1.5"
+								>
+									<circle cx="8" cy="8" r="6" />
+									<circle cx="8" cy="8" r="2" />
+								</svg>
+							</div>
+							<div>
+								<div style="font-weight: 600; font-size: var(--text-sm)">Blu-ray Disc</div>
+								<div style="font-size: var(--text-xs); color: var(--text-muted)">
+									tsMuxeR 2.6.27 · ffmpeg 8.1.2 · BD Menu Compiler 1.0.0 · BDMV Author 1.0.0
+								</div>
+							</div>
+							<span class="badge badge--remux" style="margin-left: auto">Ready</span>
+						</div>
+					</div>
 
-        <!-- Backend -->
-        <div class="build-section">
-          <div class="build-section__title">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="2"/></svg>
-            Backend
-          </div>
-          <div style="display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3);background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:var(--radius-md);">
-            <div style="width:32px;height:32px;border-radius:8px;background:rgba(96,165,250,0.1);display:flex;align-items:center;justify-content:center;">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="var(--brand-blue)" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="2"/></svg>
-            </div>
-            <div>
-              <div style="font-weight:600;font-size:var(--text-sm);">Blu-ray Disc</div>
-              <div style="font-size:var(--text-xs);color:var(--text-muted);">tsMuxeR 2.6.27 · ffmpeg 8.1.2 · BD Menu Compiler 1.0.0 · BDMV Author 1.0.0</div>
-            </div>
-            <span class="badge badge--remux" style="margin-left:auto;">Ready</span>
-          </div>
-        </div>
+					<!-- Pre-build Checklist -->
+					<div class="build-section">
+						<div class="build-section__title">Pre-build Checks</div>
+						<div class="checklist-item">
+							<div class="checklist-icon checklist-icon--ok">
+								<svg
+									width="10"
+									height="10"
+									viewBox="0 0 12 12"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+								>
+									<path d="M2 6l3 3 5-5" />
+								</svg>
+							</div>
+							<span>All assets linked and accessible</span>
+						</div>
+						<div class="checklist-item">
+							<div class="checklist-icon checklist-icon--ok">
+								<svg
+									width="10"
+									height="10"
+									viewBox="0 0 12 12"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+								>
+									<path d="M2 6l3 3 5-5" />
+								</svg>
+							</div>
+							<span>All playlists have mapped streams</span>
+						</div>
+						<div class="checklist-item">
+							<div class="checklist-icon checklist-icon--ok">
+								<svg
+									width="10"
+									height="10"
+									viewBox="0 0 12 12"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+								>
+									<path d="M2 6l3 3 5-5" />
+								</svg>
+							</div>
+							<span>H.264 AVC compliance verified</span>
+						</div>
+						<div class="checklist-item">
+							<div class="checklist-icon checklist-icon--ok">
+								<svg
+									width="10"
+									height="10"
+									viewBox="0 0 12 12"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+								>
+									<path d="M2 6l3 3 5-5" />
+								</svg>
+							</div>
+							<span>AC-3 fallback tracks present</span>
+						</div>
+						<div class="checklist-item">
+							<div class="checklist-icon checklist-icon--ok">
+								<svg
+									width="10"
+									height="10"
+									viewBox="0 0 12 12"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+								>
+									<path d="M2 6l3 3 5-5" />
+								</svg>
+							</div>
+							<span>Top menu &amp; popup menu IG streams valid</span>
+						</div>
+						<div class="checklist-item">
+							<div class="checklist-icon checklist-icon--ok">
+								<svg
+									width="10"
+									height="10"
+									viewBox="0 0 12 12"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+								>
+									<path d="M2 6l3 3 5-5" />
+								</svg>
+							</div>
+							<span>BD toolchain available</span>
+						</div>
+					</div>
+				</div>
 
-        <!-- Pre-build Checklist -->
-        <div class="build-section">
-          <div class="build-section__title">Pre-build Checks</div>
-          <div class="checklist-item">
-            <div class="checklist-icon checklist-icon--ok">
-              <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 6l3 3 5-5"/></svg>
-            </div>
-            <span>All assets linked and accessible</span>
-          </div>
-          <div class="checklist-item">
-            <div class="checklist-icon checklist-icon--ok">
-              <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 6l3 3 5-5"/></svg>
-            </div>
-            <span>All playlists have mapped streams</span>
-          </div>
-          <div class="checklist-item">
-            <div class="checklist-icon checklist-icon--ok">
-              <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 6l3 3 5-5"/></svg>
-            </div>
-            <span>H.264 AVC compliance verified</span>
-          </div>
-          <div class="checklist-item">
-            <div class="checklist-icon checklist-icon--ok">
-              <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 6l3 3 5-5"/></svg>
-            </div>
-            <span>AC-3 fallback tracks present</span>
-          </div>
-          <div class="checklist-item">
-            <div class="checklist-icon checklist-icon--ok">
-              <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 6l3 3 5-5"/></svg>
-            </div>
-            <span>Top menu &amp; popup menu IG streams valid</span>
-          </div>
-          <div class="checklist-item">
-            <div class="checklist-icon checklist-icon--ok">
-              <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 6l3 3 5-5"/></svg>
-            </div>
-            <span>BD toolchain available</span>
-          </div>
-        </div>
-      </div>
+				<!-- Summary + Actions -->
+				<div>
+					<div class="build-summary">
+						<h4 style="margin-bottom: var(--space-3)">Build Summary</h4>
+						<div class="build-summary__row">
+							<span class="build-summary__label">Mode</span>
+							<span class="build-summary__value" style="color: var(--brand-blue)">Final</span>
+						</div>
+						<div class="build-summary__row">
+							<span class="build-summary__label">Format</span>
+							<span class="build-summary__value">Blu-ray Disc 1080p</span>
+						</div>
+						<div class="build-summary__row">
+							<span class="build-summary__label">Disc</span>
+							<span class="build-summary__value">BD-50 (50 GB)</span>
+						</div>
+						<div class="build-summary__row">
+							<span class="build-summary__label">Playlists</span>
+							<span class="build-summary__value">4</span>
+						</div>
+						<div class="build-summary__row">
+							<span class="build-summary__label">Menus</span>
+							<span class="build-summary__value">3 (top + popup + chapters)</span>
+						</div>
+						<div class="build-summary__row">
+							<span class="build-summary__label">Chapters</span>
+							<span class="build-summary__value">22</span>
+						</div>
+						<div class="build-summary__row">
+							<span class="build-summary__label">Re-encode</span>
+							<span class="build-summary__value">3 playlists</span>
+						</div>
+						<div class="build-summary__row">
+							<span class="build-summary__label">Copy</span>
+							<span class="build-summary__value">1 playlist</span>
+						</div>
+						<div
+							class="build-summary__row"
+							style="
+								border-top: 1px solid var(--border-subtle);
+								padding-top: var(--space-2);
+								margin-top: var(--space-2);
+							"
+						>
+							<span class="build-summary__label">Output</span>
+							<span class="build-summary__value">BDMV + ISO</span>
+						</div>
 
-      <!-- Summary + Actions -->
-      <div>
-        <div class="build-summary">
-          <h4 style="margin-bottom:var(--space-3);">Build Summary</h4>
-          <div class="build-summary__row">
-            <span class="build-summary__label">Mode</span>
-            <span class="build-summary__value" style="color:var(--brand-blue);">Final</span>
-          </div>
-          <div class="build-summary__row">
-            <span class="build-summary__label">Format</span>
-            <span class="build-summary__value">Blu-ray Disc 1080p</span>
-          </div>
-          <div class="build-summary__row">
-            <span class="build-summary__label">Disc</span>
-            <span class="build-summary__value">BD-50 (50 GB)</span>
-          </div>
-          <div class="build-summary__row">
-            <span class="build-summary__label">Playlists</span>
-            <span class="build-summary__value">4</span>
-          </div>
-          <div class="build-summary__row">
-            <span class="build-summary__label">Menus</span>
-            <span class="build-summary__value">3 (top + popup + chapters)</span>
-          </div>
-          <div class="build-summary__row">
-            <span class="build-summary__label">Chapters</span>
-            <span class="build-summary__value">22</span>
-          </div>
-          <div class="build-summary__row">
-            <span class="build-summary__label">Re-encode</span>
-            <span class="build-summary__value">3 playlists</span>
-          </div>
-          <div class="build-summary__row">
-            <span class="build-summary__label">Copy</span>
-            <span class="build-summary__value">1 playlist</span>
-          </div>
-          <div class="build-summary__row" style="border-top:1px solid var(--border-subtle);padding-top:var(--space-2);margin-top:var(--space-2);">
-            <span class="build-summary__label">Output</span>
-            <span class="build-summary__value">BDMV + ISO</span>
-          </div>
-
-          <div class="build-actions">
-            <button class="btn btn--primary" style="padding:var(--space-3);background:linear-gradient(135deg, #3A7BD5, #22d3ee);border:none;">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="var(--text-inverse)" stroke-width="1.5"><polygon points="4,2 14,8 4,14"/></svg>
-              Start Build
-            </button>
-            <button class="btn" style="padding:var(--space-2);">
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 12h12M2 8h8M2 4h5"/></svg>
-              Preview Commands (Dry Run)
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</body>
+						<div class="build-actions">
+							<button
+								class="btn btn--primary"
+								style="
+									padding: var(--space-3);
+									background: linear-gradient(135deg, #3a7bd5, #22d3ee);
+									border: none;
+								"
+							>
+								<svg
+									width="16"
+									height="16"
+									viewBox="0 0 16 16"
+									fill="none"
+									stroke="var(--text-inverse)"
+									stroke-width="1.5"
+								>
+									<polygon points="4,2 14,8 4,14" />
+								</svg>
+								Start Build
+							</button>
+							<button class="btn" style="padding: var(--space-2)">
+								<svg
+									width="14"
+									height="14"
+									viewBox="0 0 16 16"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="1.5"
+								>
+									<path d="M2 12h12M2 8h8M2 4h5" />
+								</svg>
+								Preview Commands (Dry Run)
+							</button>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</body>
 </html>

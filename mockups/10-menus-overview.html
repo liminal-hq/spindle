@@ -1,228 +1,308 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en-CA">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=1280">
-  <title>Spindle — Menus Overview</title>
-  <link rel="stylesheet" href="design-system.css">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
-  <style>
-    body { background: var(--bg-panel); }
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=1280" />
+		<title>Spindle — Menus Overview</title>
+		<link rel="stylesheet" href="design-system.css" />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap"
+			rel="stylesheet"
+		/>
+		<style>
+			body {
+				background: var(--bg-panel);
+			}
 
-    .menu-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-      gap: var(--space-4);
-      max-width: 960px;
-    }
+			.menu-grid {
+				display: grid;
+				grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+				gap: var(--space-4);
+				max-width: 960px;
+			}
 
-    .menu-card {
-      background: var(--bg-card);
-      border: 1px solid var(--border-subtle);
-      border-radius: var(--radius-lg);
-      overflow: hidden;
-      cursor: pointer;
-      transition: all var(--transition-base);
-    }
-    .menu-card:hover {
-      border-color: var(--border-default);
-      box-shadow: var(--shadow-card);
-      transform: translateY(-1px);
-    }
+			.menu-card {
+				background: var(--bg-card);
+				border: 1px solid var(--border-subtle);
+				border-radius: var(--radius-lg);
+				overflow: hidden;
+				cursor: pointer;
+				transition: all var(--transition-base);
+			}
+			.menu-card:hover {
+				border-color: var(--border-default);
+				box-shadow: var(--shadow-card);
+				transform: translateY(-1px);
+			}
 
-    .menu-card__preview {
-      width: 100%;
-      height: 180px;
-      position: relative;
-      overflow: hidden;
-    }
+			.menu-card__preview {
+				width: 100%;
+				height: 180px;
+				position: relative;
+				overflow: hidden;
+			}
 
-    /* Simulated menu backgrounds */
-    .menu-bg--main {
-      background: linear-gradient(135deg, #1a1a2e 0%, #2d1f45 30%, #1a2040 70%, #0f1520 100%);
-    }
-    .menu-bg--chapters {
-      background: linear-gradient(135deg, #1a2520 0%, #1f352d 50%, #152520 100%);
-    }
+			/* Simulated menu backgrounds */
+			.menu-bg--main {
+				background: linear-gradient(135deg, #1a1a2e 0%, #2d1f45 30%, #1a2040 70%, #0f1520 100%);
+			}
+			.menu-bg--chapters {
+				background: linear-gradient(135deg, #1a2520 0%, #1f352d 50%, #152520 100%);
+			}
 
-    /* Simulated menu buttons on preview */
-    .menu-preview-btn {
-      position: absolute;
-      background: rgba(255,255,255,0.08);
-      border: 1px solid rgba(255,255,255,0.15);
-      border-radius: 4px;
-      font-size: 9px;
-      color: rgba(255,255,255,0.7);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-family: var(--font-heading);
-      letter-spacing: 0.04em;
-    }
-    .menu-preview-btn--highlight {
-      border-color: var(--brand-orange);
-      background: rgba(255,170,64,0.12);
-      color: var(--brand-orange);
-      box-shadow: 0 0 12px rgba(255,170,64,0.15);
-    }
+			/* Simulated menu buttons on preview */
+			.menu-preview-btn {
+				position: absolute;
+				background: rgba(255, 255, 255, 0.08);
+				border: 1px solid rgba(255, 255, 255, 0.15);
+				border-radius: 4px;
+				font-size: 9px;
+				color: rgba(255, 255, 255, 0.7);
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				font-family: var(--font-heading);
+				letter-spacing: 0.04em;
+			}
+			.menu-preview-btn--highlight {
+				border-color: var(--brand-orange);
+				background: rgba(255, 170, 64, 0.12);
+				color: var(--brand-orange);
+				box-shadow: 0 0 12px rgba(255, 170, 64, 0.15);
+			}
 
-    /* Menu title overlay */
-    .menu-preview-title {
-      position: absolute;
-      top: 12px;
-      left: 0;
-      right: 0;
-      text-align: center;
-      font-family: var(--font-heading);
-      font-size: var(--text-md);
-      font-weight: 600;
-      color: rgba(255,255,255,0.5);
-      letter-spacing: 0.06em;
-    }
+			/* Menu title overlay */
+			.menu-preview-title {
+				position: absolute;
+				top: 12px;
+				left: 0;
+				right: 0;
+				text-align: center;
+				font-family: var(--font-heading);
+				font-size: var(--text-md);
+				font-weight: 600;
+				color: rgba(255, 255, 255, 0.5);
+				letter-spacing: 0.06em;
+			}
 
-    /* Safe area guides */
-    .safe-area {
-      position: absolute;
-      inset: 10%;
-      border: 1px dashed rgba(255,255,255,0.06);
-      border-radius: 2px;
-    }
+			/* Safe area guides */
+			.safe-area {
+				position: absolute;
+				inset: 10%;
+				border: 1px dashed rgba(255, 255, 255, 0.06);
+				border-radius: 2px;
+			}
 
-    .menu-card__body {
-      padding: var(--space-3) var(--space-4);
-    }
+			.menu-card__body {
+				padding: var(--space-3) var(--space-4);
+			}
 
-    .menu-card__name {
-      font-weight: 600;
-      font-size: var(--text-md);
-      color: var(--text-primary);
-      margin-bottom: var(--space-1);
-    }
+			.menu-card__name {
+				font-weight: 600;
+				font-size: var(--text-md);
+				color: var(--text-primary);
+				margin-bottom: var(--space-1);
+			}
 
-    .menu-card__meta {
-      display: flex;
-      align-items: center;
-      gap: var(--space-3);
-      font-size: var(--text-xs);
-      color: var(--text-muted);
-    }
+			.menu-card__meta {
+				display: flex;
+				align-items: center;
+				gap: var(--space-3);
+				font-size: var(--text-xs);
+				color: var(--text-muted);
+			}
 
-    .menu-card__nav-status {
-      display: flex;
-      align-items: center;
-      gap: var(--space-1);
-      margin-top: var(--space-2);
-      padding-top: var(--space-2);
-      border-top: 1px solid var(--border-subtle);
-      font-size: var(--text-xs);
-    }
+			.menu-card__nav-status {
+				display: flex;
+				align-items: center;
+				gap: var(--space-1);
+				margin-top: var(--space-2);
+				padding-top: var(--space-2);
+				border-top: 1px solid var(--border-subtle);
+				font-size: var(--text-xs);
+			}
 
-    /* -- Add menu card -- */
-    .menu-card--add {
-      border-style: dashed;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      min-height: 260px;
-      color: var(--text-muted);
-      gap: var(--space-2);
-    }
-    .menu-card--add:hover {
-      border-color: var(--brand-orange);
-      color: var(--brand-orange);
-      background: rgba(255,170,64,0.03);
-    }
-  </style>
-</head>
-<body>
-  <div style="padding: var(--space-6); max-width: 1020px;">
+			/* -- Add menu card -- */
+			.menu-card--add {
+				border-style: dashed;
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				justify-content: center;
+				min-height: 260px;
+				color: var(--text-muted);
+				gap: var(--space-2);
+			}
+			.menu-card--add:hover {
+				border-color: var(--brand-orange);
+				color: var(--brand-orange);
+				background: rgba(255, 170, 64, 0.03);
+			}
+		</style>
+	</head>
+	<body>
+		<div style="padding: var(--space-6); max-width: 1020px">
+			<div class="page-header">
+				<div>
+					<h1 class="page-title">Menus</h1>
+					<p class="text-muted" style="font-size: var(--text-sm); margin-top: 2px">
+						2 menus · Still image backgrounds
+					</p>
+				</div>
+				<div class="flex gap-2">
+					<button class="btn">
+						<svg
+							width="14"
+							height="14"
+							viewBox="0 0 16 16"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="1.5"
+						>
+							<path d="M3 8h10M8 3l5 5-5 5" />
+						</svg>
+						Preview Navigation
+					</button>
+					<button class="btn btn--primary">
+						<svg
+							width="14"
+							height="14"
+							viewBox="0 0 16 16"
+							fill="none"
+							stroke="var(--text-inverse)"
+							stroke-width="1.5"
+						>
+							<path d="M8 2v12M2 8h12" />
+						</svg>
+						Add Menu
+					</button>
+				</div>
+			</div>
 
-    <div class="page-header">
-      <div>
-        <h1 class="page-title">Menus</h1>
-        <p class="text-muted" style="font-size:var(--text-sm); margin-top:2px;">2 menus · Still image backgrounds</p>
-      </div>
-      <div class="flex gap-2">
-        <button class="btn">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 8h10M8 3l5 5-5 5"/></svg>
-          Preview Navigation
-        </button>
-        <button class="btn btn--primary">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="var(--text-inverse)" stroke-width="1.5"><path d="M8 2v12M2 8h12"/></svg>
-          Add Menu
-        </button>
-      </div>
-    </div>
+			<div class="menu-grid">
+				<!-- Main Menu -->
+				<div class="menu-card">
+					<div class="menu-card__preview menu-bg--main">
+						<div class="safe-area"></div>
+						<div class="menu-preview-title">Wedding Highlights</div>
+						<div
+							class="menu-preview-btn menu-preview-btn--highlight"
+							style="left: 20%; top: 45%; width: 25%; height: 12%"
+						>
+							Play Ceremony
+						</div>
+						<div class="menu-preview-btn" style="left: 20%; top: 60%; width: 25%; height: 12%">
+							Play Reception
+						</div>
+						<div class="menu-preview-btn" style="left: 55%; top: 45%; width: 25%; height: 12%">
+							Play Highlights
+						</div>
+						<div class="menu-preview-btn" style="left: 55%; top: 60%; width: 25%; height: 12%">
+							Chapter Select
+						</div>
+					</div>
+					<div class="menu-card__body">
+						<div class="menu-card__name">Main Menu</div>
+						<div class="menu-card__meta">
+							<span>4 buttons</span>
+							<span>·</span>
+							<span>Still background</span>
+							<span>·</span>
+							<span>Root menu</span>
+						</div>
+						<div class="menu-card__nav-status">
+							<svg
+								width="12"
+								height="12"
+								viewBox="0 0 16 16"
+								fill="none"
+								stroke="var(--colour-success)"
+								stroke-width="1.5"
+							>
+								<circle cx="8" cy="8" r="6" />
+								<path d="M5 8l2 2 4-4" />
+							</svg>
+							<span style="color: var(--colour-success)"
+								>Navigation valid — all buttons linked</span
+							>
+						</div>
+					</div>
+				</div>
 
-    <div class="menu-grid">
+				<!-- Chapter Select Menu -->
+				<div class="menu-card">
+					<div class="menu-card__preview menu-bg--chapters">
+						<div class="safe-area"></div>
+						<div class="menu-preview-title" style="font-size: var(--text-sm)">
+							Chapter Select — Ceremony
+						</div>
+						<div class="menu-preview-btn" style="left: 15%; top: 35%; width: 30%; height: 10%">
+							01 Pre-ceremony
+						</div>
+						<div class="menu-preview-btn" style="left: 15%; top: 48%; width: 30%; height: 10%">
+							02 Processional
+						</div>
+						<div class="menu-preview-btn" style="left: 15%; top: 61%; width: 30%; height: 10%">
+							03 Vows
+						</div>
+						<div class="menu-preview-btn" style="left: 55%; top: 35%; width: 30%; height: 10%">
+							04 Ring Exchange
+						</div>
+						<div class="menu-preview-btn" style="left: 55%; top: 48%; width: 30%; height: 10%">
+							05 First Kiss
+						</div>
+						<div class="menu-preview-btn" style="left: 55%; top: 61%; width: 30%; height: 10%">
+							06 Recessional
+						</div>
+						<div class="menu-preview-btn" style="left: 35%; top: 78%; width: 30%; height: 10%">
+							← Back to Main
+						</div>
+					</div>
+					<div class="menu-card__body">
+						<div class="menu-card__name">Chapter Select</div>
+						<div class="menu-card__meta">
+							<span>7 buttons</span>
+							<span>·</span>
+							<span>Still background</span>
+							<span>·</span>
+							<span>Sub-menu</span>
+						</div>
+						<div class="menu-card__nav-status">
+							<svg
+								width="12"
+								height="12"
+								viewBox="0 0 16 16"
+								fill="none"
+								stroke="var(--colour-success)"
+								stroke-width="1.5"
+							>
+								<circle cx="8" cy="8" r="6" />
+								<path d="M5 8l2 2 4-4" />
+							</svg>
+							<span style="color: var(--colour-success)"
+								>Navigation valid — all buttons linked</span
+							>
+						</div>
+					</div>
+				</div>
 
-      <!-- Main Menu -->
-      <div class="menu-card">
-        <div class="menu-card__preview menu-bg--main">
-          <div class="safe-area"></div>
-          <div class="menu-preview-title">Wedding Highlights</div>
-          <div class="menu-preview-btn menu-preview-btn--highlight" style="left:20%;top:45%;width:25%;height:12%;">Play Ceremony</div>
-          <div class="menu-preview-btn" style="left:20%;top:60%;width:25%;height:12%;">Play Reception</div>
-          <div class="menu-preview-btn" style="left:55%;top:45%;width:25%;height:12%;">Play Highlights</div>
-          <div class="menu-preview-btn" style="left:55%;top:60%;width:25%;height:12%;">Chapter Select</div>
-        </div>
-        <div class="menu-card__body">
-          <div class="menu-card__name">Main Menu</div>
-          <div class="menu-card__meta">
-            <span>4 buttons</span>
-            <span>·</span>
-            <span>Still background</span>
-            <span>·</span>
-            <span>Root menu</span>
-          </div>
-          <div class="menu-card__nav-status">
-            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="var(--colour-success)" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M5 8l2 2 4-4"/></svg>
-            <span style="color:var(--colour-success);">Navigation valid — all buttons linked</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Chapter Select Menu -->
-      <div class="menu-card">
-        <div class="menu-card__preview menu-bg--chapters">
-          <div class="safe-area"></div>
-          <div class="menu-preview-title" style="font-size:var(--text-sm);">Chapter Select — Ceremony</div>
-          <div class="menu-preview-btn" style="left:15%;top:35%;width:30%;height:10%;">01 Pre-ceremony</div>
-          <div class="menu-preview-btn" style="left:15%;top:48%;width:30%;height:10%;">02 Processional</div>
-          <div class="menu-preview-btn" style="left:15%;top:61%;width:30%;height:10%;">03 Vows</div>
-          <div class="menu-preview-btn" style="left:55%;top:35%;width:30%;height:10%;">04 Ring Exchange</div>
-          <div class="menu-preview-btn" style="left:55%;top:48%;width:30%;height:10%;">05 First Kiss</div>
-          <div class="menu-preview-btn" style="left:55%;top:61%;width:30%;height:10%;">06 Recessional</div>
-          <div class="menu-preview-btn" style="left:35%;top:78%;width:30%;height:10%;">← Back to Main</div>
-        </div>
-        <div class="menu-card__body">
-          <div class="menu-card__name">Chapter Select</div>
-          <div class="menu-card__meta">
-            <span>7 buttons</span>
-            <span>·</span>
-            <span>Still background</span>
-            <span>·</span>
-            <span>Sub-menu</span>
-          </div>
-          <div class="menu-card__nav-status">
-            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="var(--colour-success)" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M5 8l2 2 4-4"/></svg>
-            <span style="color:var(--colour-success);">Navigation valid — all buttons linked</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Add Menu -->
-      <div class="menu-card menu-card--add">
-        <svg width="32" height="32" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5">
-          <rect x="4" y="4" width="24" height="24" rx="4"/>
-          <path d="M16 10v12M10 16h12"/>
-        </svg>
-        <div style="font-size:var(--text-sm); font-weight:500;">Add Menu</div>
-        <div style="font-size:var(--text-xs);">Create a new still-image menu</div>
-      </div>
-
-    </div>
-  </div>
-</body>
+				<!-- Add Menu -->
+				<div class="menu-card menu-card--add">
+					<svg
+						width="32"
+						height="32"
+						viewBox="0 0 32 32"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="1.5"
+					>
+						<rect x="4" y="4" width="24" height="24" rx="4" />
+						<path d="M16 10v12M10 16h12" />
+					</svg>
+					<div style="font-size: var(--text-sm); font-weight: 500">Add Menu</div>
+					<div style="font-size: var(--text-xs)">Create a new still-image menu</div>
+				</div>
+			</div>
+		</div>
+	</body>
 </html>

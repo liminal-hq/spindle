@@ -1,351 +1,486 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en-CA">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=1280">
-  <title>Spindle — BD Disc Planner</title>
-  <link rel="stylesheet" href="design-system.css">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
-  <style>
-    body { background: var(--bg-panel); }
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=1280" />
+		<title>Spindle — BD Disc Planner</title>
+		<link rel="stylesheet" href="design-system.css" />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap"
+			rel="stylesheet"
+		/>
+		<style>
+			body {
+				background: var(--bg-panel);
+			}
 
-    .bd-gradient {
-      background: linear-gradient(135deg, #3A7BD5, #22d3ee);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-    }
+			.bd-gradient {
+				background: linear-gradient(135deg, #3a7bd5, #22d3ee);
+				-webkit-background-clip: text;
+				-webkit-text-fill-color: transparent;
+				background-clip: text;
+			}
 
-    .planner-stats {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: var(--space-4);
-      margin-bottom: var(--space-6);
-    }
-    .stat-card {
-      background: var(--bg-card);
-      border: 1px solid var(--border-subtle);
-      border-radius: var(--radius-lg);
-      padding: var(--space-4);
-      text-align: center;
-    }
-    .stat-card__value {
-      font-family: var(--font-heading);
-      font-size: var(--text-2xl);
-      font-weight: 700;
-      line-height: 1;
-      margin-bottom: var(--space-1);
-    }
-    .stat-card__label {
-      font-size: var(--text-xs);
-      color: var(--text-muted);
-    }
+			.planner-stats {
+				display: grid;
+				grid-template-columns: repeat(4, 1fr);
+				gap: var(--space-4);
+				margin-bottom: var(--space-6);
+			}
+			.stat-card {
+				background: var(--bg-card);
+				border: 1px solid var(--border-subtle);
+				border-radius: var(--radius-lg);
+				padding: var(--space-4);
+				text-align: center;
+			}
+			.stat-card__value {
+				font-family: var(--font-heading);
+				font-size: var(--text-2xl);
+				font-weight: 700;
+				line-height: 1;
+				margin-bottom: var(--space-1);
+			}
+			.stat-card__label {
+				font-size: var(--text-xs);
+				color: var(--text-muted);
+			}
 
-    .planner-bar__row {
-      display: flex;
-      height: 36px;
-      border-radius: var(--radius-md);
-      overflow: hidden;
-      border: 1px solid var(--border-subtle);
-    }
-    .planner-bar__seg {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: var(--text-xs);
-      font-weight: 600;
-      color: rgba(0,0,0,0.7);
-      transition: width var(--transition-slow);
-    }
-    .planner-legend {
-      display: flex;
-      gap: var(--space-4);
-      margin-top: var(--space-2);
-      flex-wrap: wrap;
-    }
-    .planner-legend__item {
-      display: flex;
-      align-items: center;
-      gap: var(--space-1);
-      font-size: var(--text-xs);
-      color: var(--text-secondary);
-    }
-    .planner-legend__dot {
-      width: 10px; height: 10px;
-      border-radius: 2px;
-    }
+			.planner-bar__row {
+				display: flex;
+				height: 36px;
+				border-radius: var(--radius-md);
+				overflow: hidden;
+				border: 1px solid var(--border-subtle);
+			}
+			.planner-bar__seg {
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				font-size: var(--text-xs);
+				font-weight: 600;
+				color: rgba(0, 0, 0, 0.7);
+				transition: width var(--transition-slow);
+			}
+			.planner-legend {
+				display: flex;
+				gap: var(--space-4);
+				margin-top: var(--space-2);
+				flex-wrap: wrap;
+			}
+			.planner-legend__item {
+				display: flex;
+				align-items: center;
+				gap: var(--space-1);
+				font-size: var(--text-xs);
+				color: var(--text-secondary);
+			}
+			.planner-legend__dot {
+				width: 10px;
+				height: 10px;
+				border-radius: 2px;
+			}
 
-    .bitrate-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-      gap: var(--space-4);
-      margin-top: var(--space-6);
-    }
-    .bitrate-card {
-      background: var(--bg-card);
-      border: 1px solid var(--border-subtle);
-      border-radius: var(--radius-lg);
-      padding: var(--space-4);
-    }
-    .bitrate-card__header {
-      display: flex;
-      align-items: center;
-      gap: var(--space-2);
-      margin-bottom: var(--space-3);
-    }
-    .bitrate-card__num {
-      width: 28px; height: 28px;
-      border-radius: 6px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-family: var(--font-heading);
-      font-weight: 700;
-      font-size: var(--text-sm);
-    }
-    .bitrate-meter {
-      height: 8px;
-      background: rgba(255,255,255,0.06);
-      border-radius: 4px;
-      overflow: hidden;
-      margin: var(--space-2) 0;
-    }
-    .bitrate-meter__fill {
-      height: 100%;
-      border-radius: 4px;
-    }
-    .bitrate-row {
-      display: flex;
-      justify-content: space-between;
-      font-size: var(--text-xs);
-      padding: 2px 0;
-    }
-    .bitrate-row__label { color: var(--text-muted); }
-    .bitrate-row__value { color: var(--text-primary); font-weight: 500; }
+			.bitrate-grid {
+				display: grid;
+				grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+				gap: var(--space-4);
+				margin-top: var(--space-6);
+			}
+			.bitrate-card {
+				background: var(--bg-card);
+				border: 1px solid var(--border-subtle);
+				border-radius: var(--radius-lg);
+				padding: var(--space-4);
+			}
+			.bitrate-card__header {
+				display: flex;
+				align-items: center;
+				gap: var(--space-2);
+				margin-bottom: var(--space-3);
+			}
+			.bitrate-card__num {
+				width: 28px;
+				height: 28px;
+				border-radius: 6px;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				font-family: var(--font-heading);
+				font-weight: 700;
+				font-size: var(--text-sm);
+			}
+			.bitrate-meter {
+				height: 8px;
+				background: rgba(255, 255, 255, 0.06);
+				border-radius: 4px;
+				overflow: hidden;
+				margin: var(--space-2) 0;
+			}
+			.bitrate-meter__fill {
+				height: 100%;
+				border-radius: 4px;
+			}
+			.bitrate-row {
+				display: flex;
+				justify-content: space-between;
+				font-size: var(--text-xs);
+				padding: 2px 0;
+			}
+			.bitrate-row__label {
+				color: var(--text-muted);
+			}
+			.bitrate-row__value {
+				color: var(--text-primary);
+				font-weight: 500;
+			}
 
-    .strategy-selector {
-      display: flex;
-      gap: var(--space-2);
-      margin-bottom: var(--space-4);
-    }
-    .strategy-opt {
-      padding: var(--space-2) var(--space-4);
-      border: 1px solid var(--border-subtle);
-      border-radius: var(--radius-md);
-      font-size: var(--text-xs);
-      font-weight: 500;
-      color: var(--text-muted);
-      cursor: pointer;
-    }
-    .strategy-opt--active {
-      border-color: var(--brand-blue);
-      background: rgba(96,165,250,0.06);
-      color: var(--brand-blue);
-    }
+			.strategy-selector {
+				display: flex;
+				gap: var(--space-2);
+				margin-bottom: var(--space-4);
+			}
+			.strategy-opt {
+				padding: var(--space-2) var(--space-4);
+				border: 1px solid var(--border-subtle);
+				border-radius: var(--radius-md);
+				font-size: var(--text-xs);
+				font-weight: 500;
+				color: var(--text-muted);
+				cursor: pointer;
+			}
+			.strategy-opt--active {
+				border-color: var(--brand-blue);
+				background: rgba(96, 165, 250, 0.06);
+				color: var(--brand-blue);
+			}
 
-    .format-banner {
-      display: flex;
-      align-items: center;
-      gap: var(--space-3);
-      padding: var(--space-3) var(--space-4);
-      background: rgba(96,165,250,0.05);
-      border: 1px solid rgba(96,165,250,0.15);
-      border-radius: var(--radius-md);
-      margin-bottom: var(--space-6);
-      font-size: var(--text-sm);
-    }
+			.format-banner {
+				display: flex;
+				align-items: center;
+				gap: var(--space-3);
+				padding: var(--space-3) var(--space-4);
+				background: rgba(96, 165, 250, 0.05);
+				border: 1px solid rgba(96, 165, 250, 0.15);
+				border-radius: var(--radius-md);
+				margin-bottom: var(--space-6);
+				font-size: var(--text-sm);
+			}
 
-    /* -- BD vs DVD comparison callout -- */
-    .comparison-note {
-      display: flex;
-      align-items: flex-start;
-      gap: var(--space-2);
-      padding: var(--space-3);
-      background: rgba(167,139,250,0.05);
-      border: 1px solid rgba(167,139,250,0.12);
-      border-radius: var(--radius-md);
-      font-size: var(--text-xs);
-      color: var(--text-secondary);
-      line-height: 1.5;
-      margin-top: var(--space-4);
-    }
-  </style>
-</head>
-<body>
-  <div style="padding: var(--space-6); max-width: 1000px;">
+			/* -- BD vs DVD comparison callout -- */
+			.comparison-note {
+				display: flex;
+				align-items: flex-start;
+				gap: var(--space-2);
+				padding: var(--space-3);
+				background: rgba(167, 139, 250, 0.05);
+				border: 1px solid rgba(167, 139, 250, 0.12);
+				border-radius: var(--radius-md);
+				font-size: var(--text-xs);
+				color: var(--text-secondary);
+				line-height: 1.5;
+				margin-top: var(--space-4);
+			}
+		</style>
+	</head>
+	<body>
+		<div style="padding: var(--space-6); max-width: 1000px">
+			<div class="page-header">
+				<div>
+					<h1 class="page-title">Disc Planner</h1>
+					<p class="text-muted" style="font-size: var(--text-sm); margin-top: 2px">
+						Blu-ray capacity planning and bitrate allocation
+					</p>
+				</div>
+				<div class="flex gap-2">
+					<select class="input input--select" style="width: 140px; font-size: var(--text-sm)">
+						<option>BD-25 (25 GB)</option>
+						<option>BD-50 (50 GB)</option>
+					</select>
+				</div>
+			</div>
 
-    <div class="page-header">
-      <div>
-        <h1 class="page-title">Disc Planner</h1>
-        <p class="text-muted" style="font-size:var(--text-sm); margin-top:2px;">Blu-ray capacity planning and bitrate allocation</p>
-      </div>
-      <div class="flex gap-2">
-        <select class="input input--select" style="width:140px;font-size:var(--text-sm);">
-          <option>BD-25 (25 GB)</option>
-          <option>BD-50 (50 GB)</option>
-        </select>
-      </div>
-    </div>
+			<div class="format-banner">
+				<div
+					style="
+						width: 32px;
+						height: 32px;
+						border-radius: 8px;
+						background: rgba(96, 165, 250, 0.12);
+						display: flex;
+						align-items: center;
+						justify-content: center;
+						flex-shrink: 0;
+					"
+				>
+					<svg
+						width="16"
+						height="16"
+						viewBox="0 0 16 16"
+						fill="none"
+						stroke="var(--brand-blue)"
+						stroke-width="1.5"
+					>
+						<circle cx="8" cy="8" r="6" />
+						<circle cx="8" cy="8" r="2" />
+					</svg>
+				</div>
+				<span style="font-weight: 600; color: var(--brand-blue)">Blu-ray Disc</span>
+				<span class="text-muted"> · H.264 AVC · 1080p · Max 40 Mbps video bitrate</span>
+			</div>
 
-    <div class="format-banner">
-      <div style="width:32px;height:32px;border-radius:8px;background:rgba(96,165,250,0.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="var(--brand-blue)" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="2"/></svg>
-      </div>
-      <span style="font-weight:600;color:var(--brand-blue);">Blu-ray Disc</span>
-      <span class="text-muted"> · H.264 AVC · 1080p · Max 40 Mbps video bitrate</span>
-    </div>
+			<!-- ═══ Summary Stats ═══ -->
+			<div class="planner-stats">
+				<div class="stat-card">
+					<div class="stat-card__value bd-gradient">18.4</div>
+					<div class="stat-card__label">GB Used</div>
+				</div>
+				<div class="stat-card">
+					<div class="stat-card__value" style="color: var(--colour-success)">6.6</div>
+					<div class="stat-card__label">GB Free</div>
+				</div>
+				<div class="stat-card">
+					<div class="stat-card__value" style="color: var(--brand-blue)">73%</div>
+					<div class="stat-card__label">Utilisation</div>
+				</div>
+				<div class="stat-card">
+					<div class="stat-card__value">2:34:15</div>
+					<div class="stat-card__label">Total Duration</div>
+				</div>
+			</div>
 
-    <!-- ═══ Summary Stats ═══ -->
-    <div class="planner-stats">
-      <div class="stat-card">
-        <div class="stat-card__value bd-gradient">18.4</div>
-        <div class="stat-card__label">GB Used</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-card__value" style="color:var(--colour-success);">6.6</div>
-        <div class="stat-card__label">GB Free</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-card__value" style="color:var(--brand-blue);">73%</div>
-        <div class="stat-card__label">Utilisation</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-card__value">2:34:15</div>
-        <div class="stat-card__label">Total Duration</div>
-      </div>
-    </div>
+			<!-- ═══ Capacity Bar ═══ -->
+			<div style="margin-bottom: var(--space-6)">
+				<div
+					style="
+						display: flex;
+						justify-content: space-between;
+						margin-bottom: var(--space-1);
+						font-size: var(--text-xs);
+						color: var(--text-muted);
+					"
+				>
+					<span>0 GB</span>
+					<span>25.0 GB (BD-25)</span>
+				</div>
+				<div class="planner-bar__row">
+					<div class="planner-bar__seg" style="width: 32%; background: var(--brand-blue)">
+						Feature · 8.1 GB
+					</div>
+					<div class="planner-bar__seg" style="width: 22%; background: var(--brand-cyan)">
+						BTS · 5.4 GB
+					</div>
+					<div class="planner-bar__seg" style="width: 10%; background: var(--brand-purple)">
+						Trailer · 2.5 GB
+					</div>
+					<div
+						class="planner-bar__seg"
+						style="width: 6%; background: rgba(46, 198, 106, 0.6); font-size: 9px"
+					>
+						Audio
+					</div>
+					<div
+						class="planner-bar__seg"
+						style="width: 3%; background: rgba(167, 139, 250, 0.5); font-size: 9px"
+					>
+						Menu
+					</div>
+					<div
+						class="planner-bar__seg"
+						style="
+							width: 1%;
+							background: rgba(255, 255, 255, 0.08);
+							font-size: 9px;
+							color: var(--text-muted);
+						"
+					>
+						OH
+					</div>
+					<div
+						class="planner-bar__seg"
+						style="width: 26%; background: rgba(255, 255, 255, 0.04); color: var(--text-muted)"
+					>
+						Free
+					</div>
+				</div>
+				<div class="planner-legend">
+					<div class="planner-legend__item">
+						<div class="planner-legend__dot" style="background: var(--brand-blue)"></div>
+						Feature Film Video
+					</div>
+					<div class="planner-legend__item">
+						<div class="planner-legend__dot" style="background: var(--brand-cyan)"></div>
+						Behind the Scenes Video
+					</div>
+					<div class="planner-legend__item">
+						<div class="planner-legend__dot" style="background: var(--brand-purple)"></div>
+						Trailer Video
+					</div>
+					<div class="planner-legend__item">
+						<div class="planner-legend__dot" style="background: rgba(46, 198, 106, 0.6)"></div>
+						Audio (DTS-HD MA + AC-3)
+					</div>
+					<div class="planner-legend__item">
+						<div class="planner-legend__dot" style="background: rgba(167, 139, 250, 0.5)"></div>
+						Menus &amp; Graphics
+					</div>
+				</div>
+			</div>
 
-    <!-- ═══ Capacity Bar ═══ -->
-    <div style="margin-bottom:var(--space-6);">
-      <div style="display:flex;justify-content:space-between;margin-bottom:var(--space-1);font-size:var(--text-xs);color:var(--text-muted);">
-        <span>0 GB</span>
-        <span>25.0 GB (BD-25)</span>
-      </div>
-      <div class="planner-bar__row">
-        <div class="planner-bar__seg" style="width:32%;background:var(--brand-blue);">Feature · 8.1 GB</div>
-        <div class="planner-bar__seg" style="width:22%;background:var(--brand-cyan);">BTS · 5.4 GB</div>
-        <div class="planner-bar__seg" style="width:10%;background:var(--brand-purple);">Trailer · 2.5 GB</div>
-        <div class="planner-bar__seg" style="width:6%;background:rgba(46,198,106,0.6);font-size:9px;">Audio</div>
-        <div class="planner-bar__seg" style="width:3%;background:rgba(167,139,250,0.5);font-size:9px;">Menu</div>
-        <div class="planner-bar__seg" style="width:1%;background:rgba(255,255,255,0.08);font-size:9px;color:var(--text-muted);">OH</div>
-        <div class="planner-bar__seg" style="width:26%;background:rgba(255,255,255,0.04);color:var(--text-muted);">Free</div>
-      </div>
-      <div class="planner-legend">
-        <div class="planner-legend__item"><div class="planner-legend__dot" style="background:var(--brand-blue);"></div>Feature Film Video</div>
-        <div class="planner-legend__item"><div class="planner-legend__dot" style="background:var(--brand-cyan);"></div>Behind the Scenes Video</div>
-        <div class="planner-legend__item"><div class="planner-legend__dot" style="background:var(--brand-purple);"></div>Trailer Video</div>
-        <div class="planner-legend__item"><div class="planner-legend__dot" style="background:rgba(46,198,106,0.6);"></div>Audio (DTS-HD MA + AC-3)</div>
-        <div class="planner-legend__item"><div class="planner-legend__dot" style="background:rgba(167,139,250,0.5);"></div>Menus &amp; Graphics</div>
-      </div>
-    </div>
+			<!-- ═══ Allocation ═══ -->
+			<div style="margin-top: var(--space-6)">
+				<h3 style="font-size: var(--text-md); margin-bottom: var(--space-2)">
+					Allocation Strategy
+				</h3>
+				<div class="strategy-selector">
+					<div class="strategy-opt">Equal Share</div>
+					<div class="strategy-opt strategy-opt--active">Duration Weighted</div>
+					<div class="strategy-opt">Priority Weighted</div>
+				</div>
+			</div>
 
-    <!-- ═══ Allocation ═══ -->
-    <div style="margin-top:var(--space-6);">
-      <h3 style="font-size:var(--text-md);margin-bottom:var(--space-2);">Allocation Strategy</h3>
-      <div class="strategy-selector">
-        <div class="strategy-opt">Equal Share</div>
-        <div class="strategy-opt strategy-opt--active">Duration Weighted</div>
-        <div class="strategy-opt">Priority Weighted</div>
-      </div>
-    </div>
+			<!-- ═══ Per-Title Cards ═══ -->
+			<div class="bitrate-grid">
+				<!-- Title 1: Feature -->
+				<div class="bitrate-card">
+					<div class="bitrate-card__header">
+						<div
+							class="bitrate-card__num"
+							style="background: rgba(96, 165, 250, 0.12); color: var(--brand-blue)"
+						>
+							1
+						</div>
+						<div>
+							<div style="font-weight: 600; font-size: var(--text-sm)">Feature Film</div>
+							<div style="font-size: var(--text-xs); color: var(--text-muted)">
+								1:48:30 · 1080p · H.264 AVC
+							</div>
+						</div>
+					</div>
+					<div class="bitrate-row">
+						<span class="bitrate-row__label">Video Bitrate</span>
+						<span class="bitrate-row__value mono">25,000 kbps</span>
+					</div>
+					<div class="bitrate-meter">
+						<div
+							class="bitrate-meter__fill"
+							style="width: 62%; background: var(--brand-blue)"
+						></div>
+					</div>
+					<div class="bitrate-row">
+						<span class="bitrate-row__label">Audio (DTS-HD MA + AC-3)</span>
+						<span class="bitrate-row__value mono">~4,500 kbps</span>
+					</div>
+					<div class="bitrate-row">
+						<span class="bitrate-row__label">Estimated Size</span>
+						<span class="bitrate-row__value">8.1 GB</span>
+					</div>
+					<div class="bitrate-row">
+						<span class="bitrate-row__label">Quality</span>
+						<span class="badge badge--remux" style="font-size: 9px">Reference</span>
+					</div>
+				</div>
 
-    <!-- ═══ Per-Title Cards ═══ -->
-    <div class="bitrate-grid">
-      <!-- Title 1: Feature -->
-      <div class="bitrate-card">
-        <div class="bitrate-card__header">
-          <div class="bitrate-card__num" style="background:rgba(96,165,250,0.12);color:var(--brand-blue);">1</div>
-          <div>
-            <div style="font-weight:600;font-size:var(--text-sm);">Feature Film</div>
-            <div style="font-size:var(--text-xs);color:var(--text-muted);">1:48:30 · 1080p · H.264 AVC</div>
-          </div>
-        </div>
-        <div class="bitrate-row">
-          <span class="bitrate-row__label">Video Bitrate</span>
-          <span class="bitrate-row__value mono">25,000 kbps</span>
-        </div>
-        <div class="bitrate-meter">
-          <div class="bitrate-meter__fill" style="width:62%;background:var(--brand-blue);"></div>
-        </div>
-        <div class="bitrate-row">
-          <span class="bitrate-row__label">Audio (DTS-HD MA + AC-3)</span>
-          <span class="bitrate-row__value mono">~4,500 kbps</span>
-        </div>
-        <div class="bitrate-row">
-          <span class="bitrate-row__label">Estimated Size</span>
-          <span class="bitrate-row__value">8.1 GB</span>
-        </div>
-        <div class="bitrate-row">
-          <span class="bitrate-row__label">Quality</span>
-          <span class="badge badge--remux" style="font-size:9px;">Reference</span>
-        </div>
-      </div>
+				<!-- Title 2: BTS -->
+				<div class="bitrate-card">
+					<div class="bitrate-card__header">
+						<div
+							class="bitrate-card__num"
+							style="background: rgba(34, 211, 238, 0.12); color: var(--brand-cyan)"
+						>
+							2
+						</div>
+						<div>
+							<div style="font-weight: 600; font-size: var(--text-sm)">Behind the Scenes</div>
+							<div style="font-size: var(--text-xs); color: var(--text-muted)">
+								35:20 · 1080p · H.264 AVC
+							</div>
+						</div>
+					</div>
+					<div class="bitrate-row">
+						<span class="bitrate-row__label">Video Bitrate</span>
+						<span class="bitrate-row__value mono">18,000 kbps</span>
+					</div>
+					<div class="bitrate-meter">
+						<div
+							class="bitrate-meter__fill"
+							style="width: 45%; background: var(--brand-cyan)"
+						></div>
+					</div>
+					<div class="bitrate-row">
+						<span class="bitrate-row__label">Audio (AC-3 5.1)</span>
+						<span class="bitrate-row__value mono">640 kbps</span>
+					</div>
+					<div class="bitrate-row">
+						<span class="bitrate-row__label">Estimated Size</span>
+						<span class="bitrate-row__value">5.4 GB</span>
+					</div>
+					<div class="bitrate-row">
+						<span class="bitrate-row__label">Quality</span>
+						<span class="badge badge--remux" style="font-size: 9px">Excellent</span>
+					</div>
+				</div>
 
-      <!-- Title 2: BTS -->
-      <div class="bitrate-card">
-        <div class="bitrate-card__header">
-          <div class="bitrate-card__num" style="background:rgba(34,211,238,0.12);color:var(--brand-cyan);">2</div>
-          <div>
-            <div style="font-weight:600;font-size:var(--text-sm);">Behind the Scenes</div>
-            <div style="font-size:var(--text-xs);color:var(--text-muted);">35:20 · 1080p · H.264 AVC</div>
-          </div>
-        </div>
-        <div class="bitrate-row">
-          <span class="bitrate-row__label">Video Bitrate</span>
-          <span class="bitrate-row__value mono">18,000 kbps</span>
-        </div>
-        <div class="bitrate-meter">
-          <div class="bitrate-meter__fill" style="width:45%;background:var(--brand-cyan);"></div>
-        </div>
-        <div class="bitrate-row">
-          <span class="bitrate-row__label">Audio (AC-3 5.1)</span>
-          <span class="bitrate-row__value mono">640 kbps</span>
-        </div>
-        <div class="bitrate-row">
-          <span class="bitrate-row__label">Estimated Size</span>
-          <span class="bitrate-row__value">5.4 GB</span>
-        </div>
-        <div class="bitrate-row">
-          <span class="bitrate-row__label">Quality</span>
-          <span class="badge badge--remux" style="font-size:9px;">Excellent</span>
-        </div>
-      </div>
+				<!-- Title 3: Trailer -->
+				<div class="bitrate-card">
+					<div class="bitrate-card__header">
+						<div
+							class="bitrate-card__num"
+							style="background: rgba(167, 139, 250, 0.12); color: var(--brand-purple)"
+						>
+							3
+						</div>
+						<div>
+							<div style="font-weight: 600; font-size: var(--text-sm)">Theatrical Trailer</div>
+							<div style="font-size: var(--text-xs); color: var(--text-muted)">
+								10:25 · 1080p · H.264 AVC
+							</div>
+						</div>
+					</div>
+					<div class="bitrate-row">
+						<span class="bitrate-row__label">Video Bitrate</span>
+						<span class="bitrate-row__value mono">30,000 kbps</span>
+					</div>
+					<div class="bitrate-meter">
+						<div
+							class="bitrate-meter__fill"
+							style="width: 75%; background: var(--brand-purple)"
+						></div>
+					</div>
+					<div class="bitrate-row">
+						<span class="bitrate-row__label">Audio (DTS-HD MA)</span>
+						<span class="bitrate-row__value mono">~3,500 kbps</span>
+					</div>
+					<div class="bitrate-row">
+						<span class="bitrate-row__label">Estimated Size</span>
+						<span class="bitrate-row__value">2.5 GB</span>
+					</div>
+					<div class="bitrate-row">
+						<span class="bitrate-row__label">Quality</span>
+						<span class="badge badge--remux" style="font-size: 9px">Reference</span>
+					</div>
+				</div>
+			</div>
 
-      <!-- Title 3: Trailer -->
-      <div class="bitrate-card">
-        <div class="bitrate-card__header">
-          <div class="bitrate-card__num" style="background:rgba(167,139,250,0.12);color:var(--brand-purple);">3</div>
-          <div>
-            <div style="font-weight:600;font-size:var(--text-sm);">Theatrical Trailer</div>
-            <div style="font-size:var(--text-xs);color:var(--text-muted);">10:25 · 1080p · H.264 AVC</div>
-          </div>
-        </div>
-        <div class="bitrate-row">
-          <span class="bitrate-row__label">Video Bitrate</span>
-          <span class="bitrate-row__value mono">30,000 kbps</span>
-        </div>
-        <div class="bitrate-meter">
-          <div class="bitrate-meter__fill" style="width:75%;background:var(--brand-purple);"></div>
-        </div>
-        <div class="bitrate-row">
-          <span class="bitrate-row__label">Audio (DTS-HD MA)</span>
-          <span class="bitrate-row__value mono">~3,500 kbps</span>
-        </div>
-        <div class="bitrate-row">
-          <span class="bitrate-row__label">Estimated Size</span>
-          <span class="bitrate-row__value">2.5 GB</span>
-        </div>
-        <div class="bitrate-row">
-          <span class="bitrate-row__label">Quality</span>
-          <span class="badge badge--remux" style="font-size:9px;">Reference</span>
-        </div>
-      </div>
-    </div>
-
-    <div class="comparison-note">
-      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="var(--brand-purple)" stroke-width="1.5" style="flex-shrink:0;margin-top:1px;"><circle cx="8" cy="8" r="6"/><path d="M8 5v1M8 8v3"/></svg>
-      <span><strong>BD vs DVD:</strong> Blu-ray supports up to 40 Mbps video bitrate (vs 9.8 Mbps for DVD) and 25–50 GB capacity (vs 4.7–8.5 GB). H.264 AVC at 25 Mbps typically exceeds the quality of DVD MPEG-2 at maximum bitrate.</span>
-    </div>
-  </div>
-</body>
+			<div class="comparison-note">
+				<svg
+					width="14"
+					height="14"
+					viewBox="0 0 16 16"
+					fill="none"
+					stroke="var(--brand-purple)"
+					stroke-width="1.5"
+					style="flex-shrink: 0; margin-top: 1px"
+				>
+					<circle cx="8" cy="8" r="6" />
+					<path d="M8 5v1M8 8v3" />
+				</svg>
+				<span
+					><strong>BD vs DVD:</strong> Blu-ray supports up to 40 Mbps video bitrate (vs 9.8 Mbps for
+					DVD) and 25–50 GB capacity (vs 4.7–8.5 GB). H.264 AVC at 25 Mbps typically exceeds the
+					quality of DVD MPEG-2 at maximum bitrate.</span
+				>
+			</div>
+		</div>
+	</body>
 </html>

@@ -554,7 +554,10 @@ mod tests {
         let title = Title::new("Ceremony".to_string(), 0);
         project.disc.titlesets[0].titles.push(title);
 
-        let asset = Asset::new("ceremony.mp4".to_string(), "/media/ceremony.mp4".to_string());
+        let asset = Asset::new(
+            "ceremony.mp4".to_string(),
+            "/media/ceremony.mp4".to_string(),
+        );
         project.assets.push(asset);
 
         let json = serde_json::to_string(&project).unwrap();
@@ -584,8 +587,14 @@ mod tests {
 
     #[test]
     fn video_standard_serialises_as_uppercase() {
-        assert_eq!(serde_json::to_string(&VideoStandard::Ntsc).unwrap(), "\"NTSC\"");
-        assert_eq!(serde_json::to_string(&VideoStandard::Pal).unwrap(), "\"PAL\"");
+        assert_eq!(
+            serde_json::to_string(&VideoStandard::Ntsc).unwrap(),
+            "\"NTSC\""
+        );
+        assert_eq!(
+            serde_json::to_string(&VideoStandard::Pal).unwrap(),
+            "\"PAL\""
+        );
     }
 
     #[test]
@@ -596,10 +605,22 @@ mod tests {
 
     #[test]
     fn video_raster_resolutions_are_correct() {
-        assert_eq!(VideoRaster::FullD1.resolution(VideoStandard::Ntsc), (720, 480));
-        assert_eq!(VideoRaster::FullD1.resolution(VideoStandard::Pal), (720, 576));
-        assert_eq!(VideoRaster::HalfD1.resolution(VideoStandard::Ntsc), (352, 480));
-        assert_eq!(VideoRaster::QuarterD1.resolution(VideoStandard::Pal), (352, 288));
+        assert_eq!(
+            VideoRaster::FullD1.resolution(VideoStandard::Ntsc),
+            (720, 480)
+        );
+        assert_eq!(
+            VideoRaster::FullD1.resolution(VideoStandard::Pal),
+            (720, 576)
+        );
+        assert_eq!(
+            VideoRaster::HalfD1.resolution(VideoStandard::Ntsc),
+            (352, 480)
+        );
+        assert_eq!(
+            VideoRaster::QuarterD1.resolution(VideoStandard::Pal),
+            (352, 288)
+        );
     }
 
     #[test]
@@ -651,10 +672,22 @@ mod tests {
 
     #[test]
     fn audio_output_targets_serialise_as_uppercase() {
-        assert_eq!(serde_json::to_string(&AudioOutputTarget::Ac3).unwrap(), "\"AC3\"");
-        assert_eq!(serde_json::to_string(&AudioOutputTarget::Lpcm).unwrap(), "\"LPCM\"");
-        assert_eq!(serde_json::to_string(&AudioOutputTarget::Mp2).unwrap(), "\"MP2\"");
-        assert_eq!(serde_json::to_string(&AudioOutputTarget::Dts).unwrap(), "\"DTS\"");
+        assert_eq!(
+            serde_json::to_string(&AudioOutputTarget::Ac3).unwrap(),
+            "\"AC3\""
+        );
+        assert_eq!(
+            serde_json::to_string(&AudioOutputTarget::Lpcm).unwrap(),
+            "\"LPCM\""
+        );
+        assert_eq!(
+            serde_json::to_string(&AudioOutputTarget::Mp2).unwrap(),
+            "\"MP2\""
+        );
+        assert_eq!(
+            serde_json::to_string(&AudioOutputTarget::Dts).unwrap(),
+            "\"DTS\""
+        );
     }
 
     #[test]
@@ -662,6 +695,9 @@ mod tests {
         let settings = BuildSettings::default();
         assert!(!settings.generate_iso);
         assert_eq!(settings.safety_margin_bytes, 50_000_000);
-        assert_eq!(settings.allocation_strategy, AllocationStrategy::DurationWeighted);
+        assert_eq!(
+            settings.allocation_strategy,
+            AllocationStrategy::DurationWeighted
+        );
     }
 }
