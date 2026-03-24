@@ -207,6 +207,7 @@ export interface Asset {
 	subtitleStreams: SubtitleStreamInfo[];
 	compatibility: CompatibilityAssessment | null;
 	fingerprint: string | null;
+	thumbnailPath: string | null;
 }
 
 export interface VideoStreamInfo {

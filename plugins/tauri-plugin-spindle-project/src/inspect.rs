@@ -133,6 +133,38 @@ pub fn inspect(path: &str) -> crate::Result<Asset> {
     })
 }
 
+/// Extract a thumbnail from a video file at the given timestamp.
+///
+/// Writes a JPEG image to `output_path` using ffmpeg.
+pub fn extract_thumbnail(source_path: &str, output_path: &str, timestamp_secs: f64) -> crate::Result<()> {
+    let ts = format!("{:.2}", timestamp_secs);
+
+    let output = Command::new("ffmpeg")
+        .args([
+            "-y",
+            "-ss", &ts,
+            "-i", source_path,
+            "-frames:v", "1",
+            "-q:v", "3",
+            output_path,
+        ])
+        .output()
+        .map_err(|e| {
+            crate::Error::Inspection(format!(
+                "Failed to run ffmpeg for thumbnail extraction: {e}"
+            ))
+        })?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(crate::Error::Inspection(format!(
+            "ffmpeg thumbnail extraction failed: {stderr}"
+        )));
+    }
+
+    Ok(())
+}
+
 /// Assess how compatible an asset is with DVD-Video authoring.
 fn assess_dvd_compatibility(
     video_streams: &[VideoStreamInfo],

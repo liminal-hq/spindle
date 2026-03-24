@@ -3,7 +3,7 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: MIT
 
-use tauri::{command, AppHandle, Emitter, Runtime};
+use tauri::{command, AppHandle, Emitter, Manager, Runtime};
 
 use crate::build::{self, BuildPlan, BuildResult};
 use crate::models::*;
@@ -52,6 +52,17 @@ pub(crate) async fn inspect_asset<R: Runtime>(_app: AppHandle<R>, path: String) 
     // ffprobe is a short-lived subprocess, so running it directly is fine.
     // The async command handler already runs on a worker thread in Tauri.
     crate::inspect::inspect(&path)
+}
+
+/// Extract a thumbnail from a video asset at a given timestamp.
+#[command]
+pub(crate) async fn extract_thumbnail<R: Runtime>(
+    _app: AppHandle<R>,
+    source_path: String,
+    output_path: String,
+    timestamp_secs: f64,
+) -> Result<()> {
+    crate::inspect::extract_thumbnail(&source_path, &output_path, timestamp_secs)
 }
 
 /// Generate a build plan without executing it (dry-run / preview).
@@ -157,6 +168,22 @@ fn detect_tool_version(tool: &str) -> Option<String> {
         stdout.lines().next().unwrap_or("unknown")
     };
     Some(version_line.to_string())
+}
+
+/// Return the application cache directory for storing thumbnails and other transient data.
+#[command]
+pub(crate) async fn get_cache_dir<R: Runtime>(app: AppHandle<R>) -> Result<String> {
+    let cache_dir = app
+        .path()
+        .app_cache_dir()
+        .map_err(|e| crate::Error::Inspection(format!("Failed to get cache directory: {e}")))?;
+
+    // Ensure the thumbnails subdirectory exists
+    let thumb_dir = cache_dir.join("thumbnails");
+    std::fs::create_dir_all(&thumb_dir)
+        .map_err(|e| crate::Error::Inspection(format!("Failed to create thumbnail cache: {e}")))?;
+
+    Ok(thumb_dir.to_string_lossy().to_string())
 }
 
 /// Status of an external tool in the authoring toolchain.

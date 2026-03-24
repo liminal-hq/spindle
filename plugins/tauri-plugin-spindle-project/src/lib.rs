@@ -48,6 +48,8 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::serialise_project,
             commands::validate_project,
             commands::inspect_asset,
+            commands::extract_thumbnail,
+            commands::get_cache_dir,
             commands::generate_build_plan,
             commands::execute_build,
             commands::cancel_build,

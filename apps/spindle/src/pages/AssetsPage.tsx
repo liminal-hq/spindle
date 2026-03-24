@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: MIT
 
 import { useState } from 'react';
+import { convertFileSrc } from '@tauri-apps/api/core';
 import { useProjectStore } from '../store/project-store';
 import type { Asset, CompatibilityAssessment } from '../types/project';
 import './AssetsPage.css';
@@ -103,6 +104,15 @@ function AssetRow({
 			tabIndex={0}
 			onKeyDown={(e) => e.key === 'Enter' && onSelect()}
 		>
+			{asset.thumbnailPath ? (
+				<img
+					className="assets__row-thumb"
+					src={convertFileSrc(asset.thumbnailPath)}
+					alt=""
+				/>
+			) : (
+				<div className="assets__row-thumb assets__row-thumb--placeholder" />
+			)}
 			<div className="assets__row-main">
 				<span className="assets__row-name">{asset.fileName}</span>
 				<div className="assets__row-meta text-muted">
@@ -136,6 +146,14 @@ function AssetDetail({ asset, onRemove }: { asset: Asset; onRemove: () => void }
 					Remove
 				</button>
 			</div>
+
+			{asset.thumbnailPath && (
+				<img
+					className="assets__detail-thumb"
+					src={convertFileSrc(asset.thumbnailPath)}
+					alt={`Thumbnail for ${asset.fileName}`}
+				/>
+			)}
 
 			<div className="assets__detail-section">
 				<h4 className="assets__detail-heading">File Info</h4>

@@ -254,6 +254,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 				subtitleStreams: [],
 				compatibility: null,
 				fingerprint: null,
+				thumbnailPath: null,
 			};
 		});
 
@@ -265,7 +266,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 			isDirty: true,
 		});
 
-		// Trigger inspection for each new asset
+		// Trigger inspection and thumbnail extraction for each new asset
 		for (const asset of newAssets) {
 			try {
 				const inspected = await invoke<Asset>('plugin:spindle-project|inspect_asset', {
@@ -274,14 +275,40 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 				// Merge inspection results, preserving the ID we assigned
 				const { project: current } = get();
 				if (!current) break;
+				const merged = { ...inspected, id: asset.id };
 				set({
 					project: {
 						...current,
-						assets: current.assets.map((a) =>
-							a.id === asset.id ? { ...inspected, id: asset.id } : a,
-						),
+						assets: current.assets.map((a) => (a.id === asset.id ? merged : a)),
 					},
 				});
+
+				// Extract thumbnail if the asset has video streams
+				if (inspected.videoStreams.length > 0) {
+					try {
+						const thumbDir = await invoke<string>('plugin:spindle-project|get_cache_dir');
+						const thumbPath = `${thumbDir}/thumb_${asset.id}.jpg`;
+						const seekTo = Math.min(1, inspected.durationSecs ?? 0);
+						await invoke('plugin:spindle-project|extract_thumbnail', {
+							sourcePath: asset.sourcePath,
+							outputPath: thumbPath,
+							timestampSecs: seekTo,
+						});
+						const { project: afterThumb } = get();
+						if (afterThumb) {
+							set({
+								project: {
+									...afterThumb,
+									assets: afterThumb.assets.map((a) =>
+										a.id === asset.id ? { ...a, thumbnailPath: thumbPath } : a,
+									),
+								},
+							});
+						}
+					} catch {
+						// Thumbnail extraction is best-effort
+					}
+				}
 			} catch {
 				// Inspection failed — asset stays as stub with null metadata
 			}

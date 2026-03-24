@@ -476,6 +476,8 @@ pub struct Asset {
     pub subtitle_streams: Vec<SubtitleStreamInfo>,
     pub compatibility: Option<CompatibilityAssessment>,
     pub fingerprint: Option<String>,
+    #[serde(default)]
+    pub thumbnail_path: Option<String>,
 }
 
 impl Asset {
@@ -492,6 +494,7 @@ impl Asset {
             subtitle_streams: Vec::new(),
             compatibility: None,
             fingerprint: None,
+            thumbnail_path: None,
         }
     }
 }
