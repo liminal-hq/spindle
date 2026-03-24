@@ -55,6 +55,7 @@ export interface ProjectState {
 	validateProject: () => Promise<void>;
 	importAssets: () => Promise<void>;
 	removeAsset: (assetId: string) => void;
+	relinkAsset: (assetId: string) => Promise<void>;
 	generateBuildPlan: () => Promise<void>;
 	executeBuild: () => Promise<void>;
 	clearBuild: () => void;
@@ -343,6 +344,62 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 			},
 			isDirty: true,
 		});
+	},
+
+	relinkAsset: async (assetId) => {
+		const { project } = get();
+		if (!project) return;
+
+		const asset = project.assets.find((a) => a.id === assetId);
+		if (!asset) return;
+
+		const selected = await open({
+			multiple: false,
+			filters: [
+				{
+					name: 'Media Files',
+					extensions: [
+						'mpg', 'mpeg', 'vob', 'm2v', 'mp4', 'mkv', 'avi', 'mov', 'ts',
+						'ac3', 'dts', 'lpcm', 'wav', 'mp2', 'mp3', 'aac',
+						'sub', 'idx', 'srt', 'sup',
+					],
+				},
+			],
+		});
+		if (!selected) return;
+
+		const newPath = Array.isArray(selected) ? selected[0] : selected;
+		const newFileName = newPath.split(/[/\\]/).pop() ?? newPath;
+
+		// Update path immediately
+		set({
+			project: {
+				...project,
+				assets: project.assets.map((a) =>
+					a.id === assetId ? { ...a, sourcePath: newPath, fileName: newFileName } : a,
+				),
+			},
+			isDirty: true,
+		});
+
+		// Re-inspect the relinked file
+		try {
+			const inspected = await invoke<Asset>('plugin:spindle-project|inspect_asset', {
+				path: newPath,
+			});
+			const { project: current } = get();
+			if (!current) return;
+			set({
+				project: {
+					...current,
+					assets: current.assets.map((a) =>
+						a.id === assetId ? { ...inspected, id: assetId } : a,
+					),
+				},
+			});
+		} catch {
+			// Re-inspection failed — keep the path update
+		}
 	},
 
 	generateBuildPlan: async () => {
