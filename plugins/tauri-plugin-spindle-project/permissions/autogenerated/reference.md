@@ -11,6 +11,7 @@ Default permissions for the spindle-project plugin
 - `allow-inspect-asset`
 - `allow-generate-build-plan`
 - `allow-execute-build`
+- `allow-cancel-build`
 - `allow-auto-generate-menu-nav`
 - `allow-check-toolchain`
 
@@ -45,6 +46,32 @@ Enables the auto_generate_menu_nav command without any pre-configured scope.
 <td>
 
 Denies the auto_generate_menu_nav command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`spindle-project:allow-cancel-build`
+
+</td>
+<td>
+
+Enables the cancel_build command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`spindle-project:deny-cancel-build`
+
+</td>
+<td>
+
+Denies the cancel_build command without any pre-configured scope.
 
 </td>
 </tr>

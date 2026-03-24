@@ -210,6 +210,83 @@
 	z-index: 3;
 }
 
+/* ── Resize handles ──────────────────────────────────────── */
+
+.menus__resize-handle {
+	position: absolute;
+	z-index: 4;
+}
+
+/* Corner handles */
+.menus__resize-handle--nw,
+.menus__resize-handle--ne,
+.menus__resize-handle--sw,
+.menus__resize-handle--se {
+	width: 8px;
+	height: 8px;
+	background: var(--brand-orange);
+	border-radius: 50%;
+	opacity: 0;
+	transition: opacity var(--transition-base);
+}
+
+.menus__canvas-button:hover .menus__resize-handle--nw,
+.menus__canvas-button:hover .menus__resize-handle--ne,
+.menus__canvas-button:hover .menus__resize-handle--sw,
+.menus__canvas-button:hover .menus__resize-handle--se {
+	opacity: 1;
+}
+
+.menus__resize-handle--nw { top: -4px; left: -4px; cursor: nw-resize; }
+.menus__resize-handle--ne { top: -4px; right: -4px; cursor: ne-resize; }
+.menus__resize-handle--sw { bottom: -4px; left: -4px; cursor: sw-resize; }
+.menus__resize-handle--se { bottom: -4px; right: -4px; cursor: se-resize; }
+
+/* Edge handles */
+.menus__resize-handle--n,
+.menus__resize-handle--s {
+	left: 8px;
+	right: 8px;
+	height: 4px;
+	cursor: ns-resize;
+}
+
+.menus__resize-handle--n { top: -2px; }
+.menus__resize-handle--s { bottom: -2px; }
+
+.menus__resize-handle--e,
+.menus__resize-handle--w {
+	top: 8px;
+	bottom: 8px;
+	width: 4px;
+	cursor: ew-resize;
+}
+
+.menus__resize-handle--e { right: -2px; }
+.menus__resize-handle--w { left: -2px; }
+
+/* ── Snap guide lines ────────────────────────────────────── */
+
+.menus__snap-line {
+	position: absolute;
+	z-index: 5;
+	pointer-events: none;
+}
+
+.menus__snap-line--v {
+	top: 0;
+	bottom: 0;
+	width: 1px;
+	background: rgba(255, 100, 100, 0.6);
+}
+
+.menus__snap-line--h {
+	left: 0;
+	right: 0;
+	height: 1px;
+	background: rgba(255, 100, 100, 0.6);
+}
+
 /* ── Button properties ────────────────────────────────────── */
 
 .menus__section-heading {

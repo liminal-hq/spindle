@@ -307,6 +307,18 @@
           "markdownDescription": "Denies the auto_generate_menu_nav command without any pre-configured scope."
         },
         {
+          "description": "Enables the cancel_build command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-cancel-build",
+          "markdownDescription": "Enables the cancel_build command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the cancel_build command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-cancel-build",
+          "markdownDescription": "Denies the cancel_build command without any pre-configured scope."
+        },
+        {
           "description": "Enables the check_toolchain command without any pre-configured scope.",
           "type": "string",
           "const": "allow-check-toolchain",
@@ -403,10 +415,10 @@
           "markdownDescription": "Denies the validate_project command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the spindle-project plugin\n#### This default permission set includes:\n\n- `allow-create-project`\n- `allow-parse-project`\n- `allow-serialise-project`\n- `allow-validate-project`\n- `allow-inspect-asset`\n- `allow-generate-build-plan`\n- `allow-execute-build`\n- `allow-auto-generate-menu-nav`\n- `allow-check-toolchain`",
+          "description": "Default permissions for the spindle-project plugin\n#### This default permission set includes:\n\n- `allow-create-project`\n- `allow-parse-project`\n- `allow-serialise-project`\n- `allow-validate-project`\n- `allow-inspect-asset`\n- `allow-generate-build-plan`\n- `allow-execute-build`\n- `allow-cancel-build`\n- `allow-auto-generate-menu-nav`\n- `allow-check-toolchain`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the spindle-project plugin\n#### This default permission set includes:\n\n- `allow-create-project`\n- `allow-parse-project`\n- `allow-serialise-project`\n- `allow-validate-project`\n- `allow-inspect-asset`\n- `allow-generate-build-plan`\n- `allow-execute-build`\n- `allow-auto-generate-menu-nav`\n- `allow-check-toolchain`"
+          "markdownDescription": "Default permissions for the spindle-project plugin\n#### This default permission set includes:\n\n- `allow-create-project`\n- `allow-parse-project`\n- `allow-serialise-project`\n- `allow-validate-project`\n- `allow-inspect-asset`\n- `allow-generate-build-plan`\n- `allow-execute-build`\n- `allow-cancel-build`\n- `allow-auto-generate-menu-nav`\n- `allow-check-toolchain`"
         }
       ]
     }

@@ -414,6 +414,14 @@ function MenuEditor({
 	);
 }
 
+/** Snap threshold in menu coordinates. */
+const SNAP_THRESHOLD = 8;
+
+/** Minimum button size in menu coordinates. */
+const MIN_BUTTON_SIZE = 30;
+
+type ResizeEdge = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw';
+
 function MenuCanvas({
 	menu,
 	canvasHeight,
@@ -430,23 +438,63 @@ function MenuCanvas({
 	const canvasRef = useRef<HTMLDivElement>(null);
 	const dragState = useRef<{
 		buttonId: string;
+		mode: 'move' | ResizeEdge;
 		startX: number;
 		startY: number;
 		startBounds: ButtonBounds;
 	} | null>(null);
+	const [snapLines, setSnapLines] = useState<{ axis: 'x' | 'y'; pos: number }[]>([]);
 
-	const handleMouseDown = useCallback(
-		(e: React.MouseEvent, btn: MenuButton) => {
+	/** Compute snap targets from other buttons (edges + centres). */
+	const getSnapTargets = useCallback(
+		(excludeId: string) => {
+			const xs: number[] = [];
+			const ys: number[] = [];
+			for (const btn of menu.buttons) {
+				if (btn.id === excludeId) continue;
+				xs.push(btn.bounds.x, btn.bounds.x + btn.bounds.width, btn.bounds.x + btn.bounds.width / 2);
+				ys.push(btn.bounds.y, btn.bounds.y + btn.bounds.height, btn.bounds.y + btn.bounds.height / 2);
+			}
+			// Canvas edges and centres
+			xs.push(0, MENU_WIDTH / 2, MENU_WIDTH);
+			ys.push(0, canvasHeight / 2, canvasHeight);
+			return { xs, ys };
+		},
+		[menu.buttons, canvasHeight],
+	);
+
+	/** Snap a value to the nearest target within threshold. */
+	const snapValue = (val: number, targets: number[]): { snapped: number; line: number | null } => {
+		let closest = val;
+		let minDist = SNAP_THRESHOLD + 1;
+		let line: number | null = null;
+		for (const t of targets) {
+			const d = Math.abs(val - t);
+			if (d < minDist) {
+				minDist = d;
+				closest = t;
+				line = t;
+			}
+		}
+		return minDist <= SNAP_THRESHOLD ? { snapped: closest, line } : { snapped: val, line: null };
+	};
+
+	const startDrag = useCallback(
+		(e: React.MouseEvent, btn: MenuButton, mode: 'move' | ResizeEdge) => {
 			e.preventDefault();
+			e.stopPropagation();
 			const canvas = canvasRef.current;
 			if (!canvas) return;
 
 			dragState.current = {
 				buttonId: btn.id,
+				mode,
 				startX: e.clientX,
 				startY: e.clientY,
 				startBounds: { ...btn.bounds },
 			};
+
+			const targets = getSnapTargets(btn.id);
 
 			const handleMouseMove = (moveEvent: MouseEvent) => {
 				const state = dragState.current;
@@ -455,30 +503,59 @@ function MenuCanvas({
 				const rect = canvas.getBoundingClientRect();
 				const scaleX = MENU_WIDTH / rect.width;
 				const scaleY = canvasHeight / rect.height;
-
 				const dx = (moveEvent.clientX - state.startX) * scaleX;
 				const dy = (moveEvent.clientY - state.startY) * scaleY;
+				const sb = state.startBounds;
 
-				const newX = Math.max(
-					0,
-					Math.min(MENU_WIDTH - state.startBounds.width, state.startBounds.x + dx),
-				);
-				const newY = Math.max(
-					0,
-					Math.min(canvasHeight - state.startBounds.height, state.startBounds.y + dy),
-				);
+				let bounds: ButtonBounds;
+				if (state.mode === 'move') {
+					let newX = sb.x + dx;
+					let newY = sb.y + dy;
+					newX = Math.max(0, Math.min(MENU_WIDTH - sb.width, newX));
+					newY = Math.max(0, Math.min(canvasHeight - sb.height, newY));
 
-				onUpdateButton(state.buttonId, {
-					bounds: {
-						...state.startBounds,
-						x: Math.round(newX),
-						y: Math.round(newY),
-					},
-				});
+					// Snap edges and centre
+					const lines: { axis: 'x' | 'y'; pos: number }[] = [];
+					const sLeft = snapValue(newX, targets.xs);
+					const sRight = snapValue(newX + sb.width, targets.xs);
+					const sCx = snapValue(newX + sb.width / 2, targets.xs);
+					if (sLeft.line != null) { newX = sLeft.snapped; lines.push({ axis: 'x', pos: sLeft.line }); }
+					else if (sRight.line != null) { newX = sRight.snapped - sb.width; lines.push({ axis: 'x', pos: sRight.line }); }
+					else if (sCx.line != null) { newX = sCx.snapped - sb.width / 2; lines.push({ axis: 'x', pos: sCx.line }); }
+
+					const sTop = snapValue(newY, targets.ys);
+					const sBottom = snapValue(newY + sb.height, targets.ys);
+					const sCy = snapValue(newY + sb.height / 2, targets.ys);
+					if (sTop.line != null) { newY = sTop.snapped; lines.push({ axis: 'y', pos: sTop.line }); }
+					else if (sBottom.line != null) { newY = sBottom.snapped - sb.height; lines.push({ axis: 'y', pos: sBottom.line }); }
+					else if (sCy.line != null) { newY = sCy.snapped - sb.height / 2; lines.push({ axis: 'y', pos: sCy.line }); }
+
+					setSnapLines(lines);
+					bounds = { x: Math.round(newX), y: Math.round(newY), width: sb.width, height: sb.height };
+				} else {
+					// Resize
+					let { x, y, width, height } = sb;
+					const m = state.mode;
+					if (m.includes('e')) width = Math.max(MIN_BUTTON_SIZE, sb.width + dx);
+					if (m.includes('w')) { width = Math.max(MIN_BUTTON_SIZE, sb.width - dx); x = sb.x + sb.width - width; }
+					if (m.includes('s')) height = Math.max(MIN_BUTTON_SIZE, sb.height + dy);
+					if (m.includes('n')) { height = Math.max(MIN_BUTTON_SIZE, sb.height - dy); y = sb.y + sb.height - height; }
+
+					x = Math.max(0, Math.min(MENU_WIDTH - MIN_BUTTON_SIZE, x));
+					y = Math.max(0, Math.min(canvasHeight - MIN_BUTTON_SIZE, y));
+					if (x + width > MENU_WIDTH) width = MENU_WIDTH - x;
+					if (y + height > canvasHeight) height = canvasHeight - y;
+
+					setSnapLines([]);
+					bounds = { x: Math.round(x), y: Math.round(y), width: Math.round(width), height: Math.round(height) };
+				}
+
+				onUpdateButton(state.buttonId, { bounds });
 			};
 
 			const handleMouseUp = () => {
 				dragState.current = null;
+				setSnapLines([]);
 				document.removeEventListener('mousemove', handleMouseMove);
 				document.removeEventListener('mouseup', handleMouseUp);
 			};
@@ -486,7 +563,7 @@ function MenuCanvas({
 			document.addEventListener('mousemove', handleMouseMove);
 			document.addEventListener('mouseup', handleMouseUp);
 		},
-		[onUpdateButton, canvasHeight],
+		[onUpdateButton, canvasHeight, getSnapTargets],
 	);
 
 	return (
@@ -498,6 +575,22 @@ function MenuCanvas({
 			{/* Background label */}
 			{backgroundLabel && (
 				<div className="menus__canvas-bg-label text-muted">{backgroundLabel}</div>
+			)}
+			{/* Snap guide lines */}
+			{snapLines.map((line, i) =>
+				line.axis === 'x' ? (
+					<div
+						key={`snap-${i}`}
+						className="menus__snap-line menus__snap-line--v"
+						style={{ left: `${(line.pos / MENU_WIDTH) * 100}%` }}
+					/>
+				) : (
+					<div
+						key={`snap-${i}`}
+						className="menus__snap-line menus__snap-line--h"
+						style={{ top: `${(line.pos / canvasHeight) * 100}%` }}
+					/>
+				),
 			)}
 			{/* Safe-area guides */}
 			{showSafeArea && (
@@ -532,9 +625,17 @@ function MenuCanvas({
 						width: `${(btn.bounds.width / MENU_WIDTH) * 100}%`,
 						height: `${(btn.bounds.height / canvasHeight) * 100}%`,
 					}}
-					onMouseDown={(e) => handleMouseDown(e, btn)}
+					onMouseDown={(e) => startDrag(e, btn, 'move')}
 				>
 					{btn.label}
+					{/* Resize handles */}
+					{(['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'] as ResizeEdge[]).map((edge) => (
+						<div
+							key={edge}
+							className={`menus__resize-handle menus__resize-handle--${edge}`}
+							onMouseDown={(e) => startDrag(e, btn, edge)}
+						/>
+					))}
 				</div>
 			))}
 		</div>
