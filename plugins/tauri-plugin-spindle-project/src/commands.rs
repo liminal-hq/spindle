@@ -125,11 +125,12 @@ pub(crate) async fn check_toolchain<R: Runtime>(
     let statuses: Vec<ToolchainStatus> = tools
         .into_iter()
         .map(|(name, purpose)| {
-            let version = detect_tool_version(name);
+            let path = crate::toolchain::resolve_tool(name);
+            let version = path.as_deref().and_then(detect_tool_version);
             ToolchainStatus {
                 name: name.to_string(),
                 purpose: purpose.to_string(),
-                available: version.is_some(),
+                available: path.is_some(),
                 version,
             }
         })
@@ -138,38 +139,22 @@ pub(crate) async fn check_toolchain<R: Runtime>(
     Ok(statuses)
 }
 
-fn detect_tool_version(tool: &str) -> Option<String> {
-    let resolved = crate::toolchain::resolve_tool(tool)?;
-
-    let output = std::process::Command::new(&resolved)
-        .arg("-version")
-        .output()
-        .ok()?;
-
-    if !output.status.success() {
-        // Some tools use --version instead
-        let output2 = std::process::Command::new(&resolved)
-            .arg("--version")
-            .output()
-            .ok()?;
-
-        if !output2.status.success() {
-            return None;
+fn detect_tool_version(path: &std::path::Path) -> Option<String> {
+    // Try both flag styles. Don't require a successful exit code — some tools
+    // (e.g. dvdauthor) exit non-zero even for --version but still print output.
+    for flag in &["-version", "--version"] {
+        let Ok(output) = std::process::Command::new(path).arg(flag).output() else {
+            continue;
+        };
+        // Prefer stdout; fall back to stderr (ffmpeg prints version to stderr).
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let text = if stdout.trim().is_empty() { &stderr } else { &stdout };
+        if let Some(line) = text.lines().find(|l| !l.trim().is_empty()) {
+            return Some(line.to_string());
         }
-
-        let stdout = String::from_utf8_lossy(&output2.stdout);
-        return Some(stdout.lines().next().unwrap_or("unknown").to_string());
     }
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    // ffmpeg prints version to stderr
-    let version_line = if stdout.trim().is_empty() {
-        stderr.lines().next().unwrap_or("unknown")
-    } else {
-        stdout.lines().next().unwrap_or("unknown")
-    };
-    Some(version_line.to_string())
+    None
 }
 
 /// Return the application cache directory for storing thumbnails and other transient data.
@@ -208,11 +193,12 @@ pub(crate) async fn export_diagnostics<R: Runtime>(
         tools
             .into_iter()
             .map(|(name, purpose)| {
-                let version = detect_tool_version(name);
+                let path = crate::toolchain::resolve_tool(name);
+                let version = path.as_deref().and_then(detect_tool_version);
                 ToolchainStatus {
                     name: name.to_string(),
                     purpose: purpose.to_string(),
-                    available: version.is_some(),
+                    available: path.is_some(),
                     version,
                 }
             })
