@@ -20,6 +20,7 @@ mod commands;
 mod error;
 mod inspect;
 mod models;
+pub mod toolchain;
 
 pub use error::{Error, Result};
 

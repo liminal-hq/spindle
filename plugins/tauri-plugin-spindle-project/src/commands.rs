@@ -139,14 +139,16 @@ pub(crate) async fn check_toolchain<R: Runtime>(
 }
 
 fn detect_tool_version(tool: &str) -> Option<String> {
-    let output = std::process::Command::new(tool)
+    let resolved = crate::toolchain::resolve_tool(tool)?;
+
+    let output = std::process::Command::new(&resolved)
         .arg("-version")
         .output()
         .ok()?;
 
     if !output.status.success() {
         // Some tools use --version instead
-        let output2 = std::process::Command::new(tool)
+        let output2 = std::process::Command::new(&resolved)
             .arg("--version")
             .output()
             .ok()?;

@@ -222,11 +222,15 @@ pub fn generate_build_plan(
     let dvdauthor_xml = generate_dvdauthor_xml(project, &titles_dir, &menus_dir, &video_ts_dir)?;
     let xml_path = work_dir.join("dvdauthor.xml");
 
+    let dvdauthor_bin = crate::toolchain::resolve_tool("dvdauthor")
+        .map(|p| p.display().to_string())
+        .unwrap_or_else(|| "dvdauthor".to_string());
+
     jobs.push(BuildJob::AuthorDvd {
         xml_path: xml_path.display().to_string(),
         output_path: video_ts_dir.display().to_string(),
         command: vec![
-            "dvdauthor".to_string(),
+            dvdauthor_bin,
             "-x".to_string(),
             xml_path.display().to_string(),
         ],
@@ -244,23 +248,17 @@ pub fn generate_build_plan(
             .collect::<String>()
             .to_uppercase();
 
-        // Prefer genisoimage, fall back to mkisofs
-        let iso_tool = if std::process::Command::new("genisoimage")
-            .arg("--version")
-            .output()
-            .map(|o| o.status.success())
-            .unwrap_or(false)
-        {
-            "genisoimage"
-        } else {
-            "mkisofs"
-        };
+        // Prefer genisoimage sidecar, fall back to mkisofs, then bare name.
+        let iso_tool = crate::toolchain::resolve_tool("genisoimage")
+            .or_else(|| crate::toolchain::resolve_tool("mkisofs"))
+            .map(|p| p.display().to_string())
+            .unwrap_or_else(|| "genisoimage".to_string());
 
         jobs.push(BuildJob::CreateIso {
             source_path: output_dir.display().to_string(),
             output_path: iso_path.display().to_string(),
             command: vec![
-                iso_tool.to_string(),
+                iso_tool,
                 "-dvd-video".to_string(),
                 "-V".to_string(),
                 volume_id,
