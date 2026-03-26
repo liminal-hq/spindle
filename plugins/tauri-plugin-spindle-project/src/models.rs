@@ -511,6 +511,12 @@ pub struct VideoStreamInfo {
     pub aspect_ratio: Option<String>,
     pub scan_type: Option<String>,
     pub bitrate_bps: Option<u64>,
+    /// OETF / transfer characteristics (e.g. "smpte2084" for HDR10, "arib-std-b67" for HLG).
+    #[serde(default)]
+    pub color_transfer: Option<String>,
+    /// Color primaries (e.g. "bt2020" for wide-gamut HDR, "bt709" for SDR).
+    #[serde(default)]
+    pub color_primaries: Option<String>,
 }
 
 /// Detected audio stream metadata.

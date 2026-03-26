@@ -219,6 +219,10 @@ export interface VideoStreamInfo {
 	aspectRatio: string | null;
 	scanType: string | null;
 	bitrateBps: number | null;
+	/** OETF transfer characteristics, e.g. "smpte2084" (HDR10), "arib-std-b67" (HLG). */
+	colorTransfer: string | null;
+	/** Color primaries, e.g. "bt2020" (HDR), "bt709" (SDR). */
+	colorPrimaries: string | null;
 }
 
 export interface AudioStreamInfo {

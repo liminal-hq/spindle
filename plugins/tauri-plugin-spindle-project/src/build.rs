@@ -206,8 +206,18 @@ pub fn generate_build_plan(
 
         let output_path = titles_dir.join(format!("{}.mpg", sanitise_filename(&title.id)));
 
-        let command =
-            build_ffmpeg_transcode_command(&asset.source_path, &output_path, title, &project.disc);
+        let video_info = title
+            .video_mapping
+            .as_ref()
+            .and_then(|vm| asset.video_streams.get(vm.source_stream_index as usize));
+
+        let command = build_ffmpeg_transcode_command(
+            &asset.source_path,
+            &output_path,
+            title,
+            &project.disc,
+            video_info,
+        );
 
         jobs.push(BuildJob::TranscodeTitle {
             title_id: title.id.clone(),
@@ -309,13 +319,14 @@ fn build_ffmpeg_transcode_command(
     output_path: &Path,
     title: &Title,
     disc: &Disc,
+    video_info: Option<&VideoStreamInfo>,
 ) -> Vec<String> {
     let mut cmd = vec!["ffmpeg".to_string(), "-y".to_string()];
 
     // Input
     cmd.extend(["-i".to_string(), source_path.to_string()]);
 
-    // Video mapping and encoding
+    // Video stream mapping
     if let Some(ref vm) = title.video_mapping {
         cmd.extend(["-map".to_string(), format!("0:{}", vm.source_stream_index)]);
     }
@@ -325,16 +336,42 @@ fn build_ffmpeg_transcode_command(
         aspect: AspectMode::SixteenByNine,
     });
     let (width, height) = profile.raster.resolution(disc.standard);
-    let frame_rate = disc.standard.frame_rate();
+
+    // Determine output frame rate (preserve 23.976 for NTSC; otherwise use disc standard)
+    let source_fps = video_info.and_then(|v| v.frame_rate);
+    let output_fps = choose_output_fps(source_fps, disc.standard);
+
+    // Build video filter chain
+    let mut vf_parts: Vec<String> = Vec::new();
+
+    // HDR → SDR tonemapping when source uses PQ (HDR10) or HLG transfer
+    if video_info.map_or(false, is_hdr_source) {
+        vf_parts.push(
+            "zscale=t=linear:npl=100,format=gbrpf32le,zscale=p=bt709,\
+             tonemap=hable,zscale=t=bt709:m=bt709:r=tv,format=yuv420p"
+                .to_string(),
+        );
+    }
+
+    // Scale preserving aspect ratio, pad to exact DVD raster, reset SAR
+    vf_parts.push(format!(
+        "scale={width}:{height}:force_original_aspect_ratio=decrease,\
+         pad={width}:{height}:(ow-iw)/2:(oh-ih)/2,setsar=1"
+    ));
+
+    // FPS conversion only when source differs from target by more than 0.1 fps
+    if source_fps.map_or(false, |fps| (fps - output_fps).abs() > 0.1) {
+        vf_parts.push(format!("fps={}", fps_rational_str(output_fps)));
+    }
+
+    cmd.extend(["-vf".to_string(), vf_parts.join(",")]);
 
     // Video codec: always MPEG-2 for DVD
     cmd.extend([
         "-c:v".to_string(),
         "mpeg2video".to_string(),
-        "-s".to_string(),
-        format!("{width}x{height}"),
         "-r".to_string(),
-        format!("{frame_rate}"),
+        fps_rational_str(output_fps).to_string(),
         "-b:v".to_string(),
         "6000k".to_string(),
         "-maxrate".to_string(),
@@ -350,7 +387,7 @@ fn build_ffmpeg_transcode_command(
         .to_string(),
     ]);
 
-    // Aspect ratio flag
+    // Aspect ratio signalling flag (tells player how to display the anamorphic raster)
     match profile.aspect {
         AspectMode::FourByThree => cmd.extend(["-aspect".to_string(), "4:3".to_string()]),
         AspectMode::SixteenByNine => cmd.extend(["-aspect".to_string(), "16:9".to_string()]),
@@ -436,6 +473,46 @@ fn build_ffmpeg_transcode_command(
     cmd
 }
 
+// ── FFmpeg helpers ───────────────────────────────────────────────────────────
+
+/// Choose the output frame rate for DVD encoding.
+///
+/// For NTSC, 23.976 fps source is preserved as-is (legal on DVD and avoids
+/// 3:2 pulldown artefacts). All other NTSC sources target 29.97. PAL is always 25.
+fn choose_output_fps(source_fps: Option<f64>, standard: VideoStandard) -> f64 {
+    match standard {
+        VideoStandard::Pal => 25.0,
+        VideoStandard::Ntsc => {
+            if source_fps.map_or(false, |fps| (fps - 24_000.0 / 1_001.0).abs() < 0.1) {
+                24_000.0 / 1_001.0 // ≈23.976 — keep film cadence
+            } else {
+                30_000.0 / 1_001.0 // ≈29.97 — NTSC standard
+            }
+        }
+    }
+}
+
+/// Return an ffmpeg-compatible rational string for a frame rate value.
+fn fps_rational_str(fps: f64) -> &'static str {
+    if (fps - 24_000.0 / 1_001.0).abs() < 0.001 {
+        "24000/1001"
+    } else if (fps - 30_000.0 / 1_001.0).abs() < 0.001 {
+        "30000/1001"
+    } else if (fps - 25.0).abs() < 0.001 {
+        "25"
+    } else {
+        "30000/1001"
+    }
+}
+
+/// Return true when the video stream uses an HDR transfer characteristic.
+fn is_hdr_source(info: &VideoStreamInfo) -> bool {
+    matches!(
+        info.color_transfer.as_deref(),
+        Some("smpte2084" | "arib-std-b67" | "smpte428")
+    )
+}
+
 // ── dvdauthor XML Generation ────────────────────────────────────────────────
 
 fn generate_dvdauthor_xml(
@@ -444,6 +521,11 @@ fn generate_dvdauthor_xml(
     _menus_dir: &Path,
     video_ts_dir: &Path,
 ) -> crate::Result<String> {
+    let format_str = match project.disc.standard {
+        VideoStandard::Ntsc => "ntsc",
+        VideoStandard::Pal => "pal",
+    };
+
     let mut xml = String::new();
 
     xml.push_str("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
@@ -458,6 +540,19 @@ fn generate_dvdauthor_xml(
 
     if has_global_menus || has_first_play {
         xml.push_str("  <vmgm>\n");
+
+        if has_global_menus {
+            xml.push_str("    <menus>\n");
+            xml.push_str(&format!(
+                "      <video format=\"{format_str}\" aspect=\"4:3\" />\n"
+            ));
+            for _menu in &project.disc.global_menus {
+                xml.push_str("      <pgc>\n");
+                // Menu VOB would go here once menu rendering is implemented
+                xml.push_str("      </pgc>\n");
+            }
+            xml.push_str("    </menus>\n");
+        }
 
         // First play PGC
         if let Some(ref action) = project.disc.first_play_action {
@@ -476,9 +571,23 @@ fn generate_dvdauthor_xml(
     for titleset in &project.disc.titlesets {
         xml.push_str("  <titleset>\n");
 
+        // Determine aspect ratio from first title with an output profile
+        let aspect_str = titleset
+            .titles
+            .iter()
+            .find_map(|t| t.video_output_profile)
+            .map(|p| match p.aspect {
+                AspectMode::FourByThree => "4:3",
+                AspectMode::SixteenByNine => "16:9",
+            })
+            .unwrap_or("16:9");
+
         // Titleset menus
         if !titleset.menus.is_empty() {
             xml.push_str("    <menus>\n");
+            xml.push_str(&format!(
+                "      <video format=\"{format_str}\" aspect=\"{aspect_str}\" />\n"
+            ));
             for _menu in &titleset.menus {
                 xml.push_str("      <pgc>\n");
                 // Menu VOB would go here once menu rendering is implemented
@@ -489,6 +598,9 @@ fn generate_dvdauthor_xml(
 
         // Titles
         xml.push_str("    <titles>\n");
+        xml.push_str(&format!(
+            "      <video format=\"{format_str}\" aspect=\"{aspect_str}\" />\n"
+        ));
         for title in &titleset.titles {
             xml.push_str("      <pgc>\n");
 
@@ -918,6 +1030,8 @@ mod tests {
                 aspect_ratio: Some("16:9".to_string()),
                 scan_type: None,
                 bitrate_bps: None,
+                color_transfer: None,
+                color_primaries: None,
             }],
             audio_streams: vec![AudioStreamInfo {
                 index: 1,
@@ -984,7 +1098,7 @@ mod tests {
     #[test]
     fn build_plan_generates_correct_job_count() {
         let project = test_project();
-        let plan = generate_build_plan(&project, "/tmp/dvd_output").unwrap();
+        let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
 
         // PrepareWorkspace + TranscodeTitle + AuthorDvd = 3
         assert_eq!(plan.jobs.len(), 3);
@@ -997,7 +1111,7 @@ mod tests {
         let mut project = test_project();
         project.build_settings.generate_iso = true;
 
-        let plan = generate_build_plan(&project, "/tmp/dvd_output").unwrap();
+        let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
 
         // PrepareWorkspace + TranscodeTitle + AuthorDvd + CreateIso = 4
         assert_eq!(plan.jobs.len(), 4);
@@ -1007,7 +1121,7 @@ mod tests {
     #[test]
     fn dvdauthor_xml_contains_chapters() {
         let project = test_project();
-        let plan = generate_build_plan(&project, "/tmp/dvd_output").unwrap();
+        let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
 
         assert!(plan.dvdauthor_xml.contains("chapters="));
         assert!(plan.dvdauthor_xml.contains("0:00:00.0"));
@@ -1017,7 +1131,7 @@ mod tests {
     #[test]
     fn dvdauthor_xml_contains_end_action() {
         let project = test_project();
-        let plan = generate_build_plan(&project, "/tmp/dvd_output").unwrap();
+        let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
 
         assert!(plan.dvdauthor_xml.contains("exit"));
     }
@@ -1025,7 +1139,7 @@ mod tests {
     #[test]
     fn ffmpeg_command_has_mpeg2_codec() {
         let project = test_project();
-        let plan = generate_build_plan(&project, "/tmp/dvd_output").unwrap();
+        let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
 
         let transcode = plan
             .jobs
@@ -1035,7 +1149,9 @@ mod tests {
 
         let cmd = transcode.unwrap().command().unwrap();
         assert!(cmd.contains(&"mpeg2video".to_string()));
-        assert!(cmd.contains(&"720x480".to_string()));
+        // Resolution is now in the vf filter rather than a bare -s flag
+        let vf_arg = cmd.iter().find(|a| a.starts_with("scale=720:480:"));
+        assert!(vf_arg.is_some(), "expected scale=720:480 in -vf filter");
     }
 
     #[test]
