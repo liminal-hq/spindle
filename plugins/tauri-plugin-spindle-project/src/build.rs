@@ -1160,37 +1160,55 @@ fn playback_action_to_dvd_command_in_context(
 ) -> String {
     match action {
         PlaybackAction::PlayTitle { title_id } => {
-            // Resolve title ID to 1-based dvdauthor index across all titlesets
-            let title_index = disc
-                .titlesets
-                .iter()
-                .flat_map(|ts| ts.titles.iter())
-                .position(|t| t.id == *title_id)
-                .map(|i| i + 1)
-                .unwrap_or(1);
-            format!("jump title {title_index}")
+            let Some((target_titleset_index, title_number)) = resolve_title_target(disc, title_id)
+            else {
+                return "jump title 1".to_string();
+            };
+
+            match current_context {
+                DvdCommandContext::Menu {
+                    domain: MenuDomain::Titleset(current_titleset_index),
+                    ..
+                }
+                | DvdCommandContext::Title {
+                    titleset_index: current_titleset_index,
+                } if current_titleset_index == target_titleset_index => {
+                    format!("jump title {title_number}")
+                }
+                _ => format!(
+                    "jump titleset {} title {}",
+                    target_titleset_index + 1,
+                    title_number
+                ),
+            }
         }
         PlaybackAction::PlayChapter {
             title_id,
             chapter_id,
         } => {
-            let title_index = disc
-                .titlesets
-                .iter()
-                .flat_map(|ts| ts.titles.iter())
-                .position(|t| t.id == *title_id)
-                .map(|i| i + 1)
-                .unwrap_or(1);
-            // Resolve chapter ID to 1-based index within the title
-            let chapter_index = disc
-                .titlesets
-                .iter()
-                .flat_map(|ts| ts.titles.iter())
-                .find(|t| t.id == *title_id)
-                .and_then(|t| t.chapters.iter().position(|c| c.id == *chapter_id))
-                .map(|i| i + 1)
-                .unwrap_or(1);
-            format!("jump title {title_index} chapter {chapter_index}")
+            let Some((target_titleset_index, title_number, chapter_number)) =
+                resolve_chapter_target(disc, title_id, chapter_id)
+            else {
+                return "jump chapter 1".to_string();
+            };
+
+            match current_context {
+                DvdCommandContext::Menu {
+                    domain: MenuDomain::Titleset(current_titleset_index),
+                    ..
+                }
+                | DvdCommandContext::Title {
+                    titleset_index: current_titleset_index,
+                } if current_titleset_index == target_titleset_index => {
+                    format!("jump title {title_number} chapter {chapter_number}")
+                }
+                _ => format!(
+                    "jump titleset {} title {} chapter {}",
+                    target_titleset_index + 1,
+                    title_number,
+                    chapter_number
+                ),
+            }
         }
         PlaybackAction::ShowMenu { menu_id } => {
             let Some((target_domain, target_menu_number)) = resolve_menu_target(disc, menu_id)
@@ -1255,6 +1273,45 @@ fn resolve_menu_target(disc: &Disc, menu_id: &str) -> Option<(MenuDomain, usize)
     for (titleset_index, titleset) in disc.titlesets.iter().enumerate() {
         if let Some(index) = titleset.menus.iter().position(|menu| menu.id == menu_id) {
             return Some((MenuDomain::Titleset(titleset_index), index + 1));
+        }
+    }
+
+    None
+}
+
+fn resolve_title_target(disc: &Disc, title_id: &str) -> Option<(usize, usize)> {
+    for (titleset_index, titleset) in disc.titlesets.iter().enumerate() {
+        if let Some(title_index) = titleset
+            .titles
+            .iter()
+            .position(|title| title.id == title_id)
+        {
+            return Some((titleset_index, title_index + 1));
+        }
+    }
+
+    None
+}
+
+fn resolve_chapter_target(
+    disc: &Disc,
+    title_id: &str,
+    chapter_id: &str,
+) -> Option<(usize, usize, usize)> {
+    for (titleset_index, titleset) in disc.titlesets.iter().enumerate() {
+        if let Some((title_index, title)) = titleset
+            .titles
+            .iter()
+            .enumerate()
+            .find(|(_, title)| title.id == title_id)
+        {
+            if let Some(chapter_index) = title
+                .chapters
+                .iter()
+                .position(|chapter| chapter.id == chapter_id)
+            {
+                return Some((titleset_index, title_index + 1, chapter_index + 1));
+            }
         }
     }
 
@@ -1875,9 +1932,19 @@ mod tests {
     }
 
     fn test_menu() -> Menu {
+        test_menu_with_action(
+            "menu-1",
+            "Main Menu",
+            PlaybackAction::PlayTitle {
+                title_id: "title-1".to_string(),
+            },
+        )
+    }
+
+    fn test_menu_with_action(menu_id: &str, menu_name: &str, action: PlaybackAction) -> Menu {
         Menu {
-            id: "menu-1".to_string(),
-            name: "Main Menu".to_string(),
+            id: menu_id.to_string(),
+            name: menu_name.to_string(),
             background_asset_id: None,
             buttons: vec![MenuButton {
                 id: "btn-1".to_string(),
@@ -1888,9 +1955,7 @@ mod tests {
                     width: 240.0,
                     height: 48.0,
                 },
-                action: Some(PlaybackAction::PlayTitle {
-                    title_id: "title-1".to_string(),
-                }),
+                action: Some(action),
                 nav_up: None,
                 nav_down: None,
                 nav_left: None,
@@ -1907,6 +1972,87 @@ mod tests {
             motion_loop_count: 0,
             timeout_action: None,
         }
+    }
+
+    fn add_second_titleset(project: &mut SpindleProjectFile) {
+        let second_asset = Asset {
+            id: "asset-2".to_string(),
+            file_name: "bonus.mp4".to_string(),
+            source_path: "/tmp/bonus.mp4".to_string(),
+            file_size_bytes: Some(500_000_000),
+            duration_secs: Some(1200.0),
+            container_format: Some("mp4".to_string()),
+            video_streams: vec![VideoStreamInfo {
+                index: 0,
+                codec: "h264".to_string(),
+                width: 1440,
+                height: 1080,
+                frame_rate: Some(29.97),
+                aspect_ratio: Some("4:3".to_string()),
+                scan_type: None,
+                bitrate_bps: None,
+                color_transfer: None,
+                color_primaries: None,
+                dolby_vision_profile: None,
+            }],
+            audio_streams: vec![AudioStreamInfo {
+                index: 1,
+                codec: "aac".to_string(),
+                channels: 2,
+                sample_rate: 48000,
+                language: Some("eng".to_string()),
+                bitrate_bps: None,
+            }],
+            subtitle_streams: vec![],
+            compatibility: Some(CompatibilityAssessment::ReEncodeRequired),
+            fingerprint: None,
+            warnings: vec![],
+            thumbnail_path: None,
+            thumbnail_error: None,
+        };
+
+        let second_title = Title {
+            id: "title-2".to_string(),
+            name: "Bonus Feature".to_string(),
+            source_asset_id: Some("asset-2".to_string()),
+            video_mapping: Some(VideoTrackMapping {
+                source_stream_index: 0,
+                copy_mode: CopyMode::ReEncode,
+            }),
+            video_output_profile: Some(VideoOutputProfile {
+                raster: VideoRaster::FullD1,
+                aspect: AspectMode::FourByThree,
+            }),
+            audio_mappings: vec![AudioTrackMapping {
+                id: "am-2".to_string(),
+                source_stream_index: 1,
+                output_target: AudioOutputTarget::Ac3,
+                copy_mode: CopyMode::ReEncode,
+                label: "English".to_string(),
+                language: "eng".to_string(),
+                order_index: 0,
+                is_default: true,
+            }],
+            subtitle_mappings: vec![],
+            chapters: vec![ChapterPoint {
+                id: "ch-3".to_string(),
+                name: "Bonus Chapter".to_string(),
+                timestamp_secs: 0.0,
+                order_index: 0,
+            }],
+            end_action: Some(PlaybackAction::Stop),
+            order_index: 0,
+        };
+
+        let second_titleset = Titleset {
+            id: "titleset-2".to_string(),
+            name: "Bonus".to_string(),
+            titles: vec![second_title],
+            menus: vec![],
+        };
+
+        project.assets.push(second_asset);
+        project.disc.titlesets.push(second_titleset);
     }
 
     #[test]
@@ -1960,7 +2106,7 @@ mod tests {
         assert!(plan.dvdauthor_xml.contains("menu-1.mpg"));
         assert!(plan
             .dvdauthor_xml
-            .contains("<button>jump title 1;</button>"));
+            .contains("<button>jump titleset 1 title 1;</button>"));
     }
 
     #[test]
@@ -2012,6 +2158,172 @@ mod tests {
             "dvdauthor XML must declare aspect ratio\n{}",
             plan.dvdauthor_xml
         );
+    }
+
+    #[test]
+    fn vmgm_menu_button_to_same_domain_menu_uses_jump_menu() {
+        let mut project = test_project();
+        project.disc.global_menus.push(test_menu_with_action(
+            "menu-1",
+            "Main Menu",
+            PlaybackAction::ShowMenu {
+                menu_id: "menu-2".to_string(),
+            },
+        ));
+        project.disc.global_menus.push(test_menu_with_action(
+            "menu-2",
+            "Scene Menu",
+            PlaybackAction::PlayTitle {
+                title_id: "title-1".to_string(),
+            },
+        ));
+
+        let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+
+        assert!(plan.dvdauthor_xml.contains("<button>jump menu 2;</button>"));
+    }
+
+    #[test]
+    fn vmgm_menu_button_to_titleset_menu_uses_jump_titleset_menu() {
+        let mut project = test_project();
+        project.disc.global_menus.push(test_menu_with_action(
+            "menu-1",
+            "Main Menu",
+            PlaybackAction::ShowMenu {
+                menu_id: "menu-2".to_string(),
+            },
+        ));
+        project.disc.titlesets[0].menus.push(test_menu_with_action(
+            "menu-2",
+            "Titleset Menu",
+            PlaybackAction::PlayTitle {
+                title_id: "title-1".to_string(),
+            },
+        ));
+
+        let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+
+        assert!(plan
+            .dvdauthor_xml
+            .contains("<button>jump titleset 1 menu 1;</button>"));
+    }
+
+    #[test]
+    fn titleset_menu_button_to_vmgm_menu_uses_jump_vmgm_menu() {
+        let mut project = test_project();
+        project.disc.global_menus.push(test_menu_with_action(
+            "menu-1",
+            "Main Menu",
+            PlaybackAction::PlayTitle {
+                title_id: "title-1".to_string(),
+            },
+        ));
+        project.disc.titlesets[0].menus.push(test_menu_with_action(
+            "menu-2",
+            "Episode Menu",
+            PlaybackAction::ShowMenu {
+                menu_id: "menu-1".to_string(),
+            },
+        ));
+
+        let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+
+        assert!(plan
+            .dvdauthor_xml
+            .contains("<button>jump vmgm menu 1;</button>"));
+    }
+
+    #[test]
+    fn title_post_to_same_titleset_menu_uses_call_menu() {
+        let mut project = test_project();
+        project.disc.titlesets[0].menus.push(test_menu_with_action(
+            "menu-2",
+            "Episode Menu",
+            PlaybackAction::PlayTitle {
+                title_id: "title-1".to_string(),
+            },
+        ));
+        project.disc.titlesets[0].titles[0].end_action = Some(PlaybackAction::ShowMenu {
+            menu_id: "menu-2".to_string(),
+        });
+
+        let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+
+        assert!(plan
+            .dvdauthor_xml
+            .contains("<post>\n          call menu 1;\n        </post>"));
+    }
+
+    #[test]
+    fn title_post_to_other_titleset_menu_uses_call_titleset_menu() {
+        let mut project = test_project();
+        add_second_titleset(&mut project);
+        project.disc.titlesets[1].menus.push(test_menu_with_action(
+            "menu-2",
+            "Bonus Menu",
+            PlaybackAction::PlayTitle {
+                title_id: "title-2".to_string(),
+            },
+        ));
+        project.disc.titlesets[0].titles[0].end_action = Some(PlaybackAction::ShowMenu {
+            menu_id: "menu-2".to_string(),
+        });
+
+        let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+
+        assert!(plan
+            .dvdauthor_xml
+            .contains("<post>\n          call titleset 2 menu 1;\n        </post>"));
+    }
+
+    #[test]
+    fn vmgm_play_title_uses_titleset_qualified_target() {
+        let mut project = test_project();
+        add_second_titleset(&mut project);
+
+        let command = playback_action_to_dvd_command(
+            &PlaybackAction::PlayTitle {
+                title_id: "title-2".to_string(),
+            },
+            &project.disc,
+        );
+
+        assert_eq!(command, "jump titleset 2 title 1");
+    }
+
+    #[test]
+    fn titleset_menu_play_chapter_in_same_titleset_uses_local_title_numbering() {
+        let project = test_project();
+
+        let command = playback_action_to_dvd_command_in_domain(
+            &PlaybackAction::PlayChapter {
+                title_id: "title-1".to_string(),
+                chapter_id: "ch-2".to_string(),
+            },
+            &project.disc,
+            MenuDomain::Titleset(0),
+            Some(1),
+        );
+
+        assert_eq!(command, "jump title 1 chapter 2");
+    }
+
+    #[test]
+    fn titleset_menu_play_chapter_in_other_titleset_uses_qualified_target() {
+        let mut project = test_project();
+        add_second_titleset(&mut project);
+
+        let command = playback_action_to_dvd_command_in_domain(
+            &PlaybackAction::PlayChapter {
+                title_id: "title-2".to_string(),
+                chapter_id: "ch-3".to_string(),
+            },
+            &project.disc,
+            MenuDomain::Titleset(0),
+            Some(1),
+        );
+
+        assert_eq!(command, "jump titleset 2 title 1 chapter 1");
     }
 
     #[test]
