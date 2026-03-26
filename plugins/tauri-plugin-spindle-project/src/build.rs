@@ -816,6 +816,7 @@ fn build_ffmpeg_menu_command(
     }
 
     vf_parts.push(menu_button_overlay_filter(menu_ref.menu));
+    vf_parts.push(menu_button_label_filter(menu_ref.menu));
     vf_parts.push(format!("setsar={sar}"));
 
     cmd.extend([
@@ -883,6 +884,48 @@ fn menu_button_overlay_filter(menu: &Menu) -> String {
     }
 
     filters.join(",")
+}
+
+fn menu_button_label_filter(menu: &Menu) -> String {
+    if menu.buttons.is_empty() {
+        return "null".to_string();
+    }
+
+    let mut filters = Vec::new();
+    for button in &menu.buttons {
+        let escaped_label = escape_ffmpeg_drawtext(&button.label);
+        let font_size = ((button.bounds.height * 0.42).round() as i32).clamp(18, 30);
+        let text_x = button.bounds.x.round() as i32;
+        let text_y = button.bounds.y.round() as i32;
+        let text_w = button.bounds.width.round() as i32;
+        let text_h = button.bounds.height.round() as i32;
+
+        filters.push(format!(
+            "drawtext=text='{}':fontcolor=white:fontsize={}:font='Sans':x={}+({}-text_w)/2:y={}+({}-text_h)/2:shadowcolor=black@0.7:shadowx=1:shadowy=1",
+            escaped_label, font_size, text_x, text_w, text_y, text_h
+        ));
+    }
+
+    filters.join(",")
+}
+
+fn escape_ffmpeg_drawtext(value: &str) -> String {
+    let mut escaped = String::new();
+    for ch in value.chars() {
+        match ch {
+            '\\' => escaped.push_str("\\\\"),
+            '\'' => escaped.push_str("\\'"),
+            ':' => escaped.push_str("\\:"),
+            ',' => escaped.push_str("\\,"),
+            ';' => escaped.push_str("\\;"),
+            '%' => escaped.push_str("\\%"),
+            '[' => escaped.push_str("\\["),
+            ']' => escaped.push_str("\\]"),
+            '\n' => escaped.push_str("\\n"),
+            _ => escaped.push(ch),
+        }
+    }
+    escaped
 }
 
 fn generate_spumux_xml(
@@ -2435,6 +2478,35 @@ mod tests {
         // Resolution is now expressed in the anamorphic-aware scale filter.
         let vf_arg = cmd.iter().find(|a| a.starts_with("scale="));
         assert!(vf_arg.is_some(), "expected scale=720:480 in -vf filter");
+    }
+
+    #[test]
+    fn menu_render_command_contains_button_label_text() {
+        let mut project = test_project();
+        project.disc.global_menus.push(test_menu_with_action(
+            "menu-1",
+            "Main Menu",
+            PlaybackAction::PlayTitle {
+                title_id: "title-1".to_string(),
+            },
+        ));
+        project.disc.global_menus[0].buttons[0].label = "This is a Button".to_string();
+
+        let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+        let render_job = plan
+            .jobs
+            .iter()
+            .find(|job| matches!(job, BuildJob::RenderMenu { .. }))
+            .unwrap();
+        let cmd = render_job.command().unwrap();
+        let vf_arg = cmd
+            .iter()
+            .skip_while(|arg| *arg != "-vf")
+            .nth(1)
+            .expect("-vf value");
+
+        assert!(vf_arg.contains("drawtext=text='This is a Button'"));
+        assert!(vf_arg.contains("font='Sans'"));
     }
 
     #[test]
