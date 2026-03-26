@@ -6,6 +6,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { useProjectStore } from './store/project-store';
+import { useAppSettingsStore } from './store/app-settings-store';
 import type { BuildProgress } from './types/project';
 import { Topbar } from './components/Topbar';
 import { Sidebar } from './components/Sidebar';
@@ -37,6 +38,11 @@ const ROUTES: Record<string, () => React.ReactNode> = {
 function App() {
 	const [currentRoute, setCurrentRoute] = useState('/');
 	const saveProject = useProjectStore((s) => s.saveProject);
+	const loadSettings = useAppSettingsStore((s) => s.loadSettings);
+
+	useEffect(() => {
+		loadSettings();
+	}, [loadSettings]);
 
 	const handleNavigate = useCallback((route: string) => {
 		setCurrentRoute(route);

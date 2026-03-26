@@ -164,6 +164,7 @@ pub struct BuildResult {
 pub fn generate_build_plan(
     project: &SpindleProjectFile,
     output_dir: &str,
+    skip_sidecar: bool,
 ) -> crate::Result<BuildPlan> {
     let output_dir = PathBuf::from(output_dir);
     let work_dir = output_dir.join("_spindle_work");
@@ -222,7 +223,7 @@ pub fn generate_build_plan(
     let dvdauthor_xml = generate_dvdauthor_xml(project, &titles_dir, &menus_dir, &video_ts_dir)?;
     let xml_path = work_dir.join("dvdauthor.xml");
 
-    let dvdauthor_bin = crate::toolchain::resolve_tool("dvdauthor")
+    let dvdauthor_bin = crate::toolchain::resolve_tool("dvdauthor", skip_sidecar)
         .map(|p| p.display().to_string())
         .unwrap_or_else(|| "dvdauthor".to_string());
 
@@ -249,8 +250,8 @@ pub fn generate_build_plan(
             .to_uppercase();
 
         // Prefer genisoimage sidecar, fall back to mkisofs, then bare name.
-        let iso_tool = crate::toolchain::resolve_tool("genisoimage")
-            .or_else(|| crate::toolchain::resolve_tool("mkisofs"))
+        let iso_tool = crate::toolchain::resolve_tool("genisoimage", skip_sidecar)
+            .or_else(|| crate::toolchain::resolve_tool("mkisofs", skip_sidecar))
             .map(|p| p.display().to_string())
             .unwrap_or_else(|| "genisoimage".to_string());
 

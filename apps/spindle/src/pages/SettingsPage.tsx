@@ -8,6 +8,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { save } from '@tauri-apps/plugin-dialog';
 import { writeTextFile } from '@tauri-apps/plugin-fs';
 import { useProjectStore } from '../store/project-store';
+import { useAppSettingsStore } from '../store/app-settings-store';
 import './SettingsPage.css';
 
 export function SettingsPage() {
@@ -16,6 +17,8 @@ export function SettingsPage() {
 	const buildLog = useProjectStore((s) => s.buildLog);
 	const toolchain = useProjectStore((s) => s.toolchain);
 	const checkToolchain = useProjectStore((s) => s.checkToolchain);
+	const devSkipSidecar = useAppSettingsStore((s) => s.devSkipSidecar);
+	const setDevSkipSidecar = useAppSettingsStore((s) => s.setDevSkipSidecar);
 
 	// Check toolchain on mount
 	useEffect(() => {
@@ -28,6 +31,7 @@ export function SettingsPage() {
 				project: project ?? null,
 				buildLog,
 				validationIssues,
+				skipSidecar: devSkipSidecar,
 			});
 
 			const path = await save({
@@ -97,6 +101,36 @@ export function SettingsPage() {
 				>
 					Export Diagnostics…
 				</button>
+			</div>
+
+			{/* Developer */}
+			<div className="card settings__section">
+				<div className="card__header">
+					<h3 className="card__title">Developer</h3>
+				</div>
+				<p className="settings__hint text-muted">
+					Options for local development and testing. Not needed for normal use.
+				</p>
+				<div className="settings__dev-options">
+					<label className="settings__toggle-row">
+						<div className="settings__toggle-text">
+							<span className="settings__toggle-label">Skip bundled sidecars</span>
+							<span className="settings__toggle-desc text-muted">
+								Use host PATH tools instead of binaries bundled alongside the app.
+								Enable this when testing a locally-built binary that has stub sidecars.
+							</span>
+						</div>
+						<input
+							type="checkbox"
+							className="settings__toggle"
+							checked={devSkipSidecar}
+							onChange={(e) => {
+								setDevSkipSidecar(e.target.checked);
+								checkToolchain();
+							}}
+						/>
+					</label>
+				</div>
 			</div>
 
 			{/* About */}

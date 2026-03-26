@@ -71,8 +71,9 @@ pub(crate) async fn generate_build_plan<R: Runtime>(
     _app: AppHandle<R>,
     project: SpindleProjectFile,
     output_directory: String,
+    skip_sidecar: bool,
 ) -> Result<BuildPlan> {
-    build::generate_build_plan(&project, &output_directory)
+    build::generate_build_plan(&project, &output_directory, skip_sidecar)
 }
 
 /// Execute a build plan, emitting progress events to the frontend.
@@ -81,8 +82,9 @@ pub(crate) async fn execute_build<R: Runtime>(
     app: AppHandle<R>,
     project: SpindleProjectFile,
     output_directory: String,
+    skip_sidecar: bool,
 ) -> Result<BuildResult> {
-    let plan = build::generate_build_plan(&project, &output_directory)?;
+    let plan = build::generate_build_plan(&project, &output_directory, skip_sidecar)?;
 
     let result = build::execute_build_plan(&plan, |progress| {
         let _ = app.emit("spindle://build-progress", &progress);
@@ -112,6 +114,7 @@ pub(crate) async fn auto_generate_menu_nav<R: Runtime>(
 #[command]
 pub(crate) async fn check_toolchain<R: Runtime>(
     _app: AppHandle<R>,
+    skip_sidecar: bool,
 ) -> Result<Vec<ToolchainStatus>> {
     let tools = vec![
         ("ffmpeg", "Video/audio transcoding"),
@@ -125,7 +128,7 @@ pub(crate) async fn check_toolchain<R: Runtime>(
     let statuses: Vec<ToolchainStatus> = tools
         .into_iter()
         .map(|(name, purpose)| {
-            let path = crate::toolchain::resolve_tool(name);
+            let path = crate::toolchain::resolve_tool(name, skip_sidecar);
             let version = path.as_deref().and_then(detect_tool_version);
             ToolchainStatus {
                 name: name.to_string(),
@@ -180,6 +183,7 @@ pub(crate) async fn export_diagnostics<R: Runtime>(
     project: Option<SpindleProjectFile>,
     build_log: Vec<String>,
     validation_issues: Vec<ValidationIssue>,
+    skip_sidecar: bool,
 ) -> Result<String> {
     let toolchain = {
         let tools = vec![
@@ -193,7 +197,7 @@ pub(crate) async fn export_diagnostics<R: Runtime>(
         tools
             .into_iter()
             .map(|(name, purpose)| {
-                let path = crate::toolchain::resolve_tool(name);
+                let path = crate::toolchain::resolve_tool(name, skip_sidecar);
                 let version = path.as_deref().and_then(detect_tool_version);
                 ToolchainStatus {
                     name: name.to_string(),

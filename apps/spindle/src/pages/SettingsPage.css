@@ -93,3 +93,45 @@
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
+
+/* ── Developer options ───────────────────────────────────── */
+
+.settings__dev-options {
+	margin-top: var(--space-3);
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2);
+}
+
+.settings__toggle-row {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: var(--space-4);
+	padding: var(--space-2) 0;
+	cursor: pointer;
+}
+
+.settings__toggle-text {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-1);
+}
+
+.settings__toggle-label {
+	font-size: var(--text-sm);
+	font-weight: 500;
+}
+
+.settings__toggle-desc {
+	font-size: var(--text-xs);
+}
+
+.settings__toggle {
+	flex-shrink: 0;
+	width: 16px;
+	height: 16px;
+	margin-top: 2px;
+	accent-color: var(--colour-accent, var(--colour-primary));
+	cursor: pointer;
+}

@@ -11,15 +11,18 @@ use std::path::PathBuf;
 
 /// Resolve the path to an external tool.
 ///
-/// Checks for a sidecar binary next to the current executable first — the
-/// location Tauri uses for bundled sidecars in both `tauri dev` and release
-/// mode — then falls back to the system PATH.
+/// When `skip_sidecar` is false, checks for a bundled sidecar binary next to
+/// the running executable before falling back to the system PATH. When true,
+/// skips straight to PATH — useful for local development where stubs may be
+/// present next to the binary but real tools are installed system-wide.
 ///
 /// Returns `None` if the tool cannot be located by either method.
-pub fn resolve_tool(name: &str) -> Option<PathBuf> {
-    if let Some(path) = sidecar_path(name) {
-        if path.is_file() {
-            return Some(path);
+pub fn resolve_tool(name: &str, skip_sidecar: bool) -> Option<PathBuf> {
+    if !skip_sidecar {
+        if let Some(path) = sidecar_path(name) {
+            if path.is_file() {
+                return Some(path);
+            }
         }
     }
     path_lookup(name)
