@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: MIT
 
 mod authoring;
+mod dvd_navigation;
 mod executor;
 mod ffmpeg;
 mod menu;
