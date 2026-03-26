@@ -44,7 +44,21 @@ export function TitlesPage() {
 			endAction: null,
 			orderIndex: titles.length,
 		};
-		updateProject((p) => updateTitleInProject(p, titleset.id, [...titles, newTitle]));
+		const isFirstTitle = titles.length === 0;
+		updateProject((p) => {
+			const withTitle = updateTitleInProject(p, titleset.id, [...titles, newTitle]);
+			// Auto-set first-play to this title when adding the very first title
+			if (isFirstTitle && !p.disc.firstPlayAction) {
+				return {
+					...withTitle,
+					disc: {
+						...withTitle.disc,
+						firstPlayAction: { type: 'playTitle', titleId: newTitle.id },
+					},
+				};
+			}
+			return withTitle;
+		});
 		setSelectedTitleId(newTitle.id);
 	};
 
@@ -288,7 +302,7 @@ function TitleEditor({
 			sourceStreamIndex: as_.index,
 			outputTarget: 'AC3' as AudioOutputTarget,
 			copyMode: (as_.codec === 'ac3' ? 'copy' : 're-encode') as CopyMode,
-			label: as_.language ?? `Audio ${i + 1}`,
+			label: languageLabel(as_.language ?? null, `Audio ${i + 1}`),
 			language: as_.language ?? 'und',
 			orderIndex: i,
 			isDefault: i === 0,
@@ -297,7 +311,7 @@ function TitleEditor({
 		const subtitleMappings = asset.subtitleStreams.map((ss, i) => ({
 			id: crypto.randomUUID(),
 			sourceStreamIndex: ss.index,
-			label: ss.language ?? `Subtitle ${i + 1}`,
+			label: languageLabel(ss.language ?? null, `Subtitle ${i + 1}`),
 			language: ss.language ?? 'und',
 			orderIndex: i,
 			isDefault: i === 0,
@@ -649,4 +663,41 @@ function stringToEndAction(str: string): PlaybackAction | null {
 	if (type === 'playTitle' && id) return { type: 'playTitle', titleId: id };
 	if (type === 'showMenu' && id) return { type: 'showMenu', menuId: id };
 	return null;
+}
+
+// ── Language helpers ─────────────────────────────────────────────────────────
+
+const ISO_639_NAMES: Record<string, string> = {
+	eng: 'English',
+	fra: 'French',
+	deu: 'German',
+	spa: 'Spanish',
+	ita: 'Italian',
+	por: 'Portuguese',
+	jpn: 'Japanese',
+	zho: 'Chinese',
+	kor: 'Korean',
+	rus: 'Russian',
+	ara: 'Arabic',
+	hin: 'Hindi',
+	nld: 'Dutch',
+	pol: 'Polish',
+	swe: 'Swedish',
+	nor: 'Norwegian',
+	dan: 'Danish',
+	fin: 'Finnish',
+	ces: 'Czech',
+	hun: 'Hungarian',
+	ron: 'Romanian',
+	tur: 'Turkish',
+	heb: 'Hebrew',
+	tha: 'Thai',
+	vie: 'Vietnamese',
+	ind: 'Indonesian',
+	und: 'Undetermined',
+};
+
+function languageLabel(code: string | null, fallback: string): string {
+	if (!code || code === 'und') return fallback;
+	return ISO_639_NAMES[code.toLowerCase()] ?? code;
 }

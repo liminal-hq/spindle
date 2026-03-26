@@ -1137,6 +1137,71 @@ mod tests {
     }
 
     #[test]
+    fn dvdauthor_xml_contains_video_format() {
+        let project = test_project();
+        let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+
+        // dvdauthor 0.7.x requires an explicit <video format="ntsc/pal"/> in <titles>
+        assert!(
+            plan.dvdauthor_xml.contains("format=\"ntsc\""),
+            "dvdauthor XML must declare video format\n{}",
+            plan.dvdauthor_xml
+        );
+        assert!(
+            plan.dvdauthor_xml.contains("aspect=\"16:9\""),
+            "dvdauthor XML must declare aspect ratio\n{}",
+            plan.dvdauthor_xml
+        );
+    }
+
+    #[test]
+    fn ffmpeg_vf_has_scale_and_pad() {
+        let project = test_project();
+        let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+
+        let transcode = plan
+            .jobs
+            .iter()
+            .find(|j| matches!(j, BuildJob::TranscodeTitle { .. }))
+            .unwrap();
+        let cmd = transcode.command().unwrap();
+
+        // -vf flag present
+        assert!(cmd.contains(&"-vf".to_string()), "expected -vf flag");
+        // scale+pad in the filter
+        let vf_val = cmd
+            .iter()
+            .skip_while(|a| *a != "-vf")
+            .nth(1)
+            .expect("-vf value");
+        assert!(vf_val.contains("scale="), "expected scale= in vf filter");
+        assert!(vf_val.contains("pad="), "expected pad= in vf filter");
+        assert!(vf_val.contains("setsar=1"), "expected setsar=1 in vf filter");
+    }
+
+    #[test]
+    fn ffmpeg_preserves_23976_fps_for_ntsc() {
+        let mut project = test_project();
+        // Set source frame rate to 23.976
+        project.assets[0].video_streams[0].frame_rate = Some(24_000.0 / 1_001.0);
+        let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+
+        let transcode = plan
+            .jobs
+            .iter()
+            .find(|j| matches!(j, BuildJob::TranscodeTitle { .. }))
+            .unwrap();
+        let cmd = transcode.command().unwrap();
+
+        let r_arg = cmd
+            .iter()
+            .skip_while(|a| *a != "-r")
+            .nth(1)
+            .expect("-r value");
+        assert_eq!(r_arg, "24000/1001", "23.976 fps source should be preserved");
+    }
+
+    #[test]
     fn ffmpeg_command_has_mpeg2_codec() {
         let project = test_project();
         let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
