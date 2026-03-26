@@ -81,6 +81,7 @@ async function resolveOutputDir(
 	}
 	const { lastOutputDir } = useAppSettingsStore.getState();
 	const selected = await save({
+		title: 'Choose Output Directory',
 		filters: [],
 		defaultPath: lastOutputDir
 			? `${lastOutputDir}/${project.project.name}_DVD`
@@ -133,6 +134,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
 		const { lastProjectDir } = useAppSettingsStore.getState();
 		const selected = await open({
+			title: 'Open Spindle Project',
 			multiple: false,
 			filters: [{ name: 'Spindle Project', extensions: ['spindle'] }],
 			defaultPath: lastProjectDir ?? undefined,
@@ -187,6 +189,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
 		const { lastProjectDir } = useAppSettingsStore.getState();
 		const selected = await save({
+			title: 'Save Spindle Project',
 			filters: [{ name: 'Spindle Project', extensions: ['spindle'] }],
 			defaultPath: lastProjectDir
 				? `${lastProjectDir}/${project.project.name}.spindle`
@@ -248,6 +251,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
 		const { lastMediaDir } = useAppSettingsStore.getState();
 		const selected = await open({
+			title: 'Import Media Files',
 			multiple: true,
 			defaultPath: lastMediaDir ?? undefined,
 			filters: [
@@ -398,6 +402,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
 		const { lastMediaDir } = useAppSettingsStore.getState();
 		const selected = await open({
+			title: 'Relink Media File',
 			multiple: false,
 			defaultPath: lastMediaDir ?? undefined,
 			filters: [
@@ -549,6 +554,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 		if (!project) return;
 		const { lastOutputDir } = useAppSettingsStore.getState();
 		const selected = await save({
+			title: 'Choose Output Directory',
 			filters: [],
 			defaultPath: lastOutputDir
 				? `${lastOutputDir}/${project.project.name}_DVD`

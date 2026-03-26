@@ -539,6 +539,8 @@ pub struct SubtitleStreamInfo {
     pub codec: String,
     pub language: Option<String>,
     pub subtitle_type: SubtitleType,
+    #[serde(default)]
+    pub title: Option<String>,
 }
 
 /// Whether a subtitle source is bitmap or text-based.

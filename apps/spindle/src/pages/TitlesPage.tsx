@@ -311,7 +311,7 @@ function TitleEditor({
 		const subtitleMappings = asset.subtitleStreams.map((ss, i) => ({
 			id: crypto.randomUUID(),
 			sourceStreamIndex: ss.index,
-			label: languageLabel(ss.language ?? null, `Subtitle ${i + 1}`),
+			label: ss.title ?? languageLabel(ss.language ?? null, `Subtitle ${i + 1}`),
 			language: ss.language ?? 'und',
 			orderIndex: i,
 			isDefault: i === 0,
@@ -668,6 +668,7 @@ function stringToEndAction(str: string): PlaybackAction | null {
 // ── Language helpers ─────────────────────────────────────────────────────────
 
 const ISO_639_NAMES: Record<string, string> = {
+	// Terminological (ISO 639-2/T) codes
 	eng: 'English',
 	fra: 'French',
 	deu: 'German',
@@ -694,6 +695,26 @@ const ISO_639_NAMES: Record<string, string> = {
 	tha: 'Thai',
 	vie: 'Vietnamese',
 	ind: 'Indonesian',
+	// Bibliographic (ISO 639-2/B) codes — used by ffprobe
+	fre: 'French',
+	ger: 'German',
+	chi: 'Chinese',
+	dut: 'Dutch',
+	cze: 'Czech',
+	rum: 'Romanian',
+	bul: 'Bulgarian',
+	hrv: 'Croatian',
+	slk: 'Slovak',
+	alb: 'Albanian',
+	arm: 'Armenian',
+	baq: 'Basque',
+	geo: 'Georgian',
+	ice: 'Icelandic',
+	mac: 'Macedonian',
+	mao: 'Māori',
+	may: 'Malay',
+	per: 'Persian',
+	wel: 'Welsh',
 	und: 'Undetermined',
 };
 

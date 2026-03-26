@@ -268,20 +268,8 @@ function BuildJobRow({ job, index }: { job: BuildJob; index: number }) {
 }
 
 function getJobLabel(job: BuildJob): string {
-	switch (job.type) {
-		case 'prepareWorkspace':
-			return 'Prepare workspace';
-		case 'transcodeTitle':
-			return `Transcode "${job.titleName}"`;
-		case 'renderMenu':
-			return `Render menu "${job.menuName}"`;
-		case 'composeMenuHighlights':
-			return `Compose highlights for "${job.menuName}"`;
-		case 'authorDvd':
-			return 'Author DVD (dvdauthor)';
-		case 'createIso':
-			return 'Create ISO image';
-	}
+	if (job.type === 'prepareWorkspace') return 'Prepare workspace';
+	return job.label;
 }
 
 function getJobIcon(job: BuildJob): string {

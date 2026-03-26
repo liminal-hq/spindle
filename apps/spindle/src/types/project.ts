@@ -239,6 +239,7 @@ export interface SubtitleStreamInfo {
 	codec: string;
 	language: string | null;
 	subtitleType: SubtitleType;
+	title: string | null;
 }
 
 // ── Build Settings ──────────────────────────────────────────────────────────

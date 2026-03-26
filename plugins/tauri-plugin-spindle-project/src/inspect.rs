@@ -109,6 +109,7 @@ pub fn inspect(path: &str) -> crate::Result<Asset> {
                     codec: codec.clone(),
                     language: stream.tags.as_ref().and_then(|t| t.language.clone()),
                     subtitle_type: classify_subtitle_type(&codec),
+                    title: stream.tags.as_ref().and_then(|t| t.title.clone()),
                 });
             }
             _ => {}
@@ -304,6 +305,7 @@ struct FfprobeFormat {
 #[derive(Debug, Deserialize)]
 struct StreamTags {
     language: Option<String>,
+    title: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
