@@ -353,10 +353,20 @@ fn build_ffmpeg_transcode_command(
         );
     }
 
-    // Scale preserving aspect ratio, pad to exact DVD raster, reset SAR
-    vf_parts.push(format!(
-        "scale={width}:{height}:force_original_aspect_ratio=decrease,\
-         pad={width}:{height}:(ow-iw)/2:(oh-ih)/2,setsar=1"
+    let source_dar = video_info
+        .and_then(source_display_aspect_ratio)
+        .unwrap_or_else(|| width as f64 / height as f64);
+    let (target_dar_num, target_dar_den) = output_display_aspect_ratio_parts(profile.aspect);
+    let target_dar = target_dar_num as f64 / target_dar_den as f64;
+    let target_sar = dvd_sample_aspect_ratio(width, height, target_dar_num, target_dar_den);
+
+    // Scale and pad using DVD display geometry rather than square-pixel storage geometry.
+    vf_parts.push(build_dvd_scale_filter(
+        width,
+        height,
+        source_dar,
+        target_dar,
+        &target_sar,
     ));
 
     // FPS conversion only when source differs from target by more than 0.1 fps
@@ -503,6 +513,90 @@ fn fps_rational_str(fps: f64) -> &'static str {
     } else {
         "30000/1001"
     }
+}
+
+fn source_display_aspect_ratio(info: &VideoStreamInfo) -> Option<f64> {
+    parse_display_aspect_ratio(info.aspect_ratio.as_deref()).or_else(|| {
+        if info.width > 0 && info.height > 0 {
+            Some(info.width as f64 / info.height as f64)
+        } else {
+            None
+        }
+    })
+}
+
+fn parse_display_aspect_ratio(value: Option<&str>) -> Option<f64> {
+    let value = value?;
+    let (num, den) = value.split_once(':')?;
+    let num: f64 = num.parse().ok()?;
+    let den: f64 = den.parse().ok()?;
+    if den == 0.0 {
+        return None;
+    }
+    Some(num / den)
+}
+
+fn output_display_aspect_ratio_parts(aspect: AspectMode) -> (u32, u32) {
+    match aspect {
+        AspectMode::FourByThree => (4, 3),
+        AspectMode::SixteenByNine => (16, 9),
+    }
+}
+
+fn dvd_sample_aspect_ratio(
+    width: u32,
+    height: u32,
+    display_aspect_num: u32,
+    display_aspect_den: u32,
+) -> String {
+    let mut num = display_aspect_num as u64 * height as u64;
+    let mut den = display_aspect_den as u64 * width as u64;
+    let gcd = gcd_u64(num, den);
+    num /= gcd;
+    den /= gcd;
+    format!("{num}/{den}")
+}
+
+fn build_dvd_scale_filter(
+    width: u32,
+    height: u32,
+    source_dar: f64,
+    target_dar: f64,
+    target_sar: &str,
+) -> String {
+    let mut active_width = width;
+    let mut active_height = height;
+
+    if source_dar > target_dar {
+        active_height = round_even((height as f64 * target_dar / source_dar).min(height as f64));
+    } else if source_dar < target_dar {
+        active_width = round_even((width as f64 * source_dar / target_dar).min(width as f64));
+    }
+
+    let pad_x = (width.saturating_sub(active_width)) / 2;
+    let pad_y = (height.saturating_sub(active_height)) / 2;
+
+    format!(
+        "scale={active_width}:{active_height},pad={width}:{height}:{pad_x}:{pad_y},setsar={target_sar}"
+    )
+}
+
+fn round_even(value: f64) -> u32 {
+    let rounded = value.round().max(2.0) as u32;
+    if rounded % 2 == 0 {
+        rounded
+    } else {
+        rounded.saturating_sub(1)
+    }
+}
+
+fn gcd_u64(mut a: u64, mut b: u64) -> u64 {
+    while b != 0 {
+        let tmp = b;
+        b = a % b;
+        a = tmp;
+    }
+    a.max(1)
 }
 
 /// Return true when the video stream uses an HDR transfer characteristic.
@@ -1179,8 +1273,8 @@ mod tests {
         assert!(vf_val.contains("scale="), "expected scale= in vf filter");
         assert!(vf_val.contains("pad="), "expected pad= in vf filter");
         assert!(
-            vf_val.contains("setsar=1"),
-            "expected setsar=1 in vf filter"
+            vf_val.contains("setsar=32/27"),
+            "expected NTSC 16:9 anamorphic SAR in vf filter"
         );
     }
 
@@ -1219,9 +1313,39 @@ mod tests {
 
         let cmd = transcode.unwrap().command().unwrap();
         assert!(cmd.contains(&"mpeg2video".to_string()));
-        // Resolution is now in the vf filter rather than a bare -s flag
-        let vf_arg = cmd.iter().find(|a| a.starts_with("scale=720:480:"));
+        // Resolution is now expressed in the anamorphic-aware scale filter.
+        let vf_arg = cmd.iter().find(|a| a.starts_with("scale="));
         assert!(vf_arg.is_some(), "expected scale=720:480 in -vf filter");
+    }
+
+    #[test]
+    fn ffmpeg_uses_anamorphic_letterbox_for_scope_sources() {
+        let mut project = test_project();
+        project.assets[0].video_streams[0].width = 3840;
+        project.assets[0].video_streams[0].height = 1606;
+        project.assets[0].video_streams[0].aspect_ratio = Some("1920:803".to_string());
+
+        let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+        let transcode = plan
+            .jobs
+            .iter()
+            .find(|j| matches!(j, BuildJob::TranscodeTitle { .. }))
+            .unwrap();
+        let cmd = transcode.command().unwrap();
+        let vf_arg = cmd
+            .iter()
+            .skip_while(|a| *a != "-vf")
+            .nth(1)
+            .expect("-vf value");
+
+        assert!(
+            vf_arg.contains("scale=720:356"),
+            "expected scope content to use anamorphic-aware height, got: {vf_arg}"
+        );
+        assert!(
+            vf_arg.contains("pad=720:480:0:62"),
+            "expected centered letterbox padding, got: {vf_arg}"
+        );
     }
 
     #[test]
