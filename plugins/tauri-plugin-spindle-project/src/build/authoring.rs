@@ -47,37 +47,15 @@ pub(crate) fn generate_dvdauthor_xml(
         xml.push_str("  <vmgm>\n");
 
         if has_global_menus {
-            let global_menu_aspect = match menu_output_aspect(project, MenuDomain::Vmgm) {
-                AspectMode::FourByThree => "4:3",
-                AspectMode::SixteenByNine => "16:9",
-            };
-            xml.push_str("    <menus>\n");
-            xml.push_str(&format!(
-                "      <video format=\"{format_str}\" aspect=\"{global_menu_aspect}\" />\n"
-            ));
-            for (menu_index, menu) in project.disc.global_menus.iter().enumerate() {
-                xml.push_str("      <pgc>\n");
-                let menu_vob_path = menus_dir.join(format!("{}.mpg", sanitise_filename(&menu.id)));
-                xml.push_str(&format!(
-                    "        <vob file=\"{}\" pause=\"inf\" />\n",
-                    xml_escape(&menu_vob_path.display().to_string())
-                ));
-                for button in &menu.buttons {
-                    if let Some(ref action) = button.action {
-                        xml.push_str(&format!(
-                            "        <button>{};</button>\n",
-                            playback_action_to_dvd_command_in_domain(
-                                action,
-                                &project.disc,
-                                MenuDomain::Vmgm,
-                                Some(menu_index + 1),
-                            )
-                        ));
-                    }
-                }
-                xml.push_str("      </pgc>\n");
-            }
-            xml.push_str("    </menus>\n");
+            append_menu_section(
+                &mut xml,
+                format_str,
+                aspect_str(menu_output_aspect(project, MenuDomain::Vmgm)),
+                &project.disc.global_menus,
+                MenuDomain::Vmgm,
+                &project.disc,
+                menus_dir,
+            );
         }
 
         if let Some(ref action) = project.disc.first_play_action {
@@ -95,88 +73,34 @@ pub(crate) fn generate_dvdauthor_xml(
     for (titleset_index, titleset) in project.disc.titlesets.iter().enumerate() {
         xml.push_str("  <titleset>\n");
 
-        let aspect_str = titleset
+        let titleset_aspect = titleset
             .titles
             .iter()
             .find_map(|t| t.video_output_profile)
-            .map(|p| match p.aspect {
-                AspectMode::FourByThree => "4:3",
-                AspectMode::SixteenByNine => "16:9",
-            })
+            .map(|p| aspect_str(p.aspect))
             .unwrap_or("16:9");
 
         if !titleset.menus.is_empty() {
-            xml.push_str("    <menus>\n");
-            xml.push_str(&format!(
-                "      <video format=\"{format_str}\" aspect=\"{aspect_str}\" />\n"
-            ));
-            for (menu_index, menu) in titleset.menus.iter().enumerate() {
-                xml.push_str("      <pgc>\n");
-                let menu_vob_path = menus_dir.join(format!("{}.mpg", sanitise_filename(&menu.id)));
-                xml.push_str(&format!(
-                    "        <vob file=\"{}\" pause=\"inf\" />\n",
-                    xml_escape(&menu_vob_path.display().to_string())
-                ));
-                for button in &menu.buttons {
-                    if let Some(ref action) = button.action {
-                        xml.push_str(&format!(
-                            "        <button>{};</button>\n",
-                            playback_action_to_dvd_command_in_domain(
-                                action,
-                                &project.disc,
-                                MenuDomain::Titleset(titleset_index),
-                                Some(menu_index + 1),
-                            )
-                        ));
-                    }
-                }
-                xml.push_str("      </pgc>\n");
-            }
-            xml.push_str("    </menus>\n");
-        }
-
-        xml.push_str("    <titles>\n");
-        xml.push_str(&format!(
-            "      <video format=\"{format_str}\" aspect=\"{aspect_str}\" />\n"
-        ));
-        for title in &titleset.titles {
-            xml.push_str("      <pgc>\n");
-
-            let vob_path = titles_dir.join(format!("{}.mpg", sanitise_filename(&title.id)));
-            let mut vob_attrs = format!(
-                "        <vob file=\"{}\"",
-                xml_escape(&vob_path.display().to_string())
+            append_menu_section(
+                &mut xml,
+                format_str,
+                titleset_aspect,
+                &titleset.menus,
+                MenuDomain::Titleset(titleset_index),
+                &project.disc,
+                menus_dir,
             );
-
-            if !title.chapters.is_empty() {
-                let chapter_str = title
-                    .chapters
-                    .iter()
-                    .map(|ch| format_dvd_timestamp(ch.timestamp_secs))
-                    .collect::<Vec<_>>()
-                    .join(",");
-                vob_attrs.push_str(&format!(" chapters=\"{chapter_str}\""));
-            }
-
-            vob_attrs.push_str(" />\n");
-            xml.push_str(&vob_attrs);
-
-            if let Some(ref action) = title.end_action {
-                xml.push_str("        <post>\n");
-                xml.push_str(&format!(
-                    "          {};\n",
-                    playback_action_to_dvd_command_in_context(
-                        action,
-                        &project.disc,
-                        DvdCommandContext::Title { titleset_index },
-                    )
-                ));
-                xml.push_str("        </post>\n");
-            }
-
-            xml.push_str("      </pgc>\n");
         }
-        xml.push_str("    </titles>\n");
+
+        append_titles_section(
+            &mut xml,
+            format_str,
+            titleset_aspect,
+            titleset,
+            titleset_index,
+            &project.disc,
+            titles_dir,
+        );
 
         xml.push_str("  </titleset>\n");
     }
@@ -184,6 +108,120 @@ pub(crate) fn generate_dvdauthor_xml(
     xml.push_str("</dvdauthor>\n");
 
     Ok(xml)
+}
+
+fn aspect_str(aspect: AspectMode) -> &'static str {
+    match aspect {
+        AspectMode::FourByThree => "4:3",
+        AspectMode::SixteenByNine => "16:9",
+    }
+}
+
+fn append_menu_section(
+    xml: &mut String,
+    format_str: &str,
+    aspect_str: &str,
+    menus: &[Menu],
+    domain: MenuDomain,
+    disc: &Disc,
+    menus_dir: &Path,
+) {
+    xml.push_str("    <menus>\n");
+    xml.push_str(&format!(
+        "      <video format=\"{format_str}\" aspect=\"{aspect_str}\" />\n"
+    ));
+    for (menu_index, menu) in menus.iter().enumerate() {
+        append_menu_pgc(xml, menu, disc, domain, menu_index + 1, menus_dir);
+    }
+    xml.push_str("    </menus>\n");
+}
+
+fn append_menu_pgc(
+    xml: &mut String,
+    menu: &Menu,
+    disc: &Disc,
+    domain: MenuDomain,
+    menu_number: usize,
+    menus_dir: &Path,
+) {
+    xml.push_str("      <pgc>\n");
+    let menu_vob_path = menus_dir.join(format!("{}.mpg", sanitise_filename(&menu.id)));
+    xml.push_str(&format!(
+        "        <vob file=\"{}\" pause=\"inf\" />\n",
+        xml_escape(&menu_vob_path.display().to_string())
+    ));
+    for button in &menu.buttons {
+        if let Some(ref action) = button.action {
+            xml.push_str(&format!(
+                "        <button>{};</button>\n",
+                playback_action_to_dvd_command_in_domain(action, disc, domain, Some(menu_number))
+            ));
+        }
+    }
+    xml.push_str("      </pgc>\n");
+}
+
+fn append_titles_section(
+    xml: &mut String,
+    format_str: &str,
+    aspect_str: &str,
+    titleset: &Titleset,
+    titleset_index: usize,
+    disc: &Disc,
+    titles_dir: &Path,
+) {
+    xml.push_str("    <titles>\n");
+    xml.push_str(&format!(
+        "      <video format=\"{format_str}\" aspect=\"{aspect_str}\" />\n"
+    ));
+    for title in &titleset.titles {
+        append_title_pgc(xml, title, titleset_index, disc, titles_dir);
+    }
+    xml.push_str("    </titles>\n");
+}
+
+fn append_title_pgc(
+    xml: &mut String,
+    title: &Title,
+    titleset_index: usize,
+    disc: &Disc,
+    titles_dir: &Path,
+) {
+    xml.push_str("      <pgc>\n");
+
+    let vob_path = titles_dir.join(format!("{}.mpg", sanitise_filename(&title.id)));
+    let mut vob_attrs = format!(
+        "        <vob file=\"{}\"",
+        xml_escape(&vob_path.display().to_string())
+    );
+
+    if !title.chapters.is_empty() {
+        let chapter_str = title
+            .chapters
+            .iter()
+            .map(|ch| format_dvd_timestamp(ch.timestamp_secs))
+            .collect::<Vec<_>>()
+            .join(",");
+        vob_attrs.push_str(&format!(" chapters=\"{chapter_str}\""));
+    }
+
+    vob_attrs.push_str(" />\n");
+    xml.push_str(&vob_attrs);
+
+    if let Some(ref action) = title.end_action {
+        xml.push_str("        <post>\n");
+        xml.push_str(&format!(
+            "          {};\n",
+            playback_action_to_dvd_command_in_context(
+                action,
+                disc,
+                DvdCommandContext::Title { titleset_index },
+            )
+        ));
+        xml.push_str("        </post>\n");
+    }
+
+    xml.push_str("      </pgc>\n");
 }
 
 fn playback_action_to_dvd_command(action: &PlaybackAction, disc: &Disc) -> String {
