@@ -409,7 +409,11 @@ fn build_ffmpeg_transcode_command(
     disc: &Disc,
     video_info: Option<&VideoStreamInfo>,
 ) -> Vec<String> {
-    let mut cmd = vec!["ffmpeg".to_string(), "-y".to_string()];
+    let mut cmd = vec![
+        "ffmpeg".to_string(),
+        "-hide_banner".to_string(),
+        "-y".to_string(),
+    ];
 
     // Input
     cmd.extend(["-i".to_string(), source_path.to_string()]);
@@ -777,7 +781,11 @@ fn build_ffmpeg_menu_command(
     };
     let fps = fps_rational_str(standard.frame_rate());
 
-    let mut cmd = vec![ffmpeg_bin.to_string(), "-y".to_string()];
+    let mut cmd = vec![
+        ffmpeg_bin.to_string(),
+        "-hide_banner".to_string(),
+        "-y".to_string(),
+    ];
     let mut vf_parts = Vec::new();
 
     if let Some(background_asset_id) = menu_ref.menu.background_asset_id.as_deref() {
@@ -1726,6 +1734,7 @@ fn render_menu_overlay_image(
 
     let args = vec![
         ffmpeg_bin.to_string(),
+        "-hide_banner".to_string(),
         "-y".to_string(),
         "-f".to_string(),
         "lavfi".to_string(),

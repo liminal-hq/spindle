@@ -164,6 +164,7 @@ pub fn extract_thumbnail(
 
     let output = Command::new("ffmpeg")
         .args([
+            "-hide_banner",
             "-y",
             "-ss",
             &ts,
