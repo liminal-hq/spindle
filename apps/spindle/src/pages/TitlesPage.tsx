@@ -506,7 +506,18 @@ function TitleEditor({
 			{/* Subtitle Mappings */}
 			{title.subtitleMappings.length > 0 && (
 				<div className="titles__editor-section">
-					<h4 className="titles__editor-heading">Subtitle Tracks</h4>
+					<h4 className="titles__editor-heading">
+						Subtitle Tracks
+						<span className="titles__track-count text-muted">
+							{` (${title.subtitleMappings.length}/8)`}
+						</span>
+					</h4>
+					{title.subtitleMappings.length > 8 && (
+						<p className="titles__hint titles__hint--warn">
+							DVD-Video supports at most 8 subtitle streams. Remove tracks to stay within the
+							limit.
+						</p>
+					)}
 					{title.subtitleMappings.map((sm) => (
 						<div key={sm.id} className="titles__track-row">
 							<input
@@ -565,6 +576,20 @@ function TitleEditor({
 								/>
 								Forced
 							</label>
+							<button
+								className="titles__row-remove"
+								title="Remove subtitle track"
+								onClick={() =>
+									onUpdate({
+										...title,
+										subtitleMappings: title.subtitleMappings
+											.filter((s) => s.id !== sm.id)
+											.map((s, i) => ({ ...s, orderIndex: i })),
+									})
+								}
+							>
+								×
+							</button>
 						</div>
 					))}
 				</div>

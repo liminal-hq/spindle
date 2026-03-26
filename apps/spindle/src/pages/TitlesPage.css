@@ -253,6 +253,15 @@
 	margin-bottom: var(--space-2);
 }
 
+.titles__hint--warn {
+	color: var(--colour-warning, var(--colour-error));
+}
+
+.titles__track-count {
+	font-weight: 400;
+	font-size: var(--text-xs);
+}
+
 /* ── Empty state ──────────────────────────────────────────── */
 
 .titles__empty {

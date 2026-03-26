@@ -61,6 +61,7 @@ export interface ProjectState {
 	executeBuild: () => Promise<void>;
 	clearBuild: () => void;
 	cancelBuild: () => Promise<void>;
+	browseOutputDir: () => Promise<void>;
 	autoGenerateMenuNav: (menuId: string) => Promise<void>;
 	checkToolchain: () => Promise<void>;
 }
@@ -540,6 +541,25 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 			}));
 		} catch {
 			// Best-effort cancellation
+		}
+	},
+
+	browseOutputDir: async () => {
+		const { project, updateProject } = get();
+		if (!project) return;
+		const { lastOutputDir } = useAppSettingsStore.getState();
+		const selected = await save({
+			filters: [],
+			defaultPath: lastOutputDir
+				? `${lastOutputDir}/${project.project.name}_DVD`
+				: `${project.project.name}_DVD`,
+		});
+		if (selected) {
+			updateProject((p) => ({
+				...p,
+				buildSettings: { ...p.buildSettings, outputDirectory: selected },
+			}));
+			useAppSettingsStore.getState().setLastOutputDir(parentDir(selected));
 		}
 	},
 

@@ -21,6 +21,7 @@ export function BuildPage() {
 	const executeBuild = useProjectStore((s) => s.executeBuild);
 	const cancelBuild = useProjectStore((s) => s.cancelBuild);
 	const clearBuild = useProjectStore((s) => s.clearBuild);
+	const browseOutputDir = useProjectStore((s) => s.browseOutputDir);
 
 	// Auto-validate on mount
 	useEffect(() => {
@@ -71,6 +72,14 @@ export function BuildPage() {
 						<span className="build__summary-path">
 							{project.buildSettings.outputDirectory ?? 'Not set'}
 						</span>
+						<button
+							className="btn btn--sm"
+							onClick={browseOutputDir}
+							disabled={isBuilding}
+							title="Choose output directory"
+						>
+							Browse…
+						</button>
 					</div>
 				</div>
 				<div className="build__actions">
