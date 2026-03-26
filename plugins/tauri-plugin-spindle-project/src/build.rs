@@ -1769,9 +1769,15 @@ fn render_menu_overlay_image(
     for button in button_bounds {
         let width = (button.x1 - button.x0).max(1);
         let height = (button.y1 - button.y0).max(1);
+        let border_thickness = ((width.min(height) as f64) * 0.08).round() as i32;
         vf_parts.push(format!(
-            "drawbox=x={}:y={}:w={}:h={}:color={}:t=fill",
-            button.x0, button.y0, width, height, colour
+            "drawbox=x={}:y={}:w={}:h={}:color={}:t={}",
+            button.x0,
+            button.y0,
+            width,
+            height,
+            colour,
+            border_thickness.clamp(2, 6)
         ));
     }
 
