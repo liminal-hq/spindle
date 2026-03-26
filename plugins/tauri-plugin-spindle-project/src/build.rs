@@ -701,6 +701,17 @@ enum MenuDomain {
     Titleset(usize),
 }
 
+#[derive(Clone, Copy)]
+enum DvdCommandContext {
+    Menu {
+        domain: MenuDomain,
+        menu_number: Option<usize>,
+    },
+    Title {
+        titleset_index: usize,
+    },
+}
+
 struct AuthorableMenuRef<'a> {
     menu: &'a Menu,
     domain: MenuDomain,
@@ -1087,7 +1098,18 @@ fn generate_dvdauthor_xml(
                 xml.push_str("        <post>\n");
                 xml.push_str(&format!(
                     "          {};\n",
-                    playback_action_to_dvd_command(action, &project.disc)
+                    playback_action_to_dvd_command_in_context(
+                        action,
+                        &project.disc,
+                        DvdCommandContext::Title {
+                            titleset_index: project
+                                .disc
+                                .titlesets
+                                .iter()
+                                .position(|ts| ts.id == titleset.id)
+                                .unwrap_or(0),
+                        },
+                    )
                 ));
                 xml.push_str("        </post>\n");
             }
@@ -1105,7 +1127,14 @@ fn generate_dvdauthor_xml(
 }
 
 fn playback_action_to_dvd_command(action: &PlaybackAction, disc: &Disc) -> String {
-    playback_action_to_dvd_command_in_domain(action, disc, MenuDomain::Vmgm, None)
+    playback_action_to_dvd_command_in_context(
+        action,
+        disc,
+        DvdCommandContext::Menu {
+            domain: MenuDomain::Vmgm,
+            menu_number: None,
+        },
+    )
 }
 
 fn playback_action_to_dvd_command_in_domain(
@@ -1113,6 +1142,21 @@ fn playback_action_to_dvd_command_in_domain(
     disc: &Disc,
     current_domain: MenuDomain,
     current_menu_number: Option<usize>,
+) -> String {
+    playback_action_to_dvd_command_in_context(
+        action,
+        disc,
+        DvdCommandContext::Menu {
+            domain: current_domain,
+            menu_number: current_menu_number,
+        },
+    )
+}
+
+fn playback_action_to_dvd_command_in_context(
+    action: &PlaybackAction,
+    disc: &Disc,
+    current_context: DvdCommandContext,
 ) -> String {
     match action {
         PlaybackAction::PlayTitle { title_id } => {
@@ -1151,29 +1195,52 @@ fn playback_action_to_dvd_command_in_domain(
         PlaybackAction::ShowMenu { menu_id } => {
             let Some((target_domain, target_menu_number)) = resolve_menu_target(disc, menu_id)
             else {
-                return "jump vmgm menu".to_string();
+                return match current_context {
+                    DvdCommandContext::Title { .. } => "call vmgm menu".to_string(),
+                    DvdCommandContext::Menu { .. } => "jump vmgm menu".to_string(),
+                };
             };
 
-            match (current_domain, target_domain) {
-                (MenuDomain::Vmgm, MenuDomain::Vmgm)
-                    if current_menu_number == Some(target_menu_number) =>
-                {
-                    "jump menu".to_string()
-                }
-                (MenuDomain::Vmgm, MenuDomain::Vmgm) => format!("jump menu {target_menu_number}"),
-                (MenuDomain::Titleset(current_ts), MenuDomain::Titleset(target_ts))
-                    if current_ts == target_ts =>
-                {
-                    format!("jump menu {target_menu_number}")
-                }
-                (_, MenuDomain::Vmgm) => format!("jump vmgm menu {target_menu_number}"),
-                (_, MenuDomain::Titleset(target_ts)) => {
-                    format!(
-                        "jump titleset {} menu {}",
-                        target_ts + 1,
-                        target_menu_number
-                    )
-                }
+            match current_context {
+                DvdCommandContext::Title { titleset_index } => match target_domain {
+                    MenuDomain::Vmgm => format!("call vmgm menu {target_menu_number}"),
+                    MenuDomain::Titleset(target_ts) if target_ts == titleset_index => {
+                        format!("call menu {target_menu_number}")
+                    }
+                    MenuDomain::Titleset(target_ts) => {
+                        format!(
+                            "call titleset {} menu {}",
+                            target_ts + 1,
+                            target_menu_number
+                        )
+                    }
+                },
+                DvdCommandContext::Menu {
+                    domain: current_domain,
+                    menu_number: current_menu_number,
+                } => match (current_domain, target_domain) {
+                    (MenuDomain::Vmgm, MenuDomain::Vmgm)
+                        if current_menu_number == Some(target_menu_number) =>
+                    {
+                        "jump menu".to_string()
+                    }
+                    (MenuDomain::Vmgm, MenuDomain::Vmgm) => {
+                        format!("jump menu {target_menu_number}")
+                    }
+                    (MenuDomain::Titleset(current_ts), MenuDomain::Titleset(target_ts))
+                        if current_ts == target_ts =>
+                    {
+                        format!("jump menu {target_menu_number}")
+                    }
+                    (_, MenuDomain::Vmgm) => format!("jump vmgm menu {target_menu_number}"),
+                    (_, MenuDomain::Titleset(target_ts)) => {
+                        format!(
+                            "jump titleset {} menu {}",
+                            target_ts + 1,
+                            target_menu_number
+                        )
+                    }
+                },
             }
         }
         PlaybackAction::Stop => "exit".to_string(),
@@ -1912,6 +1979,21 @@ mod tests {
         let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
 
         assert!(plan.dvdauthor_xml.contains("exit"));
+    }
+
+    #[test]
+    fn title_post_uses_call_for_menu_actions() {
+        let mut project = test_project();
+        project.disc.global_menus.push(test_menu());
+        project.disc.titlesets[0].titles[0].end_action = Some(PlaybackAction::ShowMenu {
+            menu_id: "menu-1".to_string(),
+        });
+
+        let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+
+        assert!(plan
+            .dvdauthor_xml
+            .contains("<post>\n          call vmgm menu 1;\n        </post>"));
     }
 
     #[test]
