@@ -345,7 +345,7 @@ fn build_ffmpeg_transcode_command(
     let mut vf_parts: Vec<String> = Vec::new();
 
     // HDR → SDR tonemapping when source uses PQ (HDR10) or HLG transfer
-    if video_info.map_or(false, is_hdr_source) {
+    if video_info.is_some_and(is_hdr_source) {
         vf_parts.push(
             "zscale=t=linear:npl=100,format=gbrpf32le,zscale=p=bt709,\
              tonemap=hable,zscale=t=bt709:m=bt709:r=tv,format=yuv420p"
@@ -360,7 +360,7 @@ fn build_ffmpeg_transcode_command(
     ));
 
     // FPS conversion only when source differs from target by more than 0.1 fps
-    if source_fps.map_or(false, |fps| (fps - output_fps).abs() > 0.1) {
+    if source_fps.is_some_and(|fps| (fps - output_fps).abs() > 0.1) {
         vf_parts.push(format!("fps={}", fps_rational_str(output_fps)));
     }
 
@@ -483,7 +483,7 @@ fn choose_output_fps(source_fps: Option<f64>, standard: VideoStandard) -> f64 {
     match standard {
         VideoStandard::Pal => 25.0,
         VideoStandard::Ntsc => {
-            if source_fps.map_or(false, |fps| (fps - 24_000.0 / 1_001.0).abs() < 0.1) {
+            if source_fps.is_some_and(|fps| (fps - 24_000.0 / 1_001.0).abs() < 0.1) {
                 24_000.0 / 1_001.0 // ≈23.976 — keep film cadence
             } else {
                 30_000.0 / 1_001.0 // ≈29.97 — NTSC standard

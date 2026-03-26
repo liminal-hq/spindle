@@ -528,8 +528,7 @@ function TitleEditor({
 					</h4>
 					{title.subtitleMappings.length > 8 && (
 						<p className="titles__hint titles__hint--warn">
-							DVD-Video supports at most 8 subtitle streams. Remove tracks to stay within the
-							limit.
+							DVD-Video supports at most 8 subtitle streams. Remove tracks to stay within the limit.
 						</p>
 					)}
 					{title.subtitleMappings.map((sm) => (

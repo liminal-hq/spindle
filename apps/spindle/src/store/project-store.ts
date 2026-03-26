@@ -625,10 +625,9 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 	checkToolchain: async () => {
 		try {
 			const skipSidecar = useAppSettingsStore.getState().devSkipSidecar;
-			const statuses = await invoke<ToolchainStatus[]>(
-				'plugin:spindle-project|check_toolchain',
-				{ skipSidecar },
-			);
+			const statuses = await invoke<ToolchainStatus[]>('plugin:spindle-project|check_toolchain', {
+				skipSidecar,
+			});
 			set({ toolchain: statuses });
 		} catch {
 			// Toolchain check is best-effort

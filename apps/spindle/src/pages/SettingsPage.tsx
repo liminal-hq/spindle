@@ -116,8 +116,8 @@ export function SettingsPage() {
 						<div className="settings__toggle-text">
 							<span className="settings__toggle-label">Skip bundled sidecars</span>
 							<span className="settings__toggle-desc text-muted">
-								Use host PATH tools instead of binaries bundled alongside the app.
-								Enable this when testing a locally-built binary that has stub sidecars.
+								Use host PATH tools instead of binaries bundled alongside the app. Enable this when
+								testing a locally-built binary that has stub sidecars.
 							</span>
 						</div>
 						<input

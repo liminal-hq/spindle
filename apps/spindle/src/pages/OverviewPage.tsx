@@ -42,11 +42,16 @@ export function OverviewPage() {
 			const asset = project.assets.find((a) => a.id === title.sourceAssetId);
 			const dur = asset?.durationSecs ?? 0;
 			const audioBps = title.audioMappings.length * 192_000;
-			return total + Math.round(dur * (6_000_000 + audioBps) / 8);
+			return total + Math.round((dur * (6_000_000 + audioBps)) / 8);
 		}, 0);
 	const usedFraction = Math.min(estimatedBytes / capacityBytes, 1);
 	const barPct = `${(usedFraction * 100).toFixed(1)}%`;
-	const barClass = usedFraction > 0.95 ? 'capacity-bar__segment--danger' : usedFraction > 0.8 ? 'capacity-bar__segment--warn' : '';
+	const barClass =
+		usedFraction > 0.95
+			? 'capacity-bar__segment--danger'
+			: usedFraction > 0.8
+				? 'capacity-bar__segment--warn'
+				: '';
 
 	return (
 		<div className="overview">
@@ -96,7 +101,8 @@ export function OverviewPage() {
 						</span>
 					) : (
 						<span className="text-muted">
-							~{formatBytes(estimatedBytes)} estimated &middot; {formatBytes(capacityBytes - estimatedBytes)} remaining
+							~{formatBytes(estimatedBytes)} estimated &middot;{' '}
+							{formatBytes(capacityBytes - estimatedBytes)} remaining
 						</span>
 					)}
 				</div>
