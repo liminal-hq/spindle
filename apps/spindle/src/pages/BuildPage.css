@@ -63,6 +63,7 @@
 .build__progress-bar {
 	height: 8px;
 	background: var(--bg-deep);
+	border: 1px solid var(--border-subtle);
 	border-radius: var(--radius-sm);
 	overflow: hidden;
 	margin-bottom: var(--space-2);
