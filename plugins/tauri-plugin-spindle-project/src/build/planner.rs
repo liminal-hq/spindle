@@ -14,36 +14,114 @@ use super::menu::{authorable_menus, build_ffmpeg_menu_command, generate_spumux_x
 use super::types::{BuildJob, BuildPlan, BuildSummary, MenuOverlayButton};
 use super::util::sanitise_filename;
 
+struct BuildPaths {
+    output_dir: PathBuf,
+    work_dir: PathBuf,
+    titles_dir: PathBuf,
+    menus_dir: PathBuf,
+    video_ts_dir: PathBuf,
+}
+
+struct MenuPaths {
+    base_video_path: PathBuf,
+    authored_video_path: PathBuf,
+    highlight_image_path: PathBuf,
+    select_image_path: PathBuf,
+}
+
+impl BuildPaths {
+    fn new(output_dir: &str) -> Self {
+        let output_dir = PathBuf::from(output_dir);
+        let work_dir = output_dir.join("_spindle_work");
+        let titles_dir = work_dir.join("titles");
+        let menus_dir = work_dir.join("menus");
+        let video_ts_dir = output_dir.join("VIDEO_TS");
+
+        Self {
+            output_dir,
+            work_dir,
+            titles_dir,
+            menus_dir,
+            video_ts_dir,
+        }
+    }
+
+    fn workspace_directories(&self) -> Vec<String> {
+        vec![
+            self.work_dir.display().to_string(),
+            self.titles_dir.display().to_string(),
+            self.menus_dir.display().to_string(),
+            self.video_ts_dir.display().to_string(),
+        ]
+    }
+
+    fn title_video_path(&self, title_id: &str) -> PathBuf {
+        self.titles_dir
+            .join(format!("{}.mpg", sanitise_filename(title_id)))
+    }
+
+    fn menu_paths(&self, menu_id: &str) -> MenuPaths {
+        let base_name = sanitise_filename(menu_id);
+        MenuPaths {
+            base_video_path: self.menus_dir.join(format!("{base_name}_base.mpg")),
+            authored_video_path: self.menus_dir.join(format!("{base_name}.mpg")),
+            highlight_image_path: self.menus_dir.join(format!("{base_name}_highlight.png")),
+            select_image_path: self.menus_dir.join(format!("{base_name}_select.png")),
+        }
+    }
+
+    fn dvdauthor_xml_path(&self) -> PathBuf {
+        self.work_dir.join("dvdauthor.xml")
+    }
+
+    fn iso_image_path(&self, project_name: &str) -> PathBuf {
+        self.output_dir
+            .join(format!("{}.iso", sanitise_filename(project_name)))
+    }
+}
+
+struct ResolvedToolchain {
+    ffmpeg: String,
+    spumux: String,
+    dvdauthor: String,
+    iso_authoring: String,
+}
+
+impl ResolvedToolchain {
+    fn resolve(skip_sidecar: bool) -> Self {
+        Self {
+            ffmpeg: crate::toolchain::resolve_tool("ffmpeg", skip_sidecar)
+                .map(|p| p.display().to_string())
+                .unwrap_or_else(|| "ffmpeg".to_string()),
+            spumux: crate::toolchain::resolve_tool("spumux", skip_sidecar)
+                .map(|p| p.display().to_string())
+                .unwrap_or_else(|| "spumux".to_string()),
+            dvdauthor: crate::toolchain::resolve_tool("dvdauthor", skip_sidecar)
+                .map(|p| p.display().to_string())
+                .unwrap_or_else(|| "dvdauthor".to_string()),
+            iso_authoring: crate::toolchain::resolve_tool("genisoimage", skip_sidecar)
+                .or_else(|| crate::toolchain::resolve_tool("mkisofs", skip_sidecar))
+                .map(|p| p.display().to_string())
+                .unwrap_or_else(|| "genisoimage".to_string()),
+        }
+    }
+}
+
 pub fn generate_build_plan(
     project: &SpindleProjectFile,
     output_dir: &str,
     skip_sidecar: bool,
 ) -> crate::Result<BuildPlan> {
-    let output_dir = PathBuf::from(output_dir);
-    let work_dir = output_dir.join("_spindle_work");
-    let titles_dir = work_dir.join("titles");
-    let menus_dir = work_dir.join("menus");
-    let video_ts_dir = output_dir.join("VIDEO_TS");
+    let paths = BuildPaths::new(output_dir);
+    let tools = ResolvedToolchain::resolve(skip_sidecar);
 
     let mut jobs = Vec::new();
 
     jobs.push(BuildJob::PrepareWorkspace {
-        directories: vec![
-            work_dir.display().to_string(),
-            titles_dir.display().to_string(),
-            menus_dir.display().to_string(),
-            video_ts_dir.display().to_string(),
-        ],
+        directories: paths.workspace_directories(),
     });
 
     let assets: HashMap<&str, &Asset> = project.assets.iter().map(|a| (a.id.as_str(), a)).collect();
-
-    let ffmpeg_bin = crate::toolchain::resolve_tool("ffmpeg", skip_sidecar)
-        .map(|p| p.display().to_string())
-        .unwrap_or_else(|| "ffmpeg".to_string());
-    let spumux_bin = crate::toolchain::resolve_tool("spumux", skip_sidecar)
-        .map(|p| p.display().to_string())
-        .unwrap_or_else(|| "spumux".to_string());
 
     let all_titles: Vec<(&Titleset, &Title)> = project
         .disc
@@ -61,7 +139,7 @@ pub fn generate_build_plan(
             crate::Error::Build(format!("Asset not found for title \"{}\"", title.name))
         })?;
 
-        let output_path = titles_dir.join(format!("{}.mpg", sanitise_filename(&title.id)));
+        let output_path = paths.title_video_path(&title.id);
 
         let video_info = title
             .video_mapping
@@ -75,7 +153,7 @@ pub fn generate_build_plan(
             &project.disc,
             video_info,
         );
-        command[0] = ffmpeg_bin.clone();
+        command[0] = tools.ffmpeg.clone();
 
         jobs.push(BuildJob::TranscodeTitle {
             title_id: title.id.clone(),
@@ -88,36 +166,25 @@ pub fn generate_build_plan(
     }
 
     for menu_ref in authorable_menus(project) {
-        let base_output_path =
-            menus_dir.join(format!("{}_base.mpg", sanitise_filename(&menu_ref.menu.id)));
-        let final_output_path =
-            menus_dir.join(format!("{}.mpg", sanitise_filename(&menu_ref.menu.id)));
-        let highlight_image_path = menus_dir.join(format!(
-            "{}_highlight.png",
-            sanitise_filename(&menu_ref.menu.id)
-        ));
-        let select_image_path = menus_dir.join(format!(
-            "{}_select.png",
-            sanitise_filename(&menu_ref.menu.id)
-        ));
+        let menu_paths = paths.menu_paths(&menu_ref.menu.id);
         let render_command = build_ffmpeg_menu_command(
-            &ffmpeg_bin,
+            &tools.ffmpeg,
             &menu_ref,
             &assets,
             project,
             project.disc.standard,
-            &base_output_path,
+            &menu_paths.base_video_path,
         )?;
 
         jobs.push(BuildJob::RenderMenu {
             menu_id: menu_ref.menu.id.clone(),
             menu_name: menu_ref.menu.name.clone(),
-            output_path: base_output_path.display().to_string(),
+            output_path: menu_paths.base_video_path.display().to_string(),
             command: render_command,
             label: format!("Render menu \"{}\"", menu_ref.menu.name),
             standard: project.disc.standard,
-            highlight_image_path: highlight_image_path.display().to_string(),
-            select_image_path: select_image_path.display().to_string(),
+            highlight_image_path: menu_paths.highlight_image_path.display().to_string(),
+            select_image_path: menu_paths.select_image_path.display().to_string(),
             highlight_colour: menu_ref.menu.highlight_colours.select_colour.clone(),
             select_colour: menu_ref.menu.highlight_colours.activate_colour.clone(),
             button_bounds: menu_ref
@@ -133,35 +200,39 @@ pub fn generate_build_plan(
                 .collect(),
         });
 
-        let spumux_xml = generate_spumux_xml(&menu_ref, project.disc.standard, &menus_dir);
+        let spumux_xml = generate_spumux_xml(&menu_ref, project.disc.standard, &paths.menus_dir);
         jobs.push(BuildJob::ComposeMenuHighlights {
             menu_id: menu_ref.menu.id.clone(),
             menu_name: menu_ref.menu.name.clone(),
-            input_path: base_output_path.display().to_string(),
-            output_path: final_output_path.display().to_string(),
+            input_path: menu_paths.base_video_path.display().to_string(),
+            output_path: menu_paths.authored_video_path.display().to_string(),
             spumux_xml,
             command: vec![
-                spumux_bin.clone(),
+                tools.spumux.clone(),
                 "-m".to_string(),
                 "dvd".to_string(),
-                format!("{}.xml", final_output_path.with_extension("").display()),
+                format!(
+                    "{}.xml",
+                    menu_paths.authored_video_path.with_extension("").display()
+                ),
             ],
             label: format!("Compose menu highlights \"{}\"", menu_ref.menu.name),
         });
     }
 
-    let dvdauthor_xml = generate_dvdauthor_xml(project, &titles_dir, &menus_dir, &video_ts_dir)?;
-    let xml_path = work_dir.join("dvdauthor.xml");
-
-    let dvdauthor_bin = crate::toolchain::resolve_tool("dvdauthor", skip_sidecar)
-        .map(|p| p.display().to_string())
-        .unwrap_or_else(|| "dvdauthor".to_string());
+    let dvdauthor_xml = generate_dvdauthor_xml(
+        project,
+        &paths.titles_dir,
+        &paths.menus_dir,
+        &paths.video_ts_dir,
+    )?;
+    let xml_path = paths.dvdauthor_xml_path();
 
     jobs.push(BuildJob::AuthorDvd {
         xml_path: xml_path.display().to_string(),
-        output_path: video_ts_dir.display().to_string(),
+        output_path: paths.video_ts_dir.display().to_string(),
         command: vec![
-            dvdauthor_bin,
+            tools.dvdauthor,
             "-x".to_string(),
             xml_path.display().to_string(),
         ],
@@ -169,7 +240,7 @@ pub fn generate_build_plan(
     });
 
     if project.build_settings.generate_iso {
-        let iso_path = output_dir.join(format!("{}.iso", sanitise_filename(&project.project.name)));
+        let iso_path = paths.iso_image_path(&project.project.name);
         let volume_id = project
             .project
             .name
@@ -178,22 +249,17 @@ pub fn generate_build_plan(
             .collect::<String>()
             .to_uppercase();
 
-        let iso_tool = crate::toolchain::resolve_tool("genisoimage", skip_sidecar)
-            .or_else(|| crate::toolchain::resolve_tool("mkisofs", skip_sidecar))
-            .map(|p| p.display().to_string())
-            .unwrap_or_else(|| "genisoimage".to_string());
-
         jobs.push(BuildJob::CreateIso {
-            source_path: output_dir.display().to_string(),
+            source_path: paths.output_dir.display().to_string(),
             output_path: iso_path.display().to_string(),
             command: vec![
-                iso_tool,
+                tools.iso_authoring,
                 "-dvd-video".to_string(),
                 "-V".to_string(),
                 volume_id,
                 "-o".to_string(),
                 iso_path.display().to_string(),
-                output_dir.display().to_string(),
+                paths.output_dir.display().to_string(),
             ],
             label: "Create ISO image".to_string(),
         });
@@ -222,8 +288,8 @@ pub fn generate_build_plan(
 
     Ok(BuildPlan {
         jobs,
-        output_directory: output_dir.display().to_string(),
-        working_directory: work_dir.display().to_string(),
+        output_directory: paths.output_dir.display().to_string(),
+        working_directory: paths.work_dir.display().to_string(),
         dvdauthor_xml,
         summary,
     })
