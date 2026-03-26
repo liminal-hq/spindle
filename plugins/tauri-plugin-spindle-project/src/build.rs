@@ -990,7 +990,7 @@ fn generate_dvdauthor_xml(
                                 &project.disc,
                                 MenuDomain::Vmgm,
                                 Some(menu_index + 1),
-                            )
+                            )?
                         ));
                     }
                 }
@@ -1004,7 +1004,7 @@ fn generate_dvdauthor_xml(
             xml.push_str("    <fpc>\n");
             xml.push_str(&format!(
                 "      {};\n",
-                playback_action_to_dvd_command(action, &project.disc)
+                playback_action_to_dvd_command(action, &project.disc)?
             ));
             xml.push_str("    </fpc>\n");
         }
@@ -1056,7 +1056,7 @@ fn generate_dvdauthor_xml(
                                         .unwrap_or(0),
                                 ),
                                 Some(menu_index + 1),
-                            )
+                            )?
                         ));
                     }
                 }
@@ -1109,7 +1109,7 @@ fn generate_dvdauthor_xml(
                                 .position(|ts| ts.id == titleset.id)
                                 .unwrap_or(0),
                         },
-                    )
+                    )?
                 ));
                 xml.push_str("        </post>\n");
             }
@@ -1126,7 +1126,7 @@ fn generate_dvdauthor_xml(
     Ok(xml)
 }
 
-fn playback_action_to_dvd_command(action: &PlaybackAction, disc: &Disc) -> String {
+fn playback_action_to_dvd_command(action: &PlaybackAction, disc: &Disc) -> crate::Result<String> {
     playback_action_to_dvd_command_in_context(
         action,
         disc,
@@ -1142,7 +1142,7 @@ fn playback_action_to_dvd_command_in_domain(
     disc: &Disc,
     current_domain: MenuDomain,
     current_menu_number: Option<usize>,
-) -> String {
+) -> crate::Result<String> {
     playback_action_to_dvd_command_in_context(
         action,
         disc,
@@ -1157,15 +1157,22 @@ fn playback_action_to_dvd_command_in_context(
     action: &PlaybackAction,
     disc: &Disc,
     current_context: DvdCommandContext,
-) -> String {
+) -> crate::Result<String> {
     match action {
         PlaybackAction::PlayTitle { title_id } => {
-            let Some((target_titleset_index, title_number)) = resolve_title_target(disc, title_id)
+            let Some((target_titleset_index, title_number, global_title_number)) =
+                resolve_title_target(disc, title_id)
             else {
-                return "jump title 1".to_string();
+                return Err(crate::Error::Build(format!(
+                    "Could not resolve title target \"{title_id}\""
+                )));
             };
 
             match current_context {
+                DvdCommandContext::Menu {
+                    domain: MenuDomain::Vmgm,
+                    ..
+                } => Ok(format!("jump title {global_title_number}")),
                 DvdCommandContext::Menu {
                     domain: MenuDomain::Titleset(current_titleset_index),
                     ..
@@ -1173,26 +1180,32 @@ fn playback_action_to_dvd_command_in_context(
                 | DvdCommandContext::Title {
                     titleset_index: current_titleset_index,
                 } if current_titleset_index == target_titleset_index => {
-                    format!("jump title {title_number}")
+                    Ok(format!("jump title {title_number}"))
                 }
-                _ => format!(
-                    "jump titleset {} title {}",
-                    target_titleset_index + 1,
-                    title_number
-                ),
+                _ => Err(crate::Error::Build(format!(
+                    "Cross-titleset title jump to \"{title_id}\" is not allowed from this DVD context without jumppads"
+                ))),
             }
         }
         PlaybackAction::PlayChapter {
             title_id,
             chapter_id,
         } => {
-            let Some((target_titleset_index, title_number, chapter_number)) =
+            let Some((target_titleset_index, title_number, global_title_number, chapter_number)) =
                 resolve_chapter_target(disc, title_id, chapter_id)
             else {
-                return "jump chapter 1".to_string();
+                return Err(crate::Error::Build(format!(
+                    "Could not resolve chapter target \"{title_id}:{chapter_id}\""
+                )));
             };
 
             match current_context {
+                DvdCommandContext::Menu {
+                    domain: MenuDomain::Vmgm,
+                    ..
+                } => Ok(format!(
+                    "jump title {global_title_number} chapter {chapter_number}"
+                )),
                 DvdCommandContext::Menu {
                     domain: MenuDomain::Titleset(current_titleset_index),
                     ..
@@ -1200,38 +1213,33 @@ fn playback_action_to_dvd_command_in_context(
                 | DvdCommandContext::Title {
                     titleset_index: current_titleset_index,
                 } if current_titleset_index == target_titleset_index => {
-                    format!("jump title {title_number} chapter {chapter_number}")
+                    Ok(format!("jump title {title_number} chapter {chapter_number}"))
                 }
-                _ => format!(
-                    "jump titleset {} title {} chapter {}",
-                    target_titleset_index + 1,
-                    title_number,
-                    chapter_number
-                ),
+                _ => Err(crate::Error::Build(format!(
+                    "Cross-titleset chapter jump to \"{title_id}:{chapter_id}\" is not allowed from this DVD context without jumppads"
+                ))),
             }
         }
         PlaybackAction::ShowMenu { menu_id } => {
             let Some((target_domain, target_menu_number)) = resolve_menu_target(disc, menu_id)
             else {
-                return match current_context {
+                return Ok(match current_context {
                     DvdCommandContext::Title { .. } => "call vmgm menu".to_string(),
                     DvdCommandContext::Menu { .. } => "jump vmgm menu".to_string(),
-                };
+                });
             };
 
             match current_context {
                 DvdCommandContext::Title { titleset_index } => match target_domain {
-                    MenuDomain::Vmgm => format!("call vmgm menu {target_menu_number}"),
+                    MenuDomain::Vmgm => Ok(format!("call vmgm menu {target_menu_number}")),
                     MenuDomain::Titleset(target_ts) if target_ts == titleset_index => {
-                        format!("call menu {target_menu_number}")
+                        Ok(format!("call menu {target_menu_number}"))
                     }
-                    MenuDomain::Titleset(target_ts) => {
-                        format!(
-                            "call titleset {} menu {}",
-                            target_ts + 1,
-                            target_menu_number
-                        )
-                    }
+                    MenuDomain::Titleset(target_ts) => Ok(format!(
+                        "call titleset {} menu {}",
+                        target_ts + 1,
+                        target_menu_number
+                    )),
                 },
                 DvdCommandContext::Menu {
                     domain: current_domain,
@@ -1240,28 +1248,26 @@ fn playback_action_to_dvd_command_in_context(
                     (MenuDomain::Vmgm, MenuDomain::Vmgm)
                         if current_menu_number == Some(target_menu_number) =>
                     {
-                        "jump menu".to_string()
+                        Ok("jump menu".to_string())
                     }
                     (MenuDomain::Vmgm, MenuDomain::Vmgm) => {
-                        format!("jump menu {target_menu_number}")
+                        Ok(format!("jump menu {target_menu_number}"))
                     }
                     (MenuDomain::Titleset(current_ts), MenuDomain::Titleset(target_ts))
                         if current_ts == target_ts =>
                     {
-                        format!("jump menu {target_menu_number}")
+                        Ok(format!("jump menu {target_menu_number}"))
                     }
-                    (_, MenuDomain::Vmgm) => format!("jump vmgm menu {target_menu_number}"),
-                    (_, MenuDomain::Titleset(target_ts)) => {
-                        format!(
-                            "jump titleset {} menu {}",
-                            target_ts + 1,
-                            target_menu_number
-                        )
-                    }
+                    (_, MenuDomain::Vmgm) => Ok(format!("jump vmgm menu {target_menu_number}")),
+                    (_, MenuDomain::Titleset(target_ts)) => Ok(format!(
+                        "jump titleset {} menu {}",
+                        target_ts + 1,
+                        target_menu_number
+                    )),
                 },
             }
         }
-        PlaybackAction::Stop => "exit".to_string(),
+        PlaybackAction::Stop => Ok("exit".to_string()),
     }
 }
 
@@ -1279,14 +1285,14 @@ fn resolve_menu_target(disc: &Disc, menu_id: &str) -> Option<(MenuDomain, usize)
     None
 }
 
-fn resolve_title_target(disc: &Disc, title_id: &str) -> Option<(usize, usize)> {
+fn resolve_title_target(disc: &Disc, title_id: &str) -> Option<(usize, usize, usize)> {
+    let mut global_title_number = 0;
     for (titleset_index, titleset) in disc.titlesets.iter().enumerate() {
-        if let Some(title_index) = titleset
-            .titles
-            .iter()
-            .position(|title| title.id == title_id)
-        {
-            return Some((titleset_index, title_index + 1));
+        for (title_index, title) in titleset.titles.iter().enumerate() {
+            global_title_number += 1;
+            if title.id == title_id {
+                return Some((titleset_index, title_index + 1, global_title_number));
+            }
         }
     }
 
@@ -1297,7 +1303,8 @@ fn resolve_chapter_target(
     disc: &Disc,
     title_id: &str,
     chapter_id: &str,
-) -> Option<(usize, usize, usize)> {
+) -> Option<(usize, usize, usize, usize)> {
+    let mut global_title_number = 0;
     for (titleset_index, titleset) in disc.titlesets.iter().enumerate() {
         if let Some((title_index, title)) = titleset
             .titles
@@ -1305,13 +1312,21 @@ fn resolve_chapter_target(
             .enumerate()
             .find(|(_, title)| title.id == title_id)
         {
+            global_title_number += title_index + 1;
             if let Some(chapter_index) = title
                 .chapters
                 .iter()
                 .position(|chapter| chapter.id == chapter_id)
             {
-                return Some((titleset_index, title_index + 1, chapter_index + 1));
+                return Some((
+                    titleset_index,
+                    title_index + 1,
+                    global_title_number,
+                    chapter_index + 1,
+                ));
             }
+        } else {
+            global_title_number += titleset.titles.len();
         }
     }
 
@@ -2106,7 +2121,7 @@ mod tests {
         assert!(plan.dvdauthor_xml.contains("menu-1.mpg"));
         assert!(plan
             .dvdauthor_xml
-            .contains("<button>jump titleset 1 title 1;</button>"));
+            .contains("<button>jump title 1;</button>"));
     }
 
     #[test]
@@ -2286,9 +2301,10 @@ mod tests {
                 title_id: "title-2".to_string(),
             },
             &project.disc,
-        );
+        )
+        .unwrap();
 
-        assert_eq!(command, "jump titleset 2 title 1");
+        assert_eq!(command, "jump title 2");
     }
 
     #[test]
@@ -2303,7 +2319,8 @@ mod tests {
             &project.disc,
             MenuDomain::Titleset(0),
             Some(1),
-        );
+        )
+        .unwrap();
 
         assert_eq!(command, "jump title 1 chapter 2");
     }
@@ -2323,7 +2340,24 @@ mod tests {
             Some(1),
         );
 
-        assert_eq!(command, "jump titleset 2 title 1 chapter 1");
+        assert!(command.is_err());
+    }
+
+    #[test]
+    fn titleset_menu_play_title_in_other_titleset_is_rejected() {
+        let mut project = test_project();
+        add_second_titleset(&mut project);
+
+        let command = playback_action_to_dvd_command_in_domain(
+            &PlaybackAction::PlayTitle {
+                title_id: "title-2".to_string(),
+            },
+            &project.disc,
+            MenuDomain::Titleset(0),
+            Some(1),
+        );
+
+        assert!(command.is_err());
     }
 
     #[test]
