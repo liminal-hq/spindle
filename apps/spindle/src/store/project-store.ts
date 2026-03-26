@@ -301,6 +301,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 				subtitleStreams: [],
 				compatibility: null,
 				fingerprint: null,
+				warnings: [],
 				thumbnailPath: null,
 			};
 		});

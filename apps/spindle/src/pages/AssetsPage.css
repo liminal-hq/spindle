@@ -64,6 +64,14 @@
 	text-overflow: ellipsis;
 }
 
+.assets__row-warning {
+	font-size: var(--text-xs);
+	color: var(--colour-warning);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
 .assets__row-meta {
 	display: flex;
 	gap: var(--space-3);
@@ -95,6 +103,18 @@
 .assets__detail-actions {
 	display: flex;
 	gap: var(--space-2);
+}
+
+.assets__detail-warnings {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2);
+	margin-top: var(--space-3);
+}
+
+.assets__detail-warning {
+	font-size: var(--text-sm);
+	color: var(--colour-warning);
 }
 
 .assets__detail-section {

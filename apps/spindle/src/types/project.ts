@@ -207,7 +207,13 @@ export interface Asset {
 	subtitleStreams: SubtitleStreamInfo[];
 	compatibility: CompatibilityAssessment | null;
 	fingerprint: string | null;
+	warnings: AssetWarning[];
 	thumbnailPath: string | null;
+}
+
+export interface AssetWarning {
+	code: string;
+	message: string;
 }
 
 export interface VideoStreamInfo {
@@ -223,6 +229,8 @@ export interface VideoStreamInfo {
 	colorTransfer: string | null;
 	/** Color primaries, e.g. "bt2020" (HDR), "bt709" (SDR). */
 	colorPrimaries: string | null;
+	/** Dolby Vision profile when ffprobe exposes DOVI side data. */
+	dolbyVisionProfile: number | null;
 }
 
 export interface AudioStreamInfo {

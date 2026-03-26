@@ -64,6 +64,8 @@ pub fn inspect(path: &str) -> crate::Result<Asset> {
     let mut audio_streams = Vec::new();
     let mut subtitle_streams = Vec::new();
 
+    let mut asset_warnings = Vec::new();
+
     for stream in probe.streams.unwrap_or_default() {
         match stream.codec_type.as_deref() {
             Some("video") => {
@@ -75,6 +77,7 @@ pub fn inspect(path: &str) -> crate::Result<Asset> {
                 {
                     continue;
                 }
+                let dolby_vision_profile = detect_dolby_vision_profile(&stream);
                 video_streams.push(VideoStreamInfo {
                     index: stream.index,
                     codec: stream.codec_name.clone().unwrap_or_default(),
@@ -86,7 +89,17 @@ pub fn inspect(path: &str) -> crate::Result<Asset> {
                     bitrate_bps: stream.bit_rate.as_deref().and_then(|s| s.parse().ok()),
                     color_transfer: stream.color_transfer.clone(),
                     color_primaries: stream.color_primaries.clone(),
+                    dolby_vision_profile,
                 });
+
+                if let Some(profile) = dolby_vision_profile {
+                    asset_warnings.push(AssetWarning {
+                        code: "video.dolby-vision".to_string(),
+                        message: format!(
+                            "Dolby Vision profile {profile} detected. SDR DVD output may have incorrect colours."
+                        ),
+                    });
+                }
             }
             Some("audio") => {
                 audio_streams.push(AudioStreamInfo {
@@ -133,6 +146,7 @@ pub fn inspect(path: &str) -> crate::Result<Asset> {
         subtitle_streams,
         compatibility: Some(compatibility),
         fingerprint,
+        warnings: dedupe_asset_warnings(asset_warnings),
         thumbnail_path: None,
     })
 }
@@ -268,6 +282,30 @@ fn detect_scan_type(stream: &FfprobeStream) -> Option<String> {
     None
 }
 
+fn detect_dolby_vision_profile(stream: &FfprobeStream) -> Option<u8> {
+    stream
+        .side_data_list
+        .as_ref()?
+        .iter()
+        .find_map(|side_data| match side_data {
+            FfprobeSideData::DoviConfigurationRecord { dv_profile, .. } => Some(*dv_profile),
+            _ => None,
+        })
+}
+
+fn dedupe_asset_warnings(warnings: Vec<AssetWarning>) -> Vec<AssetWarning> {
+    let mut seen = std::collections::HashSet::new();
+    let mut deduped = Vec::new();
+
+    for warning in warnings {
+        if seen.insert((warning.code.clone(), warning.message.clone())) {
+            deduped.push(warning);
+        }
+    }
+
+    deduped
+}
+
 // ── FFprobe JSON output structures ──────────────────────────────────────────
 
 #[derive(Debug, Deserialize)]
@@ -293,6 +331,7 @@ struct FfprobeStream {
     sample_rate: Option<String>,
     tags: Option<StreamTags>,
     disposition: Option<StreamDisposition>,
+    side_data_list: Option<Vec<FfprobeSideData>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -311,6 +350,15 @@ struct StreamTags {
 #[derive(Debug, Deserialize)]
 struct StreamDisposition {
     attached_pic: u32,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(tag = "side_data_type")]
+enum FfprobeSideData {
+    #[serde(rename = "DOVI configuration record")]
+    DoviConfigurationRecord { dv_profile: u8 },
+    #[serde(other)]
+    Other,
 }
 
 #[cfg(test)]
@@ -356,6 +404,7 @@ mod tests {
             bitrate_bps: Some(6_000_000),
             color_transfer: None,
             color_primaries: None,
+            dolby_vision_profile: None,
         }];
         let audio = vec![AudioStreamInfo {
             index: 1,
@@ -385,6 +434,7 @@ mod tests {
             bitrate_bps: None,
             color_transfer: None,
             color_primaries: None,
+            dolby_vision_profile: None,
         }];
         let audio = vec![];
         let container = Some("matroska".to_string());
@@ -407,6 +457,7 @@ mod tests {
             bitrate_bps: None,
             color_transfer: None,
             color_primaries: None,
+            dolby_vision_profile: None,
         }];
         let audio = vec![];
         let container = Some("mp4".to_string());
@@ -422,5 +473,31 @@ mod tests {
             assess_dvd_compatibility(&[], &[], &None),
             CompatibilityAssessment::Unsupported
         ));
+    }
+
+    #[test]
+    fn detects_dolby_vision_profile_from_side_data() {
+        let stream = FfprobeStream {
+            index: 0,
+            codec_name: Some("hevc".to_string()),
+            codec_type: Some("video".to_string()),
+            width: Some(3840),
+            height: Some(2160),
+            r_frame_rate: Some("24000/1001".to_string()),
+            display_aspect_ratio: Some("16:9".to_string()),
+            field_order: None,
+            bit_rate: None,
+            color_transfer: None,
+            color_primaries: None,
+            channels: None,
+            sample_rate: None,
+            tags: None,
+            disposition: None,
+            side_data_list: Some(vec![FfprobeSideData::DoviConfigurationRecord {
+                dv_profile: 5,
+            }]),
+        };
+
+        assert_eq!(detect_dolby_vision_profile(&stream), Some(5));
     }
 }

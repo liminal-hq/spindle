@@ -1032,6 +1032,7 @@ mod tests {
                 bitrate_bps: None,
                 color_transfer: None,
                 color_primaries: None,
+                dolby_vision_profile: None,
             }],
             audio_streams: vec![AudioStreamInfo {
                 index: 1,
@@ -1044,6 +1045,7 @@ mod tests {
             subtitle_streams: vec![],
             compatibility: Some(CompatibilityAssessment::ReEncodeRequired),
             fingerprint: None,
+            warnings: vec![],
             thumbnail_path: None,
         };
 

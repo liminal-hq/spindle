@@ -118,6 +118,9 @@ function AssetRow({
 					{asset.containerFormat && <span>{asset.containerFormat}</span>}
 					{asset.fileSizeBytes != null && <span>{formatBytes(asset.fileSizeBytes)}</span>}
 				</div>
+				{asset.warnings.length > 0 && (
+					<div className="assets__row-warning">{asset.warnings[0].message}</div>
+				)}
 			</div>
 			<div className="assets__row-badges">
 				{asset.videoStreams.length > 0 && (
@@ -130,6 +133,7 @@ function AssetRow({
 					<span className="badge badge--neutral">{asset.subtitleStreams.length} sub</span>
 				)}
 				<CompatibilityBadge compat={asset.compatibility} />
+				{asset.warnings.length > 0 && <span className="badge badge--reencode">Warning</span>}
 			</div>
 		</div>
 	);
@@ -157,6 +161,16 @@ function AssetDetail({
 					</button>
 				</div>
 			</div>
+
+			{asset.warnings.length > 0 && (
+				<div className="assets__detail-warnings">
+					{asset.warnings.map((warning) => (
+						<p key={warning.code} className="assets__detail-warning">
+							{warning.message}
+						</p>
+					))}
+				</div>
+			)}
 
 			{asset.thumbnailPath && (
 				<img

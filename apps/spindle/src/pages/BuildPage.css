@@ -46,6 +46,14 @@
 	margin-top: var(--space-2);
 }
 
+.build__warning-banner {
+	margin-top: var(--space-3);
+	padding: var(--space-3);
+	border: 1px solid rgba(251, 191, 36, 0.3);
+	border-radius: var(--radius-sm);
+	background: rgba(251, 191, 36, 0.08);
+}
+
 /* ── Build progress ──────────────────────────────────────── */
 
 .build__progress {
