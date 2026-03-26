@@ -480,6 +480,8 @@ pub struct Asset {
     pub warnings: Vec<AssetWarning>,
     #[serde(default)]
     pub thumbnail_path: Option<String>,
+    #[serde(default)]
+    pub thumbnail_error: Option<String>,
 }
 
 impl Asset {
@@ -498,6 +500,7 @@ impl Asset {
             fingerprint: None,
             warnings: Vec::new(),
             thumbnail_path: None,
+            thumbnail_error: None,
         }
     }
 }

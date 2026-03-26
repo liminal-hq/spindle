@@ -148,6 +148,7 @@ pub fn inspect(path: &str) -> crate::Result<Asset> {
         fingerprint,
         warnings: dedupe_asset_warnings(asset_warnings),
         thumbnail_path: None,
+        thumbnail_error: None,
     })
 }
 

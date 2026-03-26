@@ -1756,6 +1756,7 @@ mod tests {
             fingerprint: None,
             warnings: vec![],
             thumbnail_path: None,
+            thumbnail_error: None,
         };
 
         let title = Title {

@@ -209,6 +209,7 @@ export interface Asset {
 	fingerprint: string | null;
 	warnings: AssetWarning[];
 	thumbnailPath: string | null;
+	thumbnailError: string | null;
 }
 
 export interface AssetWarning {
