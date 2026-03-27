@@ -2,7 +2,7 @@
 
 This document explains how Spindle's menu builder works today, how menu data flows from the editor into the project model, and how that model is converted into authored DVD menu MPEG assets.
 
-It focuses on the current still-menu implementation on the `fix/dvd-build-and-assets-followup` branch.
+It focuses on the current still-menu implementation in the modularised `build/` pipeline.
 
 ## Scope
 
@@ -69,14 +69,18 @@ flowchart LR
 
 ## File Map
 
-| Area              | Responsibility                                             | Primary files                                          |
-| ----------------- | ---------------------------------------------------------- | ------------------------------------------------------ |
-| Frontend editor   | Menu editing, button placement, action assignment, preview | `apps/spindle/src/pages/MenusPage.tsx`                 |
-| Frontend state    | Project updates and persistence                            | `apps/spindle/src/store/project-store.ts`              |
-| Shared TS model   | Menu, button, and playback-action types                    | `apps/spindle/src/types/project.ts`                    |
-| Shared Rust model | Rust-side schema used by the Tauri plugin                  | `plugins/tauri-plugin-spindle-project/src/models.rs`   |
-| Build planner     | Menu jobs, ffmpeg commands, XML generation                 | `plugins/tauri-plugin-spindle-project/src/build.rs`    |
-| Plugin commands   | Tauri command surface                                      | `plugins/tauri-plugin-spindle-project/src/commands.rs` |
+| Area              | Responsibility                                             | Primary files                                                                                                                     |
+| ----------------- | ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Frontend editor   | Menu editing, button placement, action assignment, preview | `apps/spindle/src/pages/MenusPage.tsx`                                                                                            |
+| Frontend state    | Project updates and persistence                            | `apps/spindle/src/store/project-store.ts`                                                                                         |
+| Shared TS model   | Menu, button, and playback-action types                    | `apps/spindle/src/types/project.ts`                                                                                               |
+| Shared Rust model | Rust-side schema used by the Tauri plugin                  | `plugins/tauri-plugin-spindle-project/src/models.rs`                                                                              |
+| Build facade      | Public build API and module wiring                         | `plugins/tauri-plugin-spindle-project/src/build/mod.rs`                                                                           |
+| Build planner     | Job discovery and plan assembly                            | `plugins/tauri-plugin-spindle-project/src/build/planner.rs`                                                                       |
+| Menu authoring    | Menu rendering, overlays, and spumux XML                   | `plugins/tauri-plugin-spindle-project/src/build/menu.rs`                                                                          |
+| DVD authoring     | `dvdauthor` XML and navigation command generation          | `plugins/tauri-plugin-spindle-project/src/build/authoring.rs`, `plugins/tauri-plugin-spindle-project/src/build/dvd_navigation.rs` |
+| Build execution   | Subprocess execution and build orchestration               | `plugins/tauri-plugin-spindle-project/src/build/executor.rs`                                                                      |
+| Plugin commands   | Tauri command surface                                      | `plugins/tauri-plugin-spindle-project/src/commands.rs`                                                                            |
 
 ## Menu Builder Architecture
 
