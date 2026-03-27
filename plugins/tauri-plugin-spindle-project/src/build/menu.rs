@@ -114,6 +114,9 @@ pub(crate) fn build_ffmpeg_menu_command(
     }
 
     vf_parts.push(menu_button_overlay_filter(menu_ref.menu));
+    if let Some(label_filter) = menu_button_label_filter(menu_ref.menu) {
+        vf_parts.push(label_filter);
+    }
     vf_parts.push(format!("setsar={sar}"));
 
     cmd.extend([
@@ -183,6 +186,52 @@ fn menu_button_overlay_filter(menu: &Menu) -> String {
     filters.join(",")
 }
 
+fn menu_button_label_filter(menu: &Menu) -> Option<String> {
+    let filters = menu
+        .buttons
+        .iter()
+        .filter_map(|button| {
+            let label = button.label.trim();
+            if label.is_empty() {
+                return None;
+            }
+
+            let width = button.bounds.width.round().max(1.0) as i32;
+            let height = button.bounds.height.round().max(1.0) as i32;
+            let font_size = (height as f64 * 0.34).round().clamp(14.0, 30.0) as i32;
+            let x = button.bounds.x.round() as i32;
+            let y = button.bounds.y.round() as i32;
+            let escaped_label = escape_drawtext_text(label);
+
+            Some(format!(
+                "drawtext=text='{escaped_label}':fontcolor=white:fontsize={font_size}:shadowcolor=black:shadowx=2:shadowy=2:x={x}+(({width}-text_w)/2):y={y}+(({height}-text_h)/2)"
+            ))
+        })
+        .collect::<Vec<_>>();
+
+    if filters.is_empty() {
+        None
+    } else {
+        Some(filters.join(","))
+    }
+}
+
+fn escape_drawtext_text(text: &str) -> String {
+    text.chars()
+        .flat_map(|ch| match ch {
+            '\\' => ['\\', '\\'].into_iter().collect::<Vec<_>>(),
+            '\'' => ['\\', '\''].into_iter().collect::<Vec<_>>(),
+            ':' => ['\\', ':'].into_iter().collect::<Vec<_>>(),
+            '%' => ['\\', '%'].into_iter().collect::<Vec<_>>(),
+            '[' => ['\\', '['].into_iter().collect::<Vec<_>>(),
+            ']' => ['\\', ']'].into_iter().collect::<Vec<_>>(),
+            ',' => ['\\', ','].into_iter().collect::<Vec<_>>(),
+            ';' => ['\\', ';'].into_iter().collect::<Vec<_>>(),
+            other => [other].into_iter().collect::<Vec<_>>(),
+        })
+        .collect()
+}
+
 pub(crate) fn generate_spumux_xml(
     menu_ref: &AuthorableMenuRef<'_>,
     standard: VideoStandard,
@@ -244,52 +293,51 @@ fn button_nav_attr(direction: &str, target_button_id: Option<&str>, menu: &Menu)
 }
 
 pub(crate) fn generate_menu_overlay_images(
-    ffmpeg_bin: &str,
-    standard: VideoStandard,
-    menu_id: &str,
-    highlight_image_path: &str,
-    select_image_path: &str,
-    highlight_colour: &str,
-    select_colour: &str,
-    button_bounds: &[MenuOverlayButton],
+    render: &MenuOverlayRender<'_>,
+    images: &MenuOverlayImages<'_>,
     run_command: impl Fn(&[String]) -> std::result::Result<String, String>,
 ) -> std::result::Result<(), String> {
     render_menu_overlay_image(
-        ffmpeg_bin,
-        standard,
-        highlight_image_path,
-        highlight_colour,
-        button_bounds,
+        render,
+        images.highlight_image_path,
+        images.highlight_colour,
         "highlight",
-        menu_id,
         &run_command,
     )?;
     render_menu_overlay_image(
-        ffmpeg_bin,
-        standard,
-        select_image_path,
-        select_colour,
-        button_bounds,
+        render,
+        images.select_image_path,
+        images.select_colour,
         "select",
-        menu_id,
         &run_command,
     )?;
     Ok(())
 }
 
+pub(crate) struct MenuOverlayRender<'a> {
+    pub(crate) ffmpeg_bin: &'a str,
+    pub(crate) standard: VideoStandard,
+    pub(crate) menu_id: &'a str,
+    pub(crate) button_bounds: &'a [MenuOverlayButton],
+}
+
+pub(crate) struct MenuOverlayImages<'a> {
+    pub(crate) highlight_image_path: &'a str,
+    pub(crate) select_image_path: &'a str,
+    pub(crate) highlight_colour: &'a str,
+    pub(crate) select_colour: &'a str,
+}
+
 fn render_menu_overlay_image(
-    ffmpeg_bin: &str,
-    standard: VideoStandard,
+    render: &MenuOverlayRender<'_>,
     output_path: &str,
     colour: &str,
-    button_bounds: &[MenuOverlayButton],
     kind: &str,
-    menu_id: &str,
     run_command: &impl Fn(&[String]) -> std::result::Result<String, String>,
 ) -> std::result::Result<(), String> {
-    let (width, height) = VideoRaster::FullD1.resolution(standard);
+    let (width, height) = VideoRaster::FullD1.resolution(render.standard);
     let mut vf_parts = vec!["format=rgba".to_string()];
-    for button in button_bounds {
+    for button in render.button_bounds {
         let width = (button.x1 - button.x0).max(1);
         let height = (button.y1 - button.y0).max(1);
         vf_parts.push(format!(
@@ -299,7 +347,7 @@ fn render_menu_overlay_image(
     }
 
     let args = vec![
-        ffmpeg_bin.to_string(),
+        render.ffmpeg_bin.to_string(),
         "-y".to_string(),
         "-f".to_string(),
         "lavfi".to_string(),
@@ -312,7 +360,10 @@ fn render_menu_overlay_image(
         output_path.to_string(),
     ];
 
-    run_command(&args)
-        .map(|_| ())
-        .map_err(|msg| format!("Failed to render {kind} overlay image for menu \"{menu_id}\": {msg}"))
+    run_command(&args).map(|_| ()).map_err(|msg| {
+        format!(
+            "Failed to render {kind} overlay image for menu \"{}\": {msg}",
+            render.menu_id
+        )
+    })
 }

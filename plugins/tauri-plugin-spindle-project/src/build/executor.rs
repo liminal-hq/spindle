@@ -7,7 +7,7 @@ use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use super::menu::generate_menu_overlay_images;
+use super::menu::{generate_menu_overlay_images, MenuOverlayImages, MenuOverlayRender};
 use super::types::{BuildJob, BuildJobStatus, BuildPlan, BuildProgress, BuildResult};
 
 /// Global cancellation flag for the current build.
@@ -79,17 +79,19 @@ where
                 button_bounds,
                 ..
             } => {
-                if let Err(msg) = generate_menu_overlay_images(
-                    &command[0],
-                    *standard,
+                let render = MenuOverlayRender {
+                    ffmpeg_bin: &command[0],
+                    standard: *standard,
                     menu_id,
+                    button_bounds,
+                };
+                let images = MenuOverlayImages {
                     highlight_image_path,
                     select_image_path,
                     highlight_colour,
                     select_colour,
-                    button_bounds,
-                    run_command,
-                ) {
+                };
+                if let Err(msg) = generate_menu_overlay_images(&render, &images, run_command) {
                     log_lines.push(msg.clone());
                     return failure(plan, log_lines, i, msg);
                 }
@@ -215,7 +217,12 @@ where
     }
 }
 
-fn failure(plan: &BuildPlan, log_lines: Vec<String>, failed_job_index: usize, error_message: String) -> BuildResult {
+fn failure(
+    plan: &BuildPlan,
+    log_lines: Vec<String>,
+    failed_job_index: usize,
+    error_message: String,
+) -> BuildResult {
     BuildResult {
         success: false,
         output_directory: plan.output_directory.clone(),
@@ -231,12 +238,15 @@ fn run_command(args: &[String]) -> std::result::Result<String, String> {
         return Err("Empty command".to_string());
     }
 
-    let output = Command::new(&args[0]).args(&args[1..]).output().map_err(|e| {
-        format!(
-            "Failed to run {}: {}. Ensure it is installed and on the PATH.",
-            args[0], e
-        )
-    })?;
+    let output = Command::new(&args[0])
+        .args(&args[1..])
+        .output()
+        .map_err(|e| {
+            format!(
+                "Failed to run {}: {}. Ensure it is installed and on the PATH.",
+                args[0], e
+            )
+        })?;
 
     let stdout = String::from_utf8_lossy(&output.stdout).to_string();
     let stderr = String::from_utf8_lossy(&output.stderr).to_string();

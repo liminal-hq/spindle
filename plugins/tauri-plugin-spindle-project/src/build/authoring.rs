@@ -8,8 +8,8 @@ use std::path::Path;
 use crate::models::*;
 
 use super::dvd_navigation::{
-    DvdCommandContext, playback_action_to_dvd_command, playback_action_to_dvd_command_in_context,
-    playback_action_to_dvd_command_in_domain,
+    playback_action_to_dvd_command_in_context, playback_action_to_dvd_command_in_domain_result,
+    playback_action_to_dvd_command_result, DvdCommandContext,
 };
 use super::menu::{menu_output_aspect, MenuDomain};
 use super::util::{format_dvd_timestamp, sanitise_filename, xml_escape};
@@ -48,14 +48,14 @@ pub(crate) fn generate_dvdauthor_xml(
                 MenuDomain::Vmgm,
                 &project.disc,
                 menus_dir,
-            );
+            )?;
         }
 
         if let Some(ref action) = project.disc.first_play_action {
             xml.push_str("    <fpc>\n");
             xml.push_str(&format!(
                 "      {};\n",
-                playback_action_to_dvd_command(action, &project.disc)
+                playback_action_to_dvd_command_result(action, &project.disc)?
             ));
             xml.push_str("    </fpc>\n");
         }
@@ -82,7 +82,7 @@ pub(crate) fn generate_dvdauthor_xml(
                 MenuDomain::Titleset(titleset_index),
                 &project.disc,
                 menus_dir,
-            );
+            )?;
         }
 
         append_titles_section(
@@ -93,7 +93,7 @@ pub(crate) fn generate_dvdauthor_xml(
             titleset_index,
             &project.disc,
             titles_dir,
-        );
+        )?;
 
         xml.push_str("  </titleset>\n");
     }
@@ -118,15 +118,16 @@ fn append_menu_section(
     domain: MenuDomain,
     disc: &Disc,
     menus_dir: &Path,
-) {
+) -> crate::Result<()> {
     xml.push_str("    <menus>\n");
     xml.push_str(&format!(
         "      <video format=\"{format_str}\" aspect=\"{aspect_str}\" />\n"
     ));
     for (menu_index, menu) in menus.iter().enumerate() {
-        append_menu_pgc(xml, menu, disc, domain, menu_index + 1, menus_dir);
+        append_menu_pgc(xml, menu, disc, domain, menu_index + 1, menus_dir)?;
     }
     xml.push_str("    </menus>\n");
+    Ok(())
 }
 
 fn append_menu_pgc(
@@ -136,7 +137,7 @@ fn append_menu_pgc(
     domain: MenuDomain,
     menu_number: usize,
     menus_dir: &Path,
-) {
+) -> crate::Result<()> {
     xml.push_str("      <pgc>\n");
     let menu_vob_path = menus_dir.join(format!("{}.mpg", sanitise_filename(&menu.id)));
     xml.push_str(&format!(
@@ -147,11 +148,17 @@ fn append_menu_pgc(
         if let Some(ref action) = button.action {
             xml.push_str(&format!(
                 "        <button>{};</button>\n",
-                playback_action_to_dvd_command_in_domain(action, disc, domain, Some(menu_number))
+                playback_action_to_dvd_command_in_domain_result(
+                    action,
+                    disc,
+                    domain,
+                    Some(menu_number),
+                )?
             ));
         }
     }
     xml.push_str("      </pgc>\n");
+    Ok(())
 }
 
 fn append_titles_section(
@@ -162,15 +169,16 @@ fn append_titles_section(
     titleset_index: usize,
     disc: &Disc,
     titles_dir: &Path,
-) {
+) -> crate::Result<()> {
     xml.push_str("    <titles>\n");
     xml.push_str(&format!(
         "      <video format=\"{format_str}\" aspect=\"{aspect_str}\" />\n"
     ));
     for title in &titleset.titles {
-        append_title_pgc(xml, title, titleset_index, disc, titles_dir);
+        append_title_pgc(xml, title, titleset_index, disc, titles_dir)?;
     }
     xml.push_str("    </titles>\n");
+    Ok(())
 }
 
 fn append_title_pgc(
@@ -179,7 +187,7 @@ fn append_title_pgc(
     titleset_index: usize,
     disc: &Disc,
     titles_dir: &Path,
-) {
+) -> crate::Result<()> {
     xml.push_str("      <pgc>\n");
 
     let vob_path = titles_dir.join(format!("{}.mpg", sanitise_filename(&title.id)));
@@ -209,17 +217,20 @@ fn append_title_pgc(
                 action,
                 disc,
                 DvdCommandContext::Title { titleset_index },
-            )
+            )?
         ));
         xml.push_str("        </post>\n");
     }
 
     xml.push_str("      </pgc>\n");
+    Ok(())
 }
 #[cfg(test)]
 mod tests {
     use crate::build::generate_build_plan;
-    use crate::build::test_support::{add_second_titleset, test_menu, test_menu_with_action, test_project};
+    use crate::build::test_support::{
+        add_second_titleset, test_menu, test_menu_with_action, test_project,
+    };
     use crate::models::PlaybackAction;
 
     #[test]
@@ -400,5 +411,4 @@ mod tests {
             .dvdauthor_xml
             .contains("<post>\n          call titleset 2 menu 1;\n        </post>"));
     }
-
 }

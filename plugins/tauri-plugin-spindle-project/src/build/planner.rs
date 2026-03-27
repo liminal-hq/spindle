@@ -298,7 +298,7 @@ pub fn generate_build_plan(
 #[cfg(test)]
 mod tests {
     use crate::build::test_support::{test_menu, test_project};
-    use crate::build::{BuildJob, generate_build_plan};
+    use crate::build::{generate_build_plan, BuildJob};
 
     #[test]
     fn build_plan_generates_correct_job_count() {
