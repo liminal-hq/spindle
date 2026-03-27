@@ -266,25 +266,36 @@ function AssetThumbnail({ asset, variant }: { asset: Asset; variant: 'row' | 'de
 				return;
 			}
 
-			try {
-				const fileName = asset.thumbnailPath.split(/[/\\]/).pop();
-				if (!fileName) {
-					throw new Error('Thumbnail path is missing a file name.');
-				}
-				const bytes = await readFile(`thumbnails/${fileName}`, {
-					baseDir: BaseDirectory.AppCache,
-				});
-				if (cancelled) {
+			const fileName = asset.thumbnailPath.split(/[/\\]/).pop();
+			if (!fileName) {
+				setThumbnailUrl(null);
+				setLoadFailed(true);
+				return;
+			}
+
+			for (let attempt = 0; attempt < 2; attempt += 1) {
+				try {
+					const bytes = await readFile(`thumbnails/${fileName}`, {
+						baseDir: BaseDirectory.AppCache,
+					});
+					if (cancelled) {
+						return;
+					}
+					const blob = new Blob([bytes], { type: 'image/jpeg' });
+					const objectUrl = URL.createObjectURL(blob);
+					revokedUrl = objectUrl;
+					setThumbnailUrl(objectUrl);
+					setLoadFailed(false);
 					return;
-				}
-				const blob = new Blob([bytes], { type: 'image/jpeg' });
-				const objectUrl = URL.createObjectURL(blob);
-				revokedUrl = objectUrl;
-				setThumbnailUrl(objectUrl);
-			} catch {
-				if (!cancelled) {
-					setThumbnailUrl(null);
-					setLoadFailed(true);
+				} catch {
+					if (attempt === 0) {
+						await new Promise((resolve) => window.setTimeout(resolve, 150));
+						continue;
+					}
+					if (!cancelled) {
+						setThumbnailUrl(null);
+						setLoadFailed(true);
+					}
 				}
 			}
 		}

@@ -42,10 +42,10 @@
 .assets__row-thumb {
 	width: 64px;
 	height: 48px;
-	object-fit: cover;
+	object-fit: contain;
 	border-radius: var(--radius-sm);
 	flex-shrink: 0;
-	background: var(--bg-deep);
+	background: #000;
 }
 
 .assets__row-thumb--placeholder {
@@ -113,10 +113,10 @@
 .assets__detail-thumb {
 	width: 100%;
 	aspect-ratio: 16 / 9;
-	object-fit: cover;
+	object-fit: contain;
 	border-radius: var(--radius-sm);
 	margin-top: var(--space-3);
-	background: var(--bg-deep);
+	background: #000;
 }
 
 .assets__detail-thumb--placeholder {
