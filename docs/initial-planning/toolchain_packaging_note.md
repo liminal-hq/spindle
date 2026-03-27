@@ -2,7 +2,7 @@
 
 ## 1. Purpose
 
-This note captures the recommended packaging strategy for Spindle’s external authoring tools inside a Tauri app.
+This note captures the recommended packaging strategy for Spindle's external authoring tools inside a Tauri app.
 
 It answers:
 
@@ -22,7 +22,7 @@ For Spindle, the default pattern should be:
 - **External media/authoring tools** as bundled **sidecar executables**
 - **Templates and static non-executable assets** as bundled **resources**
 
-This keeps Spindle deterministic and prevents it from drifting into a generic media utility that depends on whatever happens to be installed on the user’s machine.
+This keeps Spindle deterministic and prevents it from drifting into a generic media utility that depends on whatever happens to be installed on the user's machine.
 
 ---
 
@@ -30,13 +30,13 @@ This keeps Spindle deterministic and prevents it from drifting into a generic me
 
 A sidecar is an external executable shipped with the app and invoked by the app at runtime.
 
-In Spindle’s case, examples include:
+In Spindle's case, examples include:
 
 - `ffmpeg`
 - `ffprobe`
 - `dvdauthor`
 - `spumux`
-- future ISO/image helpers
+- `genisoimage` / `mkisofs`
 - future BD backend tools
 
 Spindle should treat these as **backend executables** rather than as frontend package dependencies.
@@ -97,44 +97,47 @@ For non-executable files such as XML templates, menu-theme files, presets, or ba
 
 ## 7. Repo layout for Spindle
 
-Recommended structure:
+Actual structure as implemented:
 
 ```text
-/apps
-  /desktop
-    /src
-    /src-tauri
-      tauri.conf.json
-      capabilities/
-      binaries/
-        ffmpeg-x86_64-pc-windows-msvc.exe
-        ffprobe-x86_64-pc-windows-msvc.exe
-        dvdauthor-x86_64-pc-windows-msvc.exe
-        spumux-x86_64-pc-windows-msvc.exe
+apps/spindle/src-tauri/
+  tauri.conf.json          — externalBin declares all four sidecar names
+  capabilities/
+  binaries/                — gitignored; populated by collect-sidecars.sh
+    dvdauthor-x86_64-unknown-linux-gnu
+    spumux-x86_64-unknown-linux-gnu
+    genisoimage-x86_64-unknown-linux-gnu
+    mkisofs-x86_64-unknown-linux-gnu
 
-        ffmpeg-aarch64-apple-darwin
-        ffprobe-aarch64-apple-darwin
-        dvdauthor-aarch64-apple-darwin
-        spumux-aarch64-apple-darwin
+    dvdauthor-aarch64-apple-darwin
+    spumux-aarch64-apple-darwin
+    genisoimage-aarch64-apple-darwin    (mkisofs binary, copied under both names)
+    mkisofs-aarch64-apple-darwin
 
-        ffmpeg-x86_64-unknown-linux-gnu
-        ffprobe-x86_64-unknown-linux-gnu
-        dvdauthor-x86_64-unknown-linux-gnu
-        spumux-x86_64-unknown-linux-gnu
+  resources/               (future)
+    templates/
+    themes/
+    presets/
+    schema/
 
-      resources/
-        templates/
-        themes/
-        presets/
-        schema/
+scripts/
+  collect-sidecars.sh      — collects real binaries into binaries/ for packaging
+  create-sidecar-stubs.sh  — creates stub executables for CI/dev (no real tools needed)
+  install-sidecars.sh      — installs tools system-wide for local dev via PATH
+
+plugins/tauri-plugin-spindle-project/src/
+  toolchain.rs             — resolve_tool(): sidecar-first, PATH fallback
 ```
 
 Notes:
 
-- `binaries/` is for executables only
-- `resources/` is for non-executable files
-- keep names stable at the logical level (`ffmpeg`, `ffprobe`, etc.)
-- the target-specific suffixes are part of the packaging workflow
+- `binaries/` is gitignored; it is a build artefact populated before packaging
+- `binaries/` is for executables only; `resources/` is for non-executable files
+- keep names stable at the logical level (`dvdauthor`, `genisoimage`, etc.)
+- target-triple suffixes are stripped by Tauri at bundle time; at runtime the
+  binary is available as `dvdauthor`, `genisoimage`, etc. alongside the executable
+- on macOS, `genisoimage` is not in Homebrew; `mkisofs` (from cdrtools) fills
+  both roles and is copied under both sidecar names
 
 ---
 
@@ -157,12 +160,14 @@ These are **recommended starting pins**, not eternal requirements.
 
 ### ISO/image generation
 
-Recommended product approach:
+`genisoimage` and `mkisofs` both support UDF for DVD via:
 
-- **Phase 1:** focus on `VIDEO_TS` export first
-- **Phase 2:** add a pinned ISO/image tool once the DVD filesystem flow is stable
+- `-udf` — plain UDF filesystem
+- `-dvd-video` — UDF Bridge (hybrid ISO 9660 + UDF 1.02), the correct on-disc
+  format for DVD-Video; this is what the Spindle build pipeline uses
 
-That keeps early packaging smaller and reduces release complexity while the authoring core is still settling.
+`dvdauthor` and `spumux` produce the `VIDEO_TS` directory structure only; they
+do not create ISO images.
 
 ---
 
@@ -228,42 +233,90 @@ Instead, think of the binaries as **release inputs** prepared before packaging.
 
 ## 10. Practical packaging workflow
 
-### Development
+### Development (current state)
 
-For early local development:
+`plugins/tauri-plugin-spindle-project/src/toolchain.rs` provides `resolve_tool(name)`:
 
-- place pinned test binaries in `src-tauri/binaries/`
-- wire them through `bundle.externalBin`
-- invoke them through Spindle’s Rust adapter layer
-- log exact tool versions and paths at startup or build time
+1. checks for the binary next to the running executable (where Tauri places
+   bundled sidecars in both `tauri dev` and release mode)
+2. falls back to the system PATH
 
-### CI / Release
+This means development still works with system-installed tools. Running
+`./scripts/install-sidecars.sh` sets up the PATH-based tools for local dev.
 
-Recommended release flow:
+To test with real sidecars bundled, run `./scripts/collect-sidecars.sh` first
+to populate `src-tauri/binaries/` before running `tauri dev` or `tauri build`.
 
-1. fetch or build platform-specific binaries
-2. verify versions/checksums
-3. place them in `src-tauri/binaries/` using target-triple naming
-4. run `tauri build`
-5. produce installer/app bundle with sidecars embedded
-6. capture capability snapshot + tool versions into the build manifest
+### CI (quality pipeline)
+
+The quality CI (fmt, clippy, tests) does not need real binaries. Before each
+Rust job that triggers the Tauri build script, the CI runs:
+
+```
+bash scripts/create-sidecar-stubs.sh x86_64-unknown-linux-gnu
+```
+
+This places minimal stub executables in `src-tauri/binaries/` so that Tauri's
+build-time validation passes. Unit tests do not invoke the external tools, so
+stubs are sufficient.
+
+### Release CI (not yet written — details to be worked out)
+
+The release workflow will be a platform matrix. The shape will be roughly:
+
+```
+matrix:
+  - os: ubuntu-latest,  target: x86_64-unknown-linux-gnu
+  - os: macos-latest,   target: aarch64-apple-darwin
+  - os: macos-latest,   target: x86_64-apple-darwin
+```
+
+Each job:
+
+1. checkout
+2. install Rust toolchain
+3. `./scripts/collect-sidecars.sh` — runs natively on the runner, installs
+   tools via apt-get (Linux) or brew (macOS), copies binaries with target-triple
+   suffix; auto-detects the triple via `rustc -Vv`
+4. `tauri build`
+5. upload/publish artefacts
+
+`collect-sidecars.sh` is designed to work in any environment — natively on a
+developer machine, inside a dev container, on a CI runner, or invoked inside
+Docker when tools are not available natively. It does not assume a specific
+container image.
+
+**Open decisions for release CI:**
+
+- macOS signing/notarisation (Developer ID, Gatekeeper)
+- Tauri updater configuration and update manifest signing
+- artefact upload destination (GitHub Releases, CDN, etc.)
+- whether to pin exact tool versions via checksums rather than installing
+  whatever apt/brew provides at build time
+
+**Windows:** dvdauthor has no Windows port. Windows builds are not supported
+for the DVD authoring pipeline.
 
 ---
 
 ## 11. What should be a sidecar versus a resource
 
-### Sidecars
+### Sidecars (current)
 
-Use sidecars for:
+Bundled now:
 
-- ffmpeg
-- ffprobe
-- dvdauthor
-- spumux
-- future bd backend executables
-- future disc image helpers
+- `dvdauthor` — DVD-Video authoring (VIDEO_TS structure)
+- `spumux` — DVD subtitle/highlight overlay (shipped with dvdauthor)
+- `genisoimage` — ISO 9660 / UDF Bridge image creation
+- `mkisofs` — same role; on Linux often the same binary as genisoimage;
+  on macOS comes from cdrtools
 
-### Resources
+Deferred (still PATH-based):
+
+- `ffmpeg` — video/audio transcoding; large binary, deferred to a later pass
+- `ffprobe` — media inspection; deferred alongside ffmpeg
+
+### Resources (future)
 
 Use resources for:
 
@@ -289,7 +342,11 @@ Spindle should have:
 - structured output/error parsing
 - one logical interface per tool family
 
-Example conceptual modules:
+Implemented:
+
+- `toolchain::resolve_tool` — binary path resolution (sidecar-first, PATH fallback)
+
+Planned:
 
 - `toolchain::probe`
 - `toolchain::encode`
@@ -307,28 +364,26 @@ Because Spindle will execute external binaries, the sidecar model should be pair
 
 - explicit capabilities
 - narrow command/argument permissions where possible
-- no broad “run anything from shell” policy
+- no broad "run anything from shell" policy
 - backend-owned command construction
 
 This is another reason sidecars are preferable to defaulting to arbitrary system binaries.
 
 ---
 
-## 14. Recommended first-pass tool policy
+## 14. Tool policy — current status
 
-For the first serious Spindle packaging pass:
+### Bundled (done)
 
-### Bundle now
-
-- `ffmpeg`
-- `ffprobe`
 - `dvdauthor`
 - `spumux`
+- `genisoimage`
+- `mkisofs`
 
-### Defer until the DVD authoring flow is stable
+### Deferred — bundle with ffmpeg pass
 
-- ISO/image creation helper if it adds packaging complexity
-- any BD-specific backend tools
+- `ffmpeg` — large binary; deferred until the ffmpeg packaging pass
+- `ffprobe` — deferred alongside ffmpeg
 
 ### Allow later as advanced override
 

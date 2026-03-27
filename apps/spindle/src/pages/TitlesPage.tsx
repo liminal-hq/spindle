@@ -44,7 +44,21 @@ export function TitlesPage() {
 			endAction: null,
 			orderIndex: titles.length,
 		};
-		updateProject((p) => updateTitleInProject(p, titleset.id, [...titles, newTitle]));
+		const isFirstTitle = titles.length === 0;
+		updateProject((p) => {
+			const withTitle = updateTitleInProject(p, titleset.id, [...titles, newTitle]);
+			// Auto-set first-play to this title when adding the very first title
+			if (isFirstTitle && !p.disc.firstPlayAction) {
+				return {
+					...withTitle,
+					disc: {
+						...withTitle.disc,
+						firstPlayAction: { type: 'playTitle', titleId: newTitle.id },
+					},
+				};
+			}
+			return withTitle;
+		});
 		setSelectedTitleId(newTitle.id);
 	};
 
@@ -288,7 +302,7 @@ function TitleEditor({
 			sourceStreamIndex: as_.index,
 			outputTarget: 'AC3' as AudioOutputTarget,
 			copyMode: (as_.codec === 'ac3' ? 'copy' : 're-encode') as CopyMode,
-			label: as_.language ?? `Audio ${i + 1}`,
+			label: languageLabel(as_.language ?? null, `Audio ${i + 1}`),
 			language: as_.language ?? 'und',
 			orderIndex: i,
 			isDefault: i === 0,
@@ -297,7 +311,7 @@ function TitleEditor({
 		const subtitleMappings = asset.subtitleStreams.map((ss, i) => ({
 			id: crypto.randomUUID(),
 			sourceStreamIndex: ss.index,
-			label: ss.language ?? `Subtitle ${i + 1}`,
+			label: ss.title ?? languageLabel(ss.language ?? null, `Subtitle ${i + 1}`),
 			language: ss.language ?? 'und',
 			orderIndex: i,
 			isDefault: i === 0,
@@ -506,7 +520,17 @@ function TitleEditor({
 			{/* Subtitle Mappings */}
 			{title.subtitleMappings.length > 0 && (
 				<div className="titles__editor-section">
-					<h4 className="titles__editor-heading">Subtitle Tracks</h4>
+					<h4 className="titles__editor-heading">
+						Subtitle Tracks
+						<span className="titles__track-count text-muted">
+							{` (${title.subtitleMappings.length}/8)`}
+						</span>
+					</h4>
+					{title.subtitleMappings.length > 8 && (
+						<p className="titles__hint titles__hint--warn">
+							DVD-Video supports at most 8 subtitle streams. Remove tracks to stay within the limit.
+						</p>
+					)}
 					{title.subtitleMappings.map((sm) => (
 						<div key={sm.id} className="titles__track-row">
 							<input
@@ -565,6 +589,20 @@ function TitleEditor({
 								/>
 								Forced
 							</label>
+							<button
+								className="titles__row-remove"
+								title="Remove subtitle track"
+								onClick={() =>
+									onUpdate({
+										...title,
+										subtitleMappings: title.subtitleMappings
+											.filter((s) => s.id !== sm.id)
+											.map((s, i) => ({ ...s, orderIndex: i })),
+									})
+								}
+							>
+								×
+							</button>
 						</div>
 					))}
 				</div>
@@ -624,4 +662,62 @@ function stringToEndAction(str: string): PlaybackAction | null {
 	if (type === 'playTitle' && id) return { type: 'playTitle', titleId: id };
 	if (type === 'showMenu' && id) return { type: 'showMenu', menuId: id };
 	return null;
+}
+
+// ── Language helpers ─────────────────────────────────────────────────────────
+
+const ISO_639_NAMES: Record<string, string> = {
+	// Terminological (ISO 639-2/T) codes
+	eng: 'English',
+	fra: 'French',
+	deu: 'German',
+	spa: 'Spanish',
+	ita: 'Italian',
+	por: 'Portuguese',
+	jpn: 'Japanese',
+	zho: 'Chinese',
+	kor: 'Korean',
+	rus: 'Russian',
+	ara: 'Arabic',
+	hin: 'Hindi',
+	nld: 'Dutch',
+	pol: 'Polish',
+	swe: 'Swedish',
+	nor: 'Norwegian',
+	dan: 'Danish',
+	fin: 'Finnish',
+	ces: 'Czech',
+	hun: 'Hungarian',
+	ron: 'Romanian',
+	tur: 'Turkish',
+	heb: 'Hebrew',
+	tha: 'Thai',
+	vie: 'Vietnamese',
+	ind: 'Indonesian',
+	// Bibliographic (ISO 639-2/B) codes — used by ffprobe
+	fre: 'French',
+	ger: 'German',
+	chi: 'Chinese',
+	dut: 'Dutch',
+	cze: 'Czech',
+	rum: 'Romanian',
+	bul: 'Bulgarian',
+	hrv: 'Croatian',
+	slk: 'Slovak',
+	alb: 'Albanian',
+	arm: 'Armenian',
+	baq: 'Basque',
+	geo: 'Georgian',
+	ice: 'Icelandic',
+	mac: 'Macedonian',
+	mao: 'Māori',
+	may: 'Malay',
+	per: 'Persian',
+	wel: 'Welsh',
+	und: 'Undetermined',
+};
+
+function languageLabel(code: string | null, fallback: string): string {
+	if (!code || code === 'und') return fallback;
+	return ISO_639_NAMES[code.toLowerCase()] ?? code;
 }

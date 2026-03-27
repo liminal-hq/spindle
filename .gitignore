@@ -6,5 +6,8 @@ dist/
 # Tauri generated artefacts
 apps/*/src-tauri/gen/
 
+# Collected sidecar binaries (built by scripts/collect-sidecars.sh)
+apps/*/src-tauri/binaries/
+
 .vscode/*
 !.vscode/extensions.json

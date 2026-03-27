@@ -34,6 +34,25 @@ export function OverviewPage() {
 	const errorCount = validationIssues.filter((i) => i.severity === 'error').length;
 	const warningCount = validationIssues.filter((i) => i.severity === 'warning').length;
 
+	// Estimate encoded disc size from title durations.
+	// Uses ~6 Mbps video + ~192 kbps per audio track as a rough DVD budget.
+	const estimatedBytes = disc.titlesets
+		.flatMap((ts) => ts.titles)
+		.reduce((total, title) => {
+			const asset = project.assets.find((a) => a.id === title.sourceAssetId);
+			const dur = asset?.durationSecs ?? 0;
+			const audioBps = title.audioMappings.length * 192_000;
+			return total + Math.round((dur * (6_000_000 + audioBps)) / 8);
+		}, 0);
+	const usedFraction = Math.min(estimatedBytes / capacityBytes, 1);
+	const barPct = `${(usedFraction * 100).toFixed(1)}%`;
+	const barClass =
+		usedFraction > 0.95
+			? 'capacity-bar__segment--danger'
+			: usedFraction > 0.8
+				? 'capacity-bar__segment--warn'
+				: '';
+
 	return (
 		<div className="overview">
 			<div className="page-header">
@@ -68,17 +87,24 @@ export function OverviewPage() {
 				</div>
 				<div className="capacity-bar">
 					<div
-						className="capacity-bar__segment"
+						className={`capacity-bar__segment ${barClass}`}
 						style={{
-							width: '0%',
+							width: barPct,
 							background: 'var(--brand-gradient)',
 						}}
 					/>
 				</div>
 				<div className="overview__capacity-legend">
-					<span className="text-muted">
-						No titles added yet &middot; {formatBytes(capacityBytes)} available
-					</span>
+					{titleCount === 0 ? (
+						<span className="text-muted">
+							No titles added yet &middot; {formatBytes(capacityBytes)} available
+						</span>
+					) : (
+						<span className="text-muted">
+							~{formatBytes(estimatedBytes)} estimated &middot;{' '}
+							{formatBytes(capacityBytes - estimatedBytes)} remaining
+						</span>
+					)}
 				</div>
 			</div>
 

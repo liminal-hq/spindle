@@ -789,11 +789,16 @@ function NavigationPreview({
 
 	const handleKeyDown = useCallback(
 		(e: React.KeyboardEvent) => {
+			const isNavKey = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter', ' '].includes(
+				e.key,
+			);
+			if (!isNavKey) return;
+			e.preventDefault();
+
 			const btn = menu.buttons.find((b) => b.id === focusedId);
 			if (!btn) return;
 
 			let nextId: string | null = null;
-
 			switch (e.key) {
 				case 'ArrowUp':
 					nextId = btn.navUp;
@@ -807,15 +812,8 @@ function NavigationPreview({
 				case 'ArrowRight':
 					nextId = btn.navRight;
 					break;
-				case 'Enter':
-				case ' ':
-					// Visual feedback for activation
-					break;
-				default:
-					return;
 			}
 
-			e.preventDefault();
 			if (nextId) {
 				setFocusedId(nextId);
 			}

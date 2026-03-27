@@ -6,7 +6,7 @@
 import { create } from 'zustand';
 import { invoke } from '@tauri-apps/api/core';
 import { open, save, confirm } from '@tauri-apps/plugin-dialog';
-import { readTextFile, writeTextFile } from '@tauri-apps/plugin-fs';
+import { useAppSettingsStore } from './app-settings-store';
 import type {
 	SpindleProjectFile,
 	CreateProjectRequest,
@@ -60,8 +60,40 @@ export interface ProjectState {
 	executeBuild: () => Promise<void>;
 	clearBuild: () => void;
 	cancelBuild: () => Promise<void>;
+	browseOutputDir: () => Promise<void>;
 	autoGenerateMenuNav: (menuId: string) => Promise<void>;
 	checkToolchain: () => Promise<void>;
+}
+
+function parentDir(filePath: string): string {
+	return filePath.replace(/[/\\][^/\\]+$/, '') || filePath;
+}
+
+// Prompt for an output directory if one isn't already set, persist the choice
+// to the project, and return it. Returns null if the user cancels.
+async function resolveOutputDir(
+	project: SpindleProjectFile,
+	updateProject: (updater: (p: SpindleProjectFile) => SpindleProjectFile) => void,
+): Promise<string | null> {
+	if (project.buildSettings.outputDirectory) {
+		return project.buildSettings.outputDirectory;
+	}
+	const { lastOutputDir } = useAppSettingsStore.getState();
+	const selected = await save({
+		title: 'Choose Output Directory',
+		filters: [],
+		defaultPath: lastOutputDir
+			? `${lastOutputDir}/${project.project.name}_DVD`
+			: `${project.project.name}_DVD`,
+	});
+	if (selected) {
+		updateProject((p) => ({
+			...p,
+			buildSettings: { ...p.buildSettings, outputDirectory: selected },
+		}));
+		useAppSettingsStore.getState().setLastOutputDir(parentDir(selected));
+	}
+	return selected ?? null;
 }
 
 export const useProjectStore = create<ProjectState>((set, get) => ({
@@ -99,15 +131,19 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 			if (!discard) return;
 		}
 
+		const { lastProjectDir } = useAppSettingsStore.getState();
 		const selected = await open({
+			title: 'Open Spindle Project',
 			multiple: false,
 			filters: [{ name: 'Spindle Project', extensions: ['spindle'] }],
+			defaultPath: lastProjectDir ?? undefined,
 		});
 		if (!selected) return;
 
+		useAppSettingsStore.getState().setLastProjectDir(parentDir(selected));
 		set({ isLoading: true });
 		try {
-			const json = await readTextFile(selected);
+			const json = await invoke<string>('read_text_file', { path: selected });
 			const project = await invoke<SpindleProjectFile>('plugin:spindle-project|parse_project', {
 				json,
 			});
@@ -139,7 +175,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 			const json = await invoke<string>('plugin:spindle-project|serialise_project', {
 				project: updated,
 			});
-			await writeTextFile(filePath, json);
+			await invoke('write_text_file', { path: filePath, contents: json });
 			set({ project: updated, isDirty: false });
 		} finally {
 			set({ isLoading: false });
@@ -150,11 +186,17 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 		const { project } = get();
 		if (!project) return;
 
+		const { lastProjectDir } = useAppSettingsStore.getState();
 		const selected = await save({
+			title: 'Save Spindle Project',
 			filters: [{ name: 'Spindle Project', extensions: ['spindle'] }],
-			defaultPath: `${project.project.name}.spindle`,
+			defaultPath: lastProjectDir
+				? `${lastProjectDir}/${project.project.name}.spindle`
+				: `${project.project.name}.spindle`,
 		});
 		if (!selected) return;
+
+		useAppSettingsStore.getState().setLastProjectDir(parentDir(selected));
 
 		set({ isLoading: true });
 		try {
@@ -165,7 +207,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 			const json = await invoke<string>('plugin:spindle-project|serialise_project', {
 				project: updated,
 			});
-			await writeTextFile(selected, json);
+			await invoke('write_text_file', { path: selected, contents: json });
 			set({ project: updated, filePath: selected, isDirty: false });
 		} finally {
 			set({ isLoading: false });
@@ -206,8 +248,11 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 		const { project } = get();
 		if (!project) return;
 
+		const { lastMediaDir } = useAppSettingsStore.getState();
 		const selected = await open({
+			title: 'Import Media Files',
 			multiple: true,
+			defaultPath: lastMediaDir ?? undefined,
 			filters: [
 				{
 					name: 'Media Files',
@@ -239,6 +284,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 		if (!selected) return;
 
 		const paths = Array.isArray(selected) ? selected : [selected];
+		useAppSettingsStore.getState().setLastMediaDir(parentDir(paths[0]));
 
 		// Create stub assets for each imported file — inspection fills in metadata later
 		const newAssets: Asset[] = paths.map((filePath) => {
@@ -353,8 +399,11 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 		const asset = project.assets.find((a) => a.id === assetId);
 		if (!asset) return;
 
+		const { lastMediaDir } = useAppSettingsStore.getState();
 		const selected = await open({
+			title: 'Relink Media File',
 			multiple: false,
+			defaultPath: lastMediaDir ?? undefined,
 			filters: [
 				{
 					name: 'Media Files',
@@ -386,6 +435,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 		if (!selected) return;
 
 		const newPath = Array.isArray(selected) ? selected[0] : selected;
+		useAppSettingsStore.getState().setLastMediaDir(parentDir(newPath));
 		const newFileName = newPath.split(/[/\\]/).pop() ?? newPath;
 
 		// Update path immediately
@@ -421,30 +471,16 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 		const { project } = get();
 		if (!project) return;
 
-		const outputDir =
-			project.buildSettings.outputDirectory ??
-			(await (async () => {
-				const selected = await save({
-					filters: [],
-					defaultPath: `${project.project.name}_DVD`,
-				});
-				if (selected) {
-					// Update the project with the chosen directory
-					get().updateProject((p) => ({
-						...p,
-						buildSettings: { ...p.buildSettings, outputDirectory: selected },
-					}));
-				}
-				return selected;
-			})());
-
+		const outputDir = await resolveOutputDir(project, get().updateProject);
 		if (!outputDir) return;
 
+		const skipSidecar = useAppSettingsStore.getState().devSkipSidecar;
 		set({ buildStatus: 'planning' });
 		try {
 			const plan = await invoke<BuildPlan>('plugin:spindle-project|generate_build_plan', {
 				project,
 				outputDirectory: outputDir,
+				skipSidecar,
 			});
 			set({ buildPlan: plan, buildStatus: 'idle' });
 		} catch (e) {
@@ -459,23 +495,23 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 		const { project } = get();
 		if (!project) return;
 
-		const outputDir = project.buildSettings.outputDirectory;
-		if (!outputDir) {
-			set({ buildLog: ['No output directory set.'] });
-			return;
-		}
+		const outputDir = await resolveOutputDir(project, get().updateProject);
+		if (!outputDir) return;
 
+		const skipSidecar = useAppSettingsStore.getState().devSkipSidecar;
 		set({
 			buildStatus: 'building',
 			buildLog: ['Starting DVD-Video build…'],
 			buildResult: null,
 			buildProgress: null,
+			buildPlan: null,
 		});
 
 		try {
 			const result = await invoke<BuildResult>('plugin:spindle-project|execute_build', {
 				project,
 				outputDirectory: outputDir,
+				skipSidecar,
 			});
 
 			set({
@@ -509,6 +545,26 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 			}));
 		} catch {
 			// Best-effort cancellation
+		}
+	},
+
+	browseOutputDir: async () => {
+		const { project, updateProject } = get();
+		if (!project) return;
+		const { lastOutputDir } = useAppSettingsStore.getState();
+		const selected = await save({
+			title: 'Choose Output Directory',
+			filters: [],
+			defaultPath: lastOutputDir
+				? `${lastOutputDir}/${project.project.name}_DVD`
+				: `${project.project.name}_DVD`,
+		});
+		if (selected) {
+			updateProject((p) => ({
+				...p,
+				buildSettings: { ...p.buildSettings, outputDirectory: selected },
+			}));
+			useAppSettingsStore.getState().setLastOutputDir(parentDir(selected));
 		}
 	},
 
@@ -567,7 +623,10 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
 	checkToolchain: async () => {
 		try {
-			const statuses = await invoke<ToolchainStatus[]>('plugin:spindle-project|check_toolchain');
+			const skipSidecar = useAppSettingsStore.getState().devSkipSidecar;
+			const statuses = await invoke<ToolchainStatus[]>('plugin:spindle-project|check_toolchain', {
+				skipSidecar,
+			});
 			set({ toolchain: statuses });
 		} catch {
 			// Toolchain check is best-effort

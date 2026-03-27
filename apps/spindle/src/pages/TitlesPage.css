@@ -2,6 +2,7 @@
 
 .titles {
 	max-width: 1200px;
+	overflow-x: hidden;
 }
 
 /* ── Layout ───────────────────────────────────────────────── */
@@ -19,6 +20,7 @@
 	display: flex;
 	flex-direction: column;
 	gap: var(--space-2);
+	min-width: 0;
 }
 
 .titles__row {
@@ -113,7 +115,8 @@
 	transition: opacity var(--transition-base);
 }
 
-.titles__row:hover .titles__row-remove {
+.titles__row:hover .titles__row-remove,
+.titles__track-row:hover .titles__row-remove {
 	opacity: 0.5;
 }
 
@@ -251,6 +254,15 @@
 .titles__hint {
 	font-size: var(--text-xs);
 	margin-bottom: var(--space-2);
+}
+
+.titles__hint--warn {
+	color: var(--colour-warning, var(--colour-error));
+}
+
+.titles__track-count {
+	font-weight: 400;
+	font-size: var(--text-xs);
 }
 
 /* ── Empty state ──────────────────────────────────────────── */

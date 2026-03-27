@@ -84,6 +84,8 @@ pub fn inspect(path: &str) -> crate::Result<Asset> {
                     aspect_ratio: stream.display_aspect_ratio.clone(),
                     scan_type: detect_scan_type(&stream),
                     bitrate_bps: stream.bit_rate.as_deref().and_then(|s| s.parse().ok()),
+                    color_transfer: stream.color_transfer.clone(),
+                    color_primaries: stream.color_primaries.clone(),
                 });
             }
             Some("audio") => {
@@ -107,6 +109,7 @@ pub fn inspect(path: &str) -> crate::Result<Asset> {
                     codec: codec.clone(),
                     language: stream.tags.as_ref().and_then(|t| t.language.clone()),
                     subtitle_type: classify_subtitle_type(&codec),
+                    title: stream.tags.as_ref().and_then(|t| t.title.clone()),
                 });
             }
             _ => {}
@@ -284,6 +287,8 @@ struct FfprobeStream {
     display_aspect_ratio: Option<String>,
     field_order: Option<String>,
     bit_rate: Option<String>,
+    color_transfer: Option<String>,
+    color_primaries: Option<String>,
     channels: Option<u32>,
     sample_rate: Option<String>,
     tags: Option<StreamTags>,
@@ -300,6 +305,7 @@ struct FfprobeFormat {
 #[derive(Debug, Deserialize)]
 struct StreamTags {
     language: Option<String>,
+    title: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -348,6 +354,8 @@ mod tests {
             aspect_ratio: Some("16:9".to_string()),
             scan_type: Some("interlaced".to_string()),
             bitrate_bps: Some(6_000_000),
+            color_transfer: None,
+            color_primaries: None,
         }];
         let audio = vec![AudioStreamInfo {
             index: 1,
@@ -375,6 +383,8 @@ mod tests {
             aspect_ratio: None,
             scan_type: None,
             bitrate_bps: None,
+            color_transfer: None,
+            color_primaries: None,
         }];
         let audio = vec![];
         let container = Some("matroska".to_string());
@@ -395,6 +405,8 @@ mod tests {
             aspect_ratio: None,
             scan_type: None,
             bitrate_bps: None,
+            color_transfer: None,
+            color_primaries: None,
         }];
         let audio = vec![];
         let container = Some("mp4".to_string());
