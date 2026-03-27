@@ -152,7 +152,11 @@ fn detect_tool_version(path: &std::path::Path) -> Option<String> {
         // Prefer stdout; fall back to stderr (ffmpeg prints version to stderr).
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
-        let text = if stdout.trim().is_empty() { &stderr } else { &stdout };
+        let text = if stdout.trim().is_empty() {
+            &stderr
+        } else {
+            &stdout
+        };
         if let Some(line) = text.lines().find(|l| !l.trim().is_empty()) {
             return Some(line.to_string());
         }

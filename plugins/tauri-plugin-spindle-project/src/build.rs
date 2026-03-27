@@ -1176,7 +1176,10 @@ mod tests {
             .expect("-vf value");
         assert!(vf_val.contains("scale="), "expected scale= in vf filter");
         assert!(vf_val.contains("pad="), "expected pad= in vf filter");
-        assert!(vf_val.contains("setsar=1"), "expected setsar=1 in vf filter");
+        assert!(
+            vf_val.contains("setsar=1"),
+            "expected setsar=1 in vf filter"
+        );
     }
 
     #[test]

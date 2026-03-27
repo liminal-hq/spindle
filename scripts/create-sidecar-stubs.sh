@@ -24,7 +24,7 @@ TARGET_TRIPLE="${1:-x86_64-unknown-linux-gnu}"
 
 mkdir -p "${BINARIES_DIR}"
 
-TOOLS=(dvdauthor spumux genisoimage mkisofs)
+TOOLS=(spindle-dvdauthor spindle-spumux spindle-genisoimage spindle-mkisofs)
 
 for tool in "${TOOLS[@]}"; do
     dest="${BINARIES_DIR}/${tool}-${TARGET_TRIPLE}"

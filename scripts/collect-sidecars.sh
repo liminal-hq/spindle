@@ -2,7 +2,8 @@
 # Collect sidecar binaries for Spindle release packaging.
 #
 # Copies dvdauthor, spumux, genisoimage/mkisofs into src-tauri/binaries/
-# with Tauri target-triple naming so that `tauri build` can bundle them.
+# with namespaced Tauri target-triple naming so that `tauri build` can
+# bundle them without colliding with host tool names.
 #
 # Run in any environment that has (or can install) the tools:
 #
@@ -133,28 +134,28 @@ copy_as() {
     chmod +x "${dest}"
 }
 
-copy_as dvdauthor dvdauthor
-copy_as spumux    spumux
+copy_as dvdauthor spindle-dvdauthor
+copy_as spumux    spindle-spumux
 
 case "${PLATFORM}" in
     Linux)
         # genisoimage is the canonical name on Linux; mkisofs is typically
         # a symlink to the same binary. Copy both under their own names.
-        copy_as genisoimage genisoimage
+        copy_as genisoimage spindle-genisoimage
         if command -v mkisofs &>/dev/null; then
-            copy_as mkisofs mkisofs
+            copy_as mkisofs spindle-mkisofs
         else
-            cp "${BINARIES_DIR}/genisoimage-${TARGET_TRIPLE}" \
-               "${BINARIES_DIR}/mkisofs-${TARGET_TRIPLE}"
+            cp "${BINARIES_DIR}/spindle-genisoimage-${TARGET_TRIPLE}" \
+               "${BINARIES_DIR}/spindle-mkisofs-${TARGET_TRIPLE}"
         fi
         ;;
     Darwin)
         # genisoimage is not available on macOS via Homebrew; mkisofs (from
         # cdrtools) fills both roles. Copy it under both sidecar names so the
         # Tauri bundle can satisfy both externalBin entries.
-        copy_as mkisofs mkisofs
-        cp "${BINARIES_DIR}/mkisofs-${TARGET_TRIPLE}" \
-           "${BINARIES_DIR}/genisoimage-${TARGET_TRIPLE}"
+        copy_as mkisofs spindle-mkisofs
+        cp "${BINARIES_DIR}/spindle-mkisofs-${TARGET_TRIPLE}" \
+           "${BINARIES_DIR}/spindle-genisoimage-${TARGET_TRIPLE}"
         ;;
 esac
 
@@ -163,7 +164,7 @@ esac
 echo ""
 echo "Collected binaries:"
 ALL_OK=true
-for name in dvdauthor spumux genisoimage mkisofs; do
+for name in spindle-dvdauthor spindle-spumux spindle-genisoimage spindle-mkisofs; do
     path="${BINARIES_DIR}/${name}-${TARGET_TRIPLE}"
     if [[ -f "${path}" ]]; then
         size=$(du -h "${path}" | cut -f1)

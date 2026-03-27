@@ -32,7 +32,17 @@ pub fn resolve_tool(name: &str, skip_sidecar: bool) -> Option<PathBuf> {
 fn sidecar_path(name: &str) -> Option<PathBuf> {
     let exe = std::env::current_exe().ok()?;
     let dir = exe.parent()?;
-    Some(dir.join(name))
+    Some(dir.join(sidecar_name(name)))
+}
+
+fn sidecar_name(name: &str) -> &str {
+    match name {
+        "dvdauthor" => "spindle-dvdauthor",
+        "spumux" => "spindle-spumux",
+        "genisoimage" => "spindle-genisoimage",
+        "mkisofs" => "spindle-mkisofs",
+        other => other,
+    }
 }
 
 /// Walk PATH directories looking for the named binary.

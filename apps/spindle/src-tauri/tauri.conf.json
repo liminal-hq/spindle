@@ -39,10 +39,10 @@
 			"icons/icon.ico"
 		],
 		"externalBin": [
-			"binaries/dvdauthor",
-			"binaries/spumux",
-			"binaries/genisoimage",
-			"binaries/mkisofs"
+			"binaries/spindle-dvdauthor",
+			"binaries/spindle-spumux",
+			"binaries/spindle-genisoimage",
+			"binaries/spindle-mkisofs"
 		]
 	}
 }

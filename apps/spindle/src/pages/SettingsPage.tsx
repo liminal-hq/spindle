@@ -6,7 +6,6 @@
 import { useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { save } from '@tauri-apps/plugin-dialog';
-import { writeTextFile } from '@tauri-apps/plugin-fs';
 import { useProjectStore } from '../store/project-store';
 import { useAppSettingsStore } from '../store/app-settings-store';
 import './SettingsPage.css';
@@ -40,7 +39,7 @@ export function SettingsPage() {
 			});
 			if (!path) return;
 
-			await writeTextFile(path, json);
+			await invoke('write_text_file', { path, contents: json });
 		} catch {
 			// Best-effort export
 		}

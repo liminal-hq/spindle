@@ -7,7 +7,6 @@ import { create } from 'zustand';
 import { invoke } from '@tauri-apps/api/core';
 import { open, save, confirm } from '@tauri-apps/plugin-dialog';
 import { useAppSettingsStore } from './app-settings-store';
-import { readTextFile, writeTextFile } from '@tauri-apps/plugin-fs';
 import type {
 	SpindleProjectFile,
 	CreateProjectRequest,
@@ -144,7 +143,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 		useAppSettingsStore.getState().setLastProjectDir(parentDir(selected));
 		set({ isLoading: true });
 		try {
-			const json = await readTextFile(selected);
+			const json = await invoke<string>('read_text_file', { path: selected });
 			const project = await invoke<SpindleProjectFile>('plugin:spindle-project|parse_project', {
 				json,
 			});
@@ -176,7 +175,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 			const json = await invoke<string>('plugin:spindle-project|serialise_project', {
 				project: updated,
 			});
-			await writeTextFile(filePath, json);
+			await invoke('write_text_file', { path: filePath, contents: json });
 			set({ project: updated, isDirty: false });
 		} finally {
 			set({ isLoading: false });
@@ -208,7 +207,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 			const json = await invoke<string>('plugin:spindle-project|serialise_project', {
 				project: updated,
 			});
-			await writeTextFile(selected, json);
+			await invoke('write_text_file', { path: selected, contents: json });
 			set({ project: updated, filePath: selected, isDirty: false });
 		} finally {
 			set({ isLoading: false });
