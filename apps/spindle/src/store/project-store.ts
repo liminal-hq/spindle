@@ -6,6 +6,7 @@
 import { create } from 'zustand';
 import { invoke } from '@tauri-apps/api/core';
 import { open, save, confirm } from '@tauri-apps/plugin-dialog';
+import { BaseDirectory, readFile } from '@tauri-apps/plugin-fs';
 import { useAppSettingsStore } from './app-settings-store';
 import type {
 	SpindleProjectFile,
@@ -114,6 +115,62 @@ function chooseThumbnailTimestamp(durationSecs: number): number {
 	return Math.min(Math.max(durationSecs * 0.1, 3), 30);
 }
 
+async function cachedThumbnailExists(thumbnailPath: string | null): Promise<boolean> {
+	if (!thumbnailPath) {
+		return false;
+	}
+
+	const fileName = thumbnailPath.split(/[/\\]/).pop();
+	if (!fileName) {
+		return false;
+	}
+
+	try {
+		await readFile(`thumbnails/${fileName}`, {
+			baseDir: BaseDirectory.AppCache,
+		});
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+async function ensureProjectAssetThumbnails(project: SpindleProjectFile): Promise<void> {
+	for (const asset of project.assets) {
+		if (asset.videoStreams.length === 0) {
+			continue;
+		}
+
+		const hasCachedThumbnail = await cachedThumbnailExists(asset.thumbnailPath);
+		if (hasCachedThumbnail) {
+			continue;
+		}
+
+		const thumbnail = await extractAssetThumbnail(asset);
+		const { project: current } = useProjectStore.getState();
+		if (!current) {
+			return;
+		}
+
+		setProjectAssetThumbnail(current, asset.id, thumbnail);
+	}
+}
+
+function setProjectAssetThumbnail(
+	project: SpindleProjectFile,
+	assetId: string,
+	thumbnail: Pick<Asset, 'thumbnailPath' | 'thumbnailError'>,
+): void {
+	useProjectStore.setState({
+		project: {
+			...project,
+			assets: project.assets.map((asset) =>
+				asset.id === assetId ? { ...asset, ...thumbnail } : asset,
+			),
+		},
+	});
+}
+
 // Prompt for an output directory if one isn't already set, persist the choice
 // to the project, and return it. Returns null if the user cancels.
 async function resolveOutputDir(
@@ -198,6 +255,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 				isDirty: false,
 				validationIssues: [],
 			});
+			await ensureProjectAssetThumbnails(project);
 		} finally {
 			set({ isLoading: false });
 		}
