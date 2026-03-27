@@ -2,6 +2,8 @@
 
 .assets {
 	min-width: 0;
+	--assets-thumbnail-letterbox-bg: #000;
+	--assets-thumbnail-selected-bg: rgba(255, 170, 64, 0.04);
 }
 
 /* ── Layout ───────────────────────────────────────────────── */
@@ -36,7 +38,7 @@
 
 .assets__row--selected {
 	border-color: var(--brand-orange);
-	background: rgba(255, 170, 64, 0.04);
+	background: var(--assets-thumbnail-selected-bg);
 }
 
 .assets__row-thumb {
@@ -45,7 +47,7 @@
 	object-fit: contain;
 	border-radius: var(--radius-sm);
 	flex-shrink: 0;
-	background: #000;
+	background: var(--assets-thumbnail-letterbox-bg);
 }
 
 .assets__row-thumb--placeholder {
@@ -116,7 +118,7 @@
 	object-fit: contain;
 	border-radius: var(--radius-sm);
 	margin-top: var(--space-3);
-	background: #000;
+	background: var(--assets-thumbnail-letterbox-bg);
 }
 
 .assets__detail-thumb--placeholder {

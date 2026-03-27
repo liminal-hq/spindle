@@ -146,6 +146,16 @@ async function ensureProjectAssetThumbnails(project: SpindleProjectFile): Promis
 			continue;
 		}
 
+		const { project: beforeRegeneration } = useProjectStore.getState();
+		if (!beforeRegeneration) {
+			return;
+		}
+
+		setProjectAssetThumbnail(beforeRegeneration, asset.id, {
+			thumbnailPath: null,
+			thumbnailError: null,
+		});
+
 		const thumbnail = await extractAssetThumbnail(asset);
 		const { project: current } = useProjectStore.getState();
 		if (!current) {
