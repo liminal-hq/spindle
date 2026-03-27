@@ -243,7 +243,7 @@ mod tests {
         assert!(plan.dvdauthor_xml.contains("menu-1.mpg"));
         assert!(plan
             .dvdauthor_xml
-            .contains("<button>jump titleset 1 title 1;</button>"));
+            .contains("<button>jump title 1;</button>"));
     }
 
     #[test]
@@ -342,6 +342,25 @@ mod tests {
         assert!(plan
             .dvdauthor_xml
             .contains("<button>jump titleset 1 menu 1;</button>"));
+    }
+
+    #[test]
+    fn vmgm_menu_button_to_second_titleset_title_uses_disc_global_title_numbering() {
+        let mut project = test_project();
+        add_second_titleset(&mut project);
+        project.disc.global_menus.push(test_menu_with_action(
+            "menu-1",
+            "Main Menu",
+            PlaybackAction::PlayTitle {
+                title_id: "title-2".to_string(),
+            },
+        ));
+
+        let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+
+        assert!(plan
+            .dvdauthor_xml
+            .contains("<button>jump title 2;</button>"));
     }
 
     #[test]

@@ -79,8 +79,14 @@ pub(crate) fn playback_action_to_dvd_command_in_context(
         PlaybackAction::PlayTitle { title_id } => {
             let (target_titleset_index, title_number) = resolve_title_target(disc, title_id)
                 .ok_or_else(|| crate::Error::Build(format!("Unknown title target: {title_id}")))?;
+            let global_title_number = resolve_global_title_number(disc, title_id)
+                .ok_or_else(|| crate::Error::Build(format!("Unknown title target: {title_id}")))?;
 
             match current_context {
+                DvdCommandContext::Menu {
+                    domain: MenuDomain::Vmgm,
+                    ..
+                } => Ok(format!("jump title {global_title_number}")),
                 DvdCommandContext::Menu {
                     domain: MenuDomain::Titleset(current_titleset_index),
                     ..
@@ -107,8 +113,16 @@ pub(crate) fn playback_action_to_dvd_command_in_context(
                         "Unknown chapter target: title={title_id}, chapter={chapter_id}"
                     ))
                 })?;
+            let global_title_number = resolve_global_title_number(disc, title_id)
+                .ok_or_else(|| crate::Error::Build(format!("Unknown title target: {title_id}")))?;
 
             match current_context {
+                DvdCommandContext::Menu {
+                    domain: MenuDomain::Vmgm,
+                    ..
+                } => Ok(format!(
+                    "jump title {global_title_number} chapter {chapter_number}"
+                )),
                 DvdCommandContext::Menu {
                     domain: MenuDomain::Titleset(current_titleset_index),
                     ..
@@ -204,6 +218,21 @@ fn resolve_title_target(disc: &Disc, title_id: &str) -> Option<(usize, usize)> {
     None
 }
 
+fn resolve_global_title_number(disc: &Disc, title_id: &str) -> Option<usize> {
+    let mut global_title_number = 1;
+
+    for titleset in &disc.titlesets {
+        for title in &titleset.titles {
+            if title.id == title_id {
+                return Some(global_title_number);
+            }
+            global_title_number += 1;
+        }
+    }
+
+    None
+}
+
 fn resolve_chapter_target(
     disc: &Disc,
     title_id: &str,
@@ -238,7 +267,7 @@ mod tests {
     use super::{playback_action_to_dvd_command, playback_action_to_dvd_command_in_domain};
 
     #[test]
-    fn vmgm_play_title_uses_titleset_qualified_target() {
+    fn vmgm_play_title_uses_disc_global_title_numbering() {
         let mut project = test_project();
         add_second_titleset(&mut project);
 
@@ -249,7 +278,7 @@ mod tests {
             &project.disc,
         );
 
-        assert_eq!(command, "jump titleset 2 title 1");
+        assert_eq!(command, "jump title 2");
     }
 
     #[test]
@@ -285,5 +314,21 @@ mod tests {
         );
 
         assert_eq!(command, "jump titleset 2 title 1 chapter 1");
+    }
+
+    #[test]
+    fn vmgm_play_chapter_uses_disc_global_title_numbering() {
+        let mut project = test_project();
+        add_second_titleset(&mut project);
+
+        let command = playback_action_to_dvd_command(
+            &PlaybackAction::PlayChapter {
+                title_id: "title-2".to_string(),
+                chapter_id: "ch-3".to_string(),
+            },
+            &project.disc,
+        );
+
+        assert_eq!(command, "jump title 2 chapter 1");
     }
 }
