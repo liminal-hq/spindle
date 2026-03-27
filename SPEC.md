@@ -199,6 +199,8 @@ Someone who understands FFmpeg and DVD authoring basics and wants a better front
 - Support future verification passes distinct from simple visual preview.
 - Persist build logs, generated intermediate files, and emitted commands when requested.
 - Support future compliance and QA reporting for authored output.
+- Ship a Linux-first desktop release pipeline for the Tauri shell, including `AppImage`, `.deb`, and `.rpm` packages plus a consolidated `SHA256SUMS` manifest.
+- Keep release versioning coordinated across the workspace package, desktop package, Tauri config, and release-facing Rust crates so published tags map cleanly to bundled outputs.
 
 ---
 
