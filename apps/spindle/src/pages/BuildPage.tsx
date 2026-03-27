@@ -33,6 +33,9 @@ export function BuildPage() {
 	const disc = project.disc;
 	const titleCount = disc.titlesets.reduce((s, ts) => s + ts.titles.length, 0);
 	const errorCount = validationIssues.filter((i) => i.severity === 'error').length;
+	const dolbyVisionAssets = project.assets.filter((asset) =>
+		asset.videoStreams.some((stream) => stream.dolbyVisionProfile != null),
+	);
 	const canBuild = titleCount > 0 && errorCount === 0 && buildStatus === 'idle';
 	const isBuilding = buildStatus === 'building';
 
@@ -115,6 +118,14 @@ export function BuildPage() {
 				)}
 				{titleCount === 0 && (
 					<p className="build__warning">Add at least one title to the project before building.</p>
+				)}
+				{dolbyVisionAssets.length > 0 && (
+					<div className="build__warning-banner">
+						<p className="build__warning">
+							Dolby Vision source detected. SDR DVD output may have incorrect colours for{' '}
+							{dolbyVisionAssets.length} asset{dolbyVisionAssets.length === 1 ? '' : 's'}.
+						</p>
+					</div>
 				)}
 			</div>
 
@@ -327,6 +338,14 @@ function QaScorecard({
 			pass: !validationIssues.some((i) => i.code.includes('dangling')),
 		},
 		{ label: 'Output directory set', pass: project.buildSettings.outputDirectory != null },
+		{
+			label: 'Dolby Vision sources warned',
+			pass: project.assets.every(
+				(asset) =>
+					asset.videoStreams.every((stream) => stream.dolbyVisionProfile == null) ||
+					asset.warnings.some((warning) => warning.code === 'video.dolby-vision'),
+			),
+		},
 	];
 
 	const passCount = checks.filter((c) => c.pass).length;

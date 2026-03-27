@@ -477,7 +477,11 @@ pub struct Asset {
     pub compatibility: Option<CompatibilityAssessment>,
     pub fingerprint: Option<String>,
     #[serde(default)]
+    pub warnings: Vec<AssetWarning>,
+    #[serde(default)]
     pub thumbnail_path: Option<String>,
+    #[serde(default)]
+    pub thumbnail_error: Option<String>,
 }
 
 impl Asset {
@@ -494,7 +498,9 @@ impl Asset {
             subtitle_streams: Vec::new(),
             compatibility: None,
             fingerprint: None,
+            warnings: Vec::new(),
             thumbnail_path: None,
+            thumbnail_error: None,
         }
     }
 }
@@ -517,6 +523,9 @@ pub struct VideoStreamInfo {
     /// Color primaries (e.g. "bt2020" for wide-gamut HDR, "bt709" for SDR).
     #[serde(default)]
     pub color_primaries: Option<String>,
+    /// Dolby Vision profile when ffprobe exposes DOVI side data.
+    #[serde(default)]
+    pub dolby_vision_profile: Option<u8>,
 }
 
 /// Detected audio stream metadata.
@@ -560,6 +569,14 @@ pub enum CompatibilityAssessment {
     TransformCompatible,
     ReEncodeRequired,
     Unsupported,
+}
+
+/// Non-fatal asset warnings surfaced in the UI and diagnostics.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AssetWarning {
+    pub code: String,
+    pub message: String,
 }
 
 // ── Build Settings ──────────────────────────────────────────────────────────

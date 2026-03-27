@@ -69,6 +69,40 @@ function parentDir(filePath: string): string {
 	return filePath.replace(/[/\\][^/\\]+$/, '') || filePath;
 }
 
+function mergeInspectedAsset(existingAsset: Asset, inspected: Asset): Asset {
+	return {
+		...inspected,
+		id: existingAsset.id,
+		thumbnailPath: existingAsset.thumbnailPath,
+		thumbnailError: existingAsset.thumbnailError,
+	};
+}
+
+async function extractAssetThumbnail(
+	asset: Asset,
+): Promise<Pick<Asset, 'thumbnailPath' | 'thumbnailError'>> {
+	if (asset.videoStreams.length === 0) {
+		return { thumbnailPath: null, thumbnailError: null };
+	}
+
+	try {
+		const thumbDir = await invoke<string>('plugin:spindle-project|get_cache_dir');
+		const thumbPath = `${thumbDir}/thumb_${asset.id}.jpg`;
+		const durationSecs = asset.durationSecs ?? 0;
+		const seekTo = durationSecs > 2 ? 1 : Math.max(0, durationSecs / 2);
+		await invoke('plugin:spindle-project|extract_thumbnail', {
+			sourcePath: asset.sourcePath,
+			outputPath: thumbPath,
+			timestampSecs: seekTo,
+		});
+		return { thumbnailPath: thumbPath, thumbnailError: null };
+	} catch (error) {
+		const message =
+			error instanceof Error ? error.message : `Thumbnail extraction failed: ${String(error)}`;
+		return { thumbnailPath: null, thumbnailError: message };
+	}
+}
+
 // Prompt for an output directory if one isn't already set, persist the choice
 // to the project, and return it. Returns null if the user cancels.
 async function resolveOutputDir(
@@ -301,7 +335,9 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 				subtitleStreams: [],
 				compatibility: null,
 				fingerprint: null,
+				warnings: [],
 				thumbnailPath: null,
+				thumbnailError: null,
 			};
 		});
 
@@ -322,7 +358,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 				// Merge inspection results, preserving the ID we assigned
 				const { project: current } = get();
 				if (!current) break;
-				const merged = { ...inspected, id: asset.id };
+				const merged = mergeInspectedAsset(asset, inspected);
 				set({
 					project: {
 						...current,
@@ -330,31 +366,17 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 					},
 				});
 
-				// Extract thumbnail if the asset has video streams
-				if (inspected.videoStreams.length > 0) {
-					try {
-						const thumbDir = await invoke<string>('plugin:spindle-project|get_cache_dir');
-						const thumbPath = `${thumbDir}/thumb_${asset.id}.jpg`;
-						const seekTo = Math.min(1, inspected.durationSecs ?? 0);
-						await invoke('plugin:spindle-project|extract_thumbnail', {
-							sourcePath: asset.sourcePath,
-							outputPath: thumbPath,
-							timestampSecs: seekTo,
-						});
-						const { project: afterThumb } = get();
-						if (afterThumb) {
-							set({
-								project: {
-									...afterThumb,
-									assets: afterThumb.assets.map((a) =>
-										a.id === asset.id ? { ...a, thumbnailPath: thumbPath } : a,
-									),
-								},
-							});
-						}
-					} catch {
-						// Thumbnail extraction is best-effort
-					}
+				const thumbnail = await extractAssetThumbnail(merged);
+				const { project: afterThumb } = get();
+				if (afterThumb) {
+					set({
+						project: {
+							...afterThumb,
+							assets: afterThumb.assets.map((a) =>
+								a.id === asset.id ? { ...a, ...thumbnail } : a,
+							),
+						},
+					});
 				}
 			} catch {
 				// Inspection failed — asset stays as stub with null metadata
@@ -456,10 +478,23 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 			});
 			const { project: current } = get();
 			if (!current) return;
+			const currentAsset = current.assets.find((a) => a.id === assetId);
+			if (!currentAsset) return;
+			const merged = mergeInspectedAsset(currentAsset, inspected);
 			set({
 				project: {
 					...current,
-					assets: current.assets.map((a) => (a.id === assetId ? { ...inspected, id: assetId } : a)),
+					assets: current.assets.map((a) => (a.id === assetId ? merged : a)),
+				},
+			});
+
+			const thumbnail = await extractAssetThumbnail(merged);
+			const { project: afterThumb } = get();
+			if (!afterThumb) return;
+			set({
+				project: {
+					...afterThumb,
+					assets: afterThumb.assets.map((a) => (a.id === assetId ? { ...a, ...thumbnail } : a)),
 				},
 			});
 		} catch {

@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 320" role="img" aria-labelledby="title desc">
+  <title id="title">Menu builder state flow</title>
+  <desc id="desc">Animated diagram showing menu data moving from the editor to the project store and build planner.</desc>
+  <defs>
+    <linearGradient id="panel" x1="0" x2="1">
+      <stop offset="0%" stop-color="#111116"/>
+      <stop offset="100%" stop-color="#181822"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" x2="1">
+      <stop offset="0%" stop-color="#ffaa40"/>
+      <stop offset="100%" stop-color="#f43f5e"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <style>
+      .bg { fill: #06070a; }
+      .card { fill: url(#panel); stroke: rgba(255,255,255,0.12); stroke-width: 1; rx: 18; }
+      .label { fill: #f3f4f6; font: 600 22px Inter, Arial, sans-serif; }
+      .meta { fill: #94a3b8; font: 14px Inter, Arial, sans-serif; }
+      .wire { fill: none; stroke: rgba(255,255,255,0.18); stroke-width: 3; stroke-dasharray: 10 10; }
+      .packet { fill: #ffaa40; filter: url(#glow); }
+      .pulse { stroke: url(#accent); stroke-width: 4; fill: none; stroke-linecap: round; }
+      @keyframes dash {
+        to { stroke-dashoffset: -40; }
+      }
+      @keyframes bob {
+        0%, 100% { transform: translateY(0px); }
+        50% { transform: translateY(-4px); }
+      }
+      .animated-wire { animation: dash 2.4s linear infinite; }
+      .floating { animation: bob 2.6s ease-in-out infinite; transform-origin: center; }
+    </style>
+  </defs>
+
+  <rect class="bg" width="960" height="320" rx="28"/>
+
+  <rect class="card floating" x="44" y="74" width="250" height="172" rx="18"/>
+  <text class="label" x="70" y="112">Menu Editor</text>
+  <text class="meta" x="70" y="142">Buttons, labels, bounds, actions</text>
+  <rect x="70" y="168" width="150" height="34" rx="8" fill="rgba(255,170,64,0.12)" stroke="#ffaa40"/>
+  <text class="meta" x="103" y="190" fill="#f8fafc">This is a Button</text>
+  <rect x="96" y="212" width="126" height="22" rx="6" fill="rgba(255,255,255,0.06)"/>
+
+  <rect class="card floating" x="354" y="56" width="252" height="208" rx="18"/>
+  <text class="label" x="382" y="94">Project Store</text>
+  <text class="meta" x="382" y="124">Shared project model</text>
+  <text class="meta" x="382" y="160">Menu</text>
+  <text class="meta" x="382" y="184">MenuButton[]</text>
+  <text class="meta" x="382" y="208">PlaybackAction</text>
+  <text class="meta" x="382" y="232">Highlight colours</text>
+
+  <rect class="card floating" x="666" y="86" width="250" height="148" rx="18"/>
+  <text class="label" x="694" y="124">Build Planner</text>
+  <text class="meta" x="694" y="154">RenderMenu</text>
+  <text class="meta" x="694" y="178">ComposeMenuHighlights</text>
+  <text class="meta" x="694" y="202">dvdauthor XML</text>
+
+  <path class="wire animated-wire" d="M294 160 C330 160, 330 160, 354 160"/>
+  <path class="wire animated-wire" d="M606 160 C642 160, 642 160, 666 160"/>
+
+  <path id="flowA" d="M294 160 C330 160, 330 160, 354 160" fill="none"/>
+  <path id="flowB" d="M606 160 C642 160, 642 160, 666 160" fill="none"/>
+
+  <circle class="packet" r="7">
+    <animateMotion dur="2.2s" repeatCount="indefinite">
+      <mpath href="#flowA"/>
+    </animateMotion>
+  </circle>
+  <circle class="packet" r="7">
+    <animateMotion dur="2.2s" begin="1.1s" repeatCount="indefinite">
+      <mpath href="#flowB"/>
+    </animateMotion>
+  </circle>
+
+  <path class="pulse" d="M222 184 L354 184"/>
+  <path class="pulse" d="M606 184 L666 184"/>
+</svg>

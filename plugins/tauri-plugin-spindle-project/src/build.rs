@@ -5,6 +5,7 @@
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use serde::{Deserialize, Serialize};
@@ -72,6 +73,12 @@ pub enum BuildJob {
         output_path: String,
         command: Vec<String>,
         label: String,
+        standard: VideoStandard,
+        highlight_image_path: String,
+        select_image_path: String,
+        highlight_colour: String,
+        select_colour: String,
+        button_bounds: Vec<MenuOverlayButton>,
     },
     /// Generate spumux XML and overlay subtitles/highlights on a menu.
     ComposeMenuHighlights {
@@ -145,6 +152,15 @@ pub enum BuildJobStatus {
     Failed,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MenuOverlayButton {
+    pub x0: i32,
+    pub y0: i32,
+    pub x1: i32,
+    pub y1: i32,
+}
+
 // ── Build Result ────────────────────────────────────────────────────────────
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -187,6 +203,13 @@ pub fn generate_build_plan(
     // Build asset lookup
     let assets: HashMap<&str, &Asset> = project.assets.iter().map(|a| (a.id.as_str(), a)).collect();
 
+    let ffmpeg_bin = crate::toolchain::resolve_tool("ffmpeg", skip_sidecar)
+        .map(|p| p.display().to_string())
+        .unwrap_or_else(|| "ffmpeg".to_string());
+    let spumux_bin = crate::toolchain::resolve_tool("spumux", skip_sidecar)
+        .map(|p| p.display().to_string())
+        .unwrap_or_else(|| "spumux".to_string());
+
     // 2. Transcode each title
     let all_titles: Vec<(&Titleset, &Title)> = project
         .disc
@@ -211,13 +234,14 @@ pub fn generate_build_plan(
             .as_ref()
             .and_then(|vm| asset.video_streams.get(vm.source_stream_index as usize));
 
-        let command = build_ffmpeg_transcode_command(
+        let mut command = build_ffmpeg_transcode_command(
             &asset.source_path,
             &output_path,
             title,
             &project.disc,
             video_info,
         );
+        command[0] = ffmpeg_bin.clone();
 
         jobs.push(BuildJob::TranscodeTitle {
             title_id: title.id.clone(),
@@ -229,7 +253,71 @@ pub fn generate_build_plan(
         });
     }
 
-    // 3. Generate dvdauthor XML
+    // 3. Render authored menus
+    for menu_ref in authorable_menus(project) {
+        let base_output_path =
+            menus_dir.join(format!("{}_base.mpg", sanitise_filename(&menu_ref.menu.id)));
+        let final_output_path =
+            menus_dir.join(format!("{}.mpg", sanitise_filename(&menu_ref.menu.id)));
+        let highlight_image_path = menus_dir.join(format!(
+            "{}_highlight.png",
+            sanitise_filename(&menu_ref.menu.id)
+        ));
+        let select_image_path = menus_dir.join(format!(
+            "{}_select.png",
+            sanitise_filename(&menu_ref.menu.id)
+        ));
+        let render_command = build_ffmpeg_menu_command(
+            &ffmpeg_bin,
+            &menu_ref,
+            &assets,
+            project,
+            project.disc.standard,
+            &base_output_path,
+        )?;
+
+        jobs.push(BuildJob::RenderMenu {
+            menu_id: menu_ref.menu.id.clone(),
+            menu_name: menu_ref.menu.name.clone(),
+            output_path: base_output_path.display().to_string(),
+            command: render_command,
+            label: format!("Render menu \"{}\"", menu_ref.menu.name),
+            standard: project.disc.standard,
+            highlight_image_path: highlight_image_path.display().to_string(),
+            select_image_path: select_image_path.display().to_string(),
+            highlight_colour: menu_ref.menu.highlight_colours.select_colour.clone(),
+            select_colour: menu_ref.menu.highlight_colours.activate_colour.clone(),
+            button_bounds: menu_ref
+                .menu
+                .buttons
+                .iter()
+                .map(|button| MenuOverlayButton {
+                    x0: button.bounds.x.round() as i32,
+                    y0: button.bounds.y.round() as i32,
+                    x1: (button.bounds.x + button.bounds.width).round() as i32,
+                    y1: (button.bounds.y + button.bounds.height).round() as i32,
+                })
+                .collect(),
+        });
+
+        let spumux_xml = generate_spumux_xml(&menu_ref, project.disc.standard, &menus_dir);
+        jobs.push(BuildJob::ComposeMenuHighlights {
+            menu_id: menu_ref.menu.id.clone(),
+            menu_name: menu_ref.menu.name.clone(),
+            input_path: base_output_path.display().to_string(),
+            output_path: final_output_path.display().to_string(),
+            spumux_xml,
+            command: vec![
+                spumux_bin.clone(),
+                "-m".to_string(),
+                "dvd".to_string(),
+                format!("{}.xml", final_output_path.with_extension("").display()),
+            ],
+            label: format!("Compose menu highlights \"{}\"", menu_ref.menu.name),
+        });
+    }
+
+    // 4. Generate dvdauthor XML
     let dvdauthor_xml = generate_dvdauthor_xml(project, &titles_dir, &menus_dir, &video_ts_dir)?;
     let xml_path = work_dir.join("dvdauthor.xml");
 
@@ -248,7 +336,7 @@ pub fn generate_build_plan(
         label: "Author DVD (dvdauthor)".to_string(),
     });
 
-    // 4. Optionally create ISO
+    // 5. Optionally create ISO
     if project.build_settings.generate_iso {
         let iso_path = output_dir.join(format!("{}.iso", sanitise_filename(&project.project.name)));
         let volume_id = project
@@ -321,7 +409,11 @@ fn build_ffmpeg_transcode_command(
     disc: &Disc,
     video_info: Option<&VideoStreamInfo>,
 ) -> Vec<String> {
-    let mut cmd = vec!["ffmpeg".to_string(), "-y".to_string()];
+    let mut cmd = vec![
+        "ffmpeg".to_string(),
+        "-hide_banner".to_string(),
+        "-y".to_string(),
+    ];
 
     // Input
     cmd.extend(["-i".to_string(), source_path.to_string()]);
@@ -353,10 +445,20 @@ fn build_ffmpeg_transcode_command(
         );
     }
 
-    // Scale preserving aspect ratio, pad to exact DVD raster, reset SAR
-    vf_parts.push(format!(
-        "scale={width}:{height}:force_original_aspect_ratio=decrease,\
-         pad={width}:{height}:(ow-iw)/2:(oh-ih)/2,setsar=1"
+    let source_dar = video_info
+        .and_then(source_display_aspect_ratio)
+        .unwrap_or_else(|| width as f64 / height as f64);
+    let (target_dar_num, target_dar_den) = output_display_aspect_ratio_parts(profile.aspect);
+    let target_dar = target_dar_num as f64 / target_dar_den as f64;
+    let target_sar = dvd_sample_aspect_ratio(width, height, target_dar_num, target_dar_den);
+
+    // Scale and pad using DVD display geometry rather than square-pixel storage geometry.
+    vf_parts.push(build_dvd_scale_filter(
+        width,
+        height,
+        source_dar,
+        target_dar,
+        &target_sar,
     ));
 
     // FPS conversion only when source differs from target by more than 0.1 fps
@@ -505,6 +607,90 @@ fn fps_rational_str(fps: f64) -> &'static str {
     }
 }
 
+fn source_display_aspect_ratio(info: &VideoStreamInfo) -> Option<f64> {
+    parse_display_aspect_ratio(info.aspect_ratio.as_deref()).or_else(|| {
+        if info.width > 0 && info.height > 0 {
+            Some(info.width as f64 / info.height as f64)
+        } else {
+            None
+        }
+    })
+}
+
+fn parse_display_aspect_ratio(value: Option<&str>) -> Option<f64> {
+    let value = value?;
+    let (num, den) = value.split_once(':')?;
+    let num: f64 = num.parse().ok()?;
+    let den: f64 = den.parse().ok()?;
+    if den == 0.0 {
+        return None;
+    }
+    Some(num / den)
+}
+
+fn output_display_aspect_ratio_parts(aspect: AspectMode) -> (u32, u32) {
+    match aspect {
+        AspectMode::FourByThree => (4, 3),
+        AspectMode::SixteenByNine => (16, 9),
+    }
+}
+
+fn dvd_sample_aspect_ratio(
+    width: u32,
+    height: u32,
+    display_aspect_num: u32,
+    display_aspect_den: u32,
+) -> String {
+    let mut num = display_aspect_num as u64 * height as u64;
+    let mut den = display_aspect_den as u64 * width as u64;
+    let gcd = gcd_u64(num, den);
+    num /= gcd;
+    den /= gcd;
+    format!("{num}/{den}")
+}
+
+fn build_dvd_scale_filter(
+    width: u32,
+    height: u32,
+    source_dar: f64,
+    target_dar: f64,
+    target_sar: &str,
+) -> String {
+    let mut active_width = width;
+    let mut active_height = height;
+
+    if source_dar > target_dar {
+        active_height = round_even((height as f64 * target_dar / source_dar).min(height as f64));
+    } else if source_dar < target_dar {
+        active_width = round_even((width as f64 * source_dar / target_dar).min(width as f64));
+    }
+
+    let pad_x = (width.saturating_sub(active_width)) / 2;
+    let pad_y = (height.saturating_sub(active_height)) / 2;
+
+    format!(
+        "scale={active_width}:{active_height},pad={width}:{height}:{pad_x}:{pad_y},setsar={target_sar}"
+    )
+}
+
+fn round_even(value: f64) -> u32 {
+    let rounded = value.round().max(2.0) as u32;
+    if rounded % 2 == 0 {
+        rounded
+    } else {
+        rounded.saturating_sub(1)
+    }
+}
+
+fn gcd_u64(mut a: u64, mut b: u64) -> u64 {
+    while b != 0 {
+        let tmp = b;
+        b = a % b;
+        a = tmp;
+    }
+    a.max(1)
+}
+
 /// Return true when the video stream uses an HDR transfer characteristic.
 fn is_hdr_source(info: &VideoStreamInfo) -> bool {
     matches!(
@@ -513,12 +699,301 @@ fn is_hdr_source(info: &VideoStreamInfo) -> bool {
     )
 }
 
+#[derive(Clone, Copy)]
+enum MenuDomain {
+    Vmgm,
+    Titleset(usize),
+}
+
+#[derive(Clone, Copy)]
+enum DvdCommandContext {
+    Menu {
+        domain: MenuDomain,
+        menu_number: Option<usize>,
+    },
+    Title {
+        titleset_index: usize,
+    },
+}
+
+struct AuthorableMenuRef<'a> {
+    menu: &'a Menu,
+    domain: MenuDomain,
+}
+
+fn authorable_menus(project: &SpindleProjectFile) -> Vec<AuthorableMenuRef<'_>> {
+    let mut menus = Vec::new();
+    for menu in &project.disc.global_menus {
+        menus.push(AuthorableMenuRef {
+            menu,
+            domain: MenuDomain::Vmgm,
+        });
+    }
+    for (titleset_index, titleset) in project.disc.titlesets.iter().enumerate() {
+        for menu in &titleset.menus {
+            menus.push(AuthorableMenuRef {
+                menu,
+                domain: MenuDomain::Titleset(titleset_index),
+            });
+        }
+    }
+    menus
+}
+
+fn menu_output_aspect(project: &SpindleProjectFile, domain: MenuDomain) -> AspectMode {
+    match domain {
+        MenuDomain::Vmgm => project
+            .disc
+            .titlesets
+            .iter()
+            .flat_map(|titleset| titleset.titles.iter())
+            .find_map(|title| title.video_output_profile.map(|profile| profile.aspect))
+            .unwrap_or(AspectMode::SixteenByNine),
+        MenuDomain::Titleset(index) => project
+            .disc
+            .titlesets
+            .get(index)
+            .and_then(|titleset| {
+                titleset
+                    .titles
+                    .iter()
+                    .find_map(|title| title.video_output_profile.map(|profile| profile.aspect))
+            })
+            .unwrap_or(AspectMode::SixteenByNine),
+    }
+}
+
+fn build_ffmpeg_menu_command(
+    ffmpeg_bin: &str,
+    menu_ref: &AuthorableMenuRef<'_>,
+    assets: &HashMap<&str, &Asset>,
+    project: &SpindleProjectFile,
+    standard: VideoStandard,
+    output_path: &Path,
+) -> crate::Result<Vec<String>> {
+    let (width, height) = VideoRaster::FullD1.resolution(standard);
+    let aspect = menu_output_aspect(project, menu_ref.domain);
+    let (display_num, display_den) = output_display_aspect_ratio_parts(aspect);
+    let sar = dvd_sample_aspect_ratio(width, height, display_num, display_den);
+    let aspect_str = match aspect {
+        AspectMode::FourByThree => "4:3",
+        AspectMode::SixteenByNine => "16:9",
+    };
+    let fps = fps_rational_str(standard.frame_rate());
+
+    let mut cmd = vec![
+        ffmpeg_bin.to_string(),
+        "-hide_banner".to_string(),
+        "-y".to_string(),
+    ];
+    let mut vf_parts = Vec::new();
+
+    if let Some(background_asset_id) = menu_ref.menu.background_asset_id.as_deref() {
+        let asset = assets.get(background_asset_id).ok_or_else(|| {
+            crate::Error::Build(format!(
+                "Background asset not found for menu \"{}\"",
+                menu_ref.menu.name
+            ))
+        })?;
+        cmd.extend(["-i".to_string(), asset.source_path.clone()]);
+        vf_parts.push(format!("fps={fps}"));
+        vf_parts.push(format!(
+            "scale={width}:{height}:force_original_aspect_ratio=decrease,pad={width}:{height}:(ow-iw)/2:(oh-ih)/2"
+        ));
+        vf_parts.push("trim=start_frame=0:end_frame=1".to_string());
+        vf_parts.push(format!(
+            "loop=loop={}:size=1:start=0",
+            menu_loop_frame_count(standard).saturating_sub(1)
+        ));
+    } else {
+        cmd.extend([
+            "-f".to_string(),
+            "lavfi".to_string(),
+            "-i".to_string(),
+            format!("color=c=#101014:s={}x{}:d=1", width, height),
+        ]);
+        vf_parts.push(format!("fps={fps}"));
+    }
+
+    vf_parts.push(menu_button_overlay_filter(menu_ref.menu));
+    vf_parts.push(menu_button_label_filter(menu_ref.menu));
+    vf_parts.push(format!("setsar={sar}"));
+
+    cmd.extend([
+        "-vf".to_string(),
+        vf_parts.join(","),
+        "-r".to_string(),
+        fps.to_string(),
+        "-c:v".to_string(),
+        "mpeg2video".to_string(),
+        "-b:v".to_string(),
+        "4000k".to_string(),
+        "-maxrate".to_string(),
+        "7000k".to_string(),
+        "-bufsize".to_string(),
+        "1835k".to_string(),
+        "-g".to_string(),
+        if standard == VideoStandard::Pal {
+            "12"
+        } else {
+            "18"
+        }
+        .to_string(),
+        "-aspect".to_string(),
+        aspect_str.to_string(),
+        "-an".to_string(),
+        "-t".to_string(),
+        "1".to_string(),
+        "-f".to_string(),
+        "dvd".to_string(),
+        "-muxrate".to_string(),
+        "10080000".to_string(),
+        output_path.display().to_string(),
+    ]);
+
+    Ok(cmd)
+}
+
+fn menu_loop_frame_count(standard: VideoStandard) -> u32 {
+    match standard {
+        VideoStandard::Ntsc => 30,
+        VideoStandard::Pal => 25,
+    }
+}
+
+fn menu_button_overlay_filter(menu: &Menu) -> String {
+    if menu.buttons.is_empty() {
+        return "null".to_string();
+    }
+
+    let mut filters = Vec::new();
+    for button in &menu.buttons {
+        let colour = if menu.default_button_id.as_deref() == Some(button.id.as_str()) {
+            "#ffaa40@0.50"
+        } else {
+            "#ffffff@0.28"
+        };
+        filters.push(format!(
+            "drawbox=x={}:y={}:w={}:h={}:color={}:t=2",
+            button.bounds.x.round() as i32,
+            button.bounds.y.round() as i32,
+            button.bounds.width.round() as i32,
+            button.bounds.height.round() as i32,
+            colour
+        ));
+    }
+
+    filters.join(",")
+}
+
+fn menu_button_label_filter(menu: &Menu) -> String {
+    if menu.buttons.is_empty() {
+        return "null".to_string();
+    }
+
+    let mut filters = Vec::new();
+    for button in &menu.buttons {
+        let escaped_label = escape_ffmpeg_drawtext(&button.label);
+        let font_size = ((button.bounds.height * 0.42).round() as i32).clamp(18, 30);
+        let text_x = button.bounds.x.round() as i32;
+        let text_y = button.bounds.y.round() as i32;
+        let text_w = button.bounds.width.round() as i32;
+        let text_h = button.bounds.height.round() as i32;
+
+        filters.push(format!(
+            "drawtext=text='{}':fontcolor=white:fontsize={}:font='Sans':x={}+({}-text_w)/2:y={}+({}-text_h)/2:shadowcolor=black@0.7:shadowx=1:shadowy=1",
+            escaped_label, font_size, text_x, text_w, text_y, text_h
+        ));
+    }
+
+    filters.join(",")
+}
+
+fn escape_ffmpeg_drawtext(value: &str) -> String {
+    let mut escaped = String::new();
+    for ch in value.chars() {
+        match ch {
+            '\\' => escaped.push_str("\\\\"),
+            '\'' => escaped.push_str("\\'"),
+            ':' => escaped.push_str("\\:"),
+            ',' => escaped.push_str("\\,"),
+            ';' => escaped.push_str("\\;"),
+            '%' => escaped.push_str("\\%"),
+            '[' => escaped.push_str("\\["),
+            ']' => escaped.push_str("\\]"),
+            '\n' => escaped.push_str("\\n"),
+            _ => escaped.push(ch),
+        }
+    }
+    escaped
+}
+
+fn generate_spumux_xml(
+    menu_ref: &AuthorableMenuRef<'_>,
+    standard: VideoStandard,
+    menus_dir: &Path,
+) -> String {
+    let format_str = match standard {
+        VideoStandard::Ntsc => "NTSC",
+        VideoStandard::Pal => "PAL",
+    };
+    let base_name = sanitise_filename(&menu_ref.menu.id);
+    let highlight_path = menus_dir.join(format!("{base_name}_highlight.png"));
+    let select_path = menus_dir.join(format!("{base_name}_select.png"));
+
+    let mut xml = String::new();
+    xml.push_str("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
+    xml.push_str(&format!("<subpictures format=\"{format_str}\">\n"));
+    xml.push_str("  <stream>\n");
+    xml.push_str(&format!(
+        "    <spu start=\"00:00:00.00\" image=\"{}\" highlight=\"{}\" select=\"{}\" transparent=\"#000000\" force=\"yes\">\n",
+        xml_escape(&highlight_path.display().to_string()),
+        xml_escape(&highlight_path.display().to_string()),
+        xml_escape(&select_path.display().to_string())
+    ));
+
+    for (index, button) in menu_ref.menu.buttons.iter().enumerate() {
+        let name = (index + 1).to_string();
+        xml.push_str(&format!(
+            "      <button name=\"{}\" x0=\"{}\" y0=\"{}\" x1=\"{}\" y1=\"{}\"{}{}{}{} />\n",
+            name,
+            button.bounds.x.round() as i32,
+            button.bounds.y.round() as i32,
+            (button.bounds.x + button.bounds.width).round() as i32,
+            (button.bounds.y + button.bounds.height).round() as i32,
+            button_nav_attr("up", button.nav_up.as_deref(), menu_ref.menu),
+            button_nav_attr("down", button.nav_down.as_deref(), menu_ref.menu),
+            button_nav_attr("left", button.nav_left.as_deref(), menu_ref.menu),
+            button_nav_attr("right", button.nav_right.as_deref(), menu_ref.menu)
+        ));
+    }
+
+    xml.push_str("    </spu>\n");
+    xml.push_str("  </stream>\n");
+    xml.push_str("</subpictures>\n");
+    xml
+}
+
+fn button_nav_attr(direction: &str, target_button_id: Option<&str>, menu: &Menu) -> String {
+    let Some(target_button_id) = target_button_id else {
+        return String::new();
+    };
+    let Some(index) = menu
+        .buttons
+        .iter()
+        .position(|button| button.id == target_button_id)
+    else {
+        return String::new();
+    };
+    format!(" {direction}=\"{}\"", index + 1)
+}
+
 // ── dvdauthor XML Generation ────────────────────────────────────────────────
 
 fn generate_dvdauthor_xml(
     project: &SpindleProjectFile,
     titles_dir: &Path,
-    _menus_dir: &Path,
+    menus_dir: &Path,
     video_ts_dir: &Path,
 ) -> crate::Result<String> {
     let format_str = match project.disc.standard {
@@ -542,13 +1017,34 @@ fn generate_dvdauthor_xml(
         xml.push_str("  <vmgm>\n");
 
         if has_global_menus {
+            let global_menu_aspect = match menu_output_aspect(project, MenuDomain::Vmgm) {
+                AspectMode::FourByThree => "4:3",
+                AspectMode::SixteenByNine => "16:9",
+            };
             xml.push_str("    <menus>\n");
             xml.push_str(&format!(
-                "      <video format=\"{format_str}\" aspect=\"4:3\" />\n"
+                "      <video format=\"{format_str}\" aspect=\"{global_menu_aspect}\" />\n"
             ));
-            for _menu in &project.disc.global_menus {
+            for (menu_index, menu) in project.disc.global_menus.iter().enumerate() {
                 xml.push_str("      <pgc>\n");
-                // Menu VOB would go here once menu rendering is implemented
+                let menu_vob_path = menus_dir.join(format!("{}.mpg", sanitise_filename(&menu.id)));
+                xml.push_str(&format!(
+                    "        <vob file=\"{}\" pause=\"inf\" />\n",
+                    xml_escape(&menu_vob_path.display().to_string())
+                ));
+                for button in &menu.buttons {
+                    if let Some(ref action) = button.action {
+                        xml.push_str(&format!(
+                            "        <button>{};</button>\n",
+                            playback_action_to_dvd_command_in_domain(
+                                action,
+                                &project.disc,
+                                MenuDomain::Vmgm,
+                                Some(menu_index + 1),
+                            )?
+                        ));
+                    }
+                }
                 xml.push_str("      </pgc>\n");
             }
             xml.push_str("    </menus>\n");
@@ -559,7 +1055,7 @@ fn generate_dvdauthor_xml(
             xml.push_str("    <fpc>\n");
             xml.push_str(&format!(
                 "      {};\n",
-                playback_action_to_dvd_command(action, &project.disc)
+                playback_action_to_dvd_command(action, &project.disc)?
             ));
             xml.push_str("    </fpc>\n");
         }
@@ -588,9 +1084,33 @@ fn generate_dvdauthor_xml(
             xml.push_str(&format!(
                 "      <video format=\"{format_str}\" aspect=\"{aspect_str}\" />\n"
             ));
-            for _menu in &titleset.menus {
+            for (menu_index, menu) in titleset.menus.iter().enumerate() {
                 xml.push_str("      <pgc>\n");
-                // Menu VOB would go here once menu rendering is implemented
+                let menu_vob_path = menus_dir.join(format!("{}.mpg", sanitise_filename(&menu.id)));
+                xml.push_str(&format!(
+                    "        <vob file=\"{}\" pause=\"inf\" />\n",
+                    xml_escape(&menu_vob_path.display().to_string())
+                ));
+                for button in &menu.buttons {
+                    if let Some(ref action) = button.action {
+                        xml.push_str(&format!(
+                            "        <button>{};</button>\n",
+                            playback_action_to_dvd_command_in_domain(
+                                action,
+                                &project.disc,
+                                MenuDomain::Titleset(
+                                    project
+                                        .disc
+                                        .titlesets
+                                        .iter()
+                                        .position(|ts| ts.id == titleset.id)
+                                        .unwrap_or(0),
+                                ),
+                                Some(menu_index + 1),
+                            )?
+                        ));
+                    }
+                }
                 xml.push_str("      </pgc>\n");
             }
             xml.push_str("    </menus>\n");
@@ -629,7 +1149,18 @@ fn generate_dvdauthor_xml(
                 xml.push_str("        <post>\n");
                 xml.push_str(&format!(
                     "          {};\n",
-                    playback_action_to_dvd_command(action, &project.disc)
+                    playback_action_to_dvd_command_in_context(
+                        action,
+                        &project.disc,
+                        DvdCommandContext::Title {
+                            titleset_index: project
+                                .disc
+                                .titlesets
+                                .iter()
+                                .position(|ts| ts.id == titleset.id)
+                                .unwrap_or(0),
+                        },
+                    )?
                 ));
                 xml.push_str("        </post>\n");
             }
@@ -646,44 +1177,211 @@ fn generate_dvdauthor_xml(
     Ok(xml)
 }
 
-fn playback_action_to_dvd_command(action: &PlaybackAction, disc: &Disc) -> String {
+fn playback_action_to_dvd_command(action: &PlaybackAction, disc: &Disc) -> crate::Result<String> {
+    playback_action_to_dvd_command_in_context(
+        action,
+        disc,
+        DvdCommandContext::Menu {
+            domain: MenuDomain::Vmgm,
+            menu_number: None,
+        },
+    )
+}
+
+fn playback_action_to_dvd_command_in_domain(
+    action: &PlaybackAction,
+    disc: &Disc,
+    current_domain: MenuDomain,
+    current_menu_number: Option<usize>,
+) -> crate::Result<String> {
+    playback_action_to_dvd_command_in_context(
+        action,
+        disc,
+        DvdCommandContext::Menu {
+            domain: current_domain,
+            menu_number: current_menu_number,
+        },
+    )
+}
+
+fn playback_action_to_dvd_command_in_context(
+    action: &PlaybackAction,
+    disc: &Disc,
+    current_context: DvdCommandContext,
+) -> crate::Result<String> {
     match action {
         PlaybackAction::PlayTitle { title_id } => {
-            // Resolve title ID to 1-based dvdauthor index across all titlesets
-            let title_index = disc
-                .titlesets
-                .iter()
-                .flat_map(|ts| ts.titles.iter())
-                .position(|t| t.id == *title_id)
-                .map(|i| i + 1)
-                .unwrap_or(1);
-            format!("jump title {title_index}")
+            let Some((target_titleset_index, title_number, global_title_number)) =
+                resolve_title_target(disc, title_id)
+            else {
+                return Err(crate::Error::Build(format!(
+                    "Could not resolve title target \"{title_id}\""
+                )));
+            };
+
+            match current_context {
+                DvdCommandContext::Menu {
+                    domain: MenuDomain::Vmgm,
+                    ..
+                } => Ok(format!("jump title {global_title_number}")),
+                DvdCommandContext::Menu {
+                    domain: MenuDomain::Titleset(current_titleset_index),
+                    ..
+                }
+                | DvdCommandContext::Title {
+                    titleset_index: current_titleset_index,
+                } if current_titleset_index == target_titleset_index => {
+                    Ok(format!("jump title {title_number}"))
+                }
+                _ => Err(crate::Error::Build(format!(
+                    "Cross-titleset title jump to \"{title_id}\" is not allowed from this DVD context without jumppads"
+                ))),
+            }
         }
         PlaybackAction::PlayChapter {
             title_id,
             chapter_id,
         } => {
-            let title_index = disc
-                .titlesets
-                .iter()
-                .flat_map(|ts| ts.titles.iter())
-                .position(|t| t.id == *title_id)
-                .map(|i| i + 1)
-                .unwrap_or(1);
-            // Resolve chapter ID to 1-based index within the title
-            let chapter_index = disc
-                .titlesets
-                .iter()
-                .flat_map(|ts| ts.titles.iter())
-                .find(|t| t.id == *title_id)
-                .and_then(|t| t.chapters.iter().position(|c| c.id == *chapter_id))
-                .map(|i| i + 1)
-                .unwrap_or(1);
-            format!("jump title {title_index} chapter {chapter_index}")
+            let Some((target_titleset_index, title_number, global_title_number, chapter_number)) =
+                resolve_chapter_target(disc, title_id, chapter_id)
+            else {
+                return Err(crate::Error::Build(format!(
+                    "Could not resolve chapter target \"{title_id}:{chapter_id}\""
+                )));
+            };
+
+            match current_context {
+                DvdCommandContext::Menu {
+                    domain: MenuDomain::Vmgm,
+                    ..
+                } => Ok(format!(
+                    "jump title {global_title_number} chapter {chapter_number}"
+                )),
+                DvdCommandContext::Menu {
+                    domain: MenuDomain::Titleset(current_titleset_index),
+                    ..
+                }
+                | DvdCommandContext::Title {
+                    titleset_index: current_titleset_index,
+                } if current_titleset_index == target_titleset_index => {
+                    Ok(format!("jump title {title_number} chapter {chapter_number}"))
+                }
+                _ => Err(crate::Error::Build(format!(
+                    "Cross-titleset chapter jump to \"{title_id}:{chapter_id}\" is not allowed from this DVD context without jumppads"
+                ))),
+            }
         }
-        PlaybackAction::ShowMenu { menu_id: _ } => "call vmgm menu".to_string(),
-        PlaybackAction::Stop => "exit".to_string(),
+        PlaybackAction::ShowMenu { menu_id } => {
+            let Some((target_domain, target_menu_number)) = resolve_menu_target(disc, menu_id)
+            else {
+                return Ok(match current_context {
+                    DvdCommandContext::Title { .. } => "call vmgm menu".to_string(),
+                    DvdCommandContext::Menu { .. } => "jump vmgm menu".to_string(),
+                });
+            };
+
+            match current_context {
+                DvdCommandContext::Title { titleset_index } => match target_domain {
+                    MenuDomain::Vmgm => Ok(format!("call vmgm menu {target_menu_number}")),
+                    MenuDomain::Titleset(target_ts) if target_ts == titleset_index => {
+                        Ok(format!("call menu {target_menu_number}"))
+                    }
+                    MenuDomain::Titleset(target_ts) => Ok(format!(
+                        "call titleset {} menu {}",
+                        target_ts + 1,
+                        target_menu_number
+                    )),
+                },
+                DvdCommandContext::Menu {
+                    domain: current_domain,
+                    menu_number: current_menu_number,
+                } => match (current_domain, target_domain) {
+                    (MenuDomain::Vmgm, MenuDomain::Vmgm)
+                        if current_menu_number == Some(target_menu_number) =>
+                    {
+                        Ok("jump menu".to_string())
+                    }
+                    (MenuDomain::Vmgm, MenuDomain::Vmgm) => {
+                        Ok(format!("jump menu {target_menu_number}"))
+                    }
+                    (MenuDomain::Titleset(current_ts), MenuDomain::Titleset(target_ts))
+                        if current_ts == target_ts =>
+                    {
+                        Ok(format!("jump menu {target_menu_number}"))
+                    }
+                    (_, MenuDomain::Vmgm) => Ok(format!("jump vmgm menu {target_menu_number}")),
+                    (_, MenuDomain::Titleset(target_ts)) => Ok(format!(
+                        "jump titleset {} menu {}",
+                        target_ts + 1,
+                        target_menu_number
+                    )),
+                },
+            }
+        }
+        PlaybackAction::Stop => Ok("exit".to_string()),
     }
+}
+
+fn resolve_menu_target(disc: &Disc, menu_id: &str) -> Option<(MenuDomain, usize)> {
+    if let Some(index) = disc.global_menus.iter().position(|menu| menu.id == menu_id) {
+        return Some((MenuDomain::Vmgm, index + 1));
+    }
+
+    for (titleset_index, titleset) in disc.titlesets.iter().enumerate() {
+        if let Some(index) = titleset.menus.iter().position(|menu| menu.id == menu_id) {
+            return Some((MenuDomain::Titleset(titleset_index), index + 1));
+        }
+    }
+
+    None
+}
+
+fn resolve_title_target(disc: &Disc, title_id: &str) -> Option<(usize, usize, usize)> {
+    let mut global_title_number = 0;
+    for (titleset_index, titleset) in disc.titlesets.iter().enumerate() {
+        for (title_index, title) in titleset.titles.iter().enumerate() {
+            global_title_number += 1;
+            if title.id == title_id {
+                return Some((titleset_index, title_index + 1, global_title_number));
+            }
+        }
+    }
+
+    None
+}
+
+fn resolve_chapter_target(
+    disc: &Disc,
+    title_id: &str,
+    chapter_id: &str,
+) -> Option<(usize, usize, usize, usize)> {
+    let mut global_title_number = 0;
+    for (titleset_index, titleset) in disc.titlesets.iter().enumerate() {
+        if let Some((title_index, title)) = titleset
+            .titles
+            .iter()
+            .enumerate()
+            .find(|(_, title)| title.id == title_id)
+        {
+            global_title_number += title_index + 1;
+            if let Some(chapter_index) = title
+                .chapters
+                .iter()
+                .position(|chapter| chapter.id == chapter_id)
+            {
+                return Some((
+                    titleset_index,
+                    title_index + 1,
+                    global_title_number,
+                    chapter_index + 1,
+                ));
+            }
+        } else {
+            global_title_number += titleset.titles.len();
+        }
+    }
+
+    None
 }
 
 fn format_dvd_timestamp(seconds: f64) -> String {
@@ -751,6 +1449,103 @@ where
                     }
                 }
                 log_lines.push("  Workspace directories created.".to_string());
+            }
+            BuildJob::RenderMenu {
+                menu_id,
+                command,
+                output_path: _,
+                standard,
+                highlight_image_path,
+                select_image_path,
+                highlight_colour,
+                select_colour,
+                button_bounds,
+                ..
+            } => {
+                let render = MenuOverlayRender {
+                    ffmpeg_bin: &command[0],
+                    standard: *standard,
+                    menu_id,
+                    button_bounds,
+                };
+                let images = MenuOverlayImages {
+                    highlight_image_path,
+                    select_image_path,
+                    highlight_colour,
+                    select_colour,
+                };
+                if let Err(msg) = generate_menu_overlay_images(&render, &images) {
+                    log_lines.push(msg.clone());
+                    return BuildResult {
+                        success: false,
+                        output_directory: plan.output_directory.clone(),
+                        iso_path: None,
+                        log_lines,
+                        failed_job_index: Some(i),
+                        error_message: Some(msg),
+                    };
+                }
+
+                log_lines.push(format!("  $ {}", command.join(" ")));
+                match run_command(command) {
+                    Ok(output) => {
+                        if !output.is_empty() {
+                            log_lines.push(output);
+                        }
+                    }
+                    Err(msg) => {
+                        log_lines.push(msg.clone());
+                        return BuildResult {
+                            success: false,
+                            output_directory: plan.output_directory.clone(),
+                            iso_path: None,
+                            log_lines,
+                            failed_job_index: Some(i),
+                            error_message: Some(msg),
+                        };
+                    }
+                }
+            }
+            BuildJob::ComposeMenuHighlights {
+                output_path,
+                input_path,
+                spumux_xml,
+                command,
+                ..
+            } => {
+                let xml_path = PathBuf::from(output_path).with_extension("xml");
+                if let Err(e) = std::fs::write(&xml_path, spumux_xml) {
+                    let msg = format!("Failed to write spumux XML: {e}");
+                    log_lines.push(msg.clone());
+                    return BuildResult {
+                        success: false,
+                        output_directory: plan.output_directory.clone(),
+                        iso_path: None,
+                        log_lines,
+                        failed_job_index: Some(i),
+                        error_message: Some(msg),
+                    };
+                }
+                log_lines.push(format!("  Wrote {}", xml_path.display()));
+
+                match run_spumux_command(command, input_path, output_path) {
+                    Ok(output) => {
+                        if !output.is_empty() {
+                            log_lines.push(output);
+                        }
+                    }
+                    Err(msg) => {
+                        log_lines.push(msg.clone());
+                        return BuildResult {
+                            success: false,
+                            output_directory: plan.output_directory.clone(),
+                            iso_path: None,
+                            log_lines,
+                            failed_job_index: Some(i),
+                            error_message: Some(msg),
+                        };
+                    }
+                }
             }
             BuildJob::AuthorDvd {
                 xml_path, command, ..
@@ -895,6 +1690,122 @@ fn run_command(args: &[String]) -> std::result::Result<String, String> {
     }
 }
 
+fn run_spumux_command(
+    args: &[String],
+    input_path: &str,
+    output_path: &str,
+) -> std::result::Result<String, String> {
+    if args.is_empty() {
+        return Err("Empty spumux command".to_string());
+    }
+
+    let input = std::fs::File::open(input_path)
+        .map_err(|e| format!("Failed to open spumux input {input_path}: {e}"))?;
+    let output = std::fs::File::create(output_path)
+        .map_err(|e| format!("Failed to create spumux output {output_path}: {e}"))?;
+
+    let child = Command::new(&args[0])
+        .args(&args[1..])
+        .stdin(Stdio::from(input))
+        .stdout(Stdio::from(output))
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("Failed to run {}: {}", args[0], e))?;
+
+    let output = child
+        .wait_with_output()
+        .map_err(|e| format!("Failed waiting for {}: {}", args[0], e))?;
+    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+
+    if output.status.success() {
+        Ok(stderr)
+    } else {
+        Err(format!(
+            "{} exited with status {}\n{}",
+            args[0], output.status, stderr
+        ))
+    }
+}
+
+struct MenuOverlayRender<'a> {
+    ffmpeg_bin: &'a str,
+    standard: VideoStandard,
+    menu_id: &'a str,
+    button_bounds: &'a [MenuOverlayButton],
+}
+
+struct MenuOverlayImages<'a> {
+    highlight_image_path: &'a str,
+    select_image_path: &'a str,
+    highlight_colour: &'a str,
+    select_colour: &'a str,
+}
+
+fn generate_menu_overlay_images(
+    render: &MenuOverlayRender<'_>,
+    images: &MenuOverlayImages<'_>,
+) -> std::result::Result<(), String> {
+    render_menu_overlay_image(
+        render,
+        images.highlight_image_path,
+        images.highlight_colour,
+        "highlight",
+    )?;
+    render_menu_overlay_image(
+        render,
+        images.select_image_path,
+        images.select_colour,
+        "select",
+    )?;
+    Ok(())
+}
+
+fn render_menu_overlay_image(
+    render: &MenuOverlayRender<'_>,
+    output_path: &str,
+    colour: &str,
+    kind: &str,
+) -> std::result::Result<(), String> {
+    let (width, height) = VideoRaster::FullD1.resolution(render.standard);
+    let mut vf_parts = vec!["format=rgba".to_string()];
+    for button in render.button_bounds {
+        let width = (button.x1 - button.x0).max(1);
+        let height = (button.y1 - button.y0).max(1);
+        let border_thickness = ((width.min(height) as f64) * 0.08).round() as i32;
+        vf_parts.push(format!(
+            "drawbox=x={}:y={}:w={}:h={}:color={}:t={}",
+            button.x0,
+            button.y0,
+            width,
+            height,
+            colour,
+            border_thickness.clamp(2, 6)
+        ));
+    }
+
+    let args = vec![
+        render.ffmpeg_bin.to_string(),
+        "-hide_banner".to_string(),
+        "-y".to_string(),
+        "-f".to_string(),
+        "lavfi".to_string(),
+        "-i".to_string(),
+        format!("color=c=black@0.0:s={}x{}:d=1", width, height),
+        "-frames:v".to_string(),
+        "1".to_string(),
+        "-vf".to_string(),
+        vf_parts.join(","),
+        output_path.to_string(),
+    ];
+
+    run_command(&args).map(|_| ()).map_err(|msg| {
+        format!(
+            "Failed to render {kind} overlay image for menu \"{}\": {msg}",
+            render.menu_id
+        )
+    })
+}
+
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 fn sanitise_filename(name: &str) -> String {
@@ -1032,6 +1943,7 @@ mod tests {
                 bitrate_bps: None,
                 color_transfer: None,
                 color_primaries: None,
+                dolby_vision_profile: None,
             }],
             audio_streams: vec![AudioStreamInfo {
                 index: 1,
@@ -1044,7 +1956,9 @@ mod tests {
             subtitle_streams: vec![],
             compatibility: Some(CompatibilityAssessment::ReEncodeRequired),
             fingerprint: None,
+            warnings: vec![],
             thumbnail_path: None,
+            thumbnail_error: None,
         };
 
         let title = Title {
@@ -1095,6 +2009,130 @@ mod tests {
         project
     }
 
+    fn test_menu() -> Menu {
+        test_menu_with_action(
+            "menu-1",
+            "Main Menu",
+            PlaybackAction::PlayTitle {
+                title_id: "title-1".to_string(),
+            },
+        )
+    }
+
+    fn test_menu_with_action(menu_id: &str, menu_name: &str, action: PlaybackAction) -> Menu {
+        Menu {
+            id: menu_id.to_string(),
+            name: menu_name.to_string(),
+            background_asset_id: None,
+            buttons: vec![MenuButton {
+                id: "btn-1".to_string(),
+                label: "Play".to_string(),
+                bounds: ButtonBounds {
+                    x: 120.0,
+                    y: 320.0,
+                    width: 240.0,
+                    height: 48.0,
+                },
+                action: Some(action),
+                nav_up: None,
+                nav_down: None,
+                nav_left: None,
+                nav_right: None,
+                highlight_mode: HighlightMode::Static,
+                highlight_keyframes: vec![],
+                video_asset_id: None,
+            }],
+            default_button_id: Some("btn-1".to_string()),
+            highlight_colours: MenuHighlightColours::default(),
+            background_mode: BackgroundMode::Still,
+            motion_duration_secs: None,
+            motion_audio_asset_id: None,
+            motion_loop_count: 0,
+            timeout_action: None,
+        }
+    }
+
+    fn add_second_titleset(project: &mut SpindleProjectFile) {
+        let second_asset = Asset {
+            id: "asset-2".to_string(),
+            file_name: "bonus.mp4".to_string(),
+            source_path: "/tmp/bonus.mp4".to_string(),
+            file_size_bytes: Some(500_000_000),
+            duration_secs: Some(1200.0),
+            container_format: Some("mp4".to_string()),
+            video_streams: vec![VideoStreamInfo {
+                index: 0,
+                codec: "h264".to_string(),
+                width: 1440,
+                height: 1080,
+                frame_rate: Some(29.97),
+                aspect_ratio: Some("4:3".to_string()),
+                scan_type: None,
+                bitrate_bps: None,
+                color_transfer: None,
+                color_primaries: None,
+                dolby_vision_profile: None,
+            }],
+            audio_streams: vec![AudioStreamInfo {
+                index: 1,
+                codec: "aac".to_string(),
+                channels: 2,
+                sample_rate: 48000,
+                language: Some("eng".to_string()),
+                bitrate_bps: None,
+            }],
+            subtitle_streams: vec![],
+            compatibility: Some(CompatibilityAssessment::ReEncodeRequired),
+            fingerprint: None,
+            warnings: vec![],
+            thumbnail_path: None,
+            thumbnail_error: None,
+        };
+
+        let second_title = Title {
+            id: "title-2".to_string(),
+            name: "Bonus Feature".to_string(),
+            source_asset_id: Some("asset-2".to_string()),
+            video_mapping: Some(VideoTrackMapping {
+                source_stream_index: 0,
+                copy_mode: CopyMode::ReEncode,
+            }),
+            video_output_profile: Some(VideoOutputProfile {
+                raster: VideoRaster::FullD1,
+                aspect: AspectMode::FourByThree,
+            }),
+            audio_mappings: vec![AudioTrackMapping {
+                id: "am-2".to_string(),
+                source_stream_index: 1,
+                output_target: AudioOutputTarget::Ac3,
+                copy_mode: CopyMode::ReEncode,
+                label: "English".to_string(),
+                language: "eng".to_string(),
+                order_index: 0,
+                is_default: true,
+            }],
+            subtitle_mappings: vec![],
+            chapters: vec![ChapterPoint {
+                id: "ch-3".to_string(),
+                name: "Bonus Chapter".to_string(),
+                timestamp_secs: 0.0,
+                order_index: 0,
+            }],
+            end_action: Some(PlaybackAction::Stop),
+            order_index: 0,
+        };
+
+        let second_titleset = Titleset {
+            id: "titleset-2".to_string(),
+            name: "Bonus".to_string(),
+            titles: vec![second_title],
+            menus: vec![],
+        };
+
+        project.assets.push(second_asset);
+        project.disc.titlesets.push(second_titleset);
+    }
+
     #[test]
     fn build_plan_generates_correct_job_count() {
         let project = test_project();
@@ -1119,6 +2157,37 @@ mod tests {
     }
 
     #[test]
+    fn build_plan_includes_menu_jobs_when_menu_exists() {
+        let mut project = test_project();
+        project.disc.global_menus.push(test_menu());
+
+        let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+
+        assert!(plan
+            .jobs
+            .iter()
+            .any(|job| matches!(job, BuildJob::RenderMenu { .. })));
+        assert!(plan
+            .jobs
+            .iter()
+            .any(|job| matches!(job, BuildJob::ComposeMenuHighlights { .. })));
+        assert_eq!(plan.summary.menus_count, 1);
+    }
+
+    #[test]
+    fn dvdauthor_xml_contains_authored_menu_vob_and_button() {
+        let mut project = test_project();
+        project.disc.global_menus.push(test_menu());
+
+        let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+
+        assert!(plan.dvdauthor_xml.contains("menu-1.mpg"));
+        assert!(plan
+            .dvdauthor_xml
+            .contains("<button>jump title 1;</button>"));
+    }
+
+    #[test]
     fn dvdauthor_xml_contains_chapters() {
         let project = test_project();
         let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
@@ -1137,6 +2206,21 @@ mod tests {
     }
 
     #[test]
+    fn title_post_uses_call_for_menu_actions() {
+        let mut project = test_project();
+        project.disc.global_menus.push(test_menu());
+        project.disc.titlesets[0].titles[0].end_action = Some(PlaybackAction::ShowMenu {
+            menu_id: "menu-1".to_string(),
+        });
+
+        let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+
+        assert!(plan
+            .dvdauthor_xml
+            .contains("<post>\n          call vmgm menu 1;\n        </post>"));
+    }
+
+    #[test]
     fn dvdauthor_xml_contains_video_format() {
         let project = test_project();
         let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
@@ -1152,6 +2236,191 @@ mod tests {
             "dvdauthor XML must declare aspect ratio\n{}",
             plan.dvdauthor_xml
         );
+    }
+
+    #[test]
+    fn vmgm_menu_button_to_same_domain_menu_uses_jump_menu() {
+        let mut project = test_project();
+        project.disc.global_menus.push(test_menu_with_action(
+            "menu-1",
+            "Main Menu",
+            PlaybackAction::ShowMenu {
+                menu_id: "menu-2".to_string(),
+            },
+        ));
+        project.disc.global_menus.push(test_menu_with_action(
+            "menu-2",
+            "Scene Menu",
+            PlaybackAction::PlayTitle {
+                title_id: "title-1".to_string(),
+            },
+        ));
+
+        let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+
+        assert!(plan.dvdauthor_xml.contains("<button>jump menu 2;</button>"));
+    }
+
+    #[test]
+    fn vmgm_menu_button_to_titleset_menu_uses_jump_titleset_menu() {
+        let mut project = test_project();
+        project.disc.global_menus.push(test_menu_with_action(
+            "menu-1",
+            "Main Menu",
+            PlaybackAction::ShowMenu {
+                menu_id: "menu-2".to_string(),
+            },
+        ));
+        project.disc.titlesets[0].menus.push(test_menu_with_action(
+            "menu-2",
+            "Titleset Menu",
+            PlaybackAction::PlayTitle {
+                title_id: "title-1".to_string(),
+            },
+        ));
+
+        let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+
+        assert!(plan
+            .dvdauthor_xml
+            .contains("<button>jump titleset 1 menu 1;</button>"));
+    }
+
+    #[test]
+    fn titleset_menu_button_to_vmgm_menu_uses_jump_vmgm_menu() {
+        let mut project = test_project();
+        project.disc.global_menus.push(test_menu_with_action(
+            "menu-1",
+            "Main Menu",
+            PlaybackAction::PlayTitle {
+                title_id: "title-1".to_string(),
+            },
+        ));
+        project.disc.titlesets[0].menus.push(test_menu_with_action(
+            "menu-2",
+            "Episode Menu",
+            PlaybackAction::ShowMenu {
+                menu_id: "menu-1".to_string(),
+            },
+        ));
+
+        let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+
+        assert!(plan
+            .dvdauthor_xml
+            .contains("<button>jump vmgm menu 1;</button>"));
+    }
+
+    #[test]
+    fn title_post_to_same_titleset_menu_uses_call_menu() {
+        let mut project = test_project();
+        project.disc.titlesets[0].menus.push(test_menu_with_action(
+            "menu-2",
+            "Episode Menu",
+            PlaybackAction::PlayTitle {
+                title_id: "title-1".to_string(),
+            },
+        ));
+        project.disc.titlesets[0].titles[0].end_action = Some(PlaybackAction::ShowMenu {
+            menu_id: "menu-2".to_string(),
+        });
+
+        let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+
+        assert!(plan
+            .dvdauthor_xml
+            .contains("<post>\n          call menu 1;\n        </post>"));
+    }
+
+    #[test]
+    fn title_post_to_other_titleset_menu_uses_call_titleset_menu() {
+        let mut project = test_project();
+        add_second_titleset(&mut project);
+        project.disc.titlesets[1].menus.push(test_menu_with_action(
+            "menu-2",
+            "Bonus Menu",
+            PlaybackAction::PlayTitle {
+                title_id: "title-2".to_string(),
+            },
+        ));
+        project.disc.titlesets[0].titles[0].end_action = Some(PlaybackAction::ShowMenu {
+            menu_id: "menu-2".to_string(),
+        });
+
+        let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+
+        assert!(plan
+            .dvdauthor_xml
+            .contains("<post>\n          call titleset 2 menu 1;\n        </post>"));
+    }
+
+    #[test]
+    fn vmgm_play_title_uses_titleset_qualified_target() {
+        let mut project = test_project();
+        add_second_titleset(&mut project);
+
+        let command = playback_action_to_dvd_command(
+            &PlaybackAction::PlayTitle {
+                title_id: "title-2".to_string(),
+            },
+            &project.disc,
+        )
+        .unwrap();
+
+        assert_eq!(command, "jump title 2");
+    }
+
+    #[test]
+    fn titleset_menu_play_chapter_in_same_titleset_uses_local_title_numbering() {
+        let project = test_project();
+
+        let command = playback_action_to_dvd_command_in_domain(
+            &PlaybackAction::PlayChapter {
+                title_id: "title-1".to_string(),
+                chapter_id: "ch-2".to_string(),
+            },
+            &project.disc,
+            MenuDomain::Titleset(0),
+            Some(1),
+        )
+        .unwrap();
+
+        assert_eq!(command, "jump title 1 chapter 2");
+    }
+
+    #[test]
+    fn titleset_menu_play_chapter_in_other_titleset_uses_qualified_target() {
+        let mut project = test_project();
+        add_second_titleset(&mut project);
+
+        let command = playback_action_to_dvd_command_in_domain(
+            &PlaybackAction::PlayChapter {
+                title_id: "title-2".to_string(),
+                chapter_id: "ch-3".to_string(),
+            },
+            &project.disc,
+            MenuDomain::Titleset(0),
+            Some(1),
+        );
+
+        assert!(command.is_err());
+    }
+
+    #[test]
+    fn titleset_menu_play_title_in_other_titleset_is_rejected() {
+        let mut project = test_project();
+        add_second_titleset(&mut project);
+
+        let command = playback_action_to_dvd_command_in_domain(
+            &PlaybackAction::PlayTitle {
+                title_id: "title-2".to_string(),
+            },
+            &project.disc,
+            MenuDomain::Titleset(0),
+            Some(1),
+        );
+
+        assert!(command.is_err());
     }
 
     #[test]
@@ -1177,8 +2446,8 @@ mod tests {
         assert!(vf_val.contains("scale="), "expected scale= in vf filter");
         assert!(vf_val.contains("pad="), "expected pad= in vf filter");
         assert!(
-            vf_val.contains("setsar=1"),
-            "expected setsar=1 in vf filter"
+            vf_val.contains("setsar=32/27"),
+            "expected NTSC 16:9 anamorphic SAR in vf filter"
         );
     }
 
@@ -1217,9 +2486,68 @@ mod tests {
 
         let cmd = transcode.unwrap().command().unwrap();
         assert!(cmd.contains(&"mpeg2video".to_string()));
-        // Resolution is now in the vf filter rather than a bare -s flag
-        let vf_arg = cmd.iter().find(|a| a.starts_with("scale=720:480:"));
+        // Resolution is now expressed in the anamorphic-aware scale filter.
+        let vf_arg = cmd.iter().find(|a| a.starts_with("scale="));
         assert!(vf_arg.is_some(), "expected scale=720:480 in -vf filter");
+    }
+
+    #[test]
+    fn menu_render_command_contains_button_label_text() {
+        let mut project = test_project();
+        project.disc.global_menus.push(test_menu_with_action(
+            "menu-1",
+            "Main Menu",
+            PlaybackAction::PlayTitle {
+                title_id: "title-1".to_string(),
+            },
+        ));
+        project.disc.global_menus[0].buttons[0].label = "This is a Button".to_string();
+
+        let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+        let render_job = plan
+            .jobs
+            .iter()
+            .find(|job| matches!(job, BuildJob::RenderMenu { .. }))
+            .unwrap();
+        let cmd = render_job.command().unwrap();
+        let vf_arg = cmd
+            .iter()
+            .skip_while(|arg| *arg != "-vf")
+            .nth(1)
+            .expect("-vf value");
+
+        assert!(vf_arg.contains("drawtext=text='This is a Button'"));
+        assert!(vf_arg.contains("font='Sans'"));
+    }
+
+    #[test]
+    fn ffmpeg_uses_anamorphic_letterbox_for_scope_sources() {
+        let mut project = test_project();
+        project.assets[0].video_streams[0].width = 3840;
+        project.assets[0].video_streams[0].height = 1606;
+        project.assets[0].video_streams[0].aspect_ratio = Some("1920:803".to_string());
+
+        let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+        let transcode = plan
+            .jobs
+            .iter()
+            .find(|j| matches!(j, BuildJob::TranscodeTitle { .. }))
+            .unwrap();
+        let cmd = transcode.command().unwrap();
+        let vf_arg = cmd
+            .iter()
+            .skip_while(|a| *a != "-vf")
+            .nth(1)
+            .expect("-vf value");
+
+        assert!(
+            vf_arg.contains("scale=720:356"),
+            "expected scope content to use anamorphic-aware height, got: {vf_arg}"
+        );
+        assert!(
+            vf_arg.contains("pad=720:480:0:62"),
+            "expected centered letterbox padding, got: {vf_arg}"
+        );
     }
 
     #[test]

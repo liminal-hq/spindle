@@ -35,6 +35,7 @@
 	--bg-panel: #111116;
 	--bg-card: rgba(20, 20, 25, 0.55);
 	--bg-card-hover: rgba(30, 30, 38, 0.7);
+	--bg-deep: rgba(255, 255, 255, 0.03);
 	--bg-input: rgba(20, 20, 28, 0.6);
 	--bg-modal: #16161c;
 	--bg-tooltip: #1e1e26;

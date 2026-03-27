@@ -3,7 +3,7 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: MIT
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { useProjectStore } from '../store/project-store';
 import type { Asset, CompatibilityAssessment } from '../types/project';
@@ -106,11 +106,7 @@ function AssetRow({
 			tabIndex={0}
 			onKeyDown={(e) => e.key === 'Enter' && onSelect()}
 		>
-			{asset.thumbnailPath ? (
-				<img className="assets__row-thumb" src={convertFileSrc(asset.thumbnailPath)} alt="" />
-			) : (
-				<div className="assets__row-thumb assets__row-thumb--placeholder" />
-			)}
+			<AssetThumbnail asset={asset} variant="row" />
 			<div className="assets__row-main">
 				<span className="assets__row-name">{asset.fileName}</span>
 				<div className="assets__row-meta text-muted">
@@ -118,6 +114,9 @@ function AssetRow({
 					{asset.containerFormat && <span>{asset.containerFormat}</span>}
 					{asset.fileSizeBytes != null && <span>{formatBytes(asset.fileSizeBytes)}</span>}
 				</div>
+				{asset.warnings.length > 0 && (
+					<div className="assets__row-warning">{asset.warnings[0].message}</div>
+				)}
 			</div>
 			<div className="assets__row-badges">
 				{asset.videoStreams.length > 0 && (
@@ -130,6 +129,7 @@ function AssetRow({
 					<span className="badge badge--neutral">{asset.subtitleStreams.length} sub</span>
 				)}
 				<CompatibilityBadge compat={asset.compatibility} />
+				{asset.warnings.length > 0 && <span className="badge badge--reencode">Warning</span>}
 			</div>
 		</div>
 	);
@@ -146,8 +146,8 @@ function AssetDetail({
 }) {
 	return (
 		<div className="assets__detail card">
-			<div className="card__header">
-				<h3 className="card__title">{asset.fileName}</h3>
+			<div className="card__header assets__detail-header">
+				<h3 className="card__title assets__detail-title">{asset.fileName}</h3>
 				<div className="assets__detail-actions">
 					<button className="btn btn--sm" onClick={onRelink}>
 						Relink…
@@ -158,13 +158,17 @@ function AssetDetail({
 				</div>
 			</div>
 
-			{asset.thumbnailPath && (
-				<img
-					className="assets__detail-thumb"
-					src={convertFileSrc(asset.thumbnailPath)}
-					alt={`Thumbnail for ${asset.fileName}`}
-				/>
+			{asset.warnings.length > 0 && (
+				<div className="assets__detail-warnings">
+					{asset.warnings.map((warning, index) => (
+						<p key={warningKey(warning, index)} className="assets__detail-warning">
+							{warning.message}
+						</p>
+					))}
+				</div>
 			)}
+
+			<AssetThumbnail asset={asset} variant="detail" />
 
 			<div className="assets__detail-section">
 				<h4 className="assets__detail-heading">File Info</h4>
@@ -244,6 +248,47 @@ function AssetDetail({
 	);
 }
 
+function AssetThumbnail({ asset, variant }: { asset: Asset; variant: 'row' | 'detail' }) {
+	const [loadFailed, setLoadFailed] = useState(false);
+
+	useEffect(() => {
+		setLoadFailed(false);
+	}, [asset.id, asset.thumbnailPath, asset.thumbnailError]);
+
+	const className = variant === 'row' ? 'assets__row-thumb' : 'assets__detail-thumb';
+	const canShowImage = Boolean(asset.thumbnailPath) && !loadFailed;
+	const fallbackLabel =
+		asset.thumbnailError ?? (loadFailed ? 'Preview could not be loaded.' : 'No preview available.');
+
+	if (canShowImage && asset.thumbnailPath) {
+		return (
+			<img
+				className={className}
+				src={convertFileSrc(asset.thumbnailPath)}
+				alt={variant === 'detail' ? `Thumbnail for ${asset.fileName}` : ''}
+				onError={() => setLoadFailed(true)}
+			/>
+		);
+	}
+
+	if (variant === 'row') {
+		return (
+			<div className="assets__row-thumb assets__row-thumb--placeholder">
+				<span>{asset.thumbnailError || loadFailed ? '!' : 'No preview'}</span>
+			</div>
+		);
+	}
+
+	return (
+		<div className="assets__detail-thumb assets__detail-thumb--placeholder">
+			<div className="assets__detail-thumb-copy">
+				<strong>Preview unavailable</strong>
+				<p>{fallbackLabel}</p>
+			</div>
+		</div>
+	);
+}
+
 function CompatibilityBadge({ compat }: { compat: CompatibilityAssessment | null }) {
 	if (!compat) return <span className="badge badge--neutral">Pending</span>;
 
@@ -262,6 +307,10 @@ function CompatibilityBadge({ compat }: { compat: CompatibilityAssessment | null
 	};
 
 	return <span className={`badge ${classMap[compat]}`}>{labelMap[compat]}</span>;
+}
+
+function warningKey(warning: Asset['warnings'][number], index: number): string {
+	return `${warning.code}:${warning.message}:${index}`;
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
