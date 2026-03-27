@@ -201,6 +201,7 @@ Someone who understands FFmpeg and DVD authoring basics and wants a better front
 - Support future compliance and QA reporting for authored output.
 - Ship a Linux-first desktop release pipeline for the Tauri shell, including `AppImage`, `.deb`, and `.rpm` packages plus a consolidated `SHA256SUMS` manifest.
 - Keep release versioning coordinated across the workspace package, desktop package, Tauri config, and release-facing Rust crates so published tags map cleanly to bundled outputs.
+- Express Linux package-manager metadata for host `ffmpeg` requirements where the target package format supports it, while keeping host-tool detection in the app for portable bundle formats such as `AppImage`.
 
 ---
 

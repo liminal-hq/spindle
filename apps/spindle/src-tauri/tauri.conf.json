@@ -31,6 +31,14 @@
 	"bundle": {
 		"active": true,
 		"targets": "all",
+		"linux": {
+			"deb": {
+				"depends": ["ffmpeg"]
+			},
+			"rpm": {
+				"recommends": ["(ffmpeg or ffmpeg-free)"]
+			}
+		},
 		"category": "Video",
 		"publisher": "Liminal HQ",
 		"shortDescription": "A desktop optical-disc authoring workstation for DVD projects.",
