@@ -341,7 +341,7 @@ fn render_menu_overlay_image(
         let width = (button.x1 - button.x0).max(1);
         let height = (button.y1 - button.y0).max(1);
         vf_parts.push(format!(
-            "drawbox=x={}:y={}:w={}:h={}:color={}:t=fill",
+            "drawbox=x={}:y={}:w={}:h={}:color={}:t=2",
             button.x0, button.y0, width, height, colour
         ));
     }
@@ -366,4 +366,64 @@ fn render_menu_overlay_image(
             render.menu_id
         )
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use std::cell::RefCell;
+
+    use crate::models::VideoStandard;
+
+    use super::{generate_menu_overlay_images, MenuOverlayImages, MenuOverlayRender};
+    use crate::build::types::MenuOverlayButton;
+
+    #[test]
+    fn overlay_images_use_outline_boxes() {
+        let render = MenuOverlayRender {
+            ffmpeg_bin: "ffmpeg",
+            standard: VideoStandard::Ntsc,
+            menu_id: "menu-1",
+            button_bounds: &[MenuOverlayButton {
+                x0: 120,
+                y0: 320,
+                x1: 360,
+                y1: 368,
+            }],
+        };
+        let images = MenuOverlayImages {
+            highlight_image_path: "/tmp/highlight.png",
+            select_image_path: "/tmp/select.png",
+            highlight_colour: "#ffaa40",
+            select_colour: "#ffffff",
+        };
+        let calls = RefCell::new(Vec::<Vec<String>>::new());
+
+        generate_menu_overlay_images(&render, &images, |args| {
+            calls.borrow_mut().push(args.to_vec());
+            Ok(String::new())
+        })
+        .unwrap();
+
+        let calls = calls.into_inner();
+        assert_eq!(calls.len(), 2);
+        for args in calls {
+            let vf_arg = args
+                .iter()
+                .skip_while(|arg| *arg != "-vf")
+                .nth(1)
+                .expect("-vf value");
+            assert!(
+                vf_arg.contains("drawbox=x=120:y=320:w=240:h=48"),
+                "expected button outline drawbox in filter: {vf_arg}"
+            );
+            assert!(
+                vf_arg.contains(":t=2"),
+                "expected transparent-centre outline box in filter: {vf_arg}"
+            );
+            assert!(
+                !vf_arg.contains(":t=fill"),
+                "did not expect solid overlay fill in filter: {vf_arg}"
+            );
+        }
+    }
 }
