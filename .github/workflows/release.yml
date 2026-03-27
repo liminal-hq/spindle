@@ -89,6 +89,11 @@ jobs:
           else
             RELEASE_VERSION="$(./scripts/check-release-versions.sh --current-version)"
             TAG_NAME="v${RELEASE_VERSION}"
+
+            if git rev-parse -q --verify "refs/tags/${TAG_NAME}" >/dev/null; then
+              CHECKOUT_REF="${TAG_NAME}"
+              RELEASE_TARGET="$(git rev-list -n 1 "${TAG_NAME}")"
+            fi
           fi
 
           if ! git merge-base --is-ancestor "${RELEASE_TARGET}" "origin/main"; then

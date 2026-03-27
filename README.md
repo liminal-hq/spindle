@@ -69,7 +69,7 @@ The helper script expects a clean working tree and creates `chore/release-vX.Y.Z
 
 ## Release publishing
 
-The release workflow lives in [`.github/workflows/release.yml`](/home/scott/source/liminal-hq/spindle/.github/workflows/release.yml).
+The release workflow lives in [`.github/workflows/release.yml`](.github/workflows/release.yml).
 
 Current release scope:
 
