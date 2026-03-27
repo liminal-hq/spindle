@@ -35,7 +35,10 @@ pub struct BuildSummary {
 #[serde(rename_all = "camelCase", tag = "type")]
 pub enum BuildJob {
     /// Create the working directory structure.
-    PrepareWorkspace { directories: Vec<String> },
+    PrepareWorkspace {
+        reset_directories: Vec<String>,
+        directories: Vec<String>,
+    },
     /// Transcode a title's video and audio to DVD-compliant MPEG-2 PS.
     TranscodeTitle {
         title_id: String,

@@ -55,6 +55,13 @@ impl BuildPaths {
         ]
     }
 
+    fn reset_directories(&self) -> Vec<String> {
+        vec![
+            self.work_dir.display().to_string(),
+            self.video_ts_dir.display().to_string(),
+        ]
+    }
+
     fn title_video_path(&self, title_id: &str) -> PathBuf {
         self.titles_dir
             .join(format!("{}.mpg", sanitise_filename(title_id)))
@@ -118,6 +125,7 @@ pub fn generate_build_plan(
     let mut jobs = Vec::new();
 
     jobs.push(BuildJob::PrepareWorkspace {
+        reset_directories: paths.reset_directories(),
         directories: paths.workspace_directories(),
     });
 

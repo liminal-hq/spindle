@@ -3,7 +3,7 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: MIT
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -57,7 +57,17 @@ where
         log_lines.push(format!("[{}/{}] {}", i + 1, total, label));
 
         match job {
-            BuildJob::PrepareWorkspace { directories } => {
+            BuildJob::PrepareWorkspace {
+                reset_directories,
+                directories,
+            } => {
+                for dir in reset_directories {
+                    if let Err(e) = reset_workspace_directory(dir) {
+                        let msg = format!("Failed to reset directory {dir}: {e}");
+                        log_lines.push(msg.clone());
+                        return failure(plan, log_lines, i, msg);
+                    }
+                }
                 for dir in directories {
                     if let Err(e) = std::fs::create_dir_all(dir) {
                         let msg = format!("Failed to create directory {dir}: {e}");
@@ -65,7 +75,7 @@ where
                         return failure(plan, log_lines, i, msg);
                     }
                 }
-                log_lines.push("  Workspace directories created.".to_string());
+                log_lines.push("  Workspace directories reset and created.".to_string());
             }
             BuildJob::RenderMenu {
                 menu_id,
@@ -233,6 +243,14 @@ fn failure(
     }
 }
 
+fn reset_workspace_directory(path: &str) -> std::io::Result<()> {
+    let path = Path::new(path);
+    if path.exists() {
+        std::fs::remove_dir_all(path)?;
+    }
+    Ok(())
+}
+
 fn run_command(args: &[String]) -> std::result::Result<String, String> {
     if args.is_empty() {
         return Err("Empty command".to_string());
@@ -306,5 +324,46 @@ fn run_spumux_command(
             "{} exited with status {}\n{}",
             args[0], output.status, stderr
         ))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::fs;
+    use std::path::PathBuf;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    use super::reset_workspace_directory;
+
+    fn unique_temp_dir(name: &str) -> PathBuf {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock before unix epoch")
+            .as_nanos();
+        std::env::temp_dir().join(format!("spindle-{name}-{}-{nanos}", std::process::id()))
+    }
+
+    #[test]
+    fn reset_workspace_directory_removes_stale_contents() {
+        let output_dir = unique_temp_dir("build-reset");
+        let workspace_dir = output_dir.join("_spindle_work");
+        let nested_dir = workspace_dir.join("menus");
+        let stale_file = nested_dir.join("stale.txt");
+
+        fs::create_dir_all(&nested_dir).unwrap();
+        fs::write(&stale_file, "stale").unwrap();
+
+        reset_workspace_directory(workspace_dir.to_str().unwrap()).unwrap();
+
+        assert!(
+            !workspace_dir.exists(),
+            "expected workspace directory to be removed"
+        );
+        assert!(
+            output_dir.exists(),
+            "expected parent output directory to remain"
+        );
+
+        fs::remove_dir_all(&output_dir).unwrap();
     }
 }
