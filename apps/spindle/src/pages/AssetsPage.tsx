@@ -160,8 +160,8 @@ function AssetDetail({
 
 			{asset.warnings.length > 0 && (
 				<div className="assets__detail-warnings">
-					{asset.warnings.map((warning) => (
-						<p key={warning.code} className="assets__detail-warning">
+					{asset.warnings.map((warning, index) => (
+						<p key={warningKey(warning, index)} className="assets__detail-warning">
 							{warning.message}
 						</p>
 					))}
@@ -248,18 +248,12 @@ function AssetDetail({
 	);
 }
 
-function AssetThumbnail({
-	asset,
-	variant,
-}: {
-	asset: Asset;
-	variant: 'row' | 'detail';
-}) {
+function AssetThumbnail({ asset, variant }: { asset: Asset; variant: 'row' | 'detail' }) {
 	const [loadFailed, setLoadFailed] = useState(false);
 
 	useEffect(() => {
 		setLoadFailed(false);
-	}, [asset.id, asset.thumbnailPath]);
+	}, [asset.id, asset.thumbnailPath, asset.thumbnailError]);
 
 	const className = variant === 'row' ? 'assets__row-thumb' : 'assets__detail-thumb';
 	const canShowImage = Boolean(asset.thumbnailPath) && !loadFailed;
@@ -313,6 +307,10 @@ function CompatibilityBadge({ compat }: { compat: CompatibilityAssessment | null
 	};
 
 	return <span className={`badge ${classMap[compat]}`}>{labelMap[compat]}</span>;
+}
+
+function warningKey(warning: Asset['warnings'][number], index: number): string {
+	return `${warning.code}:${warning.message}:${index}`;
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────

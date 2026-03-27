@@ -1462,16 +1462,19 @@ where
                 button_bounds,
                 ..
             } => {
-                if let Err(msg) = generate_menu_overlay_images(
-                    &command[0],
-                    *standard,
+                let render = MenuOverlayRender {
+                    ffmpeg_bin: &command[0],
+                    standard: *standard,
                     menu_id,
+                    button_bounds,
+                };
+                let images = MenuOverlayImages {
                     highlight_image_path,
                     select_image_path,
                     highlight_colour,
                     select_colour,
-                    button_bounds,
-                ) {
+                };
+                if let Err(msg) = generate_menu_overlay_images(&render, &images) {
                     log_lines.push(msg.clone());
                     return BuildResult {
                         success: false,
@@ -1724,49 +1727,48 @@ fn run_spumux_command(
     }
 }
 
-fn generate_menu_overlay_images(
-    ffmpeg_bin: &str,
+struct MenuOverlayRender<'a> {
+    ffmpeg_bin: &'a str,
     standard: VideoStandard,
-    menu_id: &str,
-    highlight_image_path: &str,
-    select_image_path: &str,
-    highlight_colour: &str,
-    select_colour: &str,
-    button_bounds: &[MenuOverlayButton],
+    menu_id: &'a str,
+    button_bounds: &'a [MenuOverlayButton],
+}
+
+struct MenuOverlayImages<'a> {
+    highlight_image_path: &'a str,
+    select_image_path: &'a str,
+    highlight_colour: &'a str,
+    select_colour: &'a str,
+}
+
+fn generate_menu_overlay_images(
+    render: &MenuOverlayRender<'_>,
+    images: &MenuOverlayImages<'_>,
 ) -> std::result::Result<(), String> {
     render_menu_overlay_image(
-        ffmpeg_bin,
-        standard,
-        highlight_image_path,
-        highlight_colour,
-        button_bounds,
+        render,
+        images.highlight_image_path,
+        images.highlight_colour,
         "highlight",
-        menu_id,
     )?;
     render_menu_overlay_image(
-        ffmpeg_bin,
-        standard,
-        select_image_path,
-        select_colour,
-        button_bounds,
+        render,
+        images.select_image_path,
+        images.select_colour,
         "select",
-        menu_id,
     )?;
     Ok(())
 }
 
 fn render_menu_overlay_image(
-    ffmpeg_bin: &str,
-    standard: VideoStandard,
+    render: &MenuOverlayRender<'_>,
     output_path: &str,
     colour: &str,
-    button_bounds: &[MenuOverlayButton],
     kind: &str,
-    menu_id: &str,
 ) -> std::result::Result<(), String> {
-    let (width, height) = VideoRaster::FullD1.resolution(standard);
+    let (width, height) = VideoRaster::FullD1.resolution(render.standard);
     let mut vf_parts = vec!["format=rgba".to_string()];
-    for button in button_bounds {
+    for button in render.button_bounds {
         let width = (button.x1 - button.x0).max(1);
         let height = (button.y1 - button.y0).max(1);
         let border_thickness = ((width.min(height) as f64) * 0.08).round() as i32;
@@ -1782,7 +1784,7 @@ fn render_menu_overlay_image(
     }
 
     let args = vec![
-        ffmpeg_bin.to_string(),
+        render.ffmpeg_bin.to_string(),
         "-hide_banner".to_string(),
         "-y".to_string(),
         "-f".to_string(),
@@ -1797,7 +1799,10 @@ fn render_menu_overlay_image(
     ];
 
     run_command(&args).map(|_| ()).map_err(|msg| {
-        format!("Failed to render {kind} overlay image for menu \"{menu_id}\": {msg}")
+        format!(
+            "Failed to render {kind} overlay image for menu \"{}\": {msg}",
+            render.menu_id
+        )
     })
 }
 

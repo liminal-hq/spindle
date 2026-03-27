@@ -69,14 +69,14 @@ flowchart LR
 
 ## File Map
 
-| Area | Responsibility | Primary files |
-| --- | --- | --- |
-| Frontend editor | Menu editing, button placement, action assignment, preview | `apps/spindle/src/pages/MenusPage.tsx` |
-| Frontend state | Project updates and persistence | `apps/spindle/src/store/project-store.ts` |
-| Shared TS model | Menu, button, and playback-action types | `apps/spindle/src/types/project.ts` |
-| Shared Rust model | Rust-side schema used by the Tauri plugin | `plugins/tauri-plugin-spindle-project/src/models.rs` |
-| Build planner | Menu jobs, ffmpeg commands, XML generation | `plugins/tauri-plugin-spindle-project/src/build.rs` |
-| Plugin commands | Tauri command surface | `plugins/tauri-plugin-spindle-project/src/commands.rs` |
+| Area              | Responsibility                                             | Primary files                                          |
+| ----------------- | ---------------------------------------------------------- | ------------------------------------------------------ |
+| Frontend editor   | Menu editing, button placement, action assignment, preview | `apps/spindle/src/pages/MenusPage.tsx`                 |
+| Frontend state    | Project updates and persistence                            | `apps/spindle/src/store/project-store.ts`              |
+| Shared TS model   | Menu, button, and playback-action types                    | `apps/spindle/src/types/project.ts`                    |
+| Shared Rust model | Rust-side schema used by the Tauri plugin                  | `plugins/tauri-plugin-spindle-project/src/models.rs`   |
+| Build planner     | Menu jobs, ffmpeg commands, XML generation                 | `plugins/tauri-plugin-spindle-project/src/build.rs`    |
+| Plugin commands   | Tauri command surface                                      | `plugins/tauri-plugin-spindle-project/src/commands.rs` |
 
 ## Menu Builder Architecture
 
@@ -395,4 +395,3 @@ The recent audit work added more routing tests specifically to reduce the last c
 3. Add tests for fallback behaviour when menu targets are missing.
 4. Add a visual regression fixture for menu command generation and render-command output.
 5. Decide how motion-menu timing, looping, and timeout behaviour should map into authored jobs.
-
