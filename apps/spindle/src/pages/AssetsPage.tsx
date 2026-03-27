@@ -4,7 +4,7 @@
 // SPDX-License-Identifier: MIT
 
 import { useEffect, useState } from 'react';
-import { convertFileSrc } from '@tauri-apps/api/core';
+import { BaseDirectory, readFile } from '@tauri-apps/plugin-fs';
 import { useProjectStore } from '../store/project-store';
 import type { Asset, CompatibilityAssessment } from '../types/project';
 import './AssetsPage.css';
@@ -250,21 +250,65 @@ function AssetDetail({
 
 function AssetThumbnail({ asset, variant }: { asset: Asset; variant: 'row' | 'detail' }) {
 	const [loadFailed, setLoadFailed] = useState(false);
+	const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
 
 	useEffect(() => {
 		setLoadFailed(false);
 	}, [asset.id, asset.thumbnailPath, asset.thumbnailError]);
 
+	useEffect(() => {
+		let revokedUrl: string | null = null;
+		let cancelled = false;
+
+		async function loadThumbnail() {
+			if (!asset.thumbnailPath) {
+				setThumbnailUrl(null);
+				return;
+			}
+
+			try {
+				const fileName = asset.thumbnailPath.split(/[/\\]/).pop();
+				if (!fileName) {
+					throw new Error('Thumbnail path is missing a file name.');
+				}
+				const bytes = await readFile(`thumbnails/${fileName}`, {
+					baseDir: BaseDirectory.AppCache,
+				});
+				if (cancelled) {
+					return;
+				}
+				const blob = new Blob([bytes], { type: 'image/jpeg' });
+				const objectUrl = URL.createObjectURL(blob);
+				revokedUrl = objectUrl;
+				setThumbnailUrl(objectUrl);
+			} catch {
+				if (!cancelled) {
+					setThumbnailUrl(null);
+					setLoadFailed(true);
+				}
+			}
+		}
+
+		void loadThumbnail();
+
+		return () => {
+			cancelled = true;
+			if (revokedUrl) {
+				URL.revokeObjectURL(revokedUrl);
+			}
+		};
+	}, [asset.thumbnailPath]);
+
 	const className = variant === 'row' ? 'assets__row-thumb' : 'assets__detail-thumb';
-	const canShowImage = Boolean(asset.thumbnailPath) && !loadFailed;
+	const canShowImage = Boolean(thumbnailUrl) && !loadFailed;
 	const fallbackLabel =
 		asset.thumbnailError ?? (loadFailed ? 'Preview could not be loaded.' : 'No preview available.');
 
-	if (canShowImage && asset.thumbnailPath) {
+	if (canShowImage && thumbnailUrl) {
 		return (
 			<img
 				className={className}
-				src={convertFileSrc(asset.thumbnailPath)}
+				src={thumbnailUrl}
 				alt={variant === 'detail' ? `Thumbnail for ${asset.fileName}` : ''}
 				onError={() => setLoadFailed(true)}
 			/>
