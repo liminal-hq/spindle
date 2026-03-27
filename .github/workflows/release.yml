@@ -1,0 +1,400 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Optional release tag (defaults to `v` plus the synchronised Spindle version)
+        required: false
+        type: string
+      release_draft:
+        description: Create or keep this release as a draft
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+  packages: read
+
+concurrency:
+  group: release-${{ github.event_name }}-${{ github.event_name == 'workflow_dispatch' && (inputs.release_tag || github.sha) || github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  prepare-release:
+    name: Prepare release
+    runs-on: ubuntu-24.04
+    outputs:
+      release_version: ${{ steps.meta.outputs.release_version }}
+      tag_name: ${{ steps.meta.outputs.tag_name }}
+      checkout_ref: ${{ steps.meta.outputs.checkout_ref }}
+      release_target: ${{ steps.meta.outputs.release_target }}
+      release_name: ${{ steps.meta.outputs.release_name }}
+      prerelease: ${{ steps.meta.outputs.prerelease }}
+      release_id: ${{ steps.release.outputs.release_id }}
+      release_url: ${{ steps.release.outputs.release_url }}
+      release_action: ${{ steps.release.outputs.release_action }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+
+      - name: Resolve release metadata
+        id: meta
+        env:
+          MANUAL_RELEASE_TAG: ${{ github.event.inputs.release_tag || '' }}
+        run: |
+          set -euo pipefail
+
+          git fetch origin main
+          git fetch --tags origin
+
+          CHECKOUT_REF="${GITHUB_SHA}"
+          RELEASE_TARGET="${GITHUB_SHA}"
+
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" && -n "${MANUAL_RELEASE_TAG}" ]]; then
+            TAG_NAME="${MANUAL_RELEASE_TAG}"
+            if [[ ! "${TAG_NAME}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+              echo "Invalid release tag: ${TAG_NAME}" >&2
+              echo "Expected a tag matching vX.Y.Z or vX.Y.Z-beta.N" >&2
+              exit 1
+            fi
+
+            CHECKOUT_REF="${TAG_NAME}"
+            RELEASE_TARGET="$(git rev-list -n 1 "${TAG_NAME}")"
+          elif [[ "${GITHUB_EVENT_NAME}" == "push" ]]; then
+            TAG_NAME="${GITHUB_REF_NAME}"
+            if [[ ! "${TAG_NAME}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+              echo "Invalid release tag: ${TAG_NAME}" >&2
+              echo "Expected a tag matching vX.Y.Z or vX.Y.Z-beta.N" >&2
+              exit 1
+            fi
+          else
+            RELEASE_VERSION="$(./scripts/check-release-versions.sh --current-version)"
+            TAG_NAME="v${RELEASE_VERSION}"
+          fi
+
+          if ! git merge-base --is-ancestor "${RELEASE_TARGET}" "origin/main"; then
+            echo "Release commit is not on origin/main: ${RELEASE_TARGET}" >&2
+            exit 1
+          fi
+
+          git checkout --quiet "${CHECKOUT_REF}"
+
+          RELEASE_VERSION="$(./scripts/check-release-versions.sh --current-version)"
+
+          if [[ "${TAG_NAME#v}" != "${RELEASE_VERSION}" ]]; then
+            echo "Release tag ${TAG_NAME} does not match the synchronised manifest version ${RELEASE_VERSION}" >&2
+            exit 1
+          fi
+
+          PRERELEASE=false
+          if [[ "${TAG_NAME}" == *-* ]]; then
+            PRERELEASE=true
+          fi
+
+          echo "release_version=${RELEASE_VERSION}" >> "${GITHUB_OUTPUT}"
+          echo "tag_name=${TAG_NAME}" >> "${GITHUB_OUTPUT}"
+          echo "checkout_ref=${CHECKOUT_REF}" >> "${GITHUB_OUTPUT}"
+          echo "release_target=${RELEASE_TARGET}" >> "${GITHUB_OUTPUT}"
+          echo "release_name=Spindle ${TAG_NAME}" >> "${GITHUB_OUTPUT}"
+          echo "prerelease=${PRERELEASE}" >> "${GITHUB_OUTPUT}"
+
+      - name: Create or reuse GitHub Release
+        id: release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_NAME: ${{ steps.meta.outputs.tag_name }}
+          RELEASE_TARGET: ${{ steps.meta.outputs.release_target }}
+          RELEASE_NAME: ${{ steps.meta.outputs.release_name }}
+          RELEASE_DRAFT: ${{ github.event_name == 'workflow_dispatch' && inputs.release_draft || false }}
+          RELEASE_PRERELEASE: ${{ steps.meta.outputs.prerelease }}
+        run: |
+          set -euo pipefail
+
+          RELEASE_MATCH="$(
+            gh api --paginate "repos/${GITHUB_REPOSITORY}/releases?per_page=100" \
+              --jq ".[] | select(.tag_name == \"${TAG_NAME}\") | [.id, .html_url] | @tsv" \
+              | head -n 1 || true
+          )"
+
+          if [[ -z "${RELEASE_MATCH}" ]]; then
+            RELEASE_JSON="$(
+              gh api \
+                --method POST \
+                "repos/${GITHUB_REPOSITORY}/releases" \
+                -f tag_name="${TAG_NAME}" \
+                -f target_commitish="${RELEASE_TARGET}" \
+                -f name="${RELEASE_NAME}" \
+                -f body='See assets below to download and install.' \
+                -F generate_release_notes=true \
+                -F draft="${RELEASE_DRAFT}" \
+                -F prerelease="${RELEASE_PRERELEASE}"
+            )"
+            RELEASE_ID="$(printf '%s' "${RELEASE_JSON}" | jq -r '.id')"
+            RELEASE_URL="$(printf '%s' "${RELEASE_JSON}" | jq -r '.html_url')"
+            RELEASE_ACTION="created"
+          else
+            RELEASE_ID="$(awk '{print $1}' <<< "${RELEASE_MATCH}")"
+            RELEASE_URL="$(awk '{print $2}' <<< "${RELEASE_MATCH}")"
+
+            gh api \
+              --method PATCH \
+              "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" \
+              -f name="${RELEASE_NAME}" \
+              -F draft="${RELEASE_DRAFT}" \
+              -F prerelease="${RELEASE_PRERELEASE}" \
+              >/dev/null
+
+            RELEASE_ACTION="reused"
+          fi
+
+          echo "release_id=${RELEASE_ID}" >> "${GITHUB_OUTPUT}"
+          echo "release_url=${RELEASE_URL}" >> "${GITHUB_OUTPUT}"
+          echo "release_action=${RELEASE_ACTION}" >> "${GITHUB_OUTPUT}"
+
+      - name: Write summary
+        if: always()
+        run: |
+          {
+            echo "## Spindle Release Summary"
+            echo
+            echo "- Resolved version: \`${{ steps.meta.outputs.release_version || 'unavailable' }}\`"
+            echo "- Release tag: \`${{ steps.meta.outputs.tag_name || 'unavailable' }}\`"
+            echo "- Checkout ref: \`${{ steps.meta.outputs.checkout_ref || 'unavailable' }}\`"
+            echo "- Release target: \`${{ steps.meta.outputs.release_target || 'unavailable' }}\`"
+            echo "- Release name: \`${{ steps.meta.outputs.release_name || 'unavailable' }}\`"
+            echo "- Release action: \`${{ steps.release.outputs.release_action || 'unavailable' }}\`"
+            echo "- Draft: \`${{ github.event_name == 'workflow_dispatch' && inputs.release_draft || false }}\`"
+            echo "- Prerelease: \`${{ steps.meta.outputs.prerelease || 'unavailable' }}\`"
+            echo "- Release URL: ${{ steps.release.outputs.release_url || 'unavailable' }}"
+            echo "- Run URL: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+  build-linux:
+    name: Build Linux release bundles
+    needs: prepare-release
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            platform_label: linux
+            arch_label: x64
+            target_triple: x86_64-unknown-linux-gnu
+            artefact_name: linux-release-assets-x64
+          - runner: ubuntu-24.04-arm
+            platform_label: linux
+            arch_label: arm64
+            target_triple: aarch64-unknown-linux-gnu
+            artefact_name: linux-release-assets-arm64
+    container:
+      image: ghcr.io/liminal-hq/tauri-ci-desktop:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.prepare-release.outputs.checkout_ref }}
+
+      - name: Trust the GitHub workspace
+        run: git config --global --add safe.directory "${GITHUB_WORKSPACE}"
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - name: Install Rust toolchain
+        uses: ./.github/actions/setup-rust-toolchain
+
+      - name: Restore Rust cache
+        uses: swatinem/rust-cache@v2
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check release version synchronisation
+        run: pnpm release:version:check
+
+      - name: Collect Linux sidecars
+        run: ./scripts/collect-sidecars.sh "${{ matrix.target_triple }}"
+
+      - name: Build Linux release bundles
+        id: build_tauri
+        env:
+          TAURI_BUNDLER_NEW_APPIMAGE_FORMAT: 'true'
+        run: pnpm --filter @liminal-hq/spindle tauri build --bundles appimage,deb,rpm
+
+      - name: Collect release assets
+        id: collect_assets
+        run: |
+          set -euo pipefail
+
+          bundle_dir="target/release/bundle"
+          release_dir="release-assets/linux"
+          mkdir -p "${release_dir}"
+
+          if [[ ! -d "${bundle_dir}" ]]; then
+            echo "Bundle directory not found: ${bundle_dir}" >&2
+            exit 1
+          fi
+
+          mapfile -t bundle_files < <(find "${bundle_dir}" -type f \( -name "*.AppImage" -o -name "*.deb" -o -name "*.rpm" \) | sort)
+
+          if [[ "${#bundle_files[@]}" -eq 0 ]]; then
+            echo "No Linux release artefacts found in ${bundle_dir}" >&2
+            exit 1
+          fi
+
+          for file in "${bundle_files[@]}"; do
+            cp "${file}" "${release_dir}/"
+          done
+
+          echo "asset_count=$(find "${release_dir}" -maxdepth 1 -type f | wc -l | tr -d ' ')" >> "${GITHUB_OUTPUT}"
+
+      - name: Upload staged release assets
+        id: upload_assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artefact_name }}
+          path: release-assets/linux/**
+          if-no-files-found: error
+
+      - name: Write summary
+        if: always()
+        run: |
+          release_dir="release-assets/linux"
+          asset_count=0
+          if [[ -d "${release_dir}" ]]; then
+            asset_count="$(find "${release_dir}" -maxdepth 1 -type f | wc -l | tr -d ' ')"
+          fi
+
+          {
+            echo "## Spindle Linux Release Summary"
+            echo
+            echo "- Runner: \`${{ matrix.runner }}\`"
+            echo "- Container: \`ghcr.io/liminal-hq/tauri-ci-desktop:latest\`"
+            echo "- Platform: \`${{ matrix.platform_label }}\`"
+            echo "- Architecture: \`${{ matrix.arch_label }}\`"
+            echo "- Target triple: \`${{ matrix.target_triple }}\`"
+            echo "- Release tag: \`${{ needs.prepare-release.outputs.tag_name }}\`"
+            echo "- Build and bundle: \`${{ steps.build_tauri.outcome }}\`"
+            echo "- Collect assets: \`${{ steps.collect_assets.outcome }}\`"
+            echo "- Stage artefacts: \`${{ steps.upload_assets.outcome }}\`"
+            echo "- Assets prepared: ${asset_count}"
+            echo "- Release URL: ${{ needs.prepare-release.outputs.release_url }}"
+            echo "- Run URL: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo
+            echo "### Staged assets"
+            if [[ "${asset_count}" -gt 0 ]]; then
+              find "${release_dir}" -maxdepth 1 -type f -printf '%f\n' | sort | sed 's#^#- `#; s#$#`#'
+            else
+              echo "- _No assets were staged_"
+            fi
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+  publish-release:
+    name: Publish GitHub Release assets
+    needs:
+      - prepare-release
+      - build-linux
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Download Linux release assets
+        uses: actions/download-artifact@v5
+        with:
+          pattern: linux-release-assets-*
+          path: release-assets/publish
+          merge-multiple: true
+
+      - name: Generate release checksums
+        id: checksums
+        run: |
+          set -euo pipefail
+
+          release_dir="release-assets/publish"
+
+          if [[ ! -d "${release_dir}" ]]; then
+            echo "Release publish directory not found: ${release_dir}" >&2
+            exit 1
+          fi
+
+          mapfile -t release_files < <(find "${release_dir}" -maxdepth 1 -type f \( -name "*.AppImage" -o -name "*.deb" -o -name "*.rpm" \) | sort)
+
+          if [[ "${#release_files[@]}" -eq 0 ]]; then
+            echo "No publishable release assets were downloaded" >&2
+            exit 1
+          fi
+
+          (
+            cd "${release_dir}"
+            sha256sum ./* | sed 's# \./#  #' > SHA256SUMS
+          )
+
+          echo "asset_count=$(find "${release_dir}" -maxdepth 1 -type f | wc -l | tr -d ' ')" >> "${GITHUB_OUTPUT}"
+
+      - name: Upload assets to GitHub Release
+        id: upload_release_assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          TAG_NAME: ${{ needs.prepare-release.outputs.tag_name }}
+        run: gh release upload "${TAG_NAME}" release-assets/publish/* --clobber
+
+      - name: Write summary
+        if: always()
+        run: |
+          release_dir="release-assets/publish"
+          asset_count=0
+          checksum_present="no"
+          if [[ -d "${release_dir}" ]]; then
+            asset_count="$(find "${release_dir}" -maxdepth 1 -type f | wc -l | tr -d ' ')"
+            if [[ -f "${release_dir}/SHA256SUMS" ]]; then
+              checksum_present="yes"
+            fi
+          fi
+
+          {
+            echo "## Spindle Release Publish Summary"
+            echo
+            echo "- Runner: \`ubuntu-24.04\`"
+            echo "- Release tag: \`${{ needs.prepare-release.outputs.tag_name }}\`"
+            echo "- Generate checksums: \`${{ steps.checksums.outcome }}\`"
+            echo "- Upload assets: \`${{ steps.upload_release_assets.outcome }}\`"
+            echo "- Attached asset count: ${asset_count}"
+            echo "- Checksum file present: ${checksum_present}"
+            echo "- Release URL: ${{ needs.prepare-release.outputs.release_url }}"
+            echo "- Run URL: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo
+            echo "### Uploaded assets"
+            if [[ "${asset_count}" -gt 0 ]]; then
+              find "${release_dir}" -maxdepth 1 -type f -printf '%f\n' | sort | sed 's#^#- `#; s#$#`#'
+            else
+              echo "- _No assets were downloaded_"
+            fi
+          } >> "${GITHUB_STEP_SUMMARY}"
