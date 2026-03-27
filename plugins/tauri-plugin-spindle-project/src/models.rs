@@ -517,6 +517,8 @@ pub struct VideoStreamInfo {
     pub aspect_ratio: Option<String>,
     pub scan_type: Option<String>,
     pub bitrate_bps: Option<u64>,
+    #[serde(default)]
+    pub title: Option<String>,
     /// OETF / transfer characteristics (e.g. "smpte2084" for HDR10, "arib-std-b67" for HLG).
     #[serde(default)]
     pub color_transfer: Option<String>,
@@ -538,6 +540,8 @@ pub struct AudioStreamInfo {
     pub sample_rate: u32,
     pub language: Option<String>,
     pub bitrate_bps: Option<u64>,
+    #[serde(default)]
+    pub title: Option<String>,
 }
 
 /// Detected subtitle stream metadata.

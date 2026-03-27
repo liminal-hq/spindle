@@ -227,6 +227,10 @@
 	border-top: 1px solid var(--border-subtle);
 }
 
+.assets__stream-descriptor {
+	overflow-wrap: anywhere;
+}
+
 .assets__stream-index {
 	font-family: var(--font-mono);
 	font-size: var(--text-xs);

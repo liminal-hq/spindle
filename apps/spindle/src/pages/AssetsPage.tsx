@@ -202,6 +202,7 @@ function AssetDetail({
 							{vs.frameRate && <span className="text-muted">{vs.frameRate.toFixed(2)} fps</span>}
 							{vs.aspectRatio && <span className="text-muted">{vs.aspectRatio}</span>}
 							{vs.scanType && <span className="text-muted">{vs.scanType}</span>}
+							{vs.title && <span className="text-muted assets__stream-descriptor">{vs.title}</span>}
 						</div>
 					))}
 				</div>
@@ -220,6 +221,9 @@ function AssetDetail({
 							{as_.bitrateBps && (
 								<span className="text-muted">{(as_.bitrateBps / 1000).toFixed(0)} kbps</span>
 							)}
+							{as_.title && (
+								<span className="text-muted assets__stream-descriptor">{as_.title}</span>
+							)}
 						</div>
 					))}
 				</div>
@@ -235,6 +239,7 @@ function AssetDetail({
 								{ss.codec} · {ss.subtitleType}
 							</span>
 							{ss.language && <span className="text-muted">{ss.language}</span>}
+							{ss.title && <span className="text-muted assets__stream-descriptor">{ss.title}</span>}
 						</div>
 					))}
 				</div>

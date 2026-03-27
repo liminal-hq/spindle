@@ -87,6 +87,7 @@ pub fn inspect(path: &str) -> crate::Result<Asset> {
                     aspect_ratio: stream.display_aspect_ratio.clone(),
                     scan_type: detect_scan_type(&stream),
                     bitrate_bps: stream.bit_rate.as_deref().and_then(|s| s.parse().ok()),
+                    title: stream.tags.as_ref().and_then(|t| t.title.clone()),
                     color_transfer: stream.color_transfer.clone(),
                     color_primaries: stream.color_primaries.clone(),
                     dolby_vision_profile,
@@ -113,6 +114,7 @@ pub fn inspect(path: &str) -> crate::Result<Asset> {
                         .unwrap_or(0),
                     language: stream.tags.as_ref().and_then(|t| t.language.clone()),
                     bitrate_bps: stream.bit_rate.as_deref().and_then(|s| s.parse().ok()),
+                    title: stream.tags.as_ref().and_then(|t| t.title.clone()),
                 });
             }
             Some("subtitle") => {
@@ -493,6 +495,7 @@ mod tests {
             aspect_ratio: Some("16:9".to_string()),
             scan_type: Some("interlaced".to_string()),
             bitrate_bps: Some(6_000_000),
+            title: None,
             color_transfer: None,
             color_primaries: None,
             dolby_vision_profile: None,
@@ -504,6 +507,7 @@ mod tests {
             sample_rate: 48000,
             language: Some("eng".to_string()),
             bitrate_bps: Some(448_000),
+            title: None,
         }];
         let container = Some("mpeg".to_string());
         assert!(matches!(
@@ -523,6 +527,7 @@ mod tests {
             aspect_ratio: None,
             scan_type: None,
             bitrate_bps: None,
+            title: None,
             color_transfer: None,
             color_primaries: None,
             dolby_vision_profile: None,
@@ -546,6 +551,7 @@ mod tests {
             aspect_ratio: None,
             scan_type: None,
             bitrate_bps: None,
+            title: None,
             color_transfer: None,
             color_primaries: None,
             dolby_vision_profile: None,
@@ -603,6 +609,7 @@ mod tests {
             aspect_ratio: Some("3840:1606".to_string()),
             scan_type: None,
             bitrate_bps: None,
+            title: None,
             color_transfer: None,
             color_primaries: None,
             dolby_vision_profile: None,
@@ -625,6 +632,7 @@ mod tests {
             aspect_ratio: Some("16:9".to_string()),
             scan_type: None,
             bitrate_bps: None,
+            title: None,
             color_transfer: Some("smpte2084".to_string()),
             color_primaries: Some("bt2020".to_string()),
             dolby_vision_profile: None,
