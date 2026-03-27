@@ -78,6 +78,12 @@ Current release scope:
 - `AppImage`, `.deb`, and `.rpm` outputs
 - one rolled-up `SHA256SUMS` file per published release
 
+Linux package dependency behaviour today:
+
+- `.deb` packages declare a hard dependency on `ffmpeg`
+- `.rpm` packages declare a recommendation for `ffmpeg` or `ffmpeg-free`, since RPM package naming differs across distributions
+- `AppImage` builds still rely on the host system to provide `ffmpeg` and `ffprobe`
+
 Typical release sequence:
 
 1. Run `pnpm release:version:prepare --version <x.y.z>`.
