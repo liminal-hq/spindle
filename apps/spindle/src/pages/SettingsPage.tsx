@@ -4,11 +4,18 @@
 // SPDX-License-Identifier: MIT
 
 import { useEffect } from 'react';
+import { useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { save } from '@tauri-apps/plugin-dialog';
+import { confirm, save } from '@tauri-apps/plugin-dialog';
 import { useProjectStore } from '../store/project-store';
 import { useAppSettingsStore } from '../store/app-settings-store';
 import './SettingsPage.css';
+
+interface ThumbnailCacheStatus {
+	path: string;
+	sizeBytes: number;
+	fileCount: number;
+}
 
 export function SettingsPage() {
 	const project = useProjectStore((s) => s.project);
@@ -18,11 +25,35 @@ export function SettingsPage() {
 	const checkToolchain = useProjectStore((s) => s.checkToolchain);
 	const devSkipSidecar = useAppSettingsStore((s) => s.devSkipSidecar);
 	const setDevSkipSidecar = useAppSettingsStore((s) => s.setDevSkipSidecar);
+	const [thumbnailCache, setThumbnailCache] = useState<ThumbnailCacheStatus | null>(null);
+	const [isCacheLoading, setIsCacheLoading] = useState(false);
+	const [cacheError, setCacheError] = useState<string | null>(null);
 
 	// Check toolchain on mount
 	useEffect(() => {
 		checkToolchain();
 	}, [checkToolchain]);
+
+	const refreshThumbnailCache = async () => {
+		setIsCacheLoading(true);
+		setCacheError(null);
+		try {
+			const status = await invoke<ThumbnailCacheStatus>('get_thumbnail_cache_status');
+			setThumbnailCache(status);
+		} catch (error) {
+			const message =
+				error instanceof Error
+					? error.message
+					: `Failed to inspect thumbnail cache: ${String(error)}`;
+			setCacheError(message);
+		} finally {
+			setIsCacheLoading(false);
+		}
+	};
+
+	useEffect(() => {
+		void refreshThumbnailCache();
+	}, []);
 
 	const handleExportDiagnostics = async () => {
 		try {
@@ -42,6 +73,27 @@ export function SettingsPage() {
 			await invoke('write_text_file', { path, contents: json });
 		} catch {
 			// Best-effort export
+		}
+	};
+
+	const handleClearThumbnailCache = async () => {
+		const approved = await confirm(
+			'Clear cached thumbnails? They will be regenerated the next time assets need previews.',
+		);
+		if (!approved) return;
+
+		setIsCacheLoading(true);
+		setCacheError(null);
+		try {
+			await invoke('clear_thumbnail_cache');
+			await refreshThumbnailCache();
+		} catch (error) {
+			const message =
+				error instanceof Error
+					? error.message
+					: `Failed to clear thumbnail cache: ${String(error)}`;
+			setCacheError(message);
+			setIsCacheLoading(false);
 		}
 	};
 
@@ -82,6 +134,48 @@ export function SettingsPage() {
 						))}
 					</div>
 				)}
+			</div>
+
+			<div className="card settings__section">
+				<div className="card__header">
+					<h3 className="card__title">Thumbnail Cache</h3>
+					<button className="btn btn--sm" onClick={() => void refreshThumbnailCache()}>
+						Refresh
+					</button>
+				</div>
+				<p className="settings__hint text-muted">
+					Generated media previews are stored in the app cache so assets reopen quickly across
+					sessions.
+				</p>
+				{cacheError ? (
+					<p className="settings__warning">{cacheError}</p>
+				) : (
+					<dl className="settings__info-grid settings__cache-grid">
+						<dt>Items</dt>
+						<dd>{thumbnailCache ? thumbnailCache.fileCount : isCacheLoading ? 'Loading…' : '0'}</dd>
+						<dt>Size</dt>
+						<dd>
+							{thumbnailCache
+								? formatBytes(thumbnailCache.sizeBytes)
+								: isCacheLoading
+									? 'Loading…'
+									: '0 B'}
+						</dd>
+						<dt>Location</dt>
+						<dd className="settings__path">
+							{thumbnailCache ? thumbnailCache.path : isCacheLoading ? 'Loading…' : 'Unavailable'}
+						</dd>
+					</dl>
+				)}
+				<div className="settings__cache-actions">
+					<button
+						className="btn btn--sm"
+						onClick={() => void handleClearThumbnailCache()}
+						disabled={isCacheLoading || (thumbnailCache?.fileCount ?? 0) === 0}
+					>
+						Clear Thumbnail Cache
+					</button>
+				</div>
 			</div>
 
 			{/* Diagnostics */}
@@ -144,4 +238,11 @@ export function SettingsPage() {
 			</div>
 		</div>
 	);
+}
+
+function formatBytes(bytes: number): string {
+	if (bytes >= 1_000_000_000) return `${(bytes / 1_000_000_000).toFixed(1)} GB`;
+	if (bytes >= 1_000_000) return `${(bytes / 1_000_000).toFixed(1)} MB`;
+	if (bytes >= 1_000) return `${(bytes / 1_000).toFixed(1)} KB`;
+	return `${bytes} B`;
 }

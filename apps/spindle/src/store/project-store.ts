@@ -89,7 +89,7 @@ async function extractAssetThumbnail(
 		const thumbDir = await invoke<string>('plugin:spindle-project|get_cache_dir');
 		const thumbPath = `${thumbDir}/thumb_${asset.id}.jpg`;
 		const durationSecs = asset.durationSecs ?? 0;
-		const seekTo = durationSecs > 2 ? 1 : Math.max(0, durationSecs / 2);
+		const seekTo = chooseThumbnailTimestamp(durationSecs);
 		await invoke('plugin:spindle-project|extract_thumbnail', {
 			sourcePath: asset.sourcePath,
 			outputPath: thumbPath,
@@ -101,6 +101,17 @@ async function extractAssetThumbnail(
 			error instanceof Error ? error.message : `Thumbnail extraction failed: ${String(error)}`;
 		return { thumbnailPath: null, thumbnailError: message };
 	}
+}
+
+function chooseThumbnailTimestamp(durationSecs: number): number {
+	if (durationSecs <= 0) {
+		return 0;
+	}
+	if (durationSecs <= 10) {
+		return Math.max(0, durationSecs / 2);
+	}
+
+	return Math.min(Math.max(durationSecs * 0.1, 3), 30);
 }
 
 // Prompt for an output directory if one isn't already set, persist the choice

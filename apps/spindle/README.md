@@ -8,6 +8,12 @@ This package contains the base Tauri desktop shell for Spindle.
 - `pnpm build` builds the frontend bundle
 - `pnpm tauri dev` runs the desktop app in development mode
 
+## Current shell features
+
+- toolchain inspection for required DVD authoring binaries
+- diagnostics bundle export for support and troubleshooting
+- thumbnail cache inspection and clearing from Settings
+
 ## Recommended IDE setup
 
 - [VS Code](https://code.visualstudio.com/)
