@@ -33,6 +33,8 @@ Run the Tauri desktop shell:
 pnpm tauri dev
 ```
 
+Current app behaviour also includes a persistent thumbnail cache stored in the app cache directory, with Settings controls to inspect and clear cached previews when needed.
+
 Build the frontend bundle:
 
 ```bash

@@ -4,7 +4,7 @@
 // SPDX-License-Identifier: MIT
 
 import { useEffect, useState } from 'react';
-import { convertFileSrc } from '@tauri-apps/api/core';
+import { BaseDirectory, readFile } from '@tauri-apps/plugin-fs';
 import { useProjectStore } from '../store/project-store';
 import type { Asset, CompatibilityAssessment } from '../types/project';
 import './AssetsPage.css';
@@ -202,6 +202,7 @@ function AssetDetail({
 							{vs.frameRate && <span className="text-muted">{vs.frameRate.toFixed(2)} fps</span>}
 							{vs.aspectRatio && <span className="text-muted">{vs.aspectRatio}</span>}
 							{vs.scanType && <span className="text-muted">{vs.scanType}</span>}
+							{vs.title && <span className="text-muted assets__stream-descriptor">{vs.title}</span>}
 						</div>
 					))}
 				</div>
@@ -220,6 +221,9 @@ function AssetDetail({
 							{as_.bitrateBps && (
 								<span className="text-muted">{(as_.bitrateBps / 1000).toFixed(0)} kbps</span>
 							)}
+							{as_.title && (
+								<span className="text-muted assets__stream-descriptor">{as_.title}</span>
+							)}
 						</div>
 					))}
 				</div>
@@ -235,6 +239,7 @@ function AssetDetail({
 								{ss.codec} · {ss.subtitleType}
 							</span>
 							{ss.language && <span className="text-muted">{ss.language}</span>}
+							{ss.title && <span className="text-muted assets__stream-descriptor">{ss.title}</span>}
 						</div>
 					))}
 				</div>
@@ -250,21 +255,76 @@ function AssetDetail({
 
 function AssetThumbnail({ asset, variant }: { asset: Asset; variant: 'row' | 'detail' }) {
 	const [loadFailed, setLoadFailed] = useState(false);
+	const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
 
 	useEffect(() => {
 		setLoadFailed(false);
 	}, [asset.id, asset.thumbnailPath, asset.thumbnailError]);
 
+	useEffect(() => {
+		let revokedUrl: string | null = null;
+		let cancelled = false;
+
+		async function loadThumbnail() {
+			if (!asset.thumbnailPath) {
+				setThumbnailUrl(null);
+				return;
+			}
+
+			const fileName = asset.thumbnailPath.split(/[/\\]/).pop();
+			if (!fileName) {
+				setThumbnailUrl(null);
+				setLoadFailed(true);
+				return;
+			}
+
+			for (let attempt = 0; attempt < 2; attempt += 1) {
+				try {
+					const bytes = await readFile(`thumbnails/${fileName}`, {
+						baseDir: BaseDirectory.AppCache,
+					});
+					if (cancelled) {
+						return;
+					}
+					const blob = new Blob([bytes], { type: 'image/jpeg' });
+					const objectUrl = URL.createObjectURL(blob);
+					revokedUrl = objectUrl;
+					setThumbnailUrl(objectUrl);
+					setLoadFailed(false);
+					return;
+				} catch {
+					if (attempt === 0) {
+						await new Promise((resolve) => window.setTimeout(resolve, 150));
+						continue;
+					}
+					if (!cancelled) {
+						setThumbnailUrl(null);
+						setLoadFailed(true);
+					}
+				}
+			}
+		}
+
+		void loadThumbnail();
+
+		return () => {
+			cancelled = true;
+			if (revokedUrl) {
+				URL.revokeObjectURL(revokedUrl);
+			}
+		};
+	}, [asset.thumbnailPath]);
+
 	const className = variant === 'row' ? 'assets__row-thumb' : 'assets__detail-thumb';
-	const canShowImage = Boolean(asset.thumbnailPath) && !loadFailed;
+	const canShowImage = Boolean(thumbnailUrl) && !loadFailed;
 	const fallbackLabel =
 		asset.thumbnailError ?? (loadFailed ? 'Preview could not be loaded.' : 'No preview available.');
 
-	if (canShowImage && asset.thumbnailPath) {
+	if (canShowImage && thumbnailUrl) {
 		return (
 			<img
 				className={className}
-				src={convertFileSrc(asset.thumbnailPath)}
+				src={thumbnailUrl}
 				alt={variant === 'detail' ? `Thumbnail for ${asset.fileName}` : ''}
 				onError={() => setLoadFailed(true)}
 			/>

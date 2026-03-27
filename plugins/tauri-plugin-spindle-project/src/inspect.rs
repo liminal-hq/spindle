@@ -87,6 +87,7 @@ pub fn inspect(path: &str) -> crate::Result<Asset> {
                     aspect_ratio: stream.display_aspect_ratio.clone(),
                     scan_type: detect_scan_type(&stream),
                     bitrate_bps: stream.bit_rate.as_deref().and_then(|s| s.parse().ok()),
+                    title: stream.tags.as_ref().and_then(|t| t.title.clone()),
                     color_transfer: stream.color_transfer.clone(),
                     color_primaries: stream.color_primaries.clone(),
                     dolby_vision_profile,
@@ -113,6 +114,7 @@ pub fn inspect(path: &str) -> crate::Result<Asset> {
                         .unwrap_or(0),
                     language: stream.tags.as_ref().and_then(|t| t.language.clone()),
                     bitrate_bps: stream.bit_rate.as_deref().and_then(|s| s.parse().ok()),
+                    title: stream.tags.as_ref().and_then(|t| t.title.clone()),
                 });
             }
             Some("subtitle") => {
@@ -161,6 +163,12 @@ pub fn extract_thumbnail(
     timestamp_secs: f64,
 ) -> crate::Result<()> {
     let ts = format!("{:.2}", timestamp_secs);
+    let asset = inspect(source_path)?;
+    let thumbnail_filter = asset
+        .video_streams
+        .first()
+        .map(build_thumbnail_filter)
+        .unwrap_or_else(|| "scale=640:360:force_original_aspect_ratio=decrease:force_divisible_by=2,pad=640:360:(ow-iw)/2:(oh-ih)/2,setsar=1".to_string());
 
     let output = Command::new("ffmpeg")
         .args([
@@ -170,6 +178,8 @@ pub fn extract_thumbnail(
             &ts,
             "-i",
             source_path,
+            "-vf",
+            &thumbnail_filter,
             "-frames:v",
             "1",
             "-q:v",
@@ -191,6 +201,87 @@ pub fn extract_thumbnail(
     }
 
     Ok(())
+}
+
+fn build_thumbnail_filter(video: &VideoStreamInfo) -> String {
+    let mut filter_parts = Vec::new();
+
+    if is_hdr_source(video) {
+        filter_parts.push(
+            "zscale=t=linear:npl=100,format=gbrpf32le,zscale=p=bt709,\
+             tonemap=hable,zscale=t=bt709:m=bt709:r=tv,format=yuv420p"
+                .to_string(),
+        );
+    }
+
+    let target_width = 640;
+    let target_height = 360;
+    let source_dar = source_display_aspect_ratio(video).unwrap_or_else(|| {
+        if video.width > 0 && video.height > 0 {
+            video.width as f64 / video.height as f64
+        } else {
+            target_width as f64 / target_height as f64
+        }
+    });
+    let target_dar = target_width as f64 / target_height as f64;
+
+    let (scaled_width, scaled_height) = if source_dar > target_dar {
+        (
+            target_width,
+            round_even(target_width as f64 / source_dar).min(target_height),
+        )
+    } else {
+        (
+            round_even(target_height as f64 * source_dar).min(target_width),
+            target_height,
+        )
+    };
+
+    let pad_x = (target_width.saturating_sub(scaled_width)) / 2;
+    let pad_y = (target_height.saturating_sub(scaled_height)) / 2;
+
+    filter_parts.push(format!(
+        "scale={scaled_width}:{scaled_height},pad={target_width}:{target_height}:{pad_x}:{pad_y},setsar=1"
+    ));
+
+    filter_parts.join(",")
+}
+
+fn source_display_aspect_ratio(info: &VideoStreamInfo) -> Option<f64> {
+    parse_display_aspect_ratio(info.aspect_ratio.as_deref()).or_else(|| {
+        if info.width > 0 && info.height > 0 {
+            Some(info.width as f64 / info.height as f64)
+        } else {
+            None
+        }
+    })
+}
+
+fn parse_display_aspect_ratio(value: Option<&str>) -> Option<f64> {
+    let value = value?;
+    let (num, den) = value.split_once(':')?;
+    let num: f64 = num.parse().ok()?;
+    let den: f64 = den.parse().ok()?;
+    if den == 0.0 {
+        return None;
+    }
+    Some(num / den)
+}
+
+fn round_even(value: f64) -> u32 {
+    let rounded = value.round().max(2.0) as u32;
+    if rounded % 2 == 0 {
+        rounded
+    } else {
+        rounded.saturating_sub(1)
+    }
+}
+
+fn is_hdr_source(info: &VideoStreamInfo) -> bool {
+    matches!(
+        info.color_transfer.as_deref(),
+        Some("smpte2084" | "arib-std-b67" | "smpte428")
+    )
 }
 
 /// Assess how compatible an asset is with DVD-Video authoring.
@@ -404,6 +495,7 @@ mod tests {
             aspect_ratio: Some("16:9".to_string()),
             scan_type: Some("interlaced".to_string()),
             bitrate_bps: Some(6_000_000),
+            title: None,
             color_transfer: None,
             color_primaries: None,
             dolby_vision_profile: None,
@@ -415,6 +507,7 @@ mod tests {
             sample_rate: 48000,
             language: Some("eng".to_string()),
             bitrate_bps: Some(448_000),
+            title: None,
         }];
         let container = Some("mpeg".to_string());
         assert!(matches!(
@@ -434,6 +527,7 @@ mod tests {
             aspect_ratio: None,
             scan_type: None,
             bitrate_bps: None,
+            title: None,
             color_transfer: None,
             color_primaries: None,
             dolby_vision_profile: None,
@@ -457,6 +551,7 @@ mod tests {
             aspect_ratio: None,
             scan_type: None,
             bitrate_bps: None,
+            title: None,
             color_transfer: None,
             color_primaries: None,
             dolby_vision_profile: None,
@@ -501,5 +596,51 @@ mod tests {
         };
 
         assert_eq!(detect_dolby_vision_profile(&stream), Some(5));
+    }
+
+    #[test]
+    fn thumbnail_filter_preserves_ultrawide_aspect_ratio() {
+        let filter = build_thumbnail_filter(&VideoStreamInfo {
+            index: 0,
+            codec: "hevc".to_string(),
+            width: 3840,
+            height: 1606,
+            frame_rate: Some(23.976),
+            aspect_ratio: Some("3840:1606".to_string()),
+            scan_type: None,
+            bitrate_bps: None,
+            title: None,
+            color_transfer: None,
+            color_primaries: None,
+            dolby_vision_profile: None,
+        });
+
+        assert!(
+            filter.contains("scale=640:268,pad=640:360:0:46,setsar=1"),
+            "unexpected thumbnail filter: {filter}"
+        );
+    }
+
+    #[test]
+    fn thumbnail_filter_applies_hdr_tonemap() {
+        let filter = build_thumbnail_filter(&VideoStreamInfo {
+            index: 0,
+            codec: "hevc".to_string(),
+            width: 3840,
+            height: 2160,
+            frame_rate: Some(23.976),
+            aspect_ratio: Some("16:9".to_string()),
+            scan_type: None,
+            bitrate_bps: None,
+            title: None,
+            color_transfer: Some("smpte2084".to_string()),
+            color_primaries: Some("bt2020".to_string()),
+            dolby_vision_profile: None,
+        });
+
+        assert!(
+            filter.contains("tonemap=hable"),
+            "expected HDR tonemap: {filter}"
+        );
     }
 }

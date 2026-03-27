@@ -21,6 +21,12 @@
 	margin-top: var(--space-1);
 }
 
+.settings__warning {
+	margin-top: var(--space-3);
+	font-size: var(--text-sm);
+	color: var(--colour-warning);
+}
+
 /* ── Info grid ────────────────────────────────────────────── */
 
 .settings__info-grid {
@@ -36,6 +42,20 @@
 
 .settings__info-grid dd {
 	color: var(--text-primary);
+}
+
+.settings__cache-grid {
+	margin-top: var(--space-3);
+}
+
+.settings__path {
+	word-break: break-all;
+	font-family: var(--font-mono);
+	font-size: var(--text-xs);
+}
+
+.settings__cache-actions {
+	margin-top: var(--space-3);
 }
 
 /* ── Toolchain ───────────────────────────────────────────── */

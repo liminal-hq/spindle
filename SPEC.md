@@ -939,6 +939,8 @@ Should store:
 - toolchain capability snapshots
 - build intermediates
 
+In the current desktop shell, thumbnail cache data persists across sessions and is manually inspectable and clearable from Settings rather than being purged automatically on shutdown.
+
 ### 18.5 Asset portability and relinking
 
 The architecture should support projects that move between folders, drives, or machines.
