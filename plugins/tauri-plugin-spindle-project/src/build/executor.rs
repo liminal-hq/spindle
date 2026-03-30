@@ -167,8 +167,14 @@ where
                     None,
                 ));
 
-                match run_ffmpeg_command(command, *duration_secs, i, total, &label, &mut on_progress)
-                {
+                match run_ffmpeg_command(
+                    command,
+                    *duration_secs,
+                    i,
+                    total,
+                    &label,
+                    &mut on_progress,
+                ) {
                     Ok(output) => {
                         if !output.is_empty() {
                             log_lines.push(output);
@@ -318,7 +324,11 @@ where
     // output path (last argument) so FFmpeg emits structured progress on
     // stderr.
     let mut cmd_args: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
-    let insert_pos = if cmd_args.len() > 1 { cmd_args.len() - 1 } else { cmd_args.len() };
+    let insert_pos = if cmd_args.len() > 1 {
+        cmd_args.len() - 1
+    } else {
+        cmd_args.len()
+    };
     cmd_args.insert(insert_pos, "pipe:2");
     cmd_args.insert(insert_pos, "-progress");
 
@@ -339,21 +349,31 @@ where
         .take()
         .ok_or_else(|| "Failed to capture FFmpeg stderr".to_string())?;
 
-    let reader = std::io::BufReader::new(stderr);
+    let mut reader = std::io::BufReader::new(stderr);
     let mut stderr_buf = String::new();
     let mut last_emit = Instant::now();
+    let mut raw_line = Vec::new();
 
-    for line in reader.lines() {
+    // Read stderr as raw bytes and decode lossily so non-UTF-8 metadata
+    // in FFmpeg output never causes an error that leaks the child process.
+    loop {
+        raw_line.clear();
+        let bytes_read = reader.read_until(b'\n', &mut raw_line).unwrap_or(0);
+        if bytes_read == 0 {
+            break; // EOF
+        }
+
         if is_cancelled() {
             let _ = child.kill();
             let _ = child.wait();
             return Err("Build cancelled by user.".to_string());
         }
 
-        let line = line.map_err(|e| format!("Error reading FFmpeg stderr: {e}"))?;
+        let line = String::from_utf8_lossy(&raw_line);
+        let line = line.trim_end_matches('\n').trim_end_matches('\r');
 
         // Try to extract progress from `-progress pipe:2` output.
-        if let Some(time_val) = ffmpeg_progress::extract_progress_value(&line, "out_time") {
+        if let Some(time_val) = ffmpeg_progress::extract_progress_value(line, "out_time") {
             if let Some(elapsed) = ffmpeg_progress::parse_out_time_secs(time_val) {
                 let pct = ffmpeg_progress::step_percent(elapsed, duration_secs);
                 let detail = ffmpeg_progress::format_timestamp(elapsed);
@@ -377,15 +397,18 @@ where
         }
 
         // Accumulate all stderr lines for the log.
-        if !line.trim().is_empty() {
+        let trimmed = line.trim();
+        if !trimmed.is_empty() {
             if !stderr_buf.is_empty() {
                 stderr_buf.push('\n');
             }
-            stderr_buf.push_str(&line);
+            stderr_buf.push_str(trimmed);
         }
     }
 
-    let output = child.wait().map_err(|e| format!("Failed waiting for {}: {e}", args[0]))?;
+    let output = child
+        .wait()
+        .map_err(|e| format!("Failed waiting for {}: {e}", args[0]))?;
 
     let stdout = child
         .stdout

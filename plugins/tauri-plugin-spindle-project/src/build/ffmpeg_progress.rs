@@ -18,7 +18,11 @@ pub fn parse_out_time_secs(value: &str) -> Option<f64> {
     let minutes: f64 = parts.next()?.parse().ok()?;
     let seconds: f64 = parts.next()?.parse().ok()?;
     let total = hours * 3600.0 + minutes * 60.0 + seconds;
-    if total >= 0.0 { Some(total) } else { None }
+    if total >= 0.0 {
+        Some(total)
+    } else {
+        None
+    }
 }
 
 /// Extract the value from a `-progress` key-value line.
@@ -92,7 +96,10 @@ mod tests {
 
     #[test]
     fn extract_progress_value_no_match() {
-        assert_eq!(extract_progress_value("bitrate=1234.5kbits/s", "out_time"), None);
+        assert_eq!(
+            extract_progress_value("bitrate=1234.5kbits/s", "out_time"),
+            None
+        );
     }
 
     #[test]

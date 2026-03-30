@@ -164,14 +164,10 @@ export function BuildPage() {
 							</div>
 							<div className="build__step-meta">
 								{buildProgress.stepLabel && (
-									<span className="build__step-label text-muted">
-										{buildProgress.stepLabel}
-									</span>
+									<span className="build__step-label text-muted">{buildProgress.stepLabel}</span>
 								)}
 								{buildProgress.stepDetail && (
-									<span className="build__step-detail text-muted">
-										{buildProgress.stepDetail}
-									</span>
+									<span className="build__step-detail text-muted">{buildProgress.stepDetail}</span>
 								)}
 							</div>
 						</div>
