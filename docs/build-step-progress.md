@@ -10,12 +10,12 @@ Jobs that cannot report step-level progress show only the existing overall build
 
 The `BuildProgress` event payload includes four optional step-level fields alongside the existing job-level fields:
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `stepLabel` | `string \| null` | Short name for the active sub-operation (e.g. "FFmpeg transcode"). Displayed as the secondary bar's label. |
-| `stepPercent` | `number \| null` | Estimated completion of the sub-operation, clamped to 0–100. Drives the secondary bar width. Null when the job cannot report sub-progress. |
-| `stepDetail` | `string \| null` | Freeform context such as the current media timestamp (`00:42:15`). Shown as muted text beside the secondary bar. |
-| `stepStatus` | `'starting' \| 'running' \| 'complete' \| 'failed' \| null` | Lifecycle state of the sub-operation. Lets the UI distinguish an active bar from one that has finished or errored. |
+| Field         | Type                                                        | Description                                                                                                                                |
+| ------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `stepLabel`   | `string \| null`                                            | Short name for the active sub-operation (e.g. "FFmpeg transcode"). Displayed as the secondary bar's label.                                 |
+| `stepPercent` | `number \| null`                                            | Estimated completion of the sub-operation, clamped to 0–100. Drives the secondary bar width. Null when the job cannot report sub-progress. |
+| `stepDetail`  | `string \| null`                                            | Freeform context such as the current media timestamp (`00:42:15`). Shown as muted text beside the secondary bar.                           |
+| `stepStatus`  | `'starting' \| 'running' \| 'complete' \| 'failed' \| null` | Lifecycle state of the sub-operation. Lets the UI distinguish an active bar from one that has finished or errored.                         |
 
 When all four are null, the UI renders only the overall build bar — identical to the behaviour before this feature.
 
@@ -77,6 +77,7 @@ The stderr reader loop checks `BUILD_CANCELLED` on every line. When cancellation
 `BuildPage.tsx` renders a thinner secondary bar (6 px vs 8 px for the main bar) under the overall progress bar when `stepPercent` is present. The bar uses a distinct colour (`--colour-info`) to visually separate it from the main build progress.
 
 Below the bar, a row shows:
+
 - The step label on the left (e.g. "FFmpeg transcode")
 - The step detail on the right in monospace (e.g. "00:42:15")
 
@@ -86,15 +87,15 @@ The secondary bar section is conditionally rendered only when `stepPercent != nu
 
 ## Key Files
 
-| File | Role |
-|------|------|
-| `plugins/tauri-plugin-spindle-project/src/build/types.rs` | `BuildProgress` and `BuildJob` types |
-| `plugins/tauri-plugin-spindle-project/src/build/ffmpeg_progress.rs` | FFmpeg stderr progress parser |
-| `plugins/tauri-plugin-spindle-project/src/build/executor.rs` | `run_ffmpeg_command`, `execute_build_plan` |
-| `plugins/tauri-plugin-spindle-project/src/build/planner.rs` | Threads `duration_secs` into `TranscodeTitle` |
-| `apps/spindle/src/types/project.ts` | TypeScript `BuildProgress` interface |
-| `apps/spindle/src/pages/BuildPage.tsx` | Secondary progress bar rendering |
-| `apps/spindle/src/pages/BuildPage.css` | Step bar styles |
+| File                                                                | Role                                          |
+| ------------------------------------------------------------------- | --------------------------------------------- |
+| `plugins/tauri-plugin-spindle-project/src/build/types.rs`           | `BuildProgress` and `BuildJob` types          |
+| `plugins/tauri-plugin-spindle-project/src/build/ffmpeg_progress.rs` | FFmpeg stderr progress parser                 |
+| `plugins/tauri-plugin-spindle-project/src/build/executor.rs`        | `run_ffmpeg_command`, `execute_build_plan`    |
+| `plugins/tauri-plugin-spindle-project/src/build/planner.rs`         | Threads `duration_secs` into `TranscodeTitle` |
+| `apps/spindle/src/types/project.ts`                                 | TypeScript `BuildProgress` interface          |
+| `apps/spindle/src/pages/BuildPage.tsx`                              | Secondary progress bar rendering              |
+| `apps/spindle/src/pages/BuildPage.css`                              | Step bar styles                               |
 
 ## Future Work
 
