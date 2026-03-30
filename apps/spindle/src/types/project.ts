@@ -300,6 +300,8 @@ export type BuildJob =
 			outputPath: string;
 			command: string[];
 			label: string;
+			/** Source asset duration in seconds, used for step-progress estimation. */
+			durationSecs: number | null;
 	  }
 	| {
 			type: 'renderMenu';
@@ -340,6 +342,14 @@ export interface BuildProgress {
 	currentLabel: string;
 	status: 'starting' | 'running' | 'complete' | 'failed';
 	output: string | null;
+	/** Short name for the active sub-operation (e.g. "FFmpeg transcode"). */
+	stepLabel?: string | null;
+	/** Estimated completion of the current sub-operation, clamped to 0–100. */
+	stepPercent?: number | null;
+	/** Freeform detail such as media timestamp or encoding phase. */
+	stepDetail?: string | null;
+	/** Lifecycle state of the sub-operation. */
+	stepStatus?: 'starting' | 'running' | 'complete' | 'failed' | null;
 }
 
 export interface BuildResult {

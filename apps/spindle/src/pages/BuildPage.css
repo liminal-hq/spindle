@@ -80,6 +80,36 @@
 	font-size: var(--text-xs);
 }
 
+/* ── Step-level progress (secondary bar) ────────────────── */
+
+.build__step-progress {
+	margin-top: var(--space-3);
+}
+
+.build__progress-bar--step {
+	height: 6px;
+}
+
+.build__progress-fill--step {
+	background: var(--colour-info, #60a5fa);
+}
+
+.build__step-meta {
+	display: flex;
+	justify-content: space-between;
+	gap: var(--space-2);
+	margin-top: var(--space-1);
+}
+
+.build__step-label {
+	font-size: var(--text-xs);
+}
+
+.build__step-detail {
+	font-size: var(--text-xs);
+	font-family: var(--font-mono);
+}
+
 /* ── QA Scorecard ────────────────────────────────────────── */
 
 .build__scorecard {
