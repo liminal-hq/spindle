@@ -150,6 +150,32 @@ export function BuildPage() {
 						/>
 					</div>
 					<p className="build__progress-label text-muted">{buildProgress.currentLabel}</p>
+
+					{/* Step-level progress bar (e.g. FFmpeg transcode) */}
+					{buildProgress.stepPercent != null && (
+						<div className="build__step-progress">
+							<div className="build__progress-bar build__progress-bar--step">
+								<div
+									className="build__progress-fill build__progress-fill--step"
+									style={{
+										width: `${Math.min(100, Math.max(0, buildProgress.stepPercent))}%`,
+									}}
+								/>
+							</div>
+							<div className="build__step-meta">
+								{buildProgress.stepLabel && (
+									<span className="build__step-label text-muted">
+										{buildProgress.stepLabel}
+									</span>
+								)}
+								{buildProgress.stepDetail && (
+									<span className="build__step-detail text-muted">
+										{buildProgress.stepDetail}
+									</span>
+								)}
+							</div>
+						</div>
+					)}
 				</div>
 			)}
 
