@@ -7,6 +7,7 @@ mod authoring;
 mod dvd_navigation;
 mod executor;
 mod ffmpeg;
+mod ffmpeg_progress;
 mod menu;
 mod navigation;
 mod planner;
