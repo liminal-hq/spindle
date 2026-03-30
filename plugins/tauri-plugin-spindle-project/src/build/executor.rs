@@ -46,13 +46,13 @@ where
 
         let label = job.label().to_string();
 
-        on_progress(BuildProgress {
-            job_index: i,
-            total_jobs: total,
-            current_label: label.clone(),
-            status: BuildJobStatus::Starting,
-            output: None,
-        });
+        on_progress(BuildProgress::job(
+            i,
+            total,
+            label.clone(),
+            BuildJobStatus::Starting,
+            None,
+        ));
 
         log_lines.push(format!("[{}/{}] {}", i + 1, total, label));
 
@@ -170,13 +170,13 @@ where
                 if let Some(command) = job.command() {
                     log_lines.push(format!("  $ {}", command.join(" ")));
 
-                    on_progress(BuildProgress {
-                        job_index: i,
-                        total_jobs: total,
-                        current_label: label.clone(),
-                        status: BuildJobStatus::Running,
-                        output: None,
-                    });
+                    on_progress(BuildProgress::job(
+                        i,
+                        total,
+                        label.clone(),
+                        BuildJobStatus::Running,
+                        None,
+                    ));
 
                     match run_command(command) {
                         Ok(output) => {
@@ -186,13 +186,13 @@ where
                         }
                         Err(msg) => {
                             log_lines.push(msg.clone());
-                            on_progress(BuildProgress {
-                                job_index: i,
-                                total_jobs: total,
-                                current_label: label,
-                                status: BuildJobStatus::Failed,
-                                output: Some(msg.clone()),
-                            });
+                            on_progress(BuildProgress::job(
+                                i,
+                                total,
+                                label,
+                                BuildJobStatus::Failed,
+                                Some(msg.clone()),
+                            ));
                             return failure(plan, log_lines, i, msg);
                         }
                     }
@@ -200,13 +200,13 @@ where
             }
         }
 
-        on_progress(BuildProgress {
-            job_index: i,
-            total_jobs: total,
-            current_label: label,
-            status: BuildJobStatus::Complete,
-            output: None,
-        });
+        on_progress(BuildProgress::job(
+            i,
+            total,
+            label,
+            BuildJobStatus::Complete,
+            None,
+        ));
     }
 
     let iso_path = plan.jobs.iter().find_map(|j| {

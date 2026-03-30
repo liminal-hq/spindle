@@ -170,6 +170,7 @@ pub fn generate_build_plan(
             output_path: output_path.display().to_string(),
             command,
             label: format!("Transcode \"{}\"", title.name),
+            duration_secs: asset.duration_secs,
         });
     }
 

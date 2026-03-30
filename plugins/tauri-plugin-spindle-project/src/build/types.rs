@@ -47,6 +47,8 @@ pub enum BuildJob {
         output_path: String,
         command: Vec<String>,
         label: String,
+        /// Source asset duration in seconds, used for step-progress estimation.
+        duration_secs: Option<f64>,
     },
     /// Render a menu background to MPEG-2 still frame.
     RenderMenu {
@@ -121,6 +123,42 @@ pub struct BuildProgress {
     pub current_label: String,
     pub status: BuildJobStatus,
     pub output: Option<String>,
+
+    /// Short name for the active sub-operation (e.g. "FFmpeg transcode").
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub step_label: Option<String>,
+    /// Estimated completion of the current sub-operation, clamped to 0–100.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub step_percent: Option<f64>,
+    /// Freeform detail such as media timestamp or encoding phase.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub step_detail: Option<String>,
+    /// Lifecycle state of the sub-operation.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub step_status: Option<BuildJobStatus>,
+}
+
+impl BuildProgress {
+    /// Create a progress event with no step-level detail.
+    pub fn job(
+        job_index: usize,
+        total_jobs: usize,
+        current_label: String,
+        status: BuildJobStatus,
+        output: Option<String>,
+    ) -> Self {
+        Self {
+            job_index,
+            total_jobs,
+            current_label,
+            status,
+            output,
+            step_label: None,
+            step_percent: None,
+            step_detail: None,
+            step_status: None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
