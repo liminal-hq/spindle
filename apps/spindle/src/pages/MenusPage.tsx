@@ -5,6 +5,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useProjectStore } from '../store/project-store';
+import { useNavigation } from '../App';
 import type {
 	Menu,
 	MenuButton,
@@ -30,7 +31,14 @@ export function MenusPage() {
 	const project = useProjectStore((s) => s.project);
 	const updateProject = useProjectStore((s) => s.updateProject);
 	const autoGenerateMenuNav = useProjectStore((s) => s.autoGenerateMenuNav);
+	const { consumePendingEntityId } = useNavigation();
 	const [selectedMenuId, setSelectedMenuId] = useState<string | null>(null);
+
+	// Consume navigation target from validation issue click
+	useEffect(() => {
+		const entityId = consumePendingEntityId();
+		if (entityId) setSelectedMenuId(entityId);
+	}, []); // eslint-disable-line react-hooks/exhaustive-deps
 
 	if (!project) return null;
 

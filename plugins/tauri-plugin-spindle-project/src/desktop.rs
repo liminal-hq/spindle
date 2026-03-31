@@ -217,6 +217,64 @@ impl<R: Runtime> SpindleProject<R> {
                         }
                     }
                 }
+
+                // ── Subtitle checks ────────────────────────────────────
+                if let Some(ref asset_id) = title.source_asset_id {
+                    if let Some(asset) = asset_map.get(asset_id.as_str()) {
+                        let max_stream_index = asset
+                            .subtitle_streams
+                            .iter()
+                            .map(|s| s.index)
+                            .max()
+                            .unwrap_or(0);
+
+                        for sm in &title.subtitle_mappings {
+                            // Dangling subtitle stream reference
+                            if !asset
+                                .subtitle_streams
+                                .iter()
+                                .any(|s| s.index == sm.source_stream_index)
+                            {
+                                issues.push(ValidationIssue {
+                                    severity: IssueSeverity::Error,
+                                    code: "subtitle.dangling-stream".to_string(),
+                                    message: format!(
+                                        "Subtitle mapping \"{}\" in title \"{}\" references stream index {} which no longer exists on the source asset.",
+                                        sm.label, title.name, sm.source_stream_index
+                                    ),
+                                    context: Some(title.id.clone()),
+                                    entity_type: Some("title".to_string()),
+                                    entity_name: Some(title.name.clone()),
+                                    suggested_fix: Some("The source file may have changed. Remove this subtitle mapping or relink the asset.".to_string()),
+                                });
+                            }
+                        }
+
+                        // Text-only subtitle warning
+                        let has_text_subs = title.subtitle_mappings.iter().any(|sm| {
+                            asset
+                                .subtitle_streams
+                                .iter()
+                                .find(|s| s.index == sm.source_stream_index)
+                                .map_or(false, |s| s.subtitle_type == SubtitleType::Text)
+                        });
+
+                        if has_text_subs {
+                            issues.push(ValidationIssue {
+                                severity: IssueSeverity::Warning,
+                                code: "subtitle.text-only-unsupported".to_string(),
+                                message: format!(
+                                    "Title \"{}\" has text-based subtitle mappings that cannot yet be authored to DVD.",
+                                    title.name
+                                ),
+                                context: Some(title.id.clone()),
+                                entity_type: Some("title".to_string()),
+                                entity_name: Some(title.name.clone()),
+                                suggested_fix: Some("Text subtitle rendering is not yet supported. Remove text subtitles or provide bitmap subtitle sources.".to_string()),
+                            });
+                        }
+                    }
+                }
             }
         }
 

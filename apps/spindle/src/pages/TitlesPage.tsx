@@ -3,8 +3,9 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: MIT
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useProjectStore } from '../store/project-store';
+import { useNavigation } from '../App';
 import type {
 	Title,
 	Titleset,
@@ -24,8 +25,28 @@ import './TitlesPage.css';
 export function TitlesPage() {
 	const project = useProjectStore((s) => s.project);
 	const updateProject = useProjectStore((s) => s.updateProject);
+	const { consumePendingEntityId } = useNavigation();
 	const [selectedTitleId, setSelectedTitleId] = useState<string | null>(null);
 	const [selectedTitlesetId, setSelectedTitlesetId] = useState<string | null>(null);
+
+	// Consume navigation target from validation issue click
+	useEffect(() => {
+		const entityId = consumePendingEntityId();
+		if (!entityId || !project) return;
+		// Check if it's a title ID
+		for (const ts of project.disc.titlesets) {
+			if (ts.titles.some((t) => t.id === entityId)) {
+				setSelectedTitlesetId(ts.id);
+				setSelectedTitleId(entityId);
+				return;
+			}
+			// Check if it's a titleset ID
+			if (ts.id === entityId) {
+				setSelectedTitlesetId(entityId);
+				return;
+			}
+		}
+	}, []); // eslint-disable-line react-hooks/exhaustive-deps
 
 	if (!project) return null;
 
