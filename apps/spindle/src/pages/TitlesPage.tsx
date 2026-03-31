@@ -15,6 +15,8 @@ import type {
 	CopyMode,
 	PlaybackAction,
 	SpindleProjectFile,
+	SubtitleStreamInfo,
+	SubtitleTrackMapping,
 } from '../types/project';
 import './TitlesPage.css';
 
@@ -530,7 +532,7 @@ function TitleEditor({
 			)}
 
 			{/* Subtitle Mappings */}
-			{title.subtitleMappings.length > 0 && (
+			{selectedAsset && (
 				<div className="titles__editor-section">
 					<h4 className="titles__editor-heading">
 						Subtitle Tracks
@@ -617,6 +619,30 @@ function TitleEditor({
 							</button>
 						</div>
 					))}
+					<SubtitleAddPicker
+						asset={selectedAsset}
+						currentMappings={title.subtitleMappings}
+						onAdd={(stream) => {
+							const idx = title.subtitleMappings.length;
+							onUpdate({
+								...title,
+								subtitleMappings: [
+									...title.subtitleMappings,
+									{
+										id: crypto.randomUUID(),
+										sourceStreamIndex: stream.index,
+										label:
+											stream.title ??
+											languageLabel(stream.language ?? null, `Subtitle ${idx + 1}`),
+										language: stream.language ?? 'und',
+										orderIndex: idx,
+										isDefault: false,
+										isForced: false,
+									},
+								],
+							});
+						}}
+					/>
 				</div>
 			)}
 
@@ -695,6 +721,47 @@ function stringToEndAction(str: string): PlaybackAction | null {
 		return { type: 'playChapter', titleId: parts[1], chapterId: parts[2] };
 	if (type === 'showMenu' && parts[1]) return { type: 'showMenu', menuId: parts[1] };
 	return null;
+}
+
+function SubtitleAddPicker({
+	asset,
+	currentMappings,
+	onAdd,
+}: {
+	asset: Asset;
+	currentMappings: SubtitleTrackMapping[];
+	onAdd: (stream: SubtitleStreamInfo) => void;
+}) {
+	const mappedIndices = new Set(currentMappings.map((m) => m.sourceStreamIndex));
+	const unmapped = asset.subtitleStreams.filter((s) => !mappedIndices.has(s.index));
+
+	if (unmapped.length === 0) {
+		if (asset.subtitleStreams.length === 0) return null;
+		return (
+			<p className="titles__hint text-muted">
+				All subtitle streams from this asset are already mapped.
+			</p>
+		);
+	}
+
+	return (
+		<select
+			className="titles__select"
+			value=""
+			onChange={(e) => {
+				const stream = unmapped.find((s) => s.index === Number(e.target.value));
+				if (stream) onAdd(stream);
+			}}
+		>
+			<option value="">Add subtitle track…</option>
+			{unmapped.map((s) => (
+				<option key={s.index} value={s.index}>
+					#{s.index} — {s.codec} {s.language ?? 'und'}
+					{s.title ? ` (${s.title})` : ''}
+				</option>
+			))}
+		</select>
+	);
 }
 
 // ── Language helpers ─────────────────────────────────────────────────────────
