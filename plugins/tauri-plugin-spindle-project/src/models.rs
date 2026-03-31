@@ -484,6 +484,9 @@ pub struct Asset {
     pub audio_streams: Vec<AudioStreamInfo>,
     pub subtitle_streams: Vec<SubtitleStreamInfo>,
     pub compatibility: Option<CompatibilityAssessment>,
+    /// Detailed per-stream compatibility breakdown.
+    #[serde(default)]
+    pub compatibility_detail: Option<CompatibilityDetail>,
     pub fingerprint: Option<String>,
     #[serde(default)]
     pub warnings: Vec<AssetWarning>,
@@ -509,6 +512,7 @@ impl Asset {
             audio_streams: Vec::new(),
             subtitle_streams: Vec::new(),
             compatibility: None,
+            compatibility_detail: None,
             fingerprint: None,
             warnings: Vec::new(),
             thumbnail_path: None,
@@ -586,6 +590,54 @@ pub enum CompatibilityAssessment {
     TransformCompatible,
     ReEncodeRequired,
     Unsupported,
+}
+
+/// Per-stream compatibility breakdown explaining why the overall assessment was given.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CompatibilityDetail {
+    pub overall: CompatibilityAssessment,
+    pub video: Option<VideoCompatibility>,
+    pub audio_streams: Vec<AudioStreamCompatibility>,
+    pub container: ContainerCompatibility,
+}
+
+/// Compatibility detail for a single video stream.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VideoCompatibility {
+    pub codec: PropertyCheck,
+    pub resolution: PropertyCheck,
+    pub frame_rate: PropertyCheck,
+}
+
+/// Compatibility detail for a single audio stream.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AudioStreamCompatibility {
+    pub stream_index: u32,
+    pub codec: PropertyCheck,
+}
+
+/// Compatibility detail for the container format.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ContainerCompatibility {
+    pub format: PropertyCheck,
+}
+
+/// A single property compatibility check result.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PropertyCheck {
+    /// The source value (e.g. "h264", "1920x1080").
+    pub value: String,
+    /// What DVD requires (e.g. "mpeg2video", "720x480 or 720x576").
+    pub dvd_requires: String,
+    /// What action the build will take: "none", "remux", "re-encode", "scale".
+    pub action: String,
+    /// Whether this property is DVD-compatible as-is.
+    pub compatible: bool,
 }
 
 /// Non-fatal asset warnings surfaced in the UI and diagnostics.

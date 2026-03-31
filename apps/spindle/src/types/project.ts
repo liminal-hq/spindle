@@ -214,6 +214,8 @@ export interface Asset {
 	subtitleStreams: SubtitleStreamInfo[];
 	compatibility: CompatibilityAssessment | null;
 	fingerprint: string | null;
+	/** Detailed per-stream compatibility breakdown. */
+	compatibilityDetail: CompatibilityDetail | null;
 	warnings: AssetWarning[];
 	thumbnailPath: string | null;
 	thumbnailError: string | null;
@@ -260,6 +262,39 @@ export interface SubtitleStreamInfo {
 	language: string | null;
 	subtitleType: SubtitleType;
 	title: string | null;
+}
+
+// ── Compatibility Detail ────────────────────────────────────────────────
+
+/** Per-stream compatibility breakdown explaining why the overall assessment was given. */
+export interface CompatibilityDetail {
+	overall: CompatibilityAssessment;
+	video: VideoCompatibility | null;
+	audioStreams: AudioStreamCompatibility[];
+	container: ContainerCompatibility;
+}
+
+export interface VideoCompatibility {
+	codec: PropertyCheck;
+	resolution: PropertyCheck;
+	frameRate: PropertyCheck;
+}
+
+export interface AudioStreamCompatibility {
+	streamIndex: number;
+	codec: PropertyCheck;
+}
+
+export interface ContainerCompatibility {
+	format: PropertyCheck;
+}
+
+/** A single property compatibility check result. */
+export interface PropertyCheck {
+	value: string;
+	dvdRequires: string;
+	action: string;
+	compatible: boolean;
 }
 
 // ── Build Settings ──────────────────────────────────────────────────────────

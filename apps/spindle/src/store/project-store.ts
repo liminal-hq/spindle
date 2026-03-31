@@ -413,6 +413,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 				audioStreams: [],
 				subtitleStreams: [],
 				compatibility: null,
+				compatibilityDetail: null,
 				fingerprint: null,
 				warnings: [],
 				thumbnailPath: null,
