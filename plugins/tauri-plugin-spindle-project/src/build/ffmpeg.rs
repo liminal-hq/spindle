@@ -164,6 +164,26 @@ pub(crate) fn build_ffmpeg_transcode_command(
     cmd
 }
 
+/// Build an ffmpeg command to extract a single bitmap subtitle stream to a
+/// VOBsub file that spumux can consume during dvdauthor processing.
+pub(crate) fn build_ffmpeg_subtitle_extract_command(
+    source_path: &str,
+    output_path: &Path,
+    source_stream_index: u32,
+) -> Vec<String> {
+    vec![
+        "ffmpeg".to_string(),
+        "-y".to_string(),
+        "-i".to_string(),
+        source_path.to_string(),
+        "-map".to_string(),
+        format!("0:{source_stream_index}"),
+        "-c:s".to_string(),
+        "dvd_subtitle".to_string(),
+        output_path.display().to_string(),
+    ]
+}
+
 fn choose_output_fps(source_fps: Option<f64>, standard: VideoStandard) -> f64 {
     match standard {
         VideoStandard::Pal => 25.0,

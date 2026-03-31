@@ -331,6 +331,15 @@ export type BuildJob =
 			label: string;
 	  }
 	| {
+			type: 'extractSubtitles';
+			titleId: string;
+			titleName: string;
+			sourcePath: string;
+			outputPath: string;
+			command: string[];
+			label: string;
+	  }
+	| {
 			type: 'authorDvd';
 			xmlPath: string;
 			outputPath: string;

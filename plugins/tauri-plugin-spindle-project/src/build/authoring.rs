@@ -174,6 +174,29 @@ fn append_titles_section(
     xml.push_str(&format!(
         "      <video format=\"{format_str}\" aspect=\"{aspect_str}\" />\n"
     ));
+
+    // Declare subtitle streams if any title in this titleset has subtitle mappings.
+    let max_subs = titleset
+        .titles
+        .iter()
+        .map(|t| t.subtitle_mappings.len())
+        .max()
+        .unwrap_or(0);
+    if max_subs > 0 {
+        // Collect unique languages across all titles for stream declarations.
+        // dvdauthor needs subpicture stream declarations at the titleset level.
+        for i in 0..max_subs {
+            let lang = titleset
+                .titles
+                .iter()
+                .find_map(|t| t.subtitle_mappings.get(i).map(|sm| sm.language.as_str()))
+                .unwrap_or("und");
+            xml.push_str(&format!(
+                "      <subpicture lang=\"{lang}\" />\n"
+            ));
+        }
+    }
+
     for title in &titleset.titles {
         append_title_pgc(xml, title, titleset_index, disc, titles_dir)?;
     }

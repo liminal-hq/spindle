@@ -9,7 +9,7 @@ use std::path::PathBuf;
 use crate::models::*;
 
 use super::authoring::generate_dvdauthor_xml;
-use super::ffmpeg::build_ffmpeg_transcode_command;
+use super::ffmpeg::{build_ffmpeg_subtitle_extract_command, build_ffmpeg_transcode_command};
 use super::menu::{authorable_menus, build_ffmpeg_menu_command, generate_spumux_xml};
 use super::types::{BuildJob, BuildPlan, BuildSummary, MenuOverlayButton};
 use super::util::sanitise_filename;
@@ -18,6 +18,7 @@ struct BuildPaths {
     output_dir: PathBuf,
     work_dir: PathBuf,
     titles_dir: PathBuf,
+    subtitles_dir: PathBuf,
     menus_dir: PathBuf,
     video_ts_dir: PathBuf,
 }
@@ -34,6 +35,7 @@ impl BuildPaths {
         let output_dir = PathBuf::from(output_dir);
         let work_dir = output_dir.join("_spindle_work");
         let titles_dir = work_dir.join("titles");
+        let subtitles_dir = work_dir.join("subtitles");
         let menus_dir = work_dir.join("menus");
         let video_ts_dir = output_dir.join("VIDEO_TS");
 
@@ -41,6 +43,7 @@ impl BuildPaths {
             output_dir,
             work_dir,
             titles_dir,
+            subtitles_dir,
             menus_dir,
             video_ts_dir,
         }
@@ -50,6 +53,7 @@ impl BuildPaths {
         vec![
             self.work_dir.display().to_string(),
             self.titles_dir.display().to_string(),
+            self.subtitles_dir.display().to_string(),
             self.menus_dir.display().to_string(),
             self.video_ts_dir.display().to_string(),
         ]
@@ -75,6 +79,11 @@ impl BuildPaths {
             highlight_image_path: self.menus_dir.join(format!("{base_name}_highlight.png")),
             select_image_path: self.menus_dir.join(format!("{base_name}_select.png")),
         }
+    }
+
+    fn subtitle_output_path(&self, title_id: &str, stream_index: u32) -> PathBuf {
+        self.subtitles_dir
+            .join(format!("{}_{}.sub", sanitise_filename(title_id), stream_index))
     }
 
     fn dvdauthor_xml_path(&self) -> PathBuf {
@@ -172,6 +181,37 @@ pub fn generate_build_plan(
             label: format!("Transcode \"{}\"", title.name),
             duration_secs: asset.duration_secs,
         });
+
+        // Extract bitmap subtitle streams for this title
+        let bitmap_subtitles: Vec<_> = title
+            .subtitle_mappings
+            .iter()
+            .filter(|sm| {
+                asset
+                    .subtitle_streams
+                    .iter()
+                    .any(|ss| ss.index == sm.source_stream_index && ss.subtitle_type == SubtitleType::Bitmap)
+            })
+            .collect();
+
+        for sm in &bitmap_subtitles {
+            let sub_output = paths.subtitle_output_path(&title.id, sm.source_stream_index);
+            let mut sub_cmd = build_ffmpeg_subtitle_extract_command(
+                &asset.source_path,
+                &sub_output,
+                sm.source_stream_index,
+            );
+            sub_cmd[0] = tools.ffmpeg.clone();
+
+            jobs.push(BuildJob::ExtractSubtitles {
+                title_id: title.id.clone(),
+                title_name: title.name.clone(),
+                source_path: asset.source_path.clone(),
+                output_path: sub_output.display().to_string(),
+                command: sub_cmd,
+                label: format!("Extract subtitle \"{}\" from \"{}\"", sm.label, title.name),
+            });
+        }
     }
 
     for menu_ref in authorable_menus(project) {
