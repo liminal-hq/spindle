@@ -137,5 +137,17 @@ All fields use `#[serde(default)]` for backwards compatibility with existing pro
 | `menu.button-no-navigation` | Use the auto-generate navigation feature to create directional links for all buttons. |
 | `titleset.format-mismatch` | Ensure all titles in this titleset use the same resolution and aspect ratio, or move mismatched titles to a separate titleset. |
 | `build.no-output-dir` | Set an output directory in the build settings to avoid being prompted each time. |
+| `subtitle.dangling-stream` | The source file may have changed. Remove this subtitle mapping or relink the asset. |
+| `subtitle.text-only-unsupported` | Text subtitle rendering is not yet supported. Remove text subtitles or provide bitmap subtitle sources. |
 
-**Frontend** — `BuildPage.tsx` renders each validation issue with its `suggestedFix` text in a muted style below the message, giving users immediate guidance.
+**Clickable issue navigation** — Validation issues in OverviewPage and BuildPage are clickable. Clicking an issue navigates to the relevant page (titles, menus, build, etc.) and auto-selects the affected entity using a `NavigationContext` provided by `App.tsx`. Entity type determines the target route:
+
+| `entityType` | Target page |
+| --- | --- |
+| `title` | Titles — selects title and its containing titleset |
+| `menu` | Menus — selects the menu |
+| `titleset` | Titles — selects the titleset |
+| `disc` | Overview (no navigation from overview itself) |
+| `build` | Build (no navigation from build itself) |
+
+**Inline fix hints** — Both OverviewPage and BuildPage show `suggestedFix` text in a muted style below each issue message, giving users immediate guidance without requiring click-through.
