@@ -281,7 +281,7 @@ function TitleEditor({
 	title: Title;
 	assets: Asset[];
 	standard: string;
-	allTitles: { id: string; name: string }[];
+	allTitles: { id: string; name: string; chapters: { id: string; name: string }[] }[];
 	allMenus: { id: string; name: string }[];
 	onUpdate: (title: Title) => void;
 }) {
@@ -640,6 +640,22 @@ function TitleEditor({
 								</option>
 							))}
 					</optgroup>
+					{allTitles.some((t) => t.id !== title.id && t.chapters.length > 0) && (
+						<optgroup label="Play Chapter">
+							{allTitles
+								.filter((t) => t.id !== title.id && t.chapters.length > 0)
+								.flatMap((t) =>
+									t.chapters.map((ch) => (
+										<option
+											key={`${t.id}:${ch.id}`}
+											value={`playChapter:${t.id}:${ch.id}`}
+										>
+											{t.name} — {ch.name}
+										</option>
+									)),
+								)}
+						</optgroup>
+					)}
 					<optgroup label="Show Menu">
 						{allMenus.map((m) => (
 							<option key={m.id} value={`showMenu:${m.id}`}>
@@ -658,6 +674,8 @@ function endActionToString(action: PlaybackAction | null): string {
 	switch (action.type) {
 		case 'playTitle':
 			return `playTitle:${action.titleId}`;
+		case 'playChapter':
+			return `playChapter:${action.titleId}:${action.chapterId}`;
 		case 'showMenu':
 			return `showMenu:${action.menuId}`;
 		case 'stop':
@@ -670,9 +688,12 @@ function endActionToString(action: PlaybackAction | null): string {
 function stringToEndAction(str: string): PlaybackAction | null {
 	if (!str) return null;
 	if (str === 'stop') return { type: 'stop' };
-	const [type, id] = str.split(':');
-	if (type === 'playTitle' && id) return { type: 'playTitle', titleId: id };
-	if (type === 'showMenu' && id) return { type: 'showMenu', menuId: id };
+	const parts = str.split(':');
+	const type = parts[0];
+	if (type === 'playTitle' && parts[1]) return { type: 'playTitle', titleId: parts[1] };
+	if (type === 'playChapter' && parts[1] && parts[2])
+		return { type: 'playChapter', titleId: parts[1], chapterId: parts[2] };
+	if (type === 'showMenu' && parts[1]) return { type: 'showMenu', menuId: parts[1] };
 	return null;
 }
 

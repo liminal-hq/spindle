@@ -352,6 +352,22 @@ function MenuEditor({
 										</option>
 									))}
 								</optgroup>
+								{allTitles.some((t) => t.chapters.length > 0) && (
+									<optgroup label="Play Chapter">
+										{allTitles
+											.filter((t) => t.chapters.length > 0)
+											.flatMap((t) =>
+												t.chapters.map((ch) => (
+													<option
+														key={`${t.id}:${ch.id}`}
+														value={`playChapter:${t.id}:${ch.id}`}
+													>
+														{t.name} — {ch.name}
+													</option>
+												)),
+											)}
+									</optgroup>
+								)}
 								<optgroup label="Show Menu">
 									{allMenus
 										.filter((m) => m.id !== menu.id)
@@ -1014,9 +1030,12 @@ function stringToAction(
 ): PlaybackAction | null {
 	if (!str) return null;
 	if (str === 'stop') return { type: 'stop' };
-	const [type, id] = str.split(':');
-	if (type === 'playTitle' && id) return { type: 'playTitle', titleId: id };
-	if (type === 'showMenu' && id) return { type: 'showMenu', menuId: id };
+	const parts = str.split(':');
+	const type = parts[0];
+	if (type === 'playTitle' && parts[1]) return { type: 'playTitle', titleId: parts[1] };
+	if (type === 'playChapter' && parts[1] && parts[2])
+		return { type: 'playChapter', titleId: parts[1], chapterId: parts[2] };
+	if (type === 'showMenu' && parts[1]) return { type: 'showMenu', menuId: parts[1] };
 	return null;
 }
 
