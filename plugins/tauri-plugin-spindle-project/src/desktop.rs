@@ -230,6 +230,26 @@ impl<R: Runtime> SpindleProject<R> {
                     }
                 }
 
+                if let Some(PlaybackAction::PlayChapter {
+                    title_id,
+                    chapter_id,
+                }) = &title.end_action
+                {
+                    if !chapter_target_exists(&project.disc, title_id, chapter_id) {
+                        issues.push(dangling_play_chapter_issue(
+                            "title.dangling-end-chapter-ref",
+                            format!(
+                                "End action for title \"{}\" references a chapter target that does not exist.",
+                                title.name
+                            ),
+                            Some(title.id.clone()),
+                            "title",
+                            Some(title.name.clone()),
+                            "Update the end action to point to an existing chapter or choose a different action.",
+                        ));
+                    }
+                }
+
                 // ── Subtitle checks ────────────────────────────────────
                 if let Some(ref asset_id) = title.source_asset_id {
                     if let Some(asset) = asset_map.get(asset_id.as_str()) {
@@ -392,6 +412,24 @@ impl<R: Runtime> SpindleProject<R> {
                             });
                         }
                     }
+                    Some(PlaybackAction::PlayChapter {
+                        title_id,
+                        chapter_id,
+                    }) => {
+                        if !chapter_target_exists(&project.disc, title_id, chapter_id) {
+                            issues.push(dangling_play_chapter_issue(
+                                "menu.dangling-chapter-ref",
+                                format!(
+                                    "Button \"{}\" in menu \"{}\" references a chapter target that does not exist.",
+                                    button.label, menu.name
+                                ),
+                                Some(menu.id.clone()),
+                                "menu",
+                                Some(menu.name.clone()),
+                                "Update the button action to point to an existing chapter or remove it.",
+                            ));
+                        }
+                    }
                     _ => {}
                 }
 
@@ -489,5 +527,95 @@ impl<R: Runtime> SpindleProject<R> {
         }
 
         Ok(issues)
+    }
+}
+
+fn chapter_target_exists(disc: &Disc, title_id: &str, chapter_id: &str) -> bool {
+    disc.titlesets
+        .iter()
+        .flat_map(|titleset| titleset.titles.iter())
+        .find(|title| title.id == title_id)
+        .is_some_and(|title| {
+            title
+                .chapters
+                .iter()
+                .any(|chapter| chapter.id == chapter_id)
+        })
+}
+
+fn dangling_play_chapter_issue(
+    code: &str,
+    message: String,
+    context: Option<String>,
+    entity_type: &str,
+    entity_name: Option<String>,
+    suggested_fix: &str,
+) -> ValidationIssue {
+    ValidationIssue {
+        severity: IssueSeverity::Error,
+        code: code.to_string(),
+        message,
+        context,
+        entity_type: Some(entity_type.to_string()),
+        entity_name,
+        suggested_fix: Some(suggested_fix.to_string()),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::models::{ChapterPoint, Disc, IssueSeverity, Title, Titleset, VideoStandard};
+
+    use super::{chapter_target_exists, dangling_play_chapter_issue};
+
+    #[test]
+    fn chapter_target_exists_requires_matching_title_and_chapter() {
+        let disc = Disc {
+            standard: VideoStandard::Ntsc,
+            titlesets: vec![Titleset {
+                id: "titleset-1".to_string(),
+                name: "Main".to_string(),
+                titles: vec![Title {
+                    id: "title-1".to_string(),
+                    name: "Feature".to_string(),
+                    source_asset_id: None,
+                    video_mapping: None,
+                    video_output_profile: None,
+                    audio_mappings: vec![],
+                    subtitle_mappings: vec![],
+                    chapters: vec![ChapterPoint {
+                        id: "ch-2".to_string(),
+                        name: "Chapter 2".to_string(),
+                        timestamp_secs: 0.0,
+                        order_index: 0,
+                    }],
+                    end_action: None,
+                    order_index: 0,
+                }],
+                menus: vec![],
+            }],
+            ..Disc::default()
+        };
+
+        assert!(chapter_target_exists(&disc, "title-1", "ch-2"));
+        assert!(!chapter_target_exists(&disc, "title-1", "missing-chapter"));
+        assert!(!chapter_target_exists(&disc, "missing-title", "ch-2"));
+    }
+
+    #[test]
+    fn dangling_play_chapter_issue_marks_missing_targets_as_errors() {
+        let issue = dangling_play_chapter_issue(
+            "menu.dangling-chapter-ref",
+            "Button \"Play\" in menu \"Main Menu\" references a chapter target that does not exist."
+                .to_string(),
+            Some("menu-1".to_string()),
+            "menu",
+            Some("Main Menu".to_string()),
+            "Update the button action to point to an existing chapter or remove it.",
+        );
+
+        assert!(matches!(issue.severity, IssueSeverity::Error));
+        assert_eq!(issue.code, "menu.dangling-chapter-ref");
+        assert_eq!(issue.context.as_deref(), Some("menu-1"));
     }
 }

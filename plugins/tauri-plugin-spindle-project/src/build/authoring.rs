@@ -191,7 +191,10 @@ fn append_titles_section(
                 .iter()
                 .find_map(|t| t.subtitle_mappings.get(i).map(|sm| sm.language.as_str()))
                 .unwrap_or("und");
-            xml.push_str(&format!("      <subpicture lang=\"{lang}\" />\n"));
+            xml.push_str(&format!(
+                "      <subpicture lang=\"{}\" />\n",
+                xml_escape(lang)
+            ));
         }
     }
 
@@ -252,7 +255,7 @@ mod tests {
     use crate::build::test_support::{
         add_second_titleset, test_menu, test_menu_with_action, test_project,
     };
-    use crate::models::PlaybackAction;
+    use crate::models::{PlaybackAction, SubtitleStreamInfo, SubtitleTrackMapping, SubtitleType};
 
     #[test]
     fn dvdauthor_xml_contains_authored_menu_vob_and_button() {
@@ -315,6 +318,35 @@ mod tests {
             "dvdauthor XML must declare aspect ratio\n{}",
             plan.dvdauthor_xml
         );
+    }
+
+    #[test]
+    fn dvdauthor_xml_escapes_subpicture_language_values() {
+        let mut project = test_project();
+        project.assets[0].subtitle_streams.push(SubtitleStreamInfo {
+            index: 2,
+            codec: "dvd_subtitle".to_string(),
+            language: Some("en&\"g".to_string()),
+            subtitle_type: SubtitleType::Bitmap,
+            title: None,
+        });
+        project.disc.titlesets[0].titles[0]
+            .subtitle_mappings
+            .push(SubtitleTrackMapping {
+                id: "sm-1".to_string(),
+                source_stream_index: 2,
+                label: "English".to_string(),
+                language: "en&\"g".to_string(),
+                order_index: 0,
+                is_default: false,
+                is_forced: false,
+            });
+
+        let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+
+        assert!(plan
+            .dvdauthor_xml
+            .contains("<subpicture lang=\"en&amp;&quot;g\" />"));
     }
 
     #[test]

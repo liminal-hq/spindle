@@ -9,7 +9,7 @@ use std::path::PathBuf;
 use crate::models::*;
 
 use super::authoring::generate_dvdauthor_xml;
-use super::ffmpeg::{build_ffmpeg_subtitle_extract_command, build_ffmpeg_transcode_command};
+use super::ffmpeg::build_ffmpeg_transcode_command;
 use super::menu::{authorable_menus, build_ffmpeg_menu_command, generate_spumux_xml};
 use super::types::{BuildJob, BuildPlan, BuildSummary, MenuOverlayButton};
 use super::util::sanitise_filename;
@@ -79,14 +79,6 @@ impl BuildPaths {
             highlight_image_path: self.menus_dir.join(format!("{base_name}_highlight.png")),
             select_image_path: self.menus_dir.join(format!("{base_name}_select.png")),
         }
-    }
-
-    fn subtitle_output_path(&self, title_id: &str, stream_index: u32) -> PathBuf {
-        self.subtitles_dir.join(format!(
-            "{}_{}.sub",
-            sanitise_filename(title_id),
-            stream_index
-        ))
     }
 
     fn dvdauthor_xml_path(&self) -> PathBuf {
@@ -170,6 +162,7 @@ pub fn generate_build_plan(
             &asset.source_path,
             &output_path,
             title,
+            asset,
             &project.disc,
             video_info,
         );
@@ -184,36 +177,6 @@ pub fn generate_build_plan(
             label: format!("Transcode \"{}\"", title.name),
             duration_secs: asset.duration_secs,
         });
-
-        // Extract bitmap subtitle streams for this title
-        let bitmap_subtitles: Vec<_> = title
-            .subtitle_mappings
-            .iter()
-            .filter(|sm| {
-                asset.subtitle_streams.iter().any(|ss| {
-                    ss.index == sm.source_stream_index && ss.subtitle_type == SubtitleType::Bitmap
-                })
-            })
-            .collect();
-
-        for sm in &bitmap_subtitles {
-            let sub_output = paths.subtitle_output_path(&title.id, sm.source_stream_index);
-            let mut sub_cmd = build_ffmpeg_subtitle_extract_command(
-                &asset.source_path,
-                &sub_output,
-                sm.source_stream_index,
-            );
-            sub_cmd[0] = tools.ffmpeg.clone();
-
-            jobs.push(BuildJob::ExtractSubtitles {
-                title_id: title.id.clone(),
-                title_name: title.name.clone(),
-                source_path: asset.source_path.clone(),
-                output_path: sub_output.display().to_string(),
-                command: sub_cmd,
-                label: format!("Extract subtitle \"{}\" from \"{}\"", sm.label, title.name),
-            });
-        }
     }
 
     for menu_ref in authorable_menus(project) {
@@ -350,6 +313,7 @@ pub fn generate_build_plan(
 mod tests {
     use crate::build::test_support::{test_menu, test_project};
     use crate::build::{generate_build_plan, BuildJob};
+    use crate::models::{SubtitleStreamInfo, SubtitleTrackMapping, SubtitleType};
 
     #[test]
     fn build_plan_generates_correct_job_count() {
@@ -388,5 +352,49 @@ mod tests {
             .iter()
             .any(|job| matches!(job, BuildJob::ComposeMenuHighlights { .. })));
         assert_eq!(plan.summary.menus_count, 1);
+    }
+
+    #[test]
+    fn build_plan_muxes_bitmap_subtitles_during_title_transcode() {
+        let mut project = test_project();
+        project.assets[0].subtitle_streams.push(SubtitleStreamInfo {
+            index: 2,
+            codec: "hdmv_pgs_subtitle".to_string(),
+            language: Some("eng".to_string()),
+            subtitle_type: SubtitleType::Bitmap,
+            title: Some("English".to_string()),
+        });
+        project.disc.titlesets[0].titles[0]
+            .subtitle_mappings
+            .push(SubtitleTrackMapping {
+                id: "sm-1".to_string(),
+                source_stream_index: 2,
+                label: "English".to_string(),
+                language: "eng".to_string(),
+                order_index: 0,
+                is_default: false,
+                is_forced: false,
+            });
+
+        let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+        let transcode_job = plan
+            .jobs
+            .iter()
+            .find_map(|job| match job {
+                BuildJob::TranscodeTitle { command, .. } => Some(command),
+                _ => None,
+            })
+            .expect("expected transcode job");
+
+        assert!(transcode_job
+            .windows(2)
+            .any(|window| { window == [String::from("-map"), String::from("0:2")] }));
+        assert!(transcode_job
+            .windows(2)
+            .any(|window| { window == [String::from("-c:s:0"), String::from("dvd_subtitle")] }));
+        assert!(!plan
+            .jobs
+            .iter()
+            .any(|job| matches!(job, BuildJob::ExtractSubtitles { .. })));
     }
 }
