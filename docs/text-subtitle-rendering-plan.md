@@ -25,12 +25,12 @@ DVD-Video subtitles are bitmap subpictures with severe constraints:
 
 From `inspect.rs::classify_subtitle_type`:
 
-| Codec | Format | Notes |
-| --- | --- | --- |
-| `subrip` / `srt` | SRT | Plain text with basic timing. Most common. |
-| `ass` / `ssa` | ASS/SSA | Rich styling: fonts, colours, positioning, effects. |
-| `webvtt` | WebVTT | Web-origin format, similar to SRT with CSS-like styling. |
-| `mov_text` | QuickTime | Simple text, common in MP4 containers. |
+| Codec            | Format    | Notes                                                    |
+| ---------------- | --------- | -------------------------------------------------------- |
+| `subrip` / `srt` | SRT       | Plain text with basic timing. Most common.               |
+| `ass` / `ssa`    | ASS/SSA   | Rich styling: fonts, colours, positioning, effects.      |
+| `webvtt`         | WebVTT    | Web-origin format, similar to SRT with CSS-like styling. |
+| `mov_text`       | QuickTime | Simple text, common in MP4 containers.                   |
 
 ---
 
@@ -73,15 +73,15 @@ An alternative single-pass approach may be viable depending on FFmpeg version ca
 
 DVD's 4-colour palette forces significant style simplification. Define sensible defaults:
 
-| Property | Default | Notes |
-| --- | --- | --- |
-| Font | Liberation Sans or system sans-serif | Must be bundled or resolved at build time |
-| Font size | Scaled to ~5% of frame height | ~24px at 480p, readable on CRT/LCD |
-| Text colour | White (#FFFFFF) | Palette slot 1 |
-| Outline colour | Black (#000000) | Palette slot 2 |
-| Outline width | 2px | Ensures legibility over varied backgrounds |
-| Position | Bottom-centre, 90% action-safe | Standard subtitle placement |
-| Anti-alias colour | Grey (#808080) | Palette slot 3, improves edge smoothing |
+| Property          | Default                              | Notes                                      |
+| ----------------- | ------------------------------------ | ------------------------------------------ |
+| Font              | Liberation Sans or system sans-serif | Must be bundled or resolved at build time  |
+| Font size         | Scaled to ~5% of frame height        | ~24px at 480p, readable on CRT/LCD         |
+| Text colour       | White (#FFFFFF)                      | Palette slot 1                             |
+| Outline colour    | Black (#000000)                      | Palette slot 2                             |
+| Outline width     | 2px                                  | Ensures legibility over varied backgrounds |
+| Position          | Bottom-centre, 90% action-safe       | Standard subtitle placement                |
+| Anti-alias colour | Grey (#808080)                       | Palette slot 3, improves edge smoothing    |
 
 For ASS/SSA sources, honour the embedded styling where possible (font, size, colour, position) but quantise colours to the nearest palette entry and strip unsupported effects (blur, rotation, clip paths, karaoke timing).
 
@@ -142,6 +142,7 @@ pub(crate) fn build_ffmpeg_text_subtitle_render_command(
 ```
 
 Parameters:
+
 - `video_standard` determines frame size (720x480 NTSC, 720x576 PAL)
 - `duration_secs` sets the blank video input duration
 - The `force_style` parameter applies the default style overrides
@@ -152,11 +153,11 @@ No changes needed. The existing `<subpicture>` declaration code in `authoring.rs
 
 ### Validation changes
 
-| Change | Detail |
-| --- | --- |
-| Remove `subtitle.text-only-unsupported` | No longer needed once rendering is supported |
-| Add `subtitle.ass-styling-simplified` | Info-level note when ASS/SSA subtitles have styling that will be quantised to DVD palette |
-| Add `subtitle.no-font-available` | Warning if the configured font cannot be resolved at build time |
+| Change                                  | Detail                                                                                    |
+| --------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Remove `subtitle.text-only-unsupported` | No longer needed once rendering is supported                                              |
+| Add `subtitle.ass-styling-simplified`   | Info-level note when ASS/SSA subtitles have styling that will be quantised to DVD palette |
+| Add `subtitle.no-font-available`        | Warning if the configured font cannot be resolved at build time                           |
 
 ### User-facing configuration (future)
 
@@ -174,16 +175,16 @@ This is explicitly out of scope for the initial implementation.
 
 ## Files to change
 
-| File | Change |
-| --- | --- |
-| `plugins/.../src/build/types.rs` | Add `RenderTextSubtitles` variant to `BuildJob` |
-| `plugins/.../src/build/ffmpeg.rs` | Add `build_ffmpeg_text_subtitle_render_command` |
-| `plugins/.../src/build/planner.rs` | Generate `RenderTextSubtitles` jobs for text subtitle mappings |
-| `plugins/.../src/build/runner.rs` | Execute `RenderTextSubtitles` jobs during build |
-| `plugins/.../src/desktop.rs` | Remove `subtitle.text-only-unsupported`, add new validation rules |
-| `apps/.../src/types/project.ts` | Add `renderTextSubtitles` to `BuildJob` union |
-| `apps/.../src/pages/BuildPage.tsx` | Handle `renderTextSubtitles` job type for progress display |
-| `docs/core-dvd-authoring-completion.md` | Update subtitle pipeline spec to reflect text rendering |
+| File                                    | Change                                                            |
+| --------------------------------------- | ----------------------------------------------------------------- |
+| `plugins/.../src/build/types.rs`        | Add `RenderTextSubtitles` variant to `BuildJob`                   |
+| `plugins/.../src/build/ffmpeg.rs`       | Add `build_ffmpeg_text_subtitle_render_command`                   |
+| `plugins/.../src/build/planner.rs`      | Generate `RenderTextSubtitles` jobs for text subtitle mappings    |
+| `plugins/.../src/build/runner.rs`       | Execute `RenderTextSubtitles` jobs during build                   |
+| `plugins/.../src/desktop.rs`            | Remove `subtitle.text-only-unsupported`, add new validation rules |
+| `apps/.../src/types/project.ts`         | Add `renderTextSubtitles` to `BuildJob` union                     |
+| `apps/.../src/pages/BuildPage.tsx`      | Handle `renderTextSubtitles` job type for progress display        |
+| `docs/core-dvd-authoring-completion.md` | Update subtitle pipeline spec to reflect text rendering           |
 
 ## Risks and open questions
 

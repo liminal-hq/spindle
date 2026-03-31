@@ -82,8 +82,11 @@ impl BuildPaths {
     }
 
     fn subtitle_output_path(&self, title_id: &str, stream_index: u32) -> PathBuf {
-        self.subtitles_dir
-            .join(format!("{}_{}.sub", sanitise_filename(title_id), stream_index))
+        self.subtitles_dir.join(format!(
+            "{}_{}.sub",
+            sanitise_filename(title_id),
+            stream_index
+        ))
     }
 
     fn dvdauthor_xml_path(&self) -> PathBuf {
@@ -187,10 +190,9 @@ pub fn generate_build_plan(
             .subtitle_mappings
             .iter()
             .filter(|sm| {
-                asset
-                    .subtitle_streams
-                    .iter()
-                    .any(|ss| ss.index == sm.source_stream_index && ss.subtitle_type == SubtitleType::Bitmap)
+                asset.subtitle_streams.iter().any(|ss| {
+                    ss.index == sm.source_stream_index && ss.subtitle_type == SubtitleType::Bitmap
+                })
             })
             .collect();
 

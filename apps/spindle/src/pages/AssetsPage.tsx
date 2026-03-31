@@ -6,7 +6,12 @@
 import { useEffect, useState } from 'react';
 import { BaseDirectory, readFile } from '@tauri-apps/plugin-fs';
 import { useProjectStore } from '../store/project-store';
-import type { Asset, CompatibilityAssessment, CompatibilityDetail, PropertyCheck } from '../types/project';
+import type {
+	Asset,
+	CompatibilityAssessment,
+	CompatibilityDetail,
+	PropertyCheck,
+} from '../types/project';
 import './AssetsPage.css';
 
 export function AssetsPage() {
@@ -377,10 +382,7 @@ function CompatibilityDetailView({ detail }: { detail: CompatibilityDetail }) {
 
 	if (!expanded) {
 		return (
-			<button
-				className="btn btn--link assets__compat-toggle"
-				onClick={() => setExpanded(true)}
-			>
+			<button className="btn btn--link assets__compat-toggle" onClick={() => setExpanded(true)}>
 				Show details
 			</button>
 		);
@@ -399,10 +401,7 @@ function CompatibilityDetailView({ detail }: { detail: CompatibilityDetail }) {
 
 	return (
 		<div className="assets__compat-detail">
-			<button
-				className="btn btn--link assets__compat-toggle"
-				onClick={() => setExpanded(false)}
-			>
+			<button className="btn btn--link assets__compat-toggle" onClick={() => setExpanded(false)}>
 				Hide details
 			</button>
 			<table className="assets__compat-table">
@@ -416,7 +415,10 @@ function CompatibilityDetailView({ detail }: { detail: CompatibilityDetail }) {
 				</thead>
 				<tbody>
 					{rows.map((r) => (
-						<tr key={r.label} className={r.check.compatible ? '' : 'assets__compat-row--incompatible'}>
+						<tr
+							key={r.label}
+							className={r.check.compatible ? '' : 'assets__compat-row--incompatible'}
+						>
 							<td>{r.label}</td>
 							<td>{r.check.value}</td>
 							<td>{r.check.dvdRequires}</td>

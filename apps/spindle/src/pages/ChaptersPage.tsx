@@ -38,9 +38,7 @@ export function ChaptersPage() {
 		handleUpdateChapters(selectedTitle.id, [...chapters, newChapter]);
 	};
 
-	const canSeedFromSource =
-		selectedTitle != null &&
-		(asset?.sourceChapters?.length ?? 0) > 0;
+	const canSeedFromSource = selectedTitle != null && (asset?.sourceChapters?.length ?? 0) > 0;
 
 	const handleSeedFromSource = () => {
 		if (!selectedTitle || !asset?.sourceChapters?.length) return;

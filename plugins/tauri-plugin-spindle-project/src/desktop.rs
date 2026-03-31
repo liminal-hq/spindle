@@ -89,7 +89,10 @@ impl<R: Runtime> SpindleProject<R> {
                 context: None,
                 entity_type: Some("disc".to_string()),
                 entity_name: None,
-                suggested_fix: Some("Add titles in the Titles page to define the disc's playback structure.".to_string()),
+                suggested_fix: Some(
+                    "Add titles in the Titles page to define the disc's playback structure."
+                        .to_string(),
+                ),
             });
         }
 
@@ -127,7 +130,10 @@ impl<R: Runtime> SpindleProject<R> {
                             context: Some(title.id.clone()),
                             entity_type: Some("title".to_string()),
                             entity_name: Some(title.name.clone()),
-                            suggested_fix: Some("Open the title and assign a source asset from the Assets library.".to_string()),
+                            suggested_fix: Some(
+                                "Open the title and assign a source asset from the Assets library."
+                                    .to_string(),
+                            ),
                         });
                     }
                     Some(asset_id) if !asset_ids.contains(asset_id.as_str()) => {
@@ -141,7 +147,10 @@ impl<R: Runtime> SpindleProject<R> {
                             context: Some(title.id.clone()),
                             entity_type: Some("title".to_string()),
                             entity_name: Some(title.name.clone()),
-                            suggested_fix: Some("Re-import the missing asset or assign a different source.".to_string()),
+                            suggested_fix: Some(
+                                "Re-import the missing asset or assign a different source."
+                                    .to_string(),
+                            ),
                         });
                     }
                     _ => {}
@@ -155,7 +164,10 @@ impl<R: Runtime> SpindleProject<R> {
                         context: Some(title.id.clone()),
                         entity_type: Some("title".to_string()),
                         entity_name: Some(title.name.clone()),
-                        suggested_fix: Some("Select a video stream in the title's track mapping section.".to_string()),
+                        suggested_fix: Some(
+                            "Select a video stream in the title's track mapping section."
+                                .to_string(),
+                        ),
                     });
                 }
 
@@ -221,13 +233,6 @@ impl<R: Runtime> SpindleProject<R> {
                 // ── Subtitle checks ────────────────────────────────────
                 if let Some(ref asset_id) = title.source_asset_id {
                     if let Some(asset) = asset_map.get(asset_id.as_str()) {
-                        let max_stream_index = asset
-                            .subtitle_streams
-                            .iter()
-                            .map(|s| s.index)
-                            .max()
-                            .unwrap_or(0);
-
                         for sm in &title.subtitle_mappings {
                             // Dangling subtitle stream reference
                             if !asset
@@ -256,7 +261,7 @@ impl<R: Runtime> SpindleProject<R> {
                                 .subtitle_streams
                                 .iter()
                                 .find(|s| s.index == sm.source_stream_index)
-                                .map_or(false, |s| s.subtitle_type == SubtitleType::Text)
+                                .is_some_and(|s| s.subtitle_type == SubtitleType::Text)
                         });
 
                         if has_text_subs {
@@ -307,7 +312,9 @@ impl<R: Runtime> SpindleProject<R> {
                     context: Some(menu.id.clone()),
                     entity_type: Some("menu".to_string()),
                     entity_name: Some(menu.name.clone()),
-                    suggested_fix: Some("Add at least one button to define user interaction.".to_string()),
+                    suggested_fix: Some(
+                        "Add at least one button to define user interaction.".to_string(),
+                    ),
                 });
                 continue;
             }
@@ -344,7 +351,10 @@ impl<R: Runtime> SpindleProject<R> {
                         context: Some(menu.id.clone()),
                         entity_type: Some("menu".to_string()),
                         entity_name: Some(menu.name.clone()),
-                        suggested_fix: Some("Assign an action (play title, show menu, etc.) to this button.".to_string()),
+                        suggested_fix: Some(
+                            "Assign an action (play title, show menu, etc.) to this button."
+                                .to_string(),
+                        ),
                     });
                 }
 

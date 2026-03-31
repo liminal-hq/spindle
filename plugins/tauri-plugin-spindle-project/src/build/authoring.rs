@@ -191,9 +191,7 @@ fn append_titles_section(
                 .iter()
                 .find_map(|t| t.subtitle_mappings.get(i).map(|sm| sm.language.as_str()))
                 .unwrap_or("und");
-            xml.push_str(&format!(
-                "      <subpicture lang=\"{lang}\" />\n"
-            ));
+            xml.push_str(&format!("      <subpicture lang=\"{lang}\" />\n"));
         }
     }
 

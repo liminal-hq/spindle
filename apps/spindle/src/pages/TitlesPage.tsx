@@ -52,8 +52,7 @@ export function TitlesPage() {
 
 	// Select first titleset by default, or follow user selection
 	const titleset =
-		project.disc.titlesets.find((ts) => ts.id === selectedTitlesetId) ??
-		project.disc.titlesets[0];
+		project.disc.titlesets.find((ts) => ts.id === selectedTitlesetId) ?? project.disc.titlesets[0];
 	if (!titleset) return null;
 
 	const titles = titleset.titles;
@@ -734,8 +733,7 @@ function TitleEditor({
 										id: crypto.randomUUID(),
 										sourceStreamIndex: stream.index,
 										label:
-											stream.title ??
-											languageLabel(stream.language ?? null, `Subtitle ${idx + 1}`),
+											stream.title ?? languageLabel(stream.language ?? null, `Subtitle ${idx + 1}`),
 										language: stream.language ?? 'und',
 										orderIndex: idx,
 										isDefault: false,
@@ -774,10 +772,7 @@ function TitleEditor({
 								.filter((t) => t.id !== title.id && t.chapters.length > 0)
 								.flatMap((t) =>
 									t.chapters.map((ch) => (
-										<option
-											key={`${t.id}:${ch.id}`}
-											value={`playChapter:${t.id}:${ch.id}`}
-										>
+										<option key={`${t.id}:${ch.id}`} value={`playChapter:${t.id}:${ch.id}`}>
 											{t.name} — {ch.name}
 										</option>
 									)),

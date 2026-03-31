@@ -366,10 +366,7 @@ function MenuEditor({
 											.filter((t) => t.chapters.length > 0)
 											.flatMap((t) =>
 												t.chapters.map((ch) => (
-													<option
-														key={`${t.id}:${ch.id}`}
-														value={`playChapter:${t.id}:${ch.id}`}
-													>
+													<option key={`${t.id}:${ch.id}`} value={`playChapter:${t.id}:${ch.id}`}>
 														{t.name} — {ch.name}
 													</option>
 												)),
