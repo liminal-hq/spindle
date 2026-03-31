@@ -313,6 +313,12 @@ export interface ValidationIssue {
 	code: string;
 	message: string;
 	context: string | null;
+	/** Entity type for navigation: "title", "menu", "titleset", "disc", "build". */
+	entityType?: string | null;
+	/** Human-readable name of the affected entity. */
+	entityName?: string | null;
+	/** Actionable guidance on how to resolve the issue. */
+	suggestedFix?: string | null;
 }
 
 // ── Build Pipeline ──────────────────────────────────────────────────────────

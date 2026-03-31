@@ -274,7 +274,12 @@ export function BuildPage() {
 							<div key={i} className={`build__issue build__issue--${issue.severity}`}>
 								<span className="build__issue-dot" />
 								<span className="build__issue-code">{issue.code}</span>
-								<span>{issue.message}</span>
+								<div className="build__issue-body">
+									<span>{issue.message}</span>
+									{issue.suggestedFix && (
+										<span className="build__issue-fix text-muted">{issue.suggestedFix}</span>
+									)}
+								</div>
 							</div>
 						))}
 					</div>

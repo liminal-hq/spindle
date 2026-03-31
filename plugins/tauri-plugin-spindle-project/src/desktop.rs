@@ -68,6 +68,9 @@ impl<R: Runtime> SpindleProject<R> {
                 code: "disc.no-titlesets".to_string(),
                 message: "Disc must contain at least one titleset.".to_string(),
                 context: None,
+                entity_type: Some("disc".to_string()),
+                entity_name: None,
+                suggested_fix: Some("Add at least one titleset to the disc.".to_string()),
             });
         }
 
@@ -84,6 +87,9 @@ impl<R: Runtime> SpindleProject<R> {
                 code: "disc.no-titles".to_string(),
                 message: "No titles have been added to the disc.".to_string(),
                 context: None,
+                entity_type: Some("disc".to_string()),
+                entity_name: None,
+                suggested_fix: Some("Add titles in the Titles page to define the disc's playback structure.".to_string()),
             });
         }
 
@@ -93,6 +99,9 @@ impl<R: Runtime> SpindleProject<R> {
                 code: "disc.no-first-play".to_string(),
                 message: "No first-play action is set. Consider setting a menu or title as the entry point.".to_string(),
                 context: None,
+                entity_type: Some("disc".to_string()),
+                entity_name: None,
+                suggested_fix: Some("Set a first-play action on the overview page so the disc has a defined startup behaviour.".to_string()),
             });
         }
 
@@ -116,6 +125,9 @@ impl<R: Runtime> SpindleProject<R> {
                                 title.name
                             ),
                             context: Some(title.id.clone()),
+                            entity_type: Some("title".to_string()),
+                            entity_name: Some(title.name.clone()),
+                            suggested_fix: Some("Open the title and assign a source asset from the Assets library.".to_string()),
                         });
                     }
                     Some(asset_id) if !asset_ids.contains(asset_id.as_str()) => {
@@ -127,6 +139,9 @@ impl<R: Runtime> SpindleProject<R> {
                                 title.name
                             ),
                             context: Some(title.id.clone()),
+                            entity_type: Some("title".to_string()),
+                            entity_name: Some(title.name.clone()),
+                            suggested_fix: Some("Re-import the missing asset or assign a different source.".to_string()),
                         });
                     }
                     _ => {}
@@ -138,6 +153,9 @@ impl<R: Runtime> SpindleProject<R> {
                         code: "title.no-video-mapping".to_string(),
                         message: format!("Title \"{}\" has no video stream selected.", title.name),
                         context: Some(title.id.clone()),
+                        entity_type: Some("title".to_string()),
+                        entity_name: Some(title.name.clone()),
+                        suggested_fix: Some("Select a video stream in the title's track mapping section.".to_string()),
                     });
                 }
 
@@ -150,6 +168,9 @@ impl<R: Runtime> SpindleProject<R> {
                             title.name
                         ),
                         context: Some(title.id.clone()),
+                        entity_type: Some("title".to_string()),
+                        entity_name: Some(title.name.clone()),
+                        suggested_fix: Some("Choose a video output profile (resolution and aspect ratio) for this title.".to_string()),
                     });
                 }
 
@@ -165,6 +186,9 @@ impl<R: Runtime> SpindleProject<R> {
                                     window[1].name, title.name
                                 ),
                                 context: Some(title.id.clone()),
+                                entity_type: Some("title".to_string()),
+                                entity_name: Some(title.name.clone()),
+                                suggested_fix: Some("Reorder or adjust chapter timestamps so they are strictly increasing.".to_string()),
                             });
                         }
                     }
@@ -184,6 +208,9 @@ impl<R: Runtime> SpindleProject<R> {
                                             ch.name, title.name, ch.timestamp_secs, duration
                                         ),
                                         context: Some(title.id.clone()),
+                                        entity_type: Some("title".to_string()),
+                                        entity_name: Some(title.name.clone()),
+                                        suggested_fix: Some("Move this chapter to a timestamp within the asset's duration or remove it.".to_string()),
                                     });
                                 }
                             }
@@ -220,6 +247,9 @@ impl<R: Runtime> SpindleProject<R> {
                     code: "menu.no-buttons".to_string(),
                     message: format!("Menu \"{}\" has no buttons.", menu.name),
                     context: Some(menu.id.clone()),
+                    entity_type: Some("menu".to_string()),
+                    entity_name: Some(menu.name.clone()),
+                    suggested_fix: Some("Add at least one button to define user interaction.".to_string()),
                 });
                 continue;
             }
@@ -234,6 +264,9 @@ impl<R: Runtime> SpindleProject<R> {
                         menu.name
                     ),
                     context: Some(menu.id.clone()),
+                    entity_type: Some("menu".to_string()),
+                    entity_name: Some(menu.name.clone()),
+                    suggested_fix: Some("Set a default button so the player knows which button to highlight on entry.".to_string()),
                 });
             }
 
@@ -251,6 +284,9 @@ impl<R: Runtime> SpindleProject<R> {
                             button.label, menu.name
                         ),
                         context: Some(menu.id.clone()),
+                        entity_type: Some("menu".to_string()),
+                        entity_name: Some(menu.name.clone()),
+                        suggested_fix: Some("Assign an action (play title, show menu, etc.) to this button.".to_string()),
                     });
                 }
 
@@ -266,6 +302,9 @@ impl<R: Runtime> SpindleProject<R> {
                                     button.label, menu.name
                                 ),
                                 context: Some(menu.id.clone()),
+                                entity_type: Some("menu".to_string()),
+                                entity_name: Some(menu.name.clone()),
+                                suggested_fix: Some("Update the button action to point to an existing title or remove it.".to_string()),
                             });
                         }
                     }
@@ -279,6 +318,9 @@ impl<R: Runtime> SpindleProject<R> {
                                     button.label, menu.name
                                 ),
                                 context: Some(menu.id.clone()),
+                                entity_type: Some("menu".to_string()),
+                                entity_name: Some(menu.name.clone()),
+                                suggested_fix: Some("Update the button action to point to an existing menu or remove it.".to_string()),
                             });
                         }
                     }
@@ -302,6 +344,9 @@ impl<R: Runtime> SpindleProject<R> {
                                     button.label, menu.name
                                 ),
                                 context: Some(menu.id.clone()),
+                                entity_type: Some("menu".to_string()),
+                                entity_name: Some(menu.name.clone()),
+                                suggested_fix: Some("Remove the broken nav link or use auto-generate navigation to rebuild all links.".to_string()),
                             });
                         }
                     }
@@ -322,6 +367,9 @@ impl<R: Runtime> SpindleProject<R> {
                             button.label, menu.name
                         ),
                         context: Some(menu.id.clone()),
+                        entity_type: Some("menu".to_string()),
+                        entity_name: Some(menu.name.clone()),
+                        suggested_fix: Some("Use the auto-generate navigation feature to create directional links for all buttons.".to_string()),
                     });
                 }
             }
@@ -347,6 +395,9 @@ impl<R: Runtime> SpindleProject<R> {
                                 titleset.name
                             ),
                             context: Some(titleset.id.clone()),
+                            entity_type: Some("titleset".to_string()),
+                            entity_name: Some(titleset.name.clone()),
+                            suggested_fix: Some("Ensure all titles in this titleset use the same resolution and aspect ratio, or move mismatched titles to a separate titleset.".to_string()),
                         });
                         break;
                     }
@@ -363,6 +414,9 @@ impl<R: Runtime> SpindleProject<R> {
                 message: "No output directory is set. You will be prompted when building."
                     .to_string(),
                 context: None,
+                entity_type: Some("build".to_string()),
+                entity_name: None,
+                suggested_fix: Some("Set an output directory in the build settings to avoid being prompted each time.".to_string()),
             });
         }
 

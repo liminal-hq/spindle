@@ -711,6 +711,15 @@ pub struct ValidationIssue {
     pub code: String,
     pub message: String,
     pub context: Option<String>,
+    /// Entity type for navigation: "title", "menu", "titleset", "disc", "build".
+    #[serde(default)]
+    pub entity_type: Option<String>,
+    /// Human-readable name of the affected entity.
+    #[serde(default)]
+    pub entity_name: Option<String>,
+    /// Plain-language fix suggestion.
+    #[serde(default)]
+    pub suggested_fix: Option<String>,
 }
 
 // ── Tests ───────────────────────────────────────────────────────────────────
