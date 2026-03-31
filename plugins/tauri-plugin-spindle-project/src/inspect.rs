@@ -20,6 +20,7 @@ pub fn inspect(path: &str) -> crate::Result<Asset> {
             "json",
             "-show_format",
             "-show_streams",
+            "-show_chapters",
             path,
         ])
         .output()
@@ -131,6 +132,21 @@ pub fn inspect(path: &str) -> crate::Result<Asset> {
         }
     }
 
+    // Extract chapter markers from source media
+    let source_chapters: Vec<SourceChapter> = probe
+        .chapters
+        .iter()
+        .filter_map(|ch| {
+            let start = ch.start_time.as_deref()?.parse::<f64>().ok()?;
+            let end = ch.end_time.as_deref()?.parse::<f64>().ok()?;
+            Some(SourceChapter {
+                start_secs: start,
+                end_secs: end,
+                title: ch.tags.as_ref().and_then(|t| t.title.clone()),
+            })
+        })
+        .collect();
+
     // Compute fingerprint from file size + path (lightweight; full hashing is Phase 10)
     let fingerprint = file_size_bytes.map(|size| format!("{:x}-{}", size, file_name.len()));
 
@@ -151,6 +167,7 @@ pub fn inspect(path: &str) -> crate::Result<Asset> {
         warnings: dedupe_asset_warnings(asset_warnings),
         thumbnail_path: None,
         thumbnail_error: None,
+        source_chapters,
     })
 }
 
@@ -405,6 +422,23 @@ fn dedupe_asset_warnings(warnings: Vec<AssetWarning>) -> Vec<AssetWarning> {
 struct FfprobeOutput {
     streams: Option<Vec<FfprobeStream>>,
     format: Option<FfprobeFormat>,
+    #[serde(default)]
+    chapters: Vec<FfprobeChapter>,
+}
+
+#[derive(Debug, Deserialize)]
+struct FfprobeChapter {
+    #[serde(default)]
+    start_time: Option<String>,
+    #[serde(default)]
+    end_time: Option<String>,
+    #[serde(default)]
+    tags: Option<ChapterTags>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ChapterTags {
+    title: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

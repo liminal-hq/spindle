@@ -310,6 +310,15 @@ pub struct ChapterPoint {
     pub order_index: u32,
 }
 
+/// A chapter point detected in a source media file during inspection.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SourceChapter {
+    pub start_secs: f64,
+    pub end_secs: f64,
+    pub title: Option<String>,
+}
+
 // ── Menus ───────────────────────────────────────────────────────────────────
 
 /// A menu page with buttons and navigation.
@@ -482,6 +491,9 @@ pub struct Asset {
     pub thumbnail_path: Option<String>,
     #[serde(default)]
     pub thumbnail_error: Option<String>,
+    /// Chapter markers detected in the source media file.
+    #[serde(default)]
+    pub source_chapters: Vec<SourceChapter>,
 }
 
 impl Asset {
@@ -501,6 +513,7 @@ impl Asset {
             warnings: Vec::new(),
             thumbnail_path: None,
             thumbnail_error: None,
+            source_chapters: Vec::new(),
         }
     }
 }

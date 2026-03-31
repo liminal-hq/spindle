@@ -327,6 +327,17 @@ function TitleEditor({
 					: ('four-by-three' as AspectMode),
 		};
 
+		// Auto-seed chapters from source asset metadata when available
+		const chapters =
+			title.chapters.length === 0 && asset.sourceChapters?.length > 0
+				? asset.sourceChapters.map((ch, i) => ({
+						id: crypto.randomUUID(),
+						name: ch.title ?? `Chapter ${i + 1}`,
+						timestampSecs: ch.startSecs,
+						orderIndex: i,
+					}))
+				: title.chapters;
+
 		onUpdate({
 			...title,
 			sourceAssetId: assetId,
@@ -334,6 +345,7 @@ function TitleEditor({
 			videoOutputProfile,
 			audioMappings,
 			subtitleMappings,
+			chapters,
 		});
 	};
 

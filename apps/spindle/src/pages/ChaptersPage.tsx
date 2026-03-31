@@ -38,6 +38,26 @@ export function ChaptersPage() {
 		handleUpdateChapters(selectedTitle.id, [...chapters, newChapter]);
 	};
 
+	const canSeedFromSource =
+		selectedTitle != null &&
+		(asset?.sourceChapters?.length ?? 0) > 0;
+
+	const handleSeedFromSource = () => {
+		if (!selectedTitle || !asset?.sourceChapters?.length) return;
+		if (
+			selectedTitle.chapters.length > 0 &&
+			!window.confirm('Replace all existing chapters with chapters from the source asset?')
+		)
+			return;
+		const chapters: ChapterPoint[] = asset.sourceChapters.map((ch, i) => ({
+			id: crypto.randomUUID(),
+			name: ch.title ?? `Chapter ${i + 1}`,
+			timestampSecs: ch.startSecs,
+			orderIndex: i,
+		}));
+		handleUpdateChapters(selectedTitle.id, chapters);
+	};
+
 	const handleRemoveChapter = (chapterId: string) => {
 		if (!selectedTitle) return;
 		const chapters = selectedTitle.chapters
@@ -60,9 +80,16 @@ export function ChaptersPage() {
 			<div className="page-header">
 				<h1 className="page-title">Chapters</h1>
 				{selectedTitle && (
-					<button className="btn btn--primary" onClick={handleAddChapter}>
-						Add Chapter
-					</button>
+					<>
+						<button className="btn btn--primary" onClick={handleAddChapter}>
+							Add Chapter
+						</button>
+						{canSeedFromSource && (
+							<button className="btn btn--secondary" onClick={handleSeedFromSource}>
+								Seed from Source
+							</button>
+						)}
+					</>
 				)}
 			</div>
 

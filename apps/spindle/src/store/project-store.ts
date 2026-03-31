@@ -417,6 +417,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 				warnings: [],
 				thumbnailPath: null,
 				thumbnailError: null,
+				sourceChapters: [],
 			};
 		});
 

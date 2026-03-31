@@ -124,6 +124,13 @@ export interface ChapterPoint {
 	orderIndex: number;
 }
 
+/** A chapter point detected in a source media file during inspection. */
+export interface SourceChapter {
+	startSecs: number;
+	endSecs: number;
+	title: string | null;
+}
+
 // ── Menus ───────────────────────────────────────────────────────────────────
 
 export type BackgroundMode = 'still' | 'motion';
@@ -210,6 +217,8 @@ export interface Asset {
 	warnings: AssetWarning[];
 	thumbnailPath: string | null;
 	thumbnailError: string | null;
+	/** Chapter markers detected in the source media file. */
+	sourceChapters: SourceChapter[];
 }
 
 export interface AssetWarning {
