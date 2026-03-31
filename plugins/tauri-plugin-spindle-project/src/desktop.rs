@@ -327,6 +327,33 @@ impl<R: Runtime> SpindleProject<R> {
             }
         }
 
+        // ── Titleset format mismatch checks ─────────────────────────────
+
+        for titleset in &project.disc.titlesets {
+            let profiles: Vec<_> = titleset
+                .titles
+                .iter()
+                .filter_map(|t| t.video_output_profile)
+                .collect();
+            if profiles.len() >= 2 {
+                let first = &profiles[0];
+                for profile in &profiles[1..] {
+                    if profile.raster != first.raster || profile.aspect != first.aspect {
+                        issues.push(ValidationIssue {
+                            severity: IssueSeverity::Warning,
+                            code: "titleset.format-mismatch".to_string(),
+                            message: format!(
+                                "Titleset \"{}\" contains titles with different video output profiles. DVD requires all titles in a titleset to share the same resolution and aspect ratio.",
+                                titleset.name
+                            ),
+                            context: Some(titleset.id.clone()),
+                        });
+                        break;
+                    }
+                }
+            }
+        }
+
         // ── Build settings checks ───────────────────────────────────────
 
         if project.build_settings.output_directory.is_none() && total_titles > 0 {

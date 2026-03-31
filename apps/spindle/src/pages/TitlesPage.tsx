@@ -7,6 +7,7 @@ import { useState } from 'react';
 import { useProjectStore } from '../store/project-store';
 import type {
 	Title,
+	Titleset,
 	Asset,
 	VideoOutputProfile,
 	VideoRaster,
@@ -24,14 +25,57 @@ export function TitlesPage() {
 	const project = useProjectStore((s) => s.project);
 	const updateProject = useProjectStore((s) => s.updateProject);
 	const [selectedTitleId, setSelectedTitleId] = useState<string | null>(null);
+	const [selectedTitlesetId, setSelectedTitlesetId] = useState<string | null>(null);
 
 	if (!project) return null;
 
-	const titleset = project.disc.titlesets[0];
+	// Select first titleset by default, or follow user selection
+	const titleset =
+		project.disc.titlesets.find((ts) => ts.id === selectedTitlesetId) ??
+		project.disc.titlesets[0];
 	if (!titleset) return null;
 
 	const titles = titleset.titles;
 	const selectedTitle = titles.find((t) => t.id === selectedTitleId) ?? null;
+
+	const handleAddTitleset = () => {
+		const newTs: Titleset = {
+			id: crypto.randomUUID(),
+			name: `Titleset ${project.disc.titlesets.length + 1}`,
+			titles: [],
+			menus: [],
+		};
+		updateProject((p) => ({
+			...p,
+			disc: { ...p.disc, titlesets: [...p.disc.titlesets, newTs] },
+		}));
+		setSelectedTitlesetId(newTs.id);
+		setSelectedTitleId(null);
+	};
+
+	const handleRemoveTitleset = (tsId: string) => {
+		const ts = project.disc.titlesets.find((t) => t.id === tsId);
+		if (!ts || ts.titles.length > 0 || ts.menus.length > 0) return;
+		if (project.disc.titlesets.length <= 1) return;
+		updateProject((p) => ({
+			...p,
+			disc: { ...p.disc, titlesets: p.disc.titlesets.filter((t) => t.id !== tsId) },
+		}));
+		if (selectedTitlesetId === tsId) {
+			setSelectedTitlesetId(null);
+			setSelectedTitleId(null);
+		}
+	};
+
+	const handleRenameTitleset = (tsId: string, name: string) => {
+		updateProject((p) => ({
+			...p,
+			disc: {
+				...p.disc,
+				titlesets: p.disc.titlesets.map((ts) => (ts.id === tsId ? { ...ts, name } : ts)),
+			},
+		}));
+	};
 
 	const handleAddTitle = () => {
 		const newTitle: Title = {
@@ -46,7 +90,8 @@ export function TitlesPage() {
 			endAction: null,
 			orderIndex: titles.length,
 		};
-		const isFirstTitle = titles.length === 0;
+		const allTitles = project.disc.titlesets.flatMap((ts) => ts.titles);
+		const isFirstTitle = allTitles.length === 0;
 		updateProject((p) => {
 			const withTitle = updateTitleInProject(p, titleset.id, [...titles, newTitle]);
 			// Auto-set first-play to this title when adding the very first title
@@ -101,6 +146,42 @@ export function TitlesPage() {
 					Add Title
 				</button>
 			</div>
+
+			{/* Titleset selector — compact when only one exists */}
+			{project.disc.titlesets.length > 1 || true ? (
+				<div className="titles__titleset-bar">
+					{project.disc.titlesets.map((ts) => (
+						<div
+							key={ts.id}
+							className={`titles__titleset-tab ${ts.id === titleset.id ? 'titles__titleset-tab--active' : ''}`}
+						>
+							<input
+								className="titles__titleset-name"
+								value={ts.name}
+								onChange={(e) => handleRenameTitleset(ts.id, e.target.value)}
+								onClick={() => {
+									setSelectedTitlesetId(ts.id);
+									setSelectedTitleId(null);
+								}}
+							/>
+							{ts.titles.length === 0 &&
+								ts.menus.length === 0 &&
+								project.disc.titlesets.length > 1 && (
+									<button
+										className="titles__titleset-remove"
+										onClick={() => handleRemoveTitleset(ts.id)}
+										title="Remove empty titleset"
+									>
+										×
+									</button>
+								)}
+						</div>
+					))}
+					<button className="btn btn--secondary btn--sm" onClick={handleAddTitleset}>
+						+ Titleset
+					</button>
+				</div>
+			) : null}
 
 			{titles.length === 0 ? (
 				<EmptyTitlesView onAdd={handleAddTitle} />
