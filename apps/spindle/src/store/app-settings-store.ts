@@ -10,6 +10,7 @@ import { create } from 'zustand';
 
 export interface AppSettings {
 	devSkipSidecar: boolean;
+	devSkipUnsupportedStreams: boolean;
 	lastMediaDir: string | null;
 	lastProjectDir: string | null;
 	lastOutputDir: string | null;
@@ -17,6 +18,7 @@ export interface AppSettings {
 
 interface AppSettingsState extends AppSettings {
 	setDevSkipSidecar: (value: boolean) => Promise<void>;
+	setDevSkipUnsupportedStreams: (value: boolean) => Promise<void>;
 	setLastMediaDir: (path: string) => Promise<void>;
 	setLastProjectDir: (path: string) => Promise<void>;
 	setLastOutputDir: (path: string) => Promise<void>;
@@ -33,20 +35,24 @@ async function persist(key: string, value: unknown): Promise<void> {
 
 export const useAppSettingsStore = create<AppSettingsState>((set) => ({
 	devSkipSidecar: false,
+	devSkipUnsupportedStreams: false,
 	lastMediaDir: null,
 	lastProjectDir: null,
 	lastOutputDir: null,
 
 	loadSettings: async () => {
 		const store = await load(STORE_PATH);
-		const [devSkipSidecar, lastMediaDir, lastProjectDir, lastOutputDir] = await Promise.all([
-			store.get<boolean>('devSkipSidecar'),
-			store.get<string>('lastMediaDir'),
-			store.get<string>('lastProjectDir'),
-			store.get<string>('lastOutputDir'),
-		]);
+		const [devSkipSidecar, devSkipUnsupportedStreams, lastMediaDir, lastProjectDir, lastOutputDir] =
+			await Promise.all([
+				store.get<boolean>('devSkipSidecar'),
+				store.get<boolean>('devSkipUnsupportedStreams'),
+				store.get<string>('lastMediaDir'),
+				store.get<string>('lastProjectDir'),
+				store.get<string>('lastOutputDir'),
+			]);
 		set({
 			devSkipSidecar: devSkipSidecar ?? false,
+			devSkipUnsupportedStreams: devSkipUnsupportedStreams ?? false,
 			lastMediaDir: lastMediaDir ?? null,
 			lastProjectDir: lastProjectDir ?? null,
 			lastOutputDir: lastOutputDir ?? null,
@@ -56,6 +62,11 @@ export const useAppSettingsStore = create<AppSettingsState>((set) => ({
 	setDevSkipSidecar: async (value) => {
 		set({ devSkipSidecar: value });
 		await persist('devSkipSidecar', value);
+	},
+
+	setDevSkipUnsupportedStreams: async (value) => {
+		set({ devSkipUnsupportedStreams: value });
+		await persist('devSkipUnsupportedStreams', value);
 	},
 
 	setLastMediaDir: async (path) => {

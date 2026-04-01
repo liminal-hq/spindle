@@ -72,8 +72,14 @@ pub(crate) async fn generate_build_plan<R: Runtime>(
     project: SpindleProjectFile,
     output_directory: String,
     skip_sidecar: bool,
+    skip_unsupported_streams: bool,
 ) -> Result<BuildPlan> {
-    build::generate_build_plan(&project, &output_directory, skip_sidecar)
+    build::generate_build_plan_with_options(
+        &project,
+        &output_directory,
+        skip_sidecar,
+        skip_unsupported_streams,
+    )
 }
 
 /// Execute a build plan, emitting progress events to the frontend.
@@ -83,8 +89,14 @@ pub(crate) async fn execute_build<R: Runtime>(
     project: SpindleProjectFile,
     output_directory: String,
     skip_sidecar: bool,
+    skip_unsupported_streams: bool,
 ) -> Result<BuildResult> {
-    let plan = build::generate_build_plan(&project, &output_directory, skip_sidecar)?;
+    let plan = build::generate_build_plan_with_options(
+        &project,
+        &output_directory,
+        skip_sidecar,
+        skip_unsupported_streams,
+    )?;
 
     let result = build::execute_build_plan(&plan, |progress| {
         let _ = app.emit("spindle://build-progress", &progress);

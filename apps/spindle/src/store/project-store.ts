@@ -591,12 +591,14 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 		if (!outputDir) return;
 
 		const skipSidecar = useAppSettingsStore.getState().devSkipSidecar;
+		const skipUnsupportedStreams = useAppSettingsStore.getState().devSkipUnsupportedStreams;
 		set({ buildStatus: 'planning' });
 		try {
 			const plan = await invoke<BuildPlan>('plugin:spindle-project|generate_build_plan', {
 				project,
 				outputDirectory: outputDir,
 				skipSidecar,
+				skipUnsupportedStreams,
 			});
 			set({ buildPlan: plan, buildStatus: 'idle' });
 		} catch (e) {
@@ -615,6 +617,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 		if (!outputDir) return;
 
 		const skipSidecar = useAppSettingsStore.getState().devSkipSidecar;
+		const skipUnsupportedStreams = useAppSettingsStore.getState().devSkipUnsupportedStreams;
 		set({
 			buildStatus: 'building',
 			buildLog: ['Starting DVD-Video build…'],
@@ -628,6 +631,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 				project,
 				outputDirectory: outputDir,
 				skipSidecar,
+				skipUnsupportedStreams,
 			});
 
 			set({

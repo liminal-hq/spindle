@@ -123,6 +123,25 @@ pub fn generate_build_plan(
     output_dir: &str,
     skip_sidecar: bool,
 ) -> crate::Result<BuildPlan> {
+    generate_build_plan_with_options(project, output_dir, skip_sidecar, false)
+}
+
+pub fn generate_build_plan_with_options(
+    project: &SpindleProjectFile,
+    output_dir: &str,
+    skip_sidecar: bool,
+    skip_unsupported_streams: bool,
+) -> crate::Result<BuildPlan> {
+    // When skip_unsupported_streams is enabled, strip text subtitle mappings
+    // so the build proceeds without them.
+    let owned_project;
+    let project = if skip_unsupported_streams {
+        owned_project = strip_unsupported_subtitle_mappings(project);
+        &owned_project
+    } else {
+        project
+    };
+
     let paths = BuildPaths::new(output_dir);
     let tools = ResolvedToolchain::resolve(skip_sidecar);
 
@@ -355,6 +374,27 @@ pub fn generate_build_plan(
         dvdauthor_xml,
         summary,
     })
+}
+
+/// Remove subtitle mappings that reference text-based (non-bitmap) source streams.
+fn strip_unsupported_subtitle_mappings(project: &SpindleProjectFile) -> SpindleProjectFile {
+    let assets: HashMap<&str, &Asset> =
+        project.assets.iter().map(|a| (a.id.as_str(), a)).collect();
+
+    let mut project = project.clone();
+    for titleset in &mut project.disc.titlesets {
+        for title in &mut titleset.titles {
+            if let Some(asset) = title.source_asset_id.as_deref().and_then(|id| assets.get(id)) {
+                title.subtitle_mappings.retain(|sm| {
+                    asset.subtitle_streams.iter().any(|s| {
+                        s.index == sm.source_stream_index
+                            && s.subtitle_type == SubtitleType::Bitmap
+                    })
+                });
+            }
+        }
+    }
+    project
 }
 
 #[cfg(test)]

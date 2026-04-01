@@ -18,7 +18,7 @@ mod util;
 
 pub use executor::{cancel_build, execute_build_plan};
 pub use navigation::auto_generate_navigation;
-pub use planner::generate_build_plan;
+pub use planner::{generate_build_plan, generate_build_plan_with_options};
 pub use types::{
     BuildJob, BuildJobStatus, BuildPlan, BuildProgress, BuildResult, BuildSummary,
     MenuOverlayButton,
