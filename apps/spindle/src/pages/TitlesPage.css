@@ -81,6 +81,12 @@
 	color: var(--colour-error);
 }
 
+.titles__titleset-section--drag-over {
+	outline: 2px dashed var(--brand-orange);
+	outline-offset: 4px;
+	border-radius: var(--radius-md);
+}
+
 .titles__titleset-empty {
 	font-size: var(--text-sm);
 	padding: var(--space-3) var(--space-4);

@@ -169,6 +169,42 @@ export function TitlesPage() {
 		);
 	};
 
+	const handleMoveTitle = (titleId: string, targetTitlesetId: string) => {
+		// Find the source titleset
+		const sourceTs = project.disc.titlesets.find((ts) =>
+			ts.titles.some((t) => t.id === titleId),
+		);
+		if (!sourceTs || sourceTs.id === targetTitlesetId) return;
+		const title = sourceTs.titles.find((t) => t.id === titleId);
+		if (!title) return;
+		updateProject((p) => ({
+			...p,
+			disc: {
+				...p.disc,
+				titlesets: p.disc.titlesets.map((ts) => {
+					if (ts.id === sourceTs.id) {
+						return {
+							...ts,
+							titles: ts.titles
+								.filter((t) => t.id !== titleId)
+								.map((t, i) => ({ ...t, orderIndex: i })),
+						};
+					}
+					if (ts.id === targetTitlesetId) {
+						return {
+							...ts,
+							titles: [...ts.titles, { ...title, orderIndex: ts.titles.length }],
+						};
+					}
+					return ts;
+				}),
+			},
+		}));
+		setSelectedTitlesetId(targetTitlesetId);
+	};
+
+	const [dragOverTitlesetId, setDragOverTitlesetId] = useState<string | null>(null);
+
 	const allTitlesFlat = project.disc.titlesets.flatMap((ts) => ts.titles);
 	const hasTitles = allTitlesFlat.length > 0;
 
@@ -194,7 +230,26 @@ export function TitlesPage() {
 						{project.disc.titlesets.map((ts) => {
 							const tsTitles = ts.titles;
 							return (
-								<div key={ts.id} className="titles__titleset-section">
+								<div
+									key={ts.id}
+									className={`titles__titleset-section ${dragOverTitlesetId === ts.id ? 'titles__titleset-section--drag-over' : ''}`}
+									onDragOver={(e) => {
+										e.preventDefault();
+										setDragOverTitlesetId(ts.id);
+									}}
+									onDragLeave={(e) => {
+										// Only clear if leaving the section entirely
+										if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+											setDragOverTitlesetId(null);
+										}
+									}}
+									onDrop={(e) => {
+										e.preventDefault();
+										const titleId = e.dataTransfer.getData('text/x-title-id');
+										if (titleId) handleMoveTitle(titleId, ts.id);
+										setDragOverTitlesetId(null);
+									}}
+								>
 									<div className="titles__titleset-header">
 										<input
 											className="titles__titleset-heading"
@@ -351,6 +406,11 @@ function TitleRow({
 	return (
 		<div
 			className={`titles__row card ${isSelected ? 'titles__row--selected' : ''}`}
+			draggable
+			onDragStart={(e) => {
+				e.dataTransfer.setData('text/x-title-id', title.id);
+				e.dataTransfer.effectAllowed = 'move';
+			}}
 			onClick={onSelect}
 			role="button"
 			tabIndex={0}
