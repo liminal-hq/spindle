@@ -496,7 +496,9 @@
 	color: var(--text-primary);
 	font-size: var(--text-xs);
 	padding: 2px var(--space-1);
-	min-width: 80px;
+	width: 120px;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 
 .menus__nav-select:focus {

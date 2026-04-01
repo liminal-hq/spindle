@@ -53,27 +53,34 @@ pub fn auto_generate_navigation(menu: &mut Menu) {
             // Minimum cosine for the ~60° cone (cos 60° = 0.5)
             const MIN_COS: f64 = 0.45;
 
-            // Weighted score: distance / cos² — strongly favours aligned buttons
+            // Weighted score: distance / cos⁴ — strongly favours aligned buttons.
+            // Using the fourth power ensures that a closer-but-diagonal button
+            // (e.g. one row up when looking right) cannot beat a farther button
+            // that is directly on the axis.
             if dy < 0.0 && cos_up > MIN_COS {
-                let score = dist / (cos_up * cos_up);
+                let c2 = cos_up * cos_up;
+                let score = dist / (c2 * c2);
                 if best_up.is_none() || score < best_up.unwrap().1 {
                     best_up = Some((j, score));
                 }
             }
             if dy > 0.0 && cos_down > MIN_COS {
-                let score = dist / (cos_down * cos_down);
+                let c2 = cos_down * cos_down;
+                let score = dist / (c2 * c2);
                 if best_down.is_none() || score < best_down.unwrap().1 {
                     best_down = Some((j, score));
                 }
             }
             if dx < 0.0 && cos_left > MIN_COS {
-                let score = dist / (cos_left * cos_left);
+                let c2 = cos_left * cos_left;
+                let score = dist / (c2 * c2);
                 if best_left.is_none() || score < best_left.unwrap().1 {
                     best_left = Some((j, score));
                 }
             }
             if dx > 0.0 && cos_right > MIN_COS {
-                let score = dist / (cos_right * cos_right);
+                let c2 = cos_right * cos_right;
+                let score = dist / (c2 * c2);
                 if best_right.is_none() || score < best_right.unwrap().1 {
                     best_right = Some((j, score));
                 }
@@ -354,5 +361,96 @@ mod tests {
         assert_eq!(menu.buttons[2].nav_up.as_deref(), Some("top"));
         // Top button should go down to one of the bottom buttons
         assert!(menu.buttons[0].nav_down.is_some());
+    }
+
+    #[test]
+    fn auto_navigation_close_vertical_spacing() {
+        // Regression: real-world layout where the top button is only ~77px above
+        // the two bottom buttons. With weaker scoring the algorithm picked the
+        // diagonal top button as "right" from bottom-left, bypassing the
+        // perfectly-aligned bottom-right button.
+        let mut menu = Menu {
+            id: "m1".to_string(),
+            name: "Close-V".to_string(),
+            background_asset_id: None,
+            buttons: vec![
+                MenuButton {
+                    id: "top".to_string(),
+                    label: "E04E01".to_string(),
+                    bounds: ButtonBounds {
+                        x: 260.0,
+                        y: 268.0,
+                        width: 200.0,
+                        height: 40.0,
+                    },
+                    action: None,
+                    nav_up: None,
+                    nav_down: None,
+                    nav_left: None,
+                    nav_right: None,
+                    highlight_mode: HighlightMode::default(),
+                    highlight_keyframes: Vec::new(),
+                    video_asset_id: None,
+                },
+                MenuButton {
+                    id: "bl".to_string(),
+                    label: "Chapter 1".to_string(),
+                    bounds: ButtonBounds {
+                        x: 95.0,
+                        y: 345.0,
+                        width: 200.0,
+                        height: 40.0,
+                    },
+                    action: None,
+                    nav_up: None,
+                    nav_down: None,
+                    nav_left: None,
+                    nav_right: None,
+                    highlight_mode: HighlightMode::default(),
+                    highlight_keyframes: Vec::new(),
+                    video_asset_id: None,
+                },
+                MenuButton {
+                    id: "br".to_string(),
+                    label: "Chapter 2".to_string(),
+                    bounds: ButtonBounds {
+                        x: 406.0,
+                        y: 345.0,
+                        width: 200.0,
+                        height: 40.0,
+                    },
+                    action: None,
+                    nav_up: None,
+                    nav_down: None,
+                    nav_left: None,
+                    nav_right: None,
+                    highlight_mode: HighlightMode::default(),
+                    highlight_keyframes: Vec::new(),
+                    video_asset_id: None,
+                },
+            ],
+            default_button_id: None,
+            highlight_colours: MenuHighlightColours::default(),
+            background_mode: BackgroundMode::default(),
+            motion_duration_secs: None,
+            motion_audio_asset_id: None,
+            motion_loop_count: 0,
+            timeout_action: None,
+        };
+
+        auto_generate_navigation(&mut menu);
+
+        assert_eq!(
+            menu.buttons[1].nav_right.as_deref(),
+            Some("br"),
+            "Chapter 1 right should go to Chapter 2, not diagonally to E04E01"
+        );
+        assert_eq!(
+            menu.buttons[2].nav_left.as_deref(),
+            Some("bl"),
+            "Chapter 2 left should go to Chapter 1, not diagonally to E04E01"
+        );
+        assert_eq!(menu.buttons[1].nav_up.as_deref(), Some("top"));
+        assert_eq!(menu.buttons[2].nav_up.as_deref(), Some("top"));
     }
 }
