@@ -215,6 +215,9 @@
 	cursor: grab;
 	user-select: none;
 	z-index: 2;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 	transition:
 		background var(--transition-base),
 		box-shadow var(--transition-base);
@@ -371,12 +374,15 @@
 
 .menus__button-label {
 	flex: 1;
+	min-width: 0;
 	background: none;
 	border: none;
 	border-bottom: 1px solid transparent;
 	color: var(--text-primary);
 	font-size: var(--text-sm);
 	padding: var(--space-1) 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 
 .menus__button-label:focus {
@@ -443,6 +449,7 @@
 	gap: var(--space-3);
 	padding: var(--space-2) 0;
 	font-size: var(--text-xs);
+	min-width: 0;
 }
 
 .menus__nav-editor-row + .menus__nav-editor-row {
@@ -451,9 +458,14 @@
 
 .menus__nav-btn-name {
 	min-width: 80px;
+	max-width: 120px;
 	font-weight: 600;
 	color: var(--text-primary);
 	font-size: var(--text-xs);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	flex-shrink: 0;
 }
 
 .menus__nav-dirs {
