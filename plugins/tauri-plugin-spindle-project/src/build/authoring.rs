@@ -134,18 +134,23 @@ fn append_menu_section(
             MenuDomain::Titleset(_) if menu_index == 0 => Some("root"),
             _ => None,
         };
-        let pre_commands = if needs_dispatch && menu_index == 0 {
+        let mut pre_commands = String::new();
+        if needs_dispatch && menu_index == 0 {
             // Entry PGC: check g0 and jump to the targeted menu PGC, then clear g0.
-            let mut cmds = String::new();
             for target in 2..=menus.len() {
-                cmds.push_str(&format!(
+                pre_commands.push_str(&format!(
                     "          if (g0 eq {target}) {{ g0 = 0; jump menu {target}; }}\n"
                 ));
             }
-            cmds.push_str("          g0 = 0;\n");
-            Some(cmds)
-        } else {
+            pre_commands.push_str("          g0 = 0;\n");
+        }
+        if let Some(button_command) = initial_button_command(menu) {
+            pre_commands.push_str(&button_command);
+        }
+        let pre_commands = if pre_commands.is_empty() {
             None
+        } else {
+            Some(pre_commands)
         };
 
         append_menu_pgc(
@@ -161,6 +166,16 @@ fn append_menu_section(
     }
     xml.push_str("    </menus>\n");
     Ok(())
+}
+
+fn initial_button_command(menu: &Menu) -> Option<String> {
+    let button_index = menu
+        .default_button_id
+        .as_deref()
+        .and_then(|default_id| menu.buttons.iter().position(|button| button.id == default_id))
+        .or_else(|| (!menu.buttons.is_empty()).then_some(0))?;
+    let button_value = (button_index + 1) * 1024;
+    Some(format!("          button = {button_value};\n"))
 }
 
 fn append_menu_pgc(
@@ -283,6 +298,10 @@ fn append_title_pgc(
 
     if let Some(ref action) = title.end_action {
         xml.push_str("        <post>\n");
+        // TODO: Route titleset-local `showMenu` end actions through a valid entry
+        // menu path. `dvdauthor` rejects `call menu N;` here with "Cannot call to
+        // a specific menu PGC, only an entry", which breaks title returns into
+        // titleset menus.
         xml.push_str(&format!(
             "          {};\n",
             playback_action_to_dvd_command_in_context(
@@ -490,6 +509,31 @@ mod tests {
         assert!(
             plan.dvdauthor_xml.contains("if (g0 eq 2)"),
             "Entry PGC should dispatch based on g0"
+        );
+        assert!(
+            plan.dvdauthor_xml.contains("button = 1024;"),
+            "Entry PGC should explicitly select the default button on entry"
+        );
+    }
+
+    #[test]
+    fn menu_entry_pre_selects_first_button_when_no_default_is_set() {
+        let mut project = test_project();
+        let mut menu = test_menu_with_action(
+            "menu-1",
+            "Main Menu",
+            PlaybackAction::PlayTitle {
+                title_id: "title-1".to_string(),
+            },
+        );
+        menu.default_button_id = None;
+        project.disc.global_menus.push(menu);
+
+        let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+
+        assert!(
+            plan.dvdauthor_xml.contains("<pre>\n          button = 1024;\n        </pre>"),
+            "Menus without an explicit default should still select button 1 on entry"
         );
     }
 
