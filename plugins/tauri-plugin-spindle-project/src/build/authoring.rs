@@ -123,38 +123,110 @@ fn append_menu_section(
     xml.push_str(&format!(
         "      <video format=\"{format_str}\" aspect=\"{aspect_str}\" />\n"
     ));
+
+    // For titleset menu sections with multiple PGCs, the entry PGC (first)
+    // needs a g0-based dispatch so VMGM buttons can target specific menus.
+    let needs_dispatch = matches!(domain, MenuDomain::Titleset(_)) && menus.len() > 1;
+
     for (menu_index, menu) in menus.iter().enumerate() {
-        append_menu_pgc(xml, menu, disc, domain, menu_index + 1, menus_dir)?;
+        let menu_number = menu_index + 1;
+        let entry = match domain {
+            MenuDomain::Titleset(_) if menu_index == 0 => Some("root"),
+            _ => None,
+        };
+        let mut pre_commands = String::new();
+        if needs_dispatch && menu_index == 0 {
+            // Entry PGC: check g0 and jump to the targeted menu PGC, then clear g0.
+            for target in 2..=menus.len() {
+                pre_commands.push_str(&format!(
+                    "          if (g0 eq {target}) {{ g0 = 0; jump menu {target}; }}\n"
+                ));
+            }
+            pre_commands.push_str("          g0 = 0;\n");
+        }
+        if let Some(button_command) = initial_button_command(menu) {
+            pre_commands.push_str(&button_command);
+        }
+        let pre_commands = if pre_commands.is_empty() {
+            None
+        } else {
+            Some(pre_commands)
+        };
+
+        append_menu_pgc(
+            xml,
+            MenuPgcSpec {
+                menu,
+                disc,
+                domain,
+                menu_number,
+                menus_dir,
+                entry,
+                pre_commands: pre_commands.as_deref(),
+            },
+        )?;
     }
     xml.push_str("    </menus>\n");
     Ok(())
 }
 
-fn append_menu_pgc(
-    xml: &mut String,
-    menu: &Menu,
-    disc: &Disc,
+fn initial_button_command(menu: &Menu) -> Option<String> {
+    let button_index = menu
+        .default_button_id
+        .as_deref()
+        .and_then(|default_id| {
+            menu.buttons
+                .iter()
+                .position(|button| button.id == default_id)
+        })
+        .or_else(|| (!menu.buttons.is_empty()).then_some(0))?;
+    let button_value = (button_index + 1) * 1024;
+    Some(format!("          button = {button_value};\n"))
+}
+
+struct MenuPgcSpec<'a> {
+    menu: &'a Menu,
+    disc: &'a Disc,
     domain: MenuDomain,
     menu_number: usize,
-    menus_dir: &Path,
-) -> crate::Result<()> {
-    xml.push_str("      <pgc>\n");
-    let menu_vob_path = menus_dir.join(format!("{}.mpg", sanitise_filename(&menu.id)));
+    menus_dir: &'a Path,
+    entry: Option<&'a str>,
+    pre_commands: Option<&'a str>,
+}
+
+fn append_menu_pgc(xml: &mut String, spec: MenuPgcSpec<'_>) -> crate::Result<()> {
+    match spec.entry {
+        Some(entry) => xml.push_str(&format!("      <pgc entry=\"{entry}\">\n")),
+        None => xml.push_str("      <pgc>\n"),
+    }
+    if let Some(pre) = spec.pre_commands {
+        xml.push_str("        <pre>\n");
+        xml.push_str(pre);
+        xml.push_str("        </pre>\n");
+    }
+    let menu_vob_path = spec
+        .menus_dir
+        .join(format!("{}.mpg", sanitise_filename(&spec.menu.id)));
     xml.push_str(&format!(
         "        <vob file=\"{}\" pause=\"inf\" />\n",
         xml_escape(&menu_vob_path.display().to_string())
     ));
-    for button in &menu.buttons {
+    for button in &spec.menu.buttons {
         if let Some(ref action) = button.action {
-            xml.push_str(&format!(
-                "        <button>{};</button>\n",
-                playback_action_to_dvd_command_in_domain_result(
-                    action,
-                    disc,
-                    domain,
-                    Some(menu_number),
-                )?
-            ));
+            let cmd = playback_action_to_dvd_command_in_domain_result(
+                action,
+                spec.disc,
+                spec.domain,
+                Some(spec.menu_number),
+            )?;
+            // Compound commands (wrapped in braces) are already terminated;
+            // simple commands need a trailing semicolon.
+            let formatted = if cmd.starts_with('{') {
+                cmd
+            } else {
+                format!("{cmd};")
+            };
+            xml.push_str(&format!("        <button>{formatted}</button>\n"));
         }
     }
     xml.push_str("      </pgc>\n");
@@ -174,6 +246,30 @@ fn append_titles_section(
     xml.push_str(&format!(
         "      <video format=\"{format_str}\" aspect=\"{aspect_str}\" />\n"
     ));
+
+    // Declare subtitle streams if any title in this titleset has subtitle mappings.
+    let max_subs = titleset
+        .titles
+        .iter()
+        .map(|t| t.subtitle_mappings.len())
+        .max()
+        .unwrap_or(0);
+    if max_subs > 0 {
+        // Collect unique languages across all titles for stream declarations.
+        // dvdauthor needs subpicture stream declarations at the titleset level.
+        for i in 0..max_subs {
+            let lang = titleset
+                .titles
+                .iter()
+                .find_map(|t| t.subtitle_mappings.get(i).map(|sm| sm.language.as_str()))
+                .unwrap_or("und");
+            xml.push_str(&format!(
+                "      <subpicture lang=\"{}\" />\n",
+                xml_escape(lang)
+            ));
+        }
+    }
+
     for title in &titleset.titles {
         append_title_pgc(xml, title, titleset_index, disc, titles_dir)?;
     }
@@ -231,7 +327,7 @@ mod tests {
     use crate::build::test_support::{
         add_second_titleset, test_menu, test_menu_with_action, test_project,
     };
-    use crate::models::PlaybackAction;
+    use crate::models::{PlaybackAction, SubtitleStreamInfo, SubtitleTrackMapping, SubtitleType};
 
     #[test]
     fn dvdauthor_xml_contains_authored_menu_vob_and_button() {
@@ -297,6 +393,35 @@ mod tests {
     }
 
     #[test]
+    fn dvdauthor_xml_escapes_subpicture_language_values() {
+        let mut project = test_project();
+        project.assets[0].subtitle_streams.push(SubtitleStreamInfo {
+            index: 2,
+            codec: "dvd_subtitle".to_string(),
+            language: Some("en&\"g".to_string()),
+            subtitle_type: SubtitleType::Bitmap,
+            title: None,
+        });
+        project.disc.titlesets[0].titles[0]
+            .subtitle_mappings
+            .push(SubtitleTrackMapping {
+                id: "sm-1".to_string(),
+                source_stream_index: 2,
+                label: "English".to_string(),
+                language: "en&\"g".to_string(),
+                order_index: 0,
+                is_default: false,
+                is_forced: false,
+            });
+
+        let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+
+        assert!(plan
+            .dvdauthor_xml
+            .contains("<subpicture lang=\"en&amp;&quot;g\" />"));
+    }
+
+    #[test]
     fn vmgm_menu_button_to_same_domain_menu_uses_jump_menu() {
         let mut project = test_project();
         project.disc.global_menus.push(test_menu_with_action(
@@ -339,9 +464,179 @@ mod tests {
 
         let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
 
-        assert!(plan
-            .dvdauthor_xml
-            .contains("<button>jump titleset 1 menu 1;</button>"));
+        assert!(
+            plan.dvdauthor_xml
+                .contains("<button>jump titleset 1 menu entry root;</button>"),
+            "VMGM should jump to the titleset root menu entry"
+        );
+        assert!(
+            plan.dvdauthor_xml.contains("<pgc entry=\"root\">"),
+            "Titleset menu entry PGC should be marked as the root menu"
+        );
+    }
+
+    #[test]
+    fn vmgm_to_second_titleset_menu_uses_g0_dispatch() {
+        let mut project = test_project();
+        // Create a global menu that targets the second menu in titleset 1
+        project.disc.global_menus.push(test_menu_with_action(
+            "menu-global",
+            "Main Menu",
+            PlaybackAction::ShowMenu {
+                menu_id: "ts-menu-2".to_string(),
+            },
+        ));
+        // Add two menus to titleset 1
+        project.disc.titlesets[0].menus.push(test_menu_with_action(
+            "ts-menu-1",
+            "Titleset Menu 1",
+            PlaybackAction::PlayTitle {
+                title_id: "title-1".to_string(),
+            },
+        ));
+        project.disc.titlesets[0].menus.push(test_menu_with_action(
+            "ts-menu-2",
+            "Titleset Menu 2",
+            PlaybackAction::PlayTitle {
+                title_id: "title-1".to_string(),
+            },
+        ));
+
+        let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+
+        // VMGM button should set g0 then jump to the titleset root menu entry
+        assert!(
+            plan.dvdauthor_xml
+                .contains("<button>{ g0 = 2; jump titleset 1 menu entry root; }</button>"),
+            "VMGM targeting second menu should use g0 register dispatch"
+        );
+        // First titleset menu PGC should have <pre> dispatch logic
+        assert!(
+            plan.dvdauthor_xml.contains("if (g0 eq 2)"),
+            "Entry PGC should dispatch based on g0"
+        );
+        assert!(
+            plan.dvdauthor_xml.contains("button = 1024;"),
+            "Entry PGC should explicitly select the default button on entry"
+        );
+    }
+
+    #[test]
+    fn menu_entry_pre_selects_first_button_when_no_default_is_set() {
+        let mut project = test_project();
+        let mut menu = test_menu_with_action(
+            "menu-1",
+            "Main Menu",
+            PlaybackAction::PlayTitle {
+                title_id: "title-1".to_string(),
+            },
+        );
+        menu.default_button_id = None;
+        project.disc.global_menus.push(menu);
+
+        let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+
+        assert!(
+            plan.dvdauthor_xml
+                .contains("<pre>\n          button = 1024;\n        </pre>"),
+            "Menus without an explicit default should still select button 1 on entry"
+        );
+    }
+
+    #[test]
+    fn menu_entry_pre_selects_second_button_when_it_is_default() {
+        let mut project = test_project();
+        let mut menu = test_menu_with_action(
+            "menu-1",
+            "Main Menu",
+            PlaybackAction::PlayTitle {
+                title_id: "title-1".to_string(),
+            },
+        );
+        menu.buttons.push(crate::models::MenuButton {
+            id: "btn-2".to_string(),
+            label: "Extras".to_string(),
+            bounds: crate::models::ButtonBounds {
+                x: 120.0,
+                y: 380.0,
+                width: 240.0,
+                height: 48.0,
+            },
+            action: Some(PlaybackAction::Stop),
+            nav_up: Some("btn-1".to_string()),
+            nav_down: None,
+            nav_left: None,
+            nav_right: None,
+            highlight_mode: crate::models::HighlightMode::Static,
+            highlight_keyframes: vec![],
+            video_asset_id: None,
+        });
+        menu.buttons[0].nav_down = Some("btn-2".to_string());
+        menu.default_button_id = Some("btn-2".to_string());
+        project.disc.global_menus.push(menu);
+
+        let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+
+        assert!(
+            plan.dvdauthor_xml
+                .contains("<pre>\n          button = 2048;\n        </pre>"),
+            "Menus should initialise the authored default button, not always button 1"
+        );
+    }
+
+    #[test]
+    fn titleset_root_entry_pre_combines_dispatch_and_default_button_selection() {
+        let mut project = test_project();
+        let mut root_menu = test_menu_with_action(
+            "ts-menu-1",
+            "Titleset Menu 1",
+            PlaybackAction::PlayTitle {
+                title_id: "title-1".to_string(),
+            },
+        );
+        root_menu.buttons.push(crate::models::MenuButton {
+            id: "btn-2".to_string(),
+            label: "Scenes".to_string(),
+            bounds: crate::models::ButtonBounds {
+                x: 120.0,
+                y: 380.0,
+                width: 240.0,
+                height: 48.0,
+            },
+            action: Some(PlaybackAction::PlayTitle {
+                title_id: "title-1".to_string(),
+            }),
+            nav_up: Some("btn-1".to_string()),
+            nav_down: None,
+            nav_left: None,
+            nav_right: None,
+            highlight_mode: crate::models::HighlightMode::Static,
+            highlight_keyframes: vec![],
+            video_asset_id: None,
+        });
+        root_menu.buttons[0].nav_down = Some("btn-2".to_string());
+        root_menu.default_button_id = Some("btn-2".to_string());
+        project.disc.titlesets[0].menus.push(root_menu);
+        project.disc.titlesets[0].menus.push(test_menu_with_action(
+            "ts-menu-2",
+            "Titleset Menu 2",
+            PlaybackAction::PlayTitle {
+                title_id: "title-1".to_string(),
+            },
+        ));
+        project.disc.global_menus.push(test_menu_with_action(
+            "menu-global",
+            "Main Menu",
+            PlaybackAction::ShowMenu {
+                menu_id: "ts-menu-2".to_string(),
+            },
+        ));
+
+        let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+
+        assert!(plan.dvdauthor_xml.contains(
+            "<pre>\n          if (g0 eq 2) { g0 = 0; jump menu 2; }\n          g0 = 0;\n          button = 2048;\n        </pre>"
+        ));
     }
 
     #[test]
@@ -389,7 +684,7 @@ mod tests {
     }
 
     #[test]
-    fn title_post_to_same_titleset_menu_uses_call_menu() {
+    fn title_post_to_same_titleset_root_menu_uses_call_menu_entry_root() {
         let mut project = test_project();
         project.disc.titlesets[0].menus.push(test_menu_with_action(
             "menu-2",
@@ -406,11 +701,39 @@ mod tests {
 
         assert!(plan
             .dvdauthor_xml
-            .contains("<post>\n          call menu 1;\n        </post>"));
+            .contains("<post>\n          call menu entry root;\n        </post>"));
     }
 
     #[test]
-    fn title_post_to_other_titleset_menu_uses_call_titleset_menu() {
+    fn title_post_to_same_titleset_non_root_menu_uses_g0_and_call_menu_entry_root() {
+        let mut project = test_project();
+        project.disc.titlesets[0].menus.push(test_menu_with_action(
+            "menu-1",
+            "Root Menu",
+            PlaybackAction::PlayTitle {
+                title_id: "title-1".to_string(),
+            },
+        ));
+        project.disc.titlesets[0].menus.push(test_menu_with_action(
+            "menu-2",
+            "Episode Menu",
+            PlaybackAction::PlayTitle {
+                title_id: "title-1".to_string(),
+            },
+        ));
+        project.disc.titlesets[0].titles[0].end_action = Some(PlaybackAction::ShowMenu {
+            menu_id: "menu-2".to_string(),
+        });
+
+        let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+
+        assert!(plan
+            .dvdauthor_xml
+            .contains("<post>\n          { g0 = 2; call menu entry root; };\n        </post>"));
+    }
+
+    #[test]
+    fn title_post_to_other_titleset_root_menu_uses_call_titleset_menu_entry_root() {
         let mut project = test_project();
         add_second_titleset(&mut project);
         project.disc.titlesets[1].menus.push(test_menu_with_action(
@@ -428,6 +751,35 @@ mod tests {
 
         assert!(plan
             .dvdauthor_xml
-            .contains("<post>\n          call titleset 2 menu 1;\n        </post>"));
+            .contains("<post>\n          call titleset 2 menu entry root;\n        </post>"));
+    }
+
+    #[test]
+    fn title_post_to_other_titleset_non_root_menu_uses_g0_and_call_titleset_entry_root() {
+        let mut project = test_project();
+        add_second_titleset(&mut project);
+        project.disc.titlesets[1].menus.push(test_menu_with_action(
+            "menu-1",
+            "Bonus Root Menu",
+            PlaybackAction::PlayTitle {
+                title_id: "title-2".to_string(),
+            },
+        ));
+        project.disc.titlesets[1].menus.push(test_menu_with_action(
+            "menu-2",
+            "Bonus Menu",
+            PlaybackAction::PlayTitle {
+                title_id: "title-2".to_string(),
+            },
+        ));
+        project.disc.titlesets[0].titles[0].end_action = Some(PlaybackAction::ShowMenu {
+            menu_id: "menu-2".to_string(),
+        });
+
+        let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+
+        assert!(plan.dvdauthor_xml.contains(
+            "<post>\n          { g0 = 2; call titleset 2 menu entry root; };\n        </post>"
+        ));
     }
 }

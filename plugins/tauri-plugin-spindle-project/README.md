@@ -8,9 +8,10 @@ It currently provides:
 - JSON parsing and pretty-printed serialisation
 - project validation for common authoring mistakes
 - asset inspection via `ffprobe`
+- source chapter extraction and compatibility detail reporting
 - thumbnail extraction for asset previews
 - build-plan generation and DVD build execution
-- menu-navigation assistance, toolchain checks, and diagnostics export
+- menu-navigation assistance, toolchain checks, diagnostics export, titleset-aware DVD navigation, and entry-menu-safe return routing
 
 The plugin is used by the desktop app in this repository, but it is structured as a standalone Tauri plugin so the project domain logic can stay in one place.
 
@@ -76,10 +77,13 @@ Validates a project and returns a list of `ValidationIssue` values. Current chec
 
 - missing titlesets
 - discs with no titles
+- menus without buttons, actions, default buttons, or directional navigation
 - titles without a source asset
 - titles pointing at missing assets
 - titles without a selected video stream
 - titles without a selected video output profile
+- titlesets with mismatched title output formats
+- dangling subtitle mappings and unsupported text-only subtitle authoring
 - discs with titles but no first-play action
 
 ### `inspect_asset`
@@ -111,6 +115,12 @@ Generates a dry-run `BuildPlan` for the current project and output directory.
 
 Runs the generated build pipeline and emits progress updates while authoring the disc output.
 
+The current DVD pipeline includes:
+
+- VMGM-to-titleset menu routing through titleset `root` entry menus
+- title end actions that return through legal menu-entry targets instead of direct titleset menu PGC calls
+- explicit menu-entry button initialisation so authored menus open with deterministic keyboard focus
+
 ### `cancel_build`
 
 Requests cancellation of the active build.
@@ -125,7 +135,7 @@ Reports availability and detected versions for the external authoring tools.
 
 ### `export_diagnostics`
 
-Builds a JSON diagnostics bundle containing toolchain information, validation issues, build logs, and a project summary.
+Builds a JSON diagnostics bundle containing toolchain information, validation issues, build logs, a project summary, and the active developer option flags used for export.
 
 ## Installation
 
@@ -154,6 +164,23 @@ If you are using Tauri capabilities, include the default permission set:
 ```
 
 The default permission set enables the full command set registered by the plugin.
+
+## Test coverage notes
+
+The plugin's Rust tests now cover:
+
+- domain-aware DVD command generation for VMGM, titleset menus, and title post actions
+- titleset root-menu `g0` dispatch for non-root menu targets
+- explicit default-button selection in authored menu `<pre>` blocks
+- title returns to same-titleset and cross-titleset menus through menu-entry targets
+
+There is also an ignored smoke test for the full external-tool path:
+
+```bash
+cargo test -p tauri-plugin-spindle-project execute_build_plan_smoke_authors_titleset_menu_return_path -- --ignored --nocapture
+```
+
+That smoke test requires `ffmpeg`, `spumux`, and `dvdauthor` to be available on `PATH`.
 
 ## Frontend usage
 
@@ -200,12 +227,26 @@ const plan = await invoke('plugin:spindle-project|generate_build_plan', {
 	project,
 	outputDirectory: '/tmp/spindle-output',
 	skipSidecar: false,
+	skipUnsupportedStreams: false,
 });
 
 const result = await invoke('plugin:spindle-project|execute_build', {
 	project,
 	outputDirectory: '/tmp/spindle-output',
 	skipSidecar: false,
+	skipUnsupportedStreams: false,
+});
+```
+
+Diagnostics export records the same developer-option context:
+
+```ts
+const diagnostics = await invoke('plugin:spindle-project|export_diagnostics', {
+	project,
+	buildLog,
+	validationIssues,
+	skipSidecar: false,
+	skipUnsupportedStreams: false,
 });
 ```
 

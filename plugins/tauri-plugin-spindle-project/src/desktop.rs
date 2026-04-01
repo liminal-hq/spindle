@@ -68,6 +68,9 @@ impl<R: Runtime> SpindleProject<R> {
                 code: "disc.no-titlesets".to_string(),
                 message: "Disc must contain at least one titleset.".to_string(),
                 context: None,
+                entity_type: Some("disc".to_string()),
+                entity_name: None,
+                suggested_fix: Some("Add at least one titleset to the disc.".to_string()),
             });
         }
 
@@ -84,6 +87,12 @@ impl<R: Runtime> SpindleProject<R> {
                 code: "disc.no-titles".to_string(),
                 message: "No titles have been added to the disc.".to_string(),
                 context: None,
+                entity_type: Some("disc".to_string()),
+                entity_name: None,
+                suggested_fix: Some(
+                    "Add titles in the Titles page to define the disc's playback structure."
+                        .to_string(),
+                ),
             });
         }
 
@@ -93,6 +102,9 @@ impl<R: Runtime> SpindleProject<R> {
                 code: "disc.no-first-play".to_string(),
                 message: "No first-play action is set. Consider setting a menu or title as the entry point.".to_string(),
                 context: None,
+                entity_type: Some("disc".to_string()),
+                entity_name: None,
+                suggested_fix: Some("Set a first-play action on the overview page so the disc has a defined startup behaviour.".to_string()),
             });
         }
 
@@ -116,6 +128,12 @@ impl<R: Runtime> SpindleProject<R> {
                                 title.name
                             ),
                             context: Some(title.id.clone()),
+                            entity_type: Some("title".to_string()),
+                            entity_name: Some(title.name.clone()),
+                            suggested_fix: Some(
+                                "Open the title and assign a source asset from the Assets library."
+                                    .to_string(),
+                            ),
                         });
                     }
                     Some(asset_id) if !asset_ids.contains(asset_id.as_str()) => {
@@ -127,6 +145,12 @@ impl<R: Runtime> SpindleProject<R> {
                                 title.name
                             ),
                             context: Some(title.id.clone()),
+                            entity_type: Some("title".to_string()),
+                            entity_name: Some(title.name.clone()),
+                            suggested_fix: Some(
+                                "Re-import the missing asset or assign a different source."
+                                    .to_string(),
+                            ),
                         });
                     }
                     _ => {}
@@ -138,6 +162,12 @@ impl<R: Runtime> SpindleProject<R> {
                         code: "title.no-video-mapping".to_string(),
                         message: format!("Title \"{}\" has no video stream selected.", title.name),
                         context: Some(title.id.clone()),
+                        entity_type: Some("title".to_string()),
+                        entity_name: Some(title.name.clone()),
+                        suggested_fix: Some(
+                            "Select a video stream in the title's track mapping section."
+                                .to_string(),
+                        ),
                     });
                 }
 
@@ -150,6 +180,9 @@ impl<R: Runtime> SpindleProject<R> {
                             title.name
                         ),
                         context: Some(title.id.clone()),
+                        entity_type: Some("title".to_string()),
+                        entity_name: Some(title.name.clone()),
+                        suggested_fix: Some("Choose a video output profile (resolution and aspect ratio) for this title.".to_string()),
                     });
                 }
 
@@ -165,6 +198,9 @@ impl<R: Runtime> SpindleProject<R> {
                                     window[1].name, title.name
                                 ),
                                 context: Some(title.id.clone()),
+                                entity_type: Some("title".to_string()),
+                                entity_name: Some(title.name.clone()),
+                                suggested_fix: Some("Reorder or adjust chapter timestamps so they are strictly increasing.".to_string()),
                             });
                         }
                     }
@@ -184,9 +220,83 @@ impl<R: Runtime> SpindleProject<R> {
                                             ch.name, title.name, ch.timestamp_secs, duration
                                         ),
                                         context: Some(title.id.clone()),
+                                        entity_type: Some("title".to_string()),
+                                        entity_name: Some(title.name.clone()),
+                                        suggested_fix: Some("Move this chapter to a timestamp within the asset's duration or remove it.".to_string()),
                                     });
                                 }
                             }
+                        }
+                    }
+                }
+
+                if let Some(PlaybackAction::PlayChapter {
+                    title_id,
+                    chapter_id,
+                }) = &title.end_action
+                {
+                    if !chapter_target_exists(&project.disc, title_id, chapter_id) {
+                        issues.push(dangling_play_chapter_issue(
+                            "title.dangling-end-chapter-ref",
+                            format!(
+                                "End action for title \"{}\" references a chapter target that does not exist.",
+                                title.name
+                            ),
+                            Some(title.id.clone()),
+                            "title",
+                            Some(title.name.clone()),
+                            "Update the end action to point to an existing chapter or choose a different action.",
+                        ));
+                    }
+                }
+
+                // ── Subtitle checks ────────────────────────────────────
+                if let Some(ref asset_id) = title.source_asset_id {
+                    if let Some(asset) = asset_map.get(asset_id.as_str()) {
+                        for sm in &title.subtitle_mappings {
+                            // Dangling subtitle stream reference
+                            if !asset
+                                .subtitle_streams
+                                .iter()
+                                .any(|s| s.index == sm.source_stream_index)
+                            {
+                                issues.push(ValidationIssue {
+                                    severity: IssueSeverity::Error,
+                                    code: "subtitle.dangling-stream".to_string(),
+                                    message: format!(
+                                        "Subtitle mapping \"{}\" in title \"{}\" references stream index {} which no longer exists on the source asset.",
+                                        sm.label, title.name, sm.source_stream_index
+                                    ),
+                                    context: Some(title.id.clone()),
+                                    entity_type: Some("title".to_string()),
+                                    entity_name: Some(title.name.clone()),
+                                    suggested_fix: Some("The source file may have changed. Remove this subtitle mapping or relink the asset.".to_string()),
+                                });
+                            }
+                        }
+
+                        // Text-only subtitle warning
+                        let has_text_subs = title.subtitle_mappings.iter().any(|sm| {
+                            asset
+                                .subtitle_streams
+                                .iter()
+                                .find(|s| s.index == sm.source_stream_index)
+                                .is_some_and(|s| s.subtitle_type == SubtitleType::Text)
+                        });
+
+                        if has_text_subs {
+                            issues.push(ValidationIssue {
+                                severity: IssueSeverity::Warning,
+                                code: "subtitle.text-only-unsupported".to_string(),
+                                message: format!(
+                                    "Title \"{}\" has text-based subtitle mappings that cannot yet be authored to DVD.",
+                                    title.name
+                                ),
+                                context: Some(title.id.clone()),
+                                entity_type: Some("title".to_string()),
+                                entity_name: Some(title.name.clone()),
+                                suggested_fix: Some("Text subtitle rendering is not yet supported. Remove text subtitles or provide bitmap subtitle sources.".to_string()),
+                            });
                         }
                     }
                 }
@@ -220,6 +330,11 @@ impl<R: Runtime> SpindleProject<R> {
                     code: "menu.no-buttons".to_string(),
                     message: format!("Menu \"{}\" has no buttons.", menu.name),
                     context: Some(menu.id.clone()),
+                    entity_type: Some("menu".to_string()),
+                    entity_name: Some(menu.name.clone()),
+                    suggested_fix: Some(
+                        "Add at least one button to define user interaction.".to_string(),
+                    ),
                 });
                 continue;
             }
@@ -234,6 +349,9 @@ impl<R: Runtime> SpindleProject<R> {
                         menu.name
                     ),
                     context: Some(menu.id.clone()),
+                    entity_type: Some("menu".to_string()),
+                    entity_name: Some(menu.name.clone()),
+                    suggested_fix: Some("Set a default button so the player knows which button to highlight on entry.".to_string()),
                 });
             }
 
@@ -251,6 +369,12 @@ impl<R: Runtime> SpindleProject<R> {
                             button.label, menu.name
                         ),
                         context: Some(menu.id.clone()),
+                        entity_type: Some("menu".to_string()),
+                        entity_name: Some(menu.name.clone()),
+                        suggested_fix: Some(
+                            "Assign an action (play title, show menu, etc.) to this button."
+                                .to_string(),
+                        ),
                     });
                 }
 
@@ -266,6 +390,9 @@ impl<R: Runtime> SpindleProject<R> {
                                     button.label, menu.name
                                 ),
                                 context: Some(menu.id.clone()),
+                                entity_type: Some("menu".to_string()),
+                                entity_name: Some(menu.name.clone()),
+                                suggested_fix: Some("Update the button action to point to an existing title or remove it.".to_string()),
                             });
                         }
                     }
@@ -279,7 +406,28 @@ impl<R: Runtime> SpindleProject<R> {
                                     button.label, menu.name
                                 ),
                                 context: Some(menu.id.clone()),
+                                entity_type: Some("menu".to_string()),
+                                entity_name: Some(menu.name.clone()),
+                                suggested_fix: Some("Update the button action to point to an existing menu or remove it.".to_string()),
                             });
+                        }
+                    }
+                    Some(PlaybackAction::PlayChapter {
+                        title_id,
+                        chapter_id,
+                    }) => {
+                        if !chapter_target_exists(&project.disc, title_id, chapter_id) {
+                            issues.push(dangling_play_chapter_issue(
+                                "menu.dangling-chapter-ref",
+                                format!(
+                                    "Button \"{}\" in menu \"{}\" references a chapter target that does not exist.",
+                                    button.label, menu.name
+                                ),
+                                Some(menu.id.clone()),
+                                "menu",
+                                Some(menu.name.clone()),
+                                "Update the button action to point to an existing chapter or remove it.",
+                            ));
                         }
                     }
                     _ => {}
@@ -302,6 +450,9 @@ impl<R: Runtime> SpindleProject<R> {
                                     button.label, menu.name
                                 ),
                                 context: Some(menu.id.clone()),
+                                entity_type: Some("menu".to_string()),
+                                entity_name: Some(menu.name.clone()),
+                                suggested_fix: Some("Remove the broken nav link or use auto-generate navigation to rebuild all links.".to_string()),
                             });
                         }
                     }
@@ -322,7 +473,40 @@ impl<R: Runtime> SpindleProject<R> {
                             button.label, menu.name
                         ),
                         context: Some(menu.id.clone()),
+                        entity_type: Some("menu".to_string()),
+                        entity_name: Some(menu.name.clone()),
+                        suggested_fix: Some("Use the auto-generate navigation feature to create directional links for all buttons.".to_string()),
                     });
+                }
+            }
+        }
+
+        // ── Titleset format mismatch checks ─────────────────────────────
+
+        for titleset in &project.disc.titlesets {
+            let profiles: Vec<_> = titleset
+                .titles
+                .iter()
+                .filter_map(|t| t.video_output_profile)
+                .collect();
+            if profiles.len() >= 2 {
+                let first = &profiles[0];
+                for profile in &profiles[1..] {
+                    if profile.raster != first.raster || profile.aspect != first.aspect {
+                        issues.push(ValidationIssue {
+                            severity: IssueSeverity::Warning,
+                            code: "titleset.format-mismatch".to_string(),
+                            message: format!(
+                                "Titleset \"{}\" contains titles with different video output profiles. DVD requires all titles in a titleset to share the same resolution and aspect ratio.",
+                                titleset.name
+                            ),
+                            context: Some(titleset.id.clone()),
+                            entity_type: Some("titleset".to_string()),
+                            entity_name: Some(titleset.name.clone()),
+                            suggested_fix: Some("Ensure all titles in this titleset use the same resolution and aspect ratio, or move mismatched titles to a separate titleset.".to_string()),
+                        });
+                        break;
+                    }
                 }
             }
         }
@@ -336,9 +520,102 @@ impl<R: Runtime> SpindleProject<R> {
                 message: "No output directory is set. You will be prompted when building."
                     .to_string(),
                 context: None,
+                entity_type: Some("build".to_string()),
+                entity_name: None,
+                suggested_fix: Some("Set an output directory in the build settings to avoid being prompted each time.".to_string()),
             });
         }
 
         Ok(issues)
+    }
+}
+
+fn chapter_target_exists(disc: &Disc, title_id: &str, chapter_id: &str) -> bool {
+    disc.titlesets
+        .iter()
+        .flat_map(|titleset| titleset.titles.iter())
+        .find(|title| title.id == title_id)
+        .is_some_and(|title| {
+            title
+                .chapters
+                .iter()
+                .any(|chapter| chapter.id == chapter_id)
+        })
+}
+
+fn dangling_play_chapter_issue(
+    code: &str,
+    message: String,
+    context: Option<String>,
+    entity_type: &str,
+    entity_name: Option<String>,
+    suggested_fix: &str,
+) -> ValidationIssue {
+    ValidationIssue {
+        severity: IssueSeverity::Error,
+        code: code.to_string(),
+        message,
+        context,
+        entity_type: Some(entity_type.to_string()),
+        entity_name,
+        suggested_fix: Some(suggested_fix.to_string()),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::models::{ChapterPoint, Disc, IssueSeverity, Title, Titleset, VideoStandard};
+
+    use super::{chapter_target_exists, dangling_play_chapter_issue};
+
+    #[test]
+    fn chapter_target_exists_requires_matching_title_and_chapter() {
+        let disc = Disc {
+            standard: VideoStandard::Ntsc,
+            titlesets: vec![Titleset {
+                id: "titleset-1".to_string(),
+                name: "Main".to_string(),
+                titles: vec![Title {
+                    id: "title-1".to_string(),
+                    name: "Feature".to_string(),
+                    source_asset_id: None,
+                    video_mapping: None,
+                    video_output_profile: None,
+                    audio_mappings: vec![],
+                    subtitle_mappings: vec![],
+                    chapters: vec![ChapterPoint {
+                        id: "ch-2".to_string(),
+                        name: "Chapter 2".to_string(),
+                        timestamp_secs: 0.0,
+                        order_index: 0,
+                    }],
+                    end_action: None,
+                    order_index: 0,
+                }],
+                menus: vec![],
+            }],
+            ..Disc::default()
+        };
+
+        assert!(chapter_target_exists(&disc, "title-1", "ch-2"));
+        assert!(!chapter_target_exists(&disc, "title-1", "missing-chapter"));
+        assert!(!chapter_target_exists(&disc, "missing-title", "ch-2"));
+    }
+
+    #[test]
+    fn dangling_play_chapter_issue_marks_missing_targets_as_errors() {
+        let issue = dangling_play_chapter_issue(
+            "menu.dangling-chapter-ref",
+            "Button \"Play\" in menu \"Main Menu\" references a chapter target that does not exist."
+                .to_string(),
+            Some("menu-1".to_string()),
+            "menu",
+            Some("Main Menu".to_string()),
+            "Update the button action to point to an existing chapter or remove it.",
+        );
+
+        assert!(matches!(issue.severity, IssueSeverity::Error));
+        assert_eq!(issue.code, "menu.dangling-chapter-ref");
+        assert_eq!(issue.context.as_deref(), Some("menu-1"));
     }
 }

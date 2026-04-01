@@ -124,6 +124,13 @@ export interface ChapterPoint {
 	orderIndex: number;
 }
 
+/** A chapter point detected in a source media file during inspection. */
+export interface SourceChapter {
+	startSecs: number;
+	endSecs: number;
+	title: string | null;
+}
+
 // ── Menus ───────────────────────────────────────────────────────────────────
 
 export type BackgroundMode = 'still' | 'motion';
@@ -207,9 +214,13 @@ export interface Asset {
 	subtitleStreams: SubtitleStreamInfo[];
 	compatibility: CompatibilityAssessment | null;
 	fingerprint: string | null;
+	/** Detailed per-stream compatibility breakdown. */
+	compatibilityDetail: CompatibilityDetail | null;
 	warnings: AssetWarning[];
 	thumbnailPath: string | null;
 	thumbnailError: string | null;
+	/** Chapter markers detected in the source media file. */
+	sourceChapters: SourceChapter[];
 }
 
 export interface AssetWarning {
@@ -253,6 +264,39 @@ export interface SubtitleStreamInfo {
 	title: string | null;
 }
 
+// ── Compatibility Detail ────────────────────────────────────────────────
+
+/** Per-stream compatibility breakdown explaining why the overall assessment was given. */
+export interface CompatibilityDetail {
+	overall: CompatibilityAssessment;
+	video: VideoCompatibility | null;
+	audioStreams: AudioStreamCompatibility[];
+	container: ContainerCompatibility;
+}
+
+export interface VideoCompatibility {
+	codec: PropertyCheck;
+	resolution: PropertyCheck;
+	frameRate: PropertyCheck;
+}
+
+export interface AudioStreamCompatibility {
+	streamIndex: number;
+	codec: PropertyCheck;
+}
+
+export interface ContainerCompatibility {
+	format: PropertyCheck;
+}
+
+/** A single property compatibility check result. */
+export interface PropertyCheck {
+	value: string;
+	dvdRequires: string;
+	action: string;
+	compatible: boolean;
+}
+
 // ── Build Settings ──────────────────────────────────────────────────────────
 
 export interface BuildSettings {
@@ -269,6 +313,12 @@ export interface ValidationIssue {
 	code: string;
 	message: string;
 	context: string | null;
+	/** Entity type for navigation: "title", "menu", "titleset", "disc", "build". */
+	entityType?: string | null;
+	/** Human-readable name of the affected entity. */
+	entityName?: string | null;
+	/** Actionable guidance on how to resolve the issue. */
+	suggestedFix?: string | null;
 }
 
 // ── Build Pipeline ──────────────────────────────────────────────────────────
@@ -318,6 +368,23 @@ export type BuildJob =
 			inputPath: string;
 			outputPath: string;
 			spumuxXml: string;
+			command: string[];
+			label: string;
+	  }
+	| {
+			type: 'linkTitle';
+			titleId: string;
+			titleName: string;
+			sourcePath: string;
+			linkPath: string;
+			label: string;
+	  }
+	| {
+			type: 'extractSubtitles';
+			titleId: string;
+			titleName: string;
+			sourcePath: string;
+			outputPath: string;
 			command: string[];
 			label: string;
 	  }

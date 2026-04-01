@@ -152,13 +152,24 @@ pub(crate) fn playback_action_to_dvd_command_in_context(
                 DvdCommandContext::Title { titleset_index } => match target_domain {
                     MenuDomain::Vmgm => Ok(format!("call vmgm menu {target_menu_number}")),
                     MenuDomain::Titleset(target_ts) if target_ts == titleset_index => {
-                        Ok(format!("call menu {target_menu_number}"))
+                        if target_menu_number == 1 {
+                            Ok("call menu entry root".to_string())
+                        } else {
+                            Ok(format!(
+                                "{{ g0 = {target_menu_number}; call menu entry root; }}"
+                            ))
+                        }
                     }
-                    MenuDomain::Titleset(target_ts) => Ok(format!(
-                        "call titleset {} menu {}",
-                        target_ts + 1,
-                        target_menu_number
-                    )),
+                    MenuDomain::Titleset(target_ts) => {
+                        if target_menu_number == 1 {
+                            Ok(format!("call titleset {} menu entry root", target_ts + 1))
+                        } else {
+                            Ok(format!(
+                                "{{ g0 = {target_menu_number}; call titleset {} menu entry root; }}",
+                                target_ts + 1
+                            ))
+                        }
+                    }
                 },
                 DvdCommandContext::Menu {
                     domain: current_domain,
@@ -178,6 +189,21 @@ pub(crate) fn playback_action_to_dvd_command_in_context(
                         Ok(format!("jump menu {target_menu_number}"))
                     }
                     (_, MenuDomain::Vmgm) => Ok(format!("jump vmgm menu {target_menu_number}")),
+                    // From VMGM, dvdauthor can only jump into a titleset via
+                    // an entry menu target such as `menu entry root`.
+                    // For menu 1 we jump directly to the titleset's root
+                    // menu entry; for others we stash the target in `g0` and
+                    // let that entry PGC dispatch.
+                    (MenuDomain::Vmgm, MenuDomain::Titleset(target_ts))
+                        if target_menu_number == 1 =>
+                    {
+                        Ok(format!("jump titleset {} menu entry root", target_ts + 1))
+                    }
+                    (MenuDomain::Vmgm, MenuDomain::Titleset(target_ts)) => Ok(format!(
+                        "{{ g0 = {}; jump titleset {} menu entry root; }}",
+                        target_menu_number,
+                        target_ts + 1
+                    )),
                     (_, MenuDomain::Titleset(target_ts)) => Ok(format!(
                         "jump titleset {} menu {}",
                         target_ts + 1,
@@ -261,10 +287,13 @@ fn resolve_chapter_target(
 #[cfg(test)]
 mod tests {
     use crate::build::menu::MenuDomain;
-    use crate::build::test_support::{add_second_titleset, test_project};
+    use crate::build::test_support::{add_second_titleset, test_menu_with_action, test_project};
     use crate::models::PlaybackAction;
 
-    use super::{playback_action_to_dvd_command, playback_action_to_dvd_command_in_domain};
+    use super::{
+        playback_action_to_dvd_command, playback_action_to_dvd_command_in_context,
+        playback_action_to_dvd_command_in_domain, DvdCommandContext,
+    };
 
     #[test]
     fn vmgm_play_title_uses_disc_global_title_numbering() {
@@ -330,5 +359,113 @@ mod tests {
         );
 
         assert_eq!(command, "jump title 2 chapter 1");
+    }
+
+    #[test]
+    fn title_return_to_same_titleset_root_menu_uses_call_menu_entry_root() {
+        let mut project = test_project();
+        project.disc.titlesets[0].menus.push(test_menu_with_action(
+            "menu-2",
+            "Episode Menu",
+            PlaybackAction::PlayTitle {
+                title_id: "title-1".to_string(),
+            },
+        ));
+
+        let command = playback_action_to_dvd_command_in_context(
+            &PlaybackAction::ShowMenu {
+                menu_id: "menu-2".to_string(),
+            },
+            &project.disc,
+            DvdCommandContext::Title { titleset_index: 0 },
+        )
+        .unwrap();
+
+        assert_eq!(command, "call menu entry root");
+    }
+
+    #[test]
+    fn title_return_to_same_titleset_non_root_menu_uses_g0_dispatch() {
+        let mut project = test_project();
+        project.disc.titlesets[0].menus.push(test_menu_with_action(
+            "menu-1",
+            "Root Menu",
+            PlaybackAction::PlayTitle {
+                title_id: "title-1".to_string(),
+            },
+        ));
+        project.disc.titlesets[0].menus.push(test_menu_with_action(
+            "menu-2",
+            "Episode Menu",
+            PlaybackAction::PlayTitle {
+                title_id: "title-1".to_string(),
+            },
+        ));
+
+        let command = playback_action_to_dvd_command_in_context(
+            &PlaybackAction::ShowMenu {
+                menu_id: "menu-2".to_string(),
+            },
+            &project.disc,
+            DvdCommandContext::Title { titleset_index: 0 },
+        )
+        .unwrap();
+
+        assert_eq!(command, "{ g0 = 2; call menu entry root; }");
+    }
+
+    #[test]
+    fn title_return_to_other_titleset_root_menu_uses_call_titleset_entry_root() {
+        let mut project = test_project();
+        add_second_titleset(&mut project);
+        project.disc.titlesets[1].menus.push(test_menu_with_action(
+            "menu-2",
+            "Bonus Menu",
+            PlaybackAction::PlayTitle {
+                title_id: "title-2".to_string(),
+            },
+        ));
+
+        let command = playback_action_to_dvd_command_in_context(
+            &PlaybackAction::ShowMenu {
+                menu_id: "menu-2".to_string(),
+            },
+            &project.disc,
+            DvdCommandContext::Title { titleset_index: 0 },
+        )
+        .unwrap();
+
+        assert_eq!(command, "call titleset 2 menu entry root");
+    }
+
+    #[test]
+    fn title_return_to_other_titleset_non_root_menu_uses_g0_and_entry_root() {
+        let mut project = test_project();
+        add_second_titleset(&mut project);
+        project.disc.titlesets[1].menus.push(test_menu_with_action(
+            "menu-1",
+            "Bonus Root Menu",
+            PlaybackAction::PlayTitle {
+                title_id: "title-2".to_string(),
+            },
+        ));
+        project.disc.titlesets[1].menus.push(test_menu_with_action(
+            "menu-2",
+            "Bonus Menu",
+            PlaybackAction::PlayTitle {
+                title_id: "title-2".to_string(),
+            },
+        ));
+
+        let command = playback_action_to_dvd_command_in_context(
+            &PlaybackAction::ShowMenu {
+                menu_id: "menu-2".to_string(),
+            },
+            &project.disc,
+            DvdCommandContext::Title { titleset_index: 0 },
+        )
+        .unwrap();
+
+        assert_eq!(command, "{ g0 = 2; call titleset 2 menu entry root; }");
     }
 }

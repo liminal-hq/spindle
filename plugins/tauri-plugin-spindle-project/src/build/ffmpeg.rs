@@ -11,6 +11,7 @@ pub(crate) fn build_ffmpeg_transcode_command(
     source_path: &str,
     output_path: &Path,
     title: &Title,
+    asset: &Asset,
     disc: &Disc,
     video_info: Option<&VideoStreamInfo>,
 ) -> Vec<String> {
@@ -135,6 +136,28 @@ pub(crate) fn build_ffmpeg_transcode_command(
                 }
             },
         }
+    }
+
+    let bitmap_subtitle_mappings: Vec<_> = title
+        .subtitle_mappings
+        .iter()
+        .filter(|sm| {
+            asset.subtitle_streams.iter().any(|stream| {
+                stream.index == sm.source_stream_index
+                    && stream.subtitle_type == SubtitleType::Bitmap
+            })
+        })
+        .collect();
+
+    for (i, sm) in bitmap_subtitle_mappings.iter().enumerate() {
+        cmd.extend([
+            "-map".to_string(),
+            format!("0:{}", sm.source_stream_index),
+            format!("-c:s:{i}"),
+            "dvd_subtitle".to_string(),
+            format!("-metadata:s:s:{i}"),
+            format!("language={}", sm.language),
+        ]);
     }
 
     if title.audio_mappings.is_empty() {

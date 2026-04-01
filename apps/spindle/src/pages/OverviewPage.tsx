@@ -4,12 +4,14 @@
 // SPDX-License-Identifier: MIT
 
 import { useProjectStore } from '../store/project-store';
+import { useNavigation } from '../App';
 import { CAPACITY_LABELS, CAPACITY_BYTES } from '../types/project';
 import type {
 	VideoStandard,
 	CapacityTarget,
 	AllocationStrategy,
 	PlaybackAction,
+	ValidationIssue,
 } from '../types/project';
 import './OverviewPage.css';
 
@@ -124,10 +126,7 @@ export function OverviewPage() {
 				{(errorCount > 0 || warningCount > 0) && (
 					<div className="overview__issues">
 						{validationIssues.map((issue, i) => (
-							<div key={i} className={`overview__issue overview__issue--${issue.severity}`}>
-								<span className="overview__issue-dot" />
-								{issue.message}
-							</div>
+							<ValidationIssueRow key={i} issue={issue} />
 						))}
 					</div>
 				)}
@@ -281,6 +280,54 @@ function NoProjectView() {
 				<button className="btn" onClick={openProject}>
 					Open Project
 				</button>
+			</div>
+		</div>
+	);
+}
+
+function issueRoute(issue: ValidationIssue): string | null {
+	const type = issue.entityType;
+	if (!type) return null;
+	switch (type) {
+		case 'title':
+			return '/titles';
+		case 'menu':
+			return '/menus';
+		case 'titleset':
+			return '/titles';
+		case 'disc':
+			return '/';
+		case 'build':
+			return '/build';
+		default:
+			return null;
+	}
+}
+
+function ValidationIssueRow({ issue }: { issue: ValidationIssue }) {
+	const { navigateTo } = useNavigation();
+	const route = issueRoute(issue);
+	const isClickable = route != null && route !== '/';
+
+	const handleClick = () => {
+		if (!route || route === '/') return;
+		navigateTo({ route, entityId: issue.context ?? undefined });
+	};
+
+	return (
+		<div
+			className={`overview__issue overview__issue--${issue.severity} ${isClickable ? 'overview__issue--clickable' : ''}`}
+			onClick={isClickable ? handleClick : undefined}
+			role={isClickable ? 'button' : undefined}
+			tabIndex={isClickable ? 0 : undefined}
+			onKeyDown={isClickable ? (e) => e.key === 'Enter' && handleClick() : undefined}
+		>
+			<span className="overview__issue-dot" />
+			<div className="overview__issue-body">
+				<span>{issue.message}</span>
+				{issue.suggestedFix && (
+					<span className="overview__issue-fix text-muted">{issue.suggestedFix}</span>
+				)}
 			</div>
 		</div>
 	);

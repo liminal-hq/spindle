@@ -25,6 +25,8 @@ export function SettingsPage() {
 	const checkToolchain = useProjectStore((s) => s.checkToolchain);
 	const devSkipSidecar = useAppSettingsStore((s) => s.devSkipSidecar);
 	const setDevSkipSidecar = useAppSettingsStore((s) => s.setDevSkipSidecar);
+	const devSkipUnsupportedStreams = useAppSettingsStore((s) => s.devSkipUnsupportedStreams);
+	const setDevSkipUnsupportedStreams = useAppSettingsStore((s) => s.setDevSkipUnsupportedStreams);
 	const [thumbnailCache, setThumbnailCache] = useState<ThumbnailCacheStatus | null>(null);
 	const [isCacheLoading, setIsCacheLoading] = useState(false);
 	const [cacheError, setCacheError] = useState<string | null>(null);
@@ -62,6 +64,7 @@ export function SettingsPage() {
 				buildLog,
 				validationIssues,
 				skipSidecar: devSkipSidecar,
+				skipUnsupportedStreams: devSkipUnsupportedStreams,
 			});
 
 			const path = await save({
@@ -185,7 +188,7 @@ export function SettingsPage() {
 				</div>
 				<p className="settings__hint text-muted">
 					Export a diagnostics bundle for troubleshooting. Includes toolchain status, validation
-					results, build log, and project summary (no media files).
+					results, build log, project summary, and active developer options (no media files).
 				</p>
 				<button
 					className="btn btn--sm"
@@ -221,6 +224,21 @@ export function SettingsPage() {
 								setDevSkipSidecar(e.target.checked);
 								checkToolchain();
 							}}
+						/>
+					</label>
+					<label className="settings__toggle-row">
+						<div className="settings__toggle-text">
+							<span className="settings__toggle-label">Skip unsupported streams</span>
+							<span className="settings__toggle-desc text-muted">
+								Automatically strip text-based subtitle mappings during build instead of blocking.
+								Useful when sources only have text subtitles and you want to author without them.
+							</span>
+						</div>
+						<input
+							type="checkbox"
+							className="settings__toggle"
+							checked={devSkipUnsupportedStreams}
+							onChange={(e) => setDevSkipUnsupportedStreams(e.target.checked)}
 						/>
 					</label>
 				</div>

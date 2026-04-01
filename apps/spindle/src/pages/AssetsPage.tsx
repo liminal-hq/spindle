@@ -6,7 +6,12 @@
 import { useEffect, useState } from 'react';
 import { BaseDirectory, readFile } from '@tauri-apps/plugin-fs';
 import { useProjectStore } from '../store/project-store';
-import type { Asset, CompatibilityAssessment } from '../types/project';
+import type {
+	Asset,
+	CompatibilityAssessment,
+	CompatibilityDetail,
+	PropertyCheck,
+} from '../types/project';
 import './AssetsPage.css';
 
 export function AssetsPage() {
@@ -248,6 +253,9 @@ function AssetDetail({
 			<div className="assets__detail-section">
 				<h4 className="assets__detail-heading">Compatibility</h4>
 				<CompatibilityBadge compat={asset.compatibility} />
+				{asset.compatibilityDetail && (
+					<CompatibilityDetailView detail={asset.compatibilityDetail} />
+				)}
 			</div>
 		</div>
 	);
@@ -367,6 +375,60 @@ function CompatibilityBadge({ compat }: { compat: CompatibilityAssessment | null
 	};
 
 	return <span className={`badge ${classMap[compat]}`}>{labelMap[compat]}</span>;
+}
+
+function CompatibilityDetailView({ detail }: { detail: CompatibilityDetail }) {
+	const [expanded, setExpanded] = useState(false);
+
+	if (!expanded) {
+		return (
+			<button className="btn btn--link assets__compat-toggle" onClick={() => setExpanded(true)}>
+				Show details
+			</button>
+		);
+	}
+
+	const rows: { label: string; check: PropertyCheck }[] = [];
+	if (detail.video) {
+		rows.push({ label: 'Video codec', check: detail.video.codec });
+		rows.push({ label: 'Resolution', check: detail.video.resolution });
+		rows.push({ label: 'Frame rate', check: detail.video.frameRate });
+	}
+	for (const a of detail.audioStreams) {
+		rows.push({ label: `Audio #${a.streamIndex}`, check: a.codec });
+	}
+	rows.push({ label: 'Container', check: detail.container.format });
+
+	return (
+		<div className="assets__compat-detail">
+			<button className="btn btn--link assets__compat-toggle" onClick={() => setExpanded(false)}>
+				Hide details
+			</button>
+			<table className="assets__compat-table">
+				<thead>
+					<tr>
+						<th>Property</th>
+						<th>Source</th>
+						<th>DVD requires</th>
+						<th>Action</th>
+					</tr>
+				</thead>
+				<tbody>
+					{rows.map((r) => (
+						<tr
+							key={r.label}
+							className={r.check.compatible ? '' : 'assets__compat-row--incompatible'}
+						>
+							<td>{r.label}</td>
+							<td>{r.check.value}</td>
+							<td>{r.check.dvdRequires}</td>
+							<td>{r.check.action === 'none' ? '—' : r.check.action}</td>
+						</tr>
+					))}
+				</tbody>
+			</table>
+		</div>
+	);
 }
 
 function warningKey(warning: Asset['warnings'][number], index: number): string {

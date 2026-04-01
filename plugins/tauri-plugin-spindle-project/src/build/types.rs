@@ -81,6 +81,23 @@ pub enum BuildJob {
         command: Vec<String>,
         label: String,
     },
+    /// Extract bitmap subtitles from a source asset for spumux integration.
+    ExtractSubtitles {
+        title_id: String,
+        title_name: String,
+        source_path: String,
+        output_path: String,
+        command: Vec<String>,
+        label: String,
+    },
+    /// Symlink/copy a title's output from a shared transcode (deduplication).
+    LinkTitle {
+        title_id: String,
+        title_name: String,
+        source_path: String,
+        link_path: String,
+        label: String,
+    },
     /// Generate an ISO image from VIDEO_TS.
     CreateIso {
         source_path: String,
@@ -95,6 +112,8 @@ impl BuildJob {
         match self {
             BuildJob::PrepareWorkspace { .. } => "Prepare workspace",
             BuildJob::TranscodeTitle { label, .. }
+            | BuildJob::LinkTitle { label, .. }
+            | BuildJob::ExtractSubtitles { label, .. }
             | BuildJob::RenderMenu { label, .. }
             | BuildJob::ComposeMenuHighlights { label, .. }
             | BuildJob::AuthorDvd { label, .. }
@@ -104,8 +123,9 @@ impl BuildJob {
 
     pub fn command(&self) -> Option<&[String]> {
         match self {
-            BuildJob::PrepareWorkspace { .. } => None,
+            BuildJob::PrepareWorkspace { .. } | BuildJob::LinkTitle { .. } => None,
             BuildJob::TranscodeTitle { command, .. }
+            | BuildJob::ExtractSubtitles { command, .. }
             | BuildJob::RenderMenu { command, .. }
             | BuildJob::ComposeMenuHighlights { command, .. }
             | BuildJob::AuthorDvd { command, .. }

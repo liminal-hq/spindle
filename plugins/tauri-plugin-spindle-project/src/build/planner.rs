@@ -18,6 +18,7 @@ struct BuildPaths {
     output_dir: PathBuf,
     work_dir: PathBuf,
     titles_dir: PathBuf,
+    subtitles_dir: PathBuf,
     menus_dir: PathBuf,
     video_ts_dir: PathBuf,
 }
@@ -34,6 +35,7 @@ impl BuildPaths {
         let output_dir = PathBuf::from(output_dir);
         let work_dir = output_dir.join("_spindle_work");
         let titles_dir = work_dir.join("titles");
+        let subtitles_dir = work_dir.join("subtitles");
         let menus_dir = work_dir.join("menus");
         let video_ts_dir = output_dir.join("VIDEO_TS");
 
@@ -41,6 +43,7 @@ impl BuildPaths {
             output_dir,
             work_dir,
             titles_dir,
+            subtitles_dir,
             menus_dir,
             video_ts_dir,
         }
@@ -50,6 +53,7 @@ impl BuildPaths {
         vec![
             self.work_dir.display().to_string(),
             self.titles_dir.display().to_string(),
+            self.subtitles_dir.display().to_string(),
             self.menus_dir.display().to_string(),
             self.video_ts_dir.display().to_string(),
         ]
@@ -119,6 +123,25 @@ pub fn generate_build_plan(
     output_dir: &str,
     skip_sidecar: bool,
 ) -> crate::Result<BuildPlan> {
+    generate_build_plan_with_options(project, output_dir, skip_sidecar, false)
+}
+
+pub fn generate_build_plan_with_options(
+    project: &SpindleProjectFile,
+    output_dir: &str,
+    skip_sidecar: bool,
+    skip_unsupported_streams: bool,
+) -> crate::Result<BuildPlan> {
+    // When skip_unsupported_streams is enabled, strip text subtitle mappings
+    // so the build proceeds without them.
+    let owned_project;
+    let project = if skip_unsupported_streams {
+        owned_project = strip_unsupported_subtitle_mappings(project);
+        &owned_project
+    } else {
+        project
+    };
+
     let paths = BuildPaths::new(output_dir);
     let tools = ResolvedToolchain::resolve(skip_sidecar);
 
@@ -138,6 +161,12 @@ pub fn generate_build_plan(
         .flat_map(|ts| ts.titles.iter().map(move |t| (ts, t)))
         .collect();
 
+    // Track which asset+config combos have already been transcoded so we can
+    // reuse the output file when multiple titles share the same source and
+    // identical stream/output settings.
+    let mut transcode_cache: HashMap<String, PathBuf> = HashMap::new();
+    let mut transcode_count = 0;
+
     for (_, title) in &all_titles {
         let source_asset_id = title.source_asset_id.as_deref().ok_or_else(|| {
             crate::Error::Build(format!("Title \"{}\" has no source asset", title.name))
@@ -147,31 +176,74 @@ pub fn generate_build_plan(
             crate::Error::Build(format!("Asset not found for title \"{}\"", title.name))
         })?;
 
-        let output_path = paths.title_video_path(&title.id);
-
-        let video_info = title
-            .video_mapping
-            .as_ref()
-            .and_then(|vm| asset.video_streams.get(vm.source_stream_index as usize));
-
-        let mut command = build_ffmpeg_transcode_command(
-            &asset.source_path,
-            &output_path,
-            title,
-            &project.disc,
-            video_info,
+        // Build a cache key from asset ID + settings that affect the output file.
+        // Only include fields that change the ffmpeg output — exclude per-mapping
+        // UUIDs, labels, ordering, and default/forced flags which are metadata only.
+        let audio_key: Vec<_> = title
+            .audio_mappings
+            .iter()
+            .map(|am| {
+                format!(
+                    "{}:{:?}:{:?}",
+                    am.source_stream_index, am.copy_mode, am.output_target
+                )
+            })
+            .collect();
+        let subtitle_key: Vec<_> = title
+            .subtitle_mappings
+            .iter()
+            .map(|sm| format!("{}:{}", sm.source_stream_index, sm.language))
+            .collect();
+        let cache_key = format!(
+            "{}|{:?}|{:?}|{}|{}",
+            source_asset_id,
+            title.video_mapping,
+            title.video_output_profile,
+            audio_key.join(","),
+            subtitle_key.join(","),
         );
-        command[0] = tools.ffmpeg.clone();
 
-        jobs.push(BuildJob::TranscodeTitle {
-            title_id: title.id.clone(),
-            title_name: title.name.clone(),
-            source_path: asset.source_path.clone(),
-            output_path: output_path.display().to_string(),
-            command,
-            label: format!("Transcode \"{}\"", title.name),
-            duration_secs: asset.duration_secs,
-        });
+        if let Some(existing_output) = transcode_cache.get(&cache_key) {
+            // Reuse by symlinking to the existing transcode output
+            let link_path = paths.title_video_path(&title.id);
+            jobs.push(BuildJob::LinkTitle {
+                title_id: title.id.clone(),
+                title_name: title.name.clone(),
+                source_path: existing_output.display().to_string(),
+                link_path: link_path.display().to_string(),
+                label: format!("Link \"{}\" (shared transcode)", title.name),
+            });
+        } else {
+            let output_path = paths.title_video_path(&title.id);
+
+            let video_info = title
+                .video_mapping
+                .as_ref()
+                .and_then(|vm| asset.video_streams.get(vm.source_stream_index as usize));
+
+            let mut command = build_ffmpeg_transcode_command(
+                &asset.source_path,
+                &output_path,
+                title,
+                asset,
+                &project.disc,
+                video_info,
+            );
+            command[0] = tools.ffmpeg.clone();
+
+            transcode_cache.insert(cache_key, output_path.clone());
+            transcode_count += 1;
+
+            jobs.push(BuildJob::TranscodeTitle {
+                title_id: title.id.clone(),
+                title_name: title.name.clone(),
+                source_path: asset.source_path.clone(),
+                output_path: output_path.display().to_string(),
+                command,
+                label: format!("Transcode \"{}\"", title.name),
+                duration_secs: asset.duration_secs,
+            });
+        }
     }
 
     for menu_ref in authorable_menus(project) {
@@ -288,7 +360,7 @@ pub fn generate_build_plan(
 
     let summary = BuildSummary {
         total_jobs: jobs.len(),
-        transcode_jobs: all_titles.len(),
+        transcode_jobs: transcode_count,
         titles_count: all_titles.len(),
         menus_count: all_menus.len(),
         generate_iso: project.build_settings.generate_iso,
@@ -304,10 +376,34 @@ pub fn generate_build_plan(
     })
 }
 
+/// Remove subtitle mappings that reference text-based (non-bitmap) source streams.
+fn strip_unsupported_subtitle_mappings(project: &SpindleProjectFile) -> SpindleProjectFile {
+    let assets: HashMap<&str, &Asset> = project.assets.iter().map(|a| (a.id.as_str(), a)).collect();
+
+    let mut project = project.clone();
+    for titleset in &mut project.disc.titlesets {
+        for title in &mut titleset.titles {
+            if let Some(asset) = title
+                .source_asset_id
+                .as_deref()
+                .and_then(|id| assets.get(id))
+            {
+                title.subtitle_mappings.retain(|sm| {
+                    asset.subtitle_streams.iter().any(|s| {
+                        s.index == sm.source_stream_index && s.subtitle_type == SubtitleType::Bitmap
+                    })
+                });
+            }
+        }
+    }
+    project
+}
+
 #[cfg(test)]
 mod tests {
     use crate::build::test_support::{test_menu, test_project};
     use crate::build::{generate_build_plan, BuildJob};
+    use crate::models::*;
 
     #[test]
     fn build_plan_generates_correct_job_count() {
@@ -346,5 +442,105 @@ mod tests {
             .iter()
             .any(|job| matches!(job, BuildJob::ComposeMenuHighlights { .. })));
         assert_eq!(plan.summary.menus_count, 1);
+    }
+
+    #[test]
+    fn build_plan_muxes_bitmap_subtitles_during_title_transcode() {
+        let mut project = test_project();
+        project.assets[0].subtitle_streams.push(SubtitleStreamInfo {
+            index: 2,
+            codec: "hdmv_pgs_subtitle".to_string(),
+            language: Some("eng".to_string()),
+            subtitle_type: SubtitleType::Bitmap,
+            title: Some("English".to_string()),
+        });
+        project.disc.titlesets[0].titles[0]
+            .subtitle_mappings
+            .push(SubtitleTrackMapping {
+                id: "sm-1".to_string(),
+                source_stream_index: 2,
+                label: "English".to_string(),
+                language: "eng".to_string(),
+                order_index: 0,
+                is_default: false,
+                is_forced: false,
+            });
+
+        let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+        let transcode_job = plan
+            .jobs
+            .iter()
+            .find_map(|job| match job {
+                BuildJob::TranscodeTitle { command, .. } => Some(command),
+                _ => None,
+            })
+            .expect("expected transcode job");
+
+        assert!(transcode_job
+            .windows(2)
+            .any(|window| { window == [String::from("-map"), String::from("0:2")] }));
+        assert!(transcode_job
+            .windows(2)
+            .any(|window| { window == [String::from("-c:s:0"), String::from("dvd_subtitle")] }));
+        assert!(!plan
+            .jobs
+            .iter()
+            .any(|job| matches!(job, BuildJob::ExtractSubtitles { .. })));
+    }
+
+    #[test]
+    fn build_plan_deduplicates_identical_transcodes_with_different_mapping_ids() {
+        let mut project = test_project();
+
+        // Add a second titleset with a title that uses the same asset and
+        // identical stream/output settings but different mapping UUIDs.
+        let duplicate_title = Title {
+            id: "title-dup".to_string(),
+            name: "Same Feature Copy".to_string(),
+            source_asset_id: Some("asset-1".to_string()),
+            video_mapping: Some(VideoTrackMapping {
+                source_stream_index: 0,
+                copy_mode: CopyMode::ReEncode,
+            }),
+            video_output_profile: Some(VideoOutputProfile {
+                raster: VideoRaster::FullD1,
+                aspect: AspectMode::SixteenByNine,
+            }),
+            audio_mappings: vec![AudioTrackMapping {
+                id: "am-different-uuid".to_string(), // different ID!
+                source_stream_index: 1,
+                output_target: AudioOutputTarget::Ac3,
+                copy_mode: CopyMode::ReEncode,
+                label: "English".to_string(),
+                language: "eng".to_string(),
+                order_index: 0,
+                is_default: true,
+            }],
+            subtitle_mappings: vec![],
+            chapters: vec![],
+            end_action: Some(PlaybackAction::Stop),
+            order_index: 0,
+        };
+
+        project.disc.titlesets.push(Titleset {
+            id: "titleset-dup".to_string(),
+            name: "Duplicate".to_string(),
+            titles: vec![duplicate_title],
+            menus: vec![],
+        });
+
+        let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+
+        // Should have 1 transcode + 1 link, not 2 transcodes
+        assert_eq!(
+            plan.summary.transcode_jobs, 1,
+            "identical config should reuse transcode"
+        );
+        assert!(
+            plan.jobs
+                .iter()
+                .any(|j| matches!(j, BuildJob::LinkTitle { .. })),
+            "duplicate title should be linked, not transcoded again"
+        );
     }
 }

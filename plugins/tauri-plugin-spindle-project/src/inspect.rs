@@ -20,6 +20,7 @@ pub fn inspect(path: &str) -> crate::Result<Asset> {
             "json",
             "-show_format",
             "-show_streams",
+            "-show_chapters",
             path,
         ])
         .output()
@@ -131,10 +132,31 @@ pub fn inspect(path: &str) -> crate::Result<Asset> {
         }
     }
 
+    // Extract chapter markers from source media
+    let source_chapters: Vec<SourceChapter> = probe
+        .chapters
+        .iter()
+        .filter_map(|ch| {
+            let start = ch.start_time.as_deref()?.parse::<f64>().ok()?;
+            let end = ch.end_time.as_deref()?.parse::<f64>().ok()?;
+            Some(SourceChapter {
+                start_secs: start,
+                end_secs: end,
+                title: ch.tags.as_ref().and_then(|t| t.title.clone()),
+            })
+        })
+        .collect();
+
     // Compute fingerprint from file size + path (lightweight; full hashing is Phase 10)
     let fingerprint = file_size_bytes.map(|size| format!("{:x}-{}", size, file_name.len()));
 
     let compatibility = assess_dvd_compatibility(&video_streams, &audio_streams, &container_format);
+    let compatibility_detail = build_compatibility_detail(
+        &video_streams,
+        &audio_streams,
+        &container_format,
+        compatibility,
+    );
 
     Ok(Asset {
         id: uuid::Uuid::new_v4().to_string(),
@@ -147,10 +169,12 @@ pub fn inspect(path: &str) -> crate::Result<Asset> {
         audio_streams,
         subtitle_streams,
         compatibility: Some(compatibility),
+        compatibility_detail: Some(compatibility_detail),
         fingerprint,
         warnings: dedupe_asset_warnings(asset_warnings),
         thumbnail_path: None,
         thumbnail_error: None,
+        source_chapters,
     })
 }
 
@@ -342,6 +366,114 @@ fn assess_dvd_compatibility(
     }
 }
 
+fn build_compatibility_detail(
+    video_streams: &[VideoStreamInfo],
+    audio_streams: &[AudioStreamInfo],
+    container: &Option<String>,
+    overall: CompatibilityAssessment,
+) -> CompatibilityDetail {
+    let video = video_streams.first().map(|v| {
+        let is_mpeg2 = v.codec == "mpeg2video";
+        let is_dvd_res = matches!(
+            (v.width, v.height),
+            (720, 480)
+                | (720, 576)
+                | (704, 480)
+                | (704, 576)
+                | (352, 480)
+                | (352, 576)
+                | (352, 240)
+                | (352, 288)
+        );
+        let is_dvd_fps = v.frame_rate.map_or(true, |fr| {
+            (fr - 29.97).abs() < 0.1 || (fr - 25.0).abs() < 0.1 || (fr - 23.976).abs() < 0.1
+        });
+
+        VideoCompatibility {
+            codec: PropertyCheck {
+                value: v.codec.clone(),
+                dvd_requires: "mpeg2video".to_string(),
+                action: if is_mpeg2 {
+                    "none".to_string()
+                } else {
+                    "re-encode".to_string()
+                },
+                compatible: is_mpeg2,
+            },
+            resolution: PropertyCheck {
+                value: format!("{}x{}", v.width, v.height),
+                dvd_requires: "720x480, 720x576, or other DVD-legal rasters".to_string(),
+                action: if is_dvd_res {
+                    "none".to_string()
+                } else {
+                    "scale".to_string()
+                },
+                compatible: is_dvd_res,
+            },
+            frame_rate: PropertyCheck {
+                value: v
+                    .frame_rate
+                    .map_or("unknown".to_string(), |fr| format!("{fr:.3}")),
+                dvd_requires: "29.97, 25.0, or 23.976 fps".to_string(),
+                action: if is_dvd_fps {
+                    "none".to_string()
+                } else {
+                    "re-encode".to_string()
+                },
+                compatible: is_dvd_fps,
+            },
+        }
+    });
+
+    let audio_compat = audio_streams
+        .iter()
+        .map(|a| {
+            let is_dvd_audio = matches!(
+                a.codec.as_str(),
+                "ac3" | "dts" | "pcm_s16le" | "pcm_s16be" | "mp2" | "lpcm"
+            );
+            AudioStreamCompatibility {
+                stream_index: a.index,
+                codec: PropertyCheck {
+                    value: a.codec.clone(),
+                    dvd_requires: "ac3, dts, mp2, or lpcm".to_string(),
+                    action: if is_dvd_audio {
+                        "none".to_string()
+                    } else {
+                        "re-encode".to_string()
+                    },
+                    compatible: is_dvd_audio,
+                },
+            }
+        })
+        .collect();
+
+    let is_mpeg_container = container.as_ref().is_some_and(|c| {
+        let lc = c.to_lowercase();
+        lc.contains("mpeg") || lc.contains("vob") || lc.contains("mpegps") || lc.contains("mpegts")
+    });
+
+    let container_compat = ContainerCompatibility {
+        format: PropertyCheck {
+            value: container.clone().unwrap_or_else(|| "unknown".to_string()),
+            dvd_requires: "MPEG-PS (VOB)".to_string(),
+            action: if is_mpeg_container {
+                "none".to_string()
+            } else {
+                "remux".to_string()
+            },
+            compatible: is_mpeg_container,
+        },
+    };
+
+    CompatibilityDetail {
+        overall,
+        video,
+        audio_streams: audio_compat,
+        container: container_compat,
+    }
+}
+
 fn classify_subtitle_type(codec: &str) -> SubtitleType {
     match codec {
         "dvd_subtitle" | "dvdsub" | "hdmv_pgs_subtitle" | "pgssub" => SubtitleType::Bitmap,
@@ -405,6 +537,23 @@ fn dedupe_asset_warnings(warnings: Vec<AssetWarning>) -> Vec<AssetWarning> {
 struct FfprobeOutput {
     streams: Option<Vec<FfprobeStream>>,
     format: Option<FfprobeFormat>,
+    #[serde(default)]
+    chapters: Vec<FfprobeChapter>,
+}
+
+#[derive(Debug, Deserialize)]
+struct FfprobeChapter {
+    #[serde(default)]
+    start_time: Option<String>,
+    #[serde(default)]
+    end_time: Option<String>,
+    #[serde(default)]
+    tags: Option<ChapterTags>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ChapterTags {
+    title: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

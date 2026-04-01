@@ -3,10 +3,12 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: MIT
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useProjectStore } from '../store/project-store';
+import { useNavigation } from '../App';
 import type {
 	Title,
+	Titleset,
 	Asset,
 	VideoOutputProfile,
 	VideoRaster,
@@ -15,26 +17,95 @@ import type {
 	CopyMode,
 	PlaybackAction,
 	SpindleProjectFile,
+	SubtitleStreamInfo,
+	SubtitleTrackMapping,
 } from '../types/project';
 import './TitlesPage.css';
 
 export function TitlesPage() {
 	const project = useProjectStore((s) => s.project);
 	const updateProject = useProjectStore((s) => s.updateProject);
+	const { consumePendingEntityId } = useNavigation();
 	const [selectedTitleId, setSelectedTitleId] = useState<string | null>(null);
+	const [selectedTitlesetId, setSelectedTitlesetId] = useState<string | null>(null);
+
+	// Consume navigation target from validation issue click
+	useEffect(() => {
+		const entityId = consumePendingEntityId();
+		if (!entityId || !project) return;
+		// Check if it's a title ID
+		for (const ts of project.disc.titlesets) {
+			if (ts.titles.some((t) => t.id === entityId)) {
+				setSelectedTitlesetId(ts.id);
+				setSelectedTitleId(entityId);
+				return;
+			}
+			// Check if it's a titleset ID
+			if (ts.id === entityId) {
+				setSelectedTitlesetId(entityId);
+				return;
+			}
+		}
+	}, []); // eslint-disable-line react-hooks/exhaustive-deps
 
 	if (!project) return null;
 
-	const titleset = project.disc.titlesets[0];
+	// Select first titleset by default, or follow user selection
+	const titleset =
+		project.disc.titlesets.find((ts) => ts.id === selectedTitlesetId) ?? project.disc.titlesets[0];
 	if (!titleset) return null;
 
 	const titles = titleset.titles;
-	const selectedTitle = titles.find((t) => t.id === selectedTitleId) ?? null;
+	const allTitlesFromAllSets = project.disc.titlesets.flatMap((ts) => ts.titles);
+	const selectedTitle = allTitlesFromAllSets.find((t) => t.id === selectedTitleId) ?? null;
 
-	const handleAddTitle = () => {
+	const handleAddTitleset = () => {
+		const newTs: Titleset = {
+			id: crypto.randomUUID(),
+			name: `Titleset ${project.disc.titlesets.length + 1}`,
+			titles: [],
+			menus: [],
+		};
+		updateProject((p) => ({
+			...p,
+			disc: { ...p.disc, titlesets: [...p.disc.titlesets, newTs] },
+		}));
+		setSelectedTitlesetId(newTs.id);
+		setSelectedTitleId(null);
+	};
+
+	const handleRemoveTitleset = (tsId: string) => {
+		const ts = project.disc.titlesets.find((t) => t.id === tsId);
+		if (!ts || ts.titles.length > 0 || ts.menus.length > 0) return;
+		if (project.disc.titlesets.length <= 1) return;
+		updateProject((p) => ({
+			...p,
+			disc: { ...p.disc, titlesets: p.disc.titlesets.filter((t) => t.id !== tsId) },
+		}));
+		if (selectedTitlesetId === tsId) {
+			setSelectedTitlesetId(null);
+			setSelectedTitleId(null);
+		}
+	};
+
+	const handleRenameTitleset = (tsId: string, name: string) => {
+		updateProject((p) => ({
+			...p,
+			disc: {
+				...p.disc,
+				titlesets: p.disc.titlesets.map((ts) => (ts.id === tsId ? { ...ts, name } : ts)),
+			},
+		}));
+	};
+
+	const handleAddTitle = (targetTitlesetId = titleset.id) => {
+		const targetTitleset =
+			project.disc.titlesets.find((ts) => ts.id === targetTitlesetId) ?? project.disc.titlesets[0];
+		if (!targetTitleset) return;
+
 		const newTitle: Title = {
 			id: crypto.randomUUID(),
-			name: `Title ${titles.length + 1}`,
+			name: `Title ${targetTitleset.titles.length + 1}`,
 			sourceAssetId: null,
 			videoMapping: null,
 			videoOutputProfile: null,
@@ -42,11 +113,15 @@ export function TitlesPage() {
 			subtitleMappings: [],
 			chapters: [],
 			endAction: null,
-			orderIndex: titles.length,
+			orderIndex: targetTitleset.titles.length,
 		};
-		const isFirstTitle = titles.length === 0;
+		const allTitles = project.disc.titlesets.flatMap((ts) => ts.titles);
+		const isFirstTitle = allTitles.length === 0;
 		updateProject((p) => {
-			const withTitle = updateTitleInProject(p, titleset.id, [...titles, newTitle]);
+			const withTitle = updateTitleInProject(p, targetTitleset.id, [
+				...targetTitleset.titles,
+				newTitle,
+			]);
 			// Auto-set first-play to this title when adding the very first title
 			if (isFirstTitle && !p.disc.firstPlayAction) {
 				return {
@@ -59,66 +134,187 @@ export function TitlesPage() {
 			}
 			return withTitle;
 		});
+		setSelectedTitlesetId(targetTitleset.id);
 		setSelectedTitleId(newTitle.id);
 	};
 
 	const handleUpdateTitle = (updated: Title) => {
-		const newTitles = titles.map((t) => (t.id === updated.id ? updated : t));
-		updateProject((p) => updateTitleInProject(p, titleset.id, newTitles));
+		// Find which titleset owns this title
+		const ownerTs = project.disc.titlesets.find((ts) => ts.titles.some((t) => t.id === updated.id));
+		if (!ownerTs) return;
+		const newTitles = ownerTs.titles.map((t) => (t.id === updated.id ? updated : t));
+		updateProject((p) => updateTitleInProject(p, ownerTs.id, newTitles));
 	};
 
-	const handleRemoveTitle = (titleId: string) => {
-		const newTitles = titles
+	const handleRemoveTitle = (tsId: string, titleId: string) => {
+		const ownerTs = project.disc.titlesets.find((ts) => ts.id === tsId);
+		if (!ownerTs) return;
+		const newTitles = ownerTs.titles
 			.filter((t) => t.id !== titleId)
 			.map((t, i) => ({ ...t, orderIndex: i }));
-		updateProject((p) => updateTitleInProject(p, titleset.id, newTitles));
+		updateProject((p) => updateTitleInProject(p, tsId, newTitles));
 		if (selectedTitleId === titleId) setSelectedTitleId(null);
 	};
 
-	const handleReorder = (titleId: string, direction: 'up' | 'down') => {
-		const idx = titles.findIndex((t) => t.id === titleId);
+	const handleReorder = (tsId: string, titleId: string, direction: 'up' | 'down') => {
+		const ownerTs = project.disc.titlesets.find((ts) => ts.id === tsId);
+		if (!ownerTs) return;
+		const tsTitles = ownerTs.titles;
+		const idx = tsTitles.findIndex((t) => t.id === titleId);
 		if (idx < 0) return;
 		const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
-		if (swapIdx < 0 || swapIdx >= titles.length) return;
-		const newTitles = [...titles];
+		if (swapIdx < 0 || swapIdx >= tsTitles.length) return;
+		const newTitles = [...tsTitles];
 		[newTitles[idx], newTitles[swapIdx]] = [newTitles[swapIdx], newTitles[idx]];
 		updateProject((p) =>
 			updateTitleInProject(
 				p,
-				titleset.id,
+				tsId,
 				newTitles.map((t, i) => ({ ...t, orderIndex: i })),
 			),
 		);
 	};
 
+	const handleMoveTitle = (titleId: string, targetTitlesetId: string) => {
+		// Find the source titleset
+		const sourceTs = project.disc.titlesets.find((ts) => ts.titles.some((t) => t.id === titleId));
+		if (!sourceTs || sourceTs.id === targetTitlesetId) return;
+		const title = sourceTs.titles.find((t) => t.id === titleId);
+		if (!title) return;
+		updateProject((p) => ({
+			...p,
+			disc: {
+				...p.disc,
+				titlesets: p.disc.titlesets.map((ts) => {
+					if (ts.id === sourceTs.id) {
+						return {
+							...ts,
+							titles: ts.titles
+								.filter((t) => t.id !== titleId)
+								.map((t, i) => ({ ...t, orderIndex: i })),
+						};
+					}
+					if (ts.id === targetTitlesetId) {
+						return {
+							...ts,
+							titles: [...ts.titles, { ...title, orderIndex: ts.titles.length }],
+						};
+					}
+					return ts;
+				}),
+			},
+		}));
+		setSelectedTitlesetId(targetTitlesetId);
+	};
+
+	const [dragOverTitlesetId, setDragOverTitlesetId] = useState<string | null>(null);
+
+	const allTitlesFlat = project.disc.titlesets.flatMap((ts) => ts.titles);
+	const hasTitles = allTitlesFlat.length > 0;
+
 	return (
 		<div className="titles">
 			<div className="page-header">
 				<h1 className="page-title">Titles</h1>
-				<button className="btn btn--primary" onClick={handleAddTitle}>
-					Add Title
-				</button>
+				<div className="page-header__actions">
+					<button className="btn btn--secondary" onClick={handleAddTitleset}>
+						Add Titleset
+					</button>
+					<button className="btn btn--primary" onClick={() => handleAddTitle()}>
+						Add Title
+					</button>
+				</div>
 			</div>
 
-			{titles.length === 0 ? (
+			{!hasTitles && project.disc.titlesets.length === 1 ? (
 				<EmptyTitlesView onAdd={handleAddTitle} />
 			) : (
 				<div className="titles__layout">
 					<div className="titles__list">
-						{titles.map((title, idx) => (
-							<TitleRow
-								key={title.id}
-								title={title}
-								index={idx}
-								totalCount={titles.length}
-								asset={project.assets.find((a) => a.id === title.sourceAssetId) ?? null}
-								isSelected={title.id === selectedTitleId}
-								onSelect={() => setSelectedTitleId(title.id)}
-								onMoveUp={() => handleReorder(title.id, 'up')}
-								onMoveDown={() => handleReorder(title.id, 'down')}
-								onRemove={() => handleRemoveTitle(title.id)}
-							/>
-						))}
+						{project.disc.titlesets.map((ts) => {
+							const tsTitles = ts.titles;
+							return (
+								<div
+									key={ts.id}
+									className={`titles__titleset-section ${dragOverTitlesetId === ts.id ? 'titles__titleset-section--drag-over' : ''}`}
+									onDragOver={(e) => {
+										e.preventDefault();
+										setDragOverTitlesetId(ts.id);
+									}}
+									onDragLeave={(e) => {
+										// Only clear if leaving the section entirely
+										if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+											setDragOverTitlesetId(null);
+										}
+									}}
+									onDrop={(e) => {
+										e.preventDefault();
+										const titleId = e.dataTransfer.getData('text/x-title-id');
+										if (titleId) handleMoveTitle(titleId, ts.id);
+										setDragOverTitlesetId(null);
+									}}
+								>
+									<div className="titles__titleset-header">
+										<input
+											className="titles__titleset-heading"
+											value={ts.name}
+											onChange={(e) => handleRenameTitleset(ts.id, e.target.value)}
+											onClick={() => {
+												setSelectedTitlesetId(ts.id);
+											}}
+										/>
+										<span className="titles__titleset-count text-muted">
+											{tsTitles.length} {tsTitles.length === 1 ? 'title' : 'titles'}
+											{ts.menus.length > 0 &&
+												` · ${ts.menus.length} ${ts.menus.length === 1 ? 'menu' : 'menus'}`}
+										</span>
+										{ts.titles.length === 0 &&
+											ts.menus.length === 0 &&
+											project.disc.titlesets.length > 1 && (
+												<button
+													className="titles__titleset-remove"
+													onClick={() => handleRemoveTitleset(ts.id)}
+													title="Remove empty titleset"
+												>
+													×
+												</button>
+											)}
+									</div>
+									{tsTitles.length === 0 ? (
+										<div className="titles__titleset-empty text-muted">
+											No titles in this titleset.{' '}
+											<button
+												className="btn-link"
+												onClick={() => {
+													setSelectedTitlesetId(ts.id);
+													handleAddTitle(ts.id);
+												}}
+											>
+												Add one
+											</button>
+										</div>
+									) : (
+										tsTitles.map((title, idx) => (
+											<TitleRow
+												key={title.id}
+												title={title}
+												index={idx}
+												totalCount={tsTitles.length}
+												asset={project.assets.find((a) => a.id === title.sourceAssetId) ?? null}
+												isSelected={title.id === selectedTitleId}
+												onSelect={() => {
+													setSelectedTitlesetId(ts.id);
+													setSelectedTitleId(title.id);
+												}}
+												onMoveUp={() => handleReorder(ts.id, title.id, 'up')}
+												onMoveDown={() => handleReorder(ts.id, title.id, 'down')}
+												onRemove={() => handleRemoveTitle(ts.id, title.id)}
+											/>
+										))
+									)}
+								</div>
+							);
+						})}
 					</div>
 					{selectedTitle && (
 						<TitleEditor
@@ -210,6 +406,11 @@ function TitleRow({
 	return (
 		<div
 			className={`titles__row card ${isSelected ? 'titles__row--selected' : ''}`}
+			draggable
+			onDragStart={(e) => {
+				e.dataTransfer.setData('text/x-title-id', title.id);
+				e.dataTransfer.effectAllowed = 'move';
+			}}
 			onClick={onSelect}
 			role="button"
 			tabIndex={0}
@@ -281,7 +482,7 @@ function TitleEditor({
 	title: Title;
 	assets: Asset[];
 	standard: string;
-	allTitles: { id: string; name: string }[];
+	allTitles: { id: string; name: string; chapters: { id: string; name: string }[] }[];
 	allMenus: { id: string; name: string }[];
 	onUpdate: (title: Title) => void;
 }) {
@@ -327,6 +528,17 @@ function TitleEditor({
 					: ('four-by-three' as AspectMode),
 		};
 
+		// Auto-seed chapters from source asset metadata when available
+		const chapters =
+			title.chapters.length === 0 && asset.sourceChapters?.length > 0
+				? asset.sourceChapters.map((ch, i) => ({
+						id: crypto.randomUUID(),
+						name: ch.title ?? `Chapter ${i + 1}`,
+						timestampSecs: ch.startSecs,
+						orderIndex: i,
+					}))
+				: title.chapters;
+
 		onUpdate({
 			...title,
 			sourceAssetId: assetId,
@@ -334,6 +546,7 @@ function TitleEditor({
 			videoOutputProfile,
 			audioMappings,
 			subtitleMappings,
+			chapters,
 		});
 	};
 
@@ -518,7 +731,7 @@ function TitleEditor({
 			)}
 
 			{/* Subtitle Mappings */}
-			{title.subtitleMappings.length > 0 && (
+			{selectedAsset && (
 				<div className="titles__editor-section">
 					<h4 className="titles__editor-heading">
 						Subtitle Tracks
@@ -605,6 +818,29 @@ function TitleEditor({
 							</button>
 						</div>
 					))}
+					<SubtitleAddPicker
+						asset={selectedAsset}
+						currentMappings={title.subtitleMappings}
+						onAdd={(stream) => {
+							const idx = title.subtitleMappings.length;
+							onUpdate({
+								...title,
+								subtitleMappings: [
+									...title.subtitleMappings,
+									{
+										id: crypto.randomUUID(),
+										sourceStreamIndex: stream.index,
+										label:
+											stream.title ?? languageLabel(stream.language ?? null, `Subtitle ${idx + 1}`),
+										language: stream.language ?? 'und',
+										orderIndex: idx,
+										isDefault: false,
+										isForced: false,
+									},
+								],
+							});
+						}}
+					/>
 				</div>
 			)}
 
@@ -628,6 +864,19 @@ function TitleEditor({
 								</option>
 							))}
 					</optgroup>
+					{allTitles.some((t) => t.id !== title.id && t.chapters.length > 0) && (
+						<optgroup label="Play Chapter">
+							{allTitles
+								.filter((t) => t.id !== title.id && t.chapters.length > 0)
+								.flatMap((t) =>
+									t.chapters.map((ch) => (
+										<option key={`${t.id}:${ch.id}`} value={`playChapter:${t.id}:${ch.id}`}>
+											{t.name} — {ch.name}
+										</option>
+									)),
+								)}
+						</optgroup>
+					)}
 					<optgroup label="Show Menu">
 						{allMenus.map((m) => (
 							<option key={m.id} value={`showMenu:${m.id}`}>
@@ -646,6 +895,8 @@ function endActionToString(action: PlaybackAction | null): string {
 	switch (action.type) {
 		case 'playTitle':
 			return `playTitle:${action.titleId}`;
+		case 'playChapter':
+			return `playChapter:${action.titleId}:${action.chapterId}`;
 		case 'showMenu':
 			return `showMenu:${action.menuId}`;
 		case 'stop':
@@ -658,10 +909,54 @@ function endActionToString(action: PlaybackAction | null): string {
 function stringToEndAction(str: string): PlaybackAction | null {
 	if (!str) return null;
 	if (str === 'stop') return { type: 'stop' };
-	const [type, id] = str.split(':');
-	if (type === 'playTitle' && id) return { type: 'playTitle', titleId: id };
-	if (type === 'showMenu' && id) return { type: 'showMenu', menuId: id };
+	const parts = str.split(':');
+	const type = parts[0];
+	if (type === 'playTitle' && parts[1]) return { type: 'playTitle', titleId: parts[1] };
+	if (type === 'playChapter' && parts[1] && parts[2])
+		return { type: 'playChapter', titleId: parts[1], chapterId: parts[2] };
+	if (type === 'showMenu' && parts[1]) return { type: 'showMenu', menuId: parts[1] };
 	return null;
+}
+
+function SubtitleAddPicker({
+	asset,
+	currentMappings,
+	onAdd,
+}: {
+	asset: Asset;
+	currentMappings: SubtitleTrackMapping[];
+	onAdd: (stream: SubtitleStreamInfo) => void;
+}) {
+	const mappedIndices = new Set(currentMappings.map((m) => m.sourceStreamIndex));
+	const unmapped = asset.subtitleStreams.filter((s) => !mappedIndices.has(s.index));
+
+	if (unmapped.length === 0) {
+		if (asset.subtitleStreams.length === 0) return null;
+		return (
+			<p className="titles__hint text-muted">
+				All subtitle streams from this asset are already mapped.
+			</p>
+		);
+	}
+
+	return (
+		<select
+			className="titles__select"
+			value=""
+			onChange={(e) => {
+				const stream = unmapped.find((s) => s.index === Number(e.target.value));
+				if (stream) onAdd(stream);
+			}}
+		>
+			<option value="">Add subtitle track…</option>
+			{unmapped.map((s) => (
+				<option key={s.index} value={s.index}>
+					#{s.index} — {s.codec} {s.language ?? 'und'}
+					{s.title ? ` (${s.title})` : ''}
+				</option>
+			))}
+		</select>
+	);
 }
 
 // ── Language helpers ─────────────────────────────────────────────────────────

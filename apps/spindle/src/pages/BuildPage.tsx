@@ -5,6 +5,7 @@
 
 import { useEffect } from 'react';
 import { useProjectStore } from '../store/project-store';
+import { useNavigation } from '../App';
 import type { BuildJob, ValidationIssue } from '../types/project';
 import './BuildPage.css';
 
@@ -271,15 +272,58 @@ export function BuildPage() {
 					</div>
 					<div className="build__issue-list">
 						{validationIssues.map((issue, i) => (
-							<div key={i} className={`build__issue build__issue--${issue.severity}`}>
-								<span className="build__issue-dot" />
-								<span className="build__issue-code">{issue.code}</span>
-								<span>{issue.message}</span>
-							</div>
+							<BuildIssueRow key={i} issue={issue} />
 						))}
 					</div>
 				</div>
 			)}
+		</div>
+	);
+}
+
+function buildIssueRoute(issue: ValidationIssue): string | null {
+	switch (issue.entityType) {
+		case 'title':
+			return '/titles';
+		case 'menu':
+			return '/menus';
+		case 'titleset':
+			return '/titles';
+		case 'disc':
+			return '/';
+		case 'build':
+			return null; // already on build page
+		default:
+			return null;
+	}
+}
+
+function BuildIssueRow({ issue }: { issue: ValidationIssue }) {
+	const { navigateTo } = useNavigation();
+	const route = buildIssueRoute(issue);
+	const isClickable = route != null;
+
+	const handleClick = () => {
+		if (!route) return;
+		navigateTo({ route, entityId: issue.context ?? undefined });
+	};
+
+	return (
+		<div
+			className={`build__issue build__issue--${issue.severity} ${isClickable ? 'build__issue--clickable' : ''}`}
+			onClick={isClickable ? handleClick : undefined}
+			role={isClickable ? 'button' : undefined}
+			tabIndex={isClickable ? 0 : undefined}
+			onKeyDown={isClickable ? (e) => e.key === 'Enter' && handleClick() : undefined}
+		>
+			<span className="build__issue-dot" />
+			<span className="build__issue-code">{issue.code}</span>
+			<div className="build__issue-body">
+				<span>{issue.message}</span>
+				{issue.suggestedFix && (
+					<span className="build__issue-fix text-muted">{issue.suggestedFix}</span>
+				)}
+			</div>
 		</div>
 	);
 }
@@ -315,6 +359,10 @@ function getJobIcon(job: BuildJob): string {
 			return '\u{1F5BC}';
 		case 'composeMenuHighlights':
 			return '\u{2728}';
+		case 'linkTitle':
+			return '\u{1F517}';
+		case 'extractSubtitles':
+			return '\u{1F4DD}';
 		case 'authorDvd':
 			return '\u{1F4BF}';
 		case 'createIso':

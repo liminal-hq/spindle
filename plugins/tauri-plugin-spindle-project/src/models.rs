@@ -310,6 +310,15 @@ pub struct ChapterPoint {
     pub order_index: u32,
 }
 
+/// A chapter point detected in a source media file during inspection.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SourceChapter {
+    pub start_secs: f64,
+    pub end_secs: f64,
+    pub title: Option<String>,
+}
+
 // ── Menus ───────────────────────────────────────────────────────────────────
 
 /// A menu page with buttons and navigation.
@@ -475,6 +484,9 @@ pub struct Asset {
     pub audio_streams: Vec<AudioStreamInfo>,
     pub subtitle_streams: Vec<SubtitleStreamInfo>,
     pub compatibility: Option<CompatibilityAssessment>,
+    /// Detailed per-stream compatibility breakdown.
+    #[serde(default)]
+    pub compatibility_detail: Option<CompatibilityDetail>,
     pub fingerprint: Option<String>,
     #[serde(default)]
     pub warnings: Vec<AssetWarning>,
@@ -482,6 +494,9 @@ pub struct Asset {
     pub thumbnail_path: Option<String>,
     #[serde(default)]
     pub thumbnail_error: Option<String>,
+    /// Chapter markers detected in the source media file.
+    #[serde(default)]
+    pub source_chapters: Vec<SourceChapter>,
 }
 
 impl Asset {
@@ -497,10 +512,12 @@ impl Asset {
             audio_streams: Vec::new(),
             subtitle_streams: Vec::new(),
             compatibility: None,
+            compatibility_detail: None,
             fingerprint: None,
             warnings: Vec::new(),
             thumbnail_path: None,
             thumbnail_error: None,
+            source_chapters: Vec::new(),
         }
     }
 }
@@ -575,6 +592,54 @@ pub enum CompatibilityAssessment {
     Unsupported,
 }
 
+/// Per-stream compatibility breakdown explaining why the overall assessment was given.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CompatibilityDetail {
+    pub overall: CompatibilityAssessment,
+    pub video: Option<VideoCompatibility>,
+    pub audio_streams: Vec<AudioStreamCompatibility>,
+    pub container: ContainerCompatibility,
+}
+
+/// Compatibility detail for a single video stream.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VideoCompatibility {
+    pub codec: PropertyCheck,
+    pub resolution: PropertyCheck,
+    pub frame_rate: PropertyCheck,
+}
+
+/// Compatibility detail for a single audio stream.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AudioStreamCompatibility {
+    pub stream_index: u32,
+    pub codec: PropertyCheck,
+}
+
+/// Compatibility detail for the container format.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ContainerCompatibility {
+    pub format: PropertyCheck,
+}
+
+/// A single property compatibility check result.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PropertyCheck {
+    /// The source value (e.g. "h264", "1920x1080").
+    pub value: String,
+    /// What DVD requires (e.g. "mpeg2video", "720x480 or 720x576").
+    pub dvd_requires: String,
+    /// What action the build will take: "none", "remux", "re-encode", "scale".
+    pub action: String,
+    /// Whether this property is DVD-compatible as-is.
+    pub compatible: bool,
+}
+
 /// Non-fatal asset warnings surfaced in the UI and diagnostics.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -646,6 +711,15 @@ pub struct ValidationIssue {
     pub code: String,
     pub message: String,
     pub context: Option<String>,
+    /// Entity type for navigation: "title", "menu", "titleset", "disc", "build".
+    #[serde(default)]
+    pub entity_type: Option<String>,
+    /// Human-readable name of the affected entity.
+    #[serde(default)]
+    pub entity_name: Option<String>,
+    /// Plain-language fix suggestion.
+    #[serde(default)]
+    pub suggested_fix: Option<String>,
 }
 
 // ── Tests ───────────────────────────────────────────────────────────────────

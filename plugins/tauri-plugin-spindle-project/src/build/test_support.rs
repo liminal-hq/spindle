@@ -41,10 +41,12 @@ pub(crate) fn test_project() -> SpindleProjectFile {
         }],
         subtitle_streams: vec![],
         compatibility: Some(CompatibilityAssessment::ReEncodeRequired),
+        compatibility_detail: None,
         fingerprint: None,
         warnings: vec![],
         thumbnail_path: None,
         thumbnail_error: None,
+        source_chapters: vec![],
     };
 
     let title = Title {
@@ -175,10 +177,12 @@ pub(crate) fn add_second_titleset(project: &mut SpindleProjectFile) {
         }],
         subtitle_streams: vec![],
         compatibility: Some(CompatibilityAssessment::ReEncodeRequired),
+        compatibility_detail: None,
         fingerprint: None,
         warnings: vec![],
         thumbnail_path: None,
         thumbnail_error: None,
+        source_chapters: vec![],
     };
 
     let second_title = Title {

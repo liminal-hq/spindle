@@ -2,6 +2,8 @@ node_modules/
 .pnpm-store/
 target/
 dist/
+test-results/
+spindle-diagnostics*.json
 
 # Tauri generated artefacts
 apps/*/src-tauri/gen/

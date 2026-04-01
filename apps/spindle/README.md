@@ -1,6 +1,6 @@
 # Spindle App
 
-This package contains the base Tauri desktop shell for Spindle.
+This package contains the Spindle Tauri desktop application and React authoring interface.
 
 ## Scripts
 
@@ -10,8 +10,13 @@ This package contains the base Tauri desktop shell for Spindle.
 
 ## Current shell features
 
+- titleset-aware title management, including drag-and-drop between titlesets
+- chapter editing with source-chapter seeding
+- menu editing with chapter-targeted actions and auto-generated navigation
+- build planning and DVD build execution
 - toolchain inspection for required DVD authoring binaries
 - diagnostics bundle export for support and troubleshooting
+- developer toggles for sidecar resolution and unsupported subtitle handling
 - thumbnail cache inspection and clearing from Settings
 
 ## Recommended IDE setup
