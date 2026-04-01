@@ -50,37 +50,39 @@ pub fn auto_generate_navigation(menu: &mut Menu) {
             let cos_left = -dx / dist;
             let cos_right = dx / dist;
 
-            // Minimum cosine for the ~60° cone (cos 60° = 0.5)
-            const MIN_COS: f64 = 0.45;
+            // Minimum cosine for the ~70° cone (cos 70° ≈ 0.34).
+            // A wider cone ensures buttons at moderate angles are still reachable
+            // while the cos⁶ penalty keeps well-aligned targets preferred.
+            const MIN_COS: f64 = 0.35;
 
-            // Weighted score: distance / cos⁴ — strongly favours aligned buttons.
-            // Using the fourth power ensures that a closer-but-diagonal button
+            // Weighted score: distance / cos⁶ — very strongly favours aligned buttons.
+            // Using the sixth power ensures that a closer-but-diagonal button
             // (e.g. one row up when looking right) cannot beat a farther button
-            // that is directly on the axis.
+            // that is directly on the axis, even with small vertical offsets.
             if dy < 0.0 && cos_up > MIN_COS {
                 let c2 = cos_up * cos_up;
-                let score = dist / (c2 * c2);
+                let score = dist / (c2 * c2 * c2);
                 if best_up.is_none() || score < best_up.unwrap().1 {
                     best_up = Some((j, score));
                 }
             }
             if dy > 0.0 && cos_down > MIN_COS {
                 let c2 = cos_down * cos_down;
-                let score = dist / (c2 * c2);
+                let score = dist / (c2 * c2 * c2);
                 if best_down.is_none() || score < best_down.unwrap().1 {
                     best_down = Some((j, score));
                 }
             }
             if dx < 0.0 && cos_left > MIN_COS {
                 let c2 = cos_left * cos_left;
-                let score = dist / (c2 * c2);
+                let score = dist / (c2 * c2 * c2);
                 if best_left.is_none() || score < best_left.unwrap().1 {
                     best_left = Some((j, score));
                 }
             }
             if dx > 0.0 && cos_right > MIN_COS {
                 let c2 = cos_right * cos_right;
-                let score = dist / (c2 * c2);
+                let score = dist / (c2 * c2 * c2);
                 if best_right.is_none() || score < best_right.unwrap().1 {
                     best_right = Some((j, score));
                 }
