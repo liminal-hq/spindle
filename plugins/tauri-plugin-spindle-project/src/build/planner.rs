@@ -142,6 +142,12 @@ pub fn generate_build_plan(
         .flat_map(|ts| ts.titles.iter().map(move |t| (ts, t)))
         .collect();
 
+    // Track which asset+config combos have already been transcoded so we can
+    // reuse the output file when multiple titles share the same source and
+    // identical stream/output settings.
+    let mut transcode_cache: HashMap<String, PathBuf> = HashMap::new();
+    let mut transcode_count = 0;
+
     for (_, title) in &all_titles {
         let source_asset_id = title.source_asset_id.as_deref().ok_or_else(|| {
             crate::Error::Build(format!("Title \"{}\" has no source asset", title.name))
@@ -151,32 +157,57 @@ pub fn generate_build_plan(
             crate::Error::Build(format!("Asset not found for title \"{}\"", title.name))
         })?;
 
-        let output_path = paths.title_video_path(&title.id);
-
-        let video_info = title
-            .video_mapping
-            .as_ref()
-            .and_then(|vm| asset.video_streams.get(vm.source_stream_index as usize));
-
-        let mut command = build_ffmpeg_transcode_command(
-            &asset.source_path,
-            &output_path,
-            title,
-            asset,
-            &project.disc,
-            video_info,
+        // Build a cache key from asset ID + settings that affect the output file
+        let cache_key = format!(
+            "{}|{:?}|{:?}|{:?}|{:?}",
+            source_asset_id,
+            title.video_mapping,
+            title.video_output_profile,
+            title.audio_mappings,
+            title.subtitle_mappings,
         );
-        command[0] = tools.ffmpeg.clone();
 
-        jobs.push(BuildJob::TranscodeTitle {
-            title_id: title.id.clone(),
-            title_name: title.name.clone(),
-            source_path: asset.source_path.clone(),
-            output_path: output_path.display().to_string(),
-            command,
-            label: format!("Transcode \"{}\"", title.name),
-            duration_secs: asset.duration_secs,
-        });
+        if let Some(existing_output) = transcode_cache.get(&cache_key) {
+            // Reuse by symlinking to the existing transcode output
+            let link_path = paths.title_video_path(&title.id);
+            jobs.push(BuildJob::LinkTitle {
+                title_id: title.id.clone(),
+                title_name: title.name.clone(),
+                source_path: existing_output.display().to_string(),
+                link_path: link_path.display().to_string(),
+                label: format!("Link \"{}\" (shared transcode)", title.name),
+            });
+        } else {
+            let output_path = paths.title_video_path(&title.id);
+
+            let video_info = title
+                .video_mapping
+                .as_ref()
+                .and_then(|vm| asset.video_streams.get(vm.source_stream_index as usize));
+
+            let mut command = build_ffmpeg_transcode_command(
+                &asset.source_path,
+                &output_path,
+                title,
+                asset,
+                &project.disc,
+                video_info,
+            );
+            command[0] = tools.ffmpeg.clone();
+
+            transcode_cache.insert(cache_key, output_path.clone());
+            transcode_count += 1;
+
+            jobs.push(BuildJob::TranscodeTitle {
+                title_id: title.id.clone(),
+                title_name: title.name.clone(),
+                source_path: asset.source_path.clone(),
+                output_path: output_path.display().to_string(),
+                command,
+                label: format!("Transcode \"{}\"", title.name),
+                duration_secs: asset.duration_secs,
+            });
+        }
     }
 
     for menu_ref in authorable_menus(project) {
@@ -293,7 +324,7 @@ pub fn generate_build_plan(
 
     let summary = BuildSummary {
         total_jobs: jobs.len(),
-        transcode_jobs: all_titles.len(),
+        transcode_jobs: transcode_count,
         titles_count: all_titles.len(),
         menus_count: all_menus.len(),
         generate_iso: project.build_settings.generate_iso,

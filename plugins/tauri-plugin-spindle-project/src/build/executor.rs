@@ -83,6 +83,27 @@ where
                 }
                 log_lines.push("  Workspace directories reset and created.".to_string());
             }
+            BuildJob::LinkTitle {
+                source_path,
+                link_path,
+                ..
+            } => {
+                // Hard-link (or copy as fallback) the shared transcode output
+                let src = Path::new(source_path);
+                let dst = Path::new(link_path);
+                let result = std::fs::hard_link(src, dst)
+                    .or_else(|_| std::fs::copy(src, dst).map(|_| ()));
+                match result {
+                    Ok(()) => {
+                        log_lines.push(format!("  Linked {}", dst.display()));
+                    }
+                    Err(e) => {
+                        let msg = format!("Failed to link title output: {e}");
+                        log_lines.push(msg.clone());
+                        return failure(plan, log_lines, i, msg);
+                    }
+                }
+            }
             BuildJob::RenderMenu {
                 menu_id,
                 command,

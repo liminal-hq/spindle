@@ -359,6 +359,8 @@ function getJobIcon(job: BuildJob): string {
 			return '\u{1F5BC}';
 		case 'composeMenuHighlights':
 			return '\u{2728}';
+		case 'linkTitle':
+			return '\u{1F517}';
 		case 'extractSubtitles':
 			return '\u{1F4DD}';
 		case 'authorDvd':

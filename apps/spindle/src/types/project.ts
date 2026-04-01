@@ -372,6 +372,14 @@ export type BuildJob =
 			label: string;
 	  }
 	| {
+			type: 'linkTitle';
+			titleId: string;
+			titleName: string;
+			sourcePath: string;
+			linkPath: string;
+			label: string;
+	  }
+	| {
 			type: 'extractSubtitles';
 			titleId: string;
 			titleName: string;
