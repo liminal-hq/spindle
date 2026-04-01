@@ -172,15 +172,20 @@ fn append_menu_pgc(
     ));
     for button in &menu.buttons {
         if let Some(ref action) = button.action {
-            xml.push_str(&format!(
-                "        <button>{};</button>\n",
-                playback_action_to_dvd_command_in_domain_result(
-                    action,
-                    disc,
-                    domain,
-                    Some(menu_number),
-                )?
-            ));
+            let cmd = playback_action_to_dvd_command_in_domain_result(
+                action,
+                disc,
+                domain,
+                Some(menu_number),
+            )?;
+            // Compound commands (wrapped in braces) are already terminated;
+            // simple commands need a trailing semicolon.
+            let formatted = if cmd.starts_with('{') {
+                cmd
+            } else {
+                format!("{cmd};")
+            };
+            xml.push_str(&format!("        <button>{formatted}</button>\n"));
         }
     }
     xml.push_str("      </pgc>\n");
@@ -457,7 +462,7 @@ mod tests {
         // VMGM button should set g0 then jump to titleset menu entry
         assert!(
             plan.dvdauthor_xml
-                .contains("<button>{ g0 = 2; jump titleset 1 menu entry; };</button>"),
+                .contains("<button>{ g0 = 2; jump titleset 1 menu entry; }</button>"),
             "VMGM targeting second menu should use g0 register dispatch"
         );
         // First titleset menu PGC should have <pre> dispatch logic
