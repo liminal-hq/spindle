@@ -534,6 +534,101 @@ mod tests {
     }
 
     #[test]
+    fn menu_entry_pre_selects_second_button_when_it_is_default() {
+        let mut project = test_project();
+        let mut menu = test_menu_with_action(
+            "menu-1",
+            "Main Menu",
+            PlaybackAction::PlayTitle {
+                title_id: "title-1".to_string(),
+            },
+        );
+        menu.buttons.push(crate::models::MenuButton {
+            id: "btn-2".to_string(),
+            label: "Extras".to_string(),
+            bounds: crate::models::ButtonBounds {
+                x: 120.0,
+                y: 380.0,
+                width: 240.0,
+                height: 48.0,
+            },
+            action: Some(PlaybackAction::Stop),
+            nav_up: Some("btn-1".to_string()),
+            nav_down: None,
+            nav_left: None,
+            nav_right: None,
+            highlight_mode: crate::models::HighlightMode::Static,
+            highlight_keyframes: vec![],
+            video_asset_id: None,
+        });
+        menu.buttons[0].nav_down = Some("btn-2".to_string());
+        menu.default_button_id = Some("btn-2".to_string());
+        project.disc.global_menus.push(menu);
+
+        let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+
+        assert!(
+            plan.dvdauthor_xml.contains("<pre>\n          button = 2048;\n        </pre>"),
+            "Menus should initialise the authored default button, not always button 1"
+        );
+    }
+
+    #[test]
+    fn titleset_root_entry_pre_combines_dispatch_and_default_button_selection() {
+        let mut project = test_project();
+        let mut root_menu = test_menu_with_action(
+            "ts-menu-1",
+            "Titleset Menu 1",
+            PlaybackAction::PlayTitle {
+                title_id: "title-1".to_string(),
+            },
+        );
+        root_menu.buttons.push(crate::models::MenuButton {
+            id: "btn-2".to_string(),
+            label: "Scenes".to_string(),
+            bounds: crate::models::ButtonBounds {
+                x: 120.0,
+                y: 380.0,
+                width: 240.0,
+                height: 48.0,
+            },
+            action: Some(PlaybackAction::PlayTitle {
+                title_id: "title-1".to_string(),
+            }),
+            nav_up: Some("btn-1".to_string()),
+            nav_down: None,
+            nav_left: None,
+            nav_right: None,
+            highlight_mode: crate::models::HighlightMode::Static,
+            highlight_keyframes: vec![],
+            video_asset_id: None,
+        });
+        root_menu.buttons[0].nav_down = Some("btn-2".to_string());
+        root_menu.default_button_id = Some("btn-2".to_string());
+        project.disc.titlesets[0].menus.push(root_menu);
+        project.disc.titlesets[0].menus.push(test_menu_with_action(
+            "ts-menu-2",
+            "Titleset Menu 2",
+            PlaybackAction::PlayTitle {
+                title_id: "title-1".to_string(),
+            },
+        ));
+        project.disc.global_menus.push(test_menu_with_action(
+            "menu-global",
+            "Main Menu",
+            PlaybackAction::ShowMenu {
+                menu_id: "ts-menu-2".to_string(),
+            },
+        ));
+
+        let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+
+        assert!(plan.dvdauthor_xml.contains(
+            "<pre>\n          if (g0 eq 2) { g0 = 0; jump menu 2; }\n          g0 = 0;\n          button = 2048;\n        </pre>"
+        ));
+    }
+
+    #[test]
     fn vmgm_menu_button_to_second_titleset_title_uses_disc_global_title_numbering() {
         let mut project = test_project();
         add_second_titleset(&mut project);
