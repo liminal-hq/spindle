@@ -152,13 +152,24 @@ pub(crate) fn playback_action_to_dvd_command_in_context(
                 DvdCommandContext::Title { titleset_index } => match target_domain {
                     MenuDomain::Vmgm => Ok(format!("call vmgm menu {target_menu_number}")),
                     MenuDomain::Titleset(target_ts) if target_ts == titleset_index => {
-                        Ok(format!("call menu {target_menu_number}"))
+                        if target_menu_number == 1 {
+                            Ok("call menu entry root".to_string())
+                        } else {
+                            Ok(format!(
+                                "{{ g0 = {target_menu_number}; call menu entry root; }}"
+                            ))
+                        }
                     }
-                    MenuDomain::Titleset(target_ts) => Ok(format!(
-                        "call titleset {} menu {}",
-                        target_ts + 1,
-                        target_menu_number
-                    )),
+                    MenuDomain::Titleset(target_ts) => {
+                        if target_menu_number == 1 {
+                            Ok(format!("call titleset {} menu entry root", target_ts + 1))
+                        } else {
+                            Ok(format!(
+                                "{{ g0 = {target_menu_number}; call titleset {} menu entry root; }}",
+                                target_ts + 1
+                            ))
+                        }
+                    }
                 },
                 DvdCommandContext::Menu {
                     domain: current_domain,

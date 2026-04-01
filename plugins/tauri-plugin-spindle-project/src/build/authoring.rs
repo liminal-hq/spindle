@@ -298,10 +298,6 @@ fn append_title_pgc(
 
     if let Some(ref action) = title.end_action {
         xml.push_str("        <post>\n");
-        // TODO: Route titleset-local `showMenu` end actions through a valid entry
-        // menu path. `dvdauthor` rejects `call menu N;` here with "Cannot call to
-        // a specific menu PGC, only an entry", which breaks title returns into
-        // titleset menus.
         xml.push_str(&format!(
             "          {};\n",
             playback_action_to_dvd_command_in_context(
@@ -582,7 +578,7 @@ mod tests {
     }
 
     #[test]
-    fn title_post_to_same_titleset_menu_uses_call_menu() {
+    fn title_post_to_same_titleset_root_menu_uses_call_menu_entry_root() {
         let mut project = test_project();
         project.disc.titlesets[0].menus.push(test_menu_with_action(
             "menu-2",
@@ -599,11 +595,39 @@ mod tests {
 
         assert!(plan
             .dvdauthor_xml
-            .contains("<post>\n          call menu 1;\n        </post>"));
+            .contains("<post>\n          call menu entry root;\n        </post>"));
     }
 
     #[test]
-    fn title_post_to_other_titleset_menu_uses_call_titleset_menu() {
+    fn title_post_to_same_titleset_non_root_menu_uses_g0_and_call_menu_entry_root() {
+        let mut project = test_project();
+        project.disc.titlesets[0].menus.push(test_menu_with_action(
+            "menu-1",
+            "Root Menu",
+            PlaybackAction::PlayTitle {
+                title_id: "title-1".to_string(),
+            },
+        ));
+        project.disc.titlesets[0].menus.push(test_menu_with_action(
+            "menu-2",
+            "Episode Menu",
+            PlaybackAction::PlayTitle {
+                title_id: "title-1".to_string(),
+            },
+        ));
+        project.disc.titlesets[0].titles[0].end_action = Some(PlaybackAction::ShowMenu {
+            menu_id: "menu-2".to_string(),
+        });
+
+        let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+
+        assert!(plan.dvdauthor_xml.contains(
+            "<post>\n          { g0 = 2; call menu entry root; };\n        </post>"
+        ));
+    }
+
+    #[test]
+    fn title_post_to_other_titleset_root_menu_uses_call_titleset_menu_entry_root() {
         let mut project = test_project();
         add_second_titleset(&mut project);
         project.disc.titlesets[1].menus.push(test_menu_with_action(
@@ -621,6 +645,35 @@ mod tests {
 
         assert!(plan
             .dvdauthor_xml
-            .contains("<post>\n          call titleset 2 menu 1;\n        </post>"));
+            .contains("<post>\n          call titleset 2 menu entry root;\n        </post>"));
+    }
+
+    #[test]
+    fn title_post_to_other_titleset_non_root_menu_uses_g0_and_call_titleset_entry_root() {
+        let mut project = test_project();
+        add_second_titleset(&mut project);
+        project.disc.titlesets[1].menus.push(test_menu_with_action(
+            "menu-1",
+            "Bonus Root Menu",
+            PlaybackAction::PlayTitle {
+                title_id: "title-2".to_string(),
+            },
+        ));
+        project.disc.titlesets[1].menus.push(test_menu_with_action(
+            "menu-2",
+            "Bonus Menu",
+            PlaybackAction::PlayTitle {
+                title_id: "title-2".to_string(),
+            },
+        ));
+        project.disc.titlesets[0].titles[0].end_action = Some(PlaybackAction::ShowMenu {
+            menu_id: "menu-2".to_string(),
+        });
+
+        let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+
+        assert!(plan.dvdauthor_xml.contains(
+            "<post>\n          { g0 = 2; call titleset 2 menu entry root; };\n        </post>"
+        ));
     }
 }
