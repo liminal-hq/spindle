@@ -457,7 +457,7 @@ mod tests {
         // VMGM button should set g0 then jump to titleset menu entry
         assert!(
             plan.dvdauthor_xml
-                .contains("<button>g0 = 2; jump titleset 1 menu entry;</button>"),
+                .contains("<button>{ g0 = 2; jump titleset 1 menu entry; };</button>"),
             "VMGM targeting second menu should use g0 register dispatch"
         );
         // First titleset menu PGC should have <pre> dispatch logic

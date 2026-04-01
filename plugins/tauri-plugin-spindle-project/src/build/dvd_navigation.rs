@@ -188,7 +188,7 @@ pub(crate) fn playback_action_to_dvd_command_in_context(
                         Ok(format!("jump titleset {} menu entry", target_ts + 1))
                     }
                     (MenuDomain::Vmgm, MenuDomain::Titleset(target_ts)) => Ok(format!(
-                        "g0 = {}; jump titleset {} menu entry",
+                        "{{ g0 = {}; jump titleset {} menu entry; }}",
                         target_menu_number,
                         target_ts + 1
                     )),
