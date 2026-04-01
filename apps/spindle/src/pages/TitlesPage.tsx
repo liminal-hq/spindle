@@ -56,7 +56,8 @@ export function TitlesPage() {
 	if (!titleset) return null;
 
 	const titles = titleset.titles;
-	const selectedTitle = titles.find((t) => t.id === selectedTitleId) ?? null;
+	const allTitlesFromAllSets = project.disc.titlesets.flatMap((ts) => ts.titles);
+	const selectedTitle = allTitlesFromAllSets.find((t) => t.id === selectedTitleId) ?? null;
 
 	const handleAddTitleset = () => {
 		const newTs: Titleset = {
@@ -130,29 +131,39 @@ export function TitlesPage() {
 	};
 
 	const handleUpdateTitle = (updated: Title) => {
-		const newTitles = titles.map((t) => (t.id === updated.id ? updated : t));
-		updateProject((p) => updateTitleInProject(p, titleset.id, newTitles));
+		// Find which titleset owns this title
+		const ownerTs = project.disc.titlesets.find((ts) =>
+			ts.titles.some((t) => t.id === updated.id),
+		);
+		if (!ownerTs) return;
+		const newTitles = ownerTs.titles.map((t) => (t.id === updated.id ? updated : t));
+		updateProject((p) => updateTitleInProject(p, ownerTs.id, newTitles));
 	};
 
-	const handleRemoveTitle = (titleId: string) => {
-		const newTitles = titles
+	const handleRemoveTitle = (tsId: string, titleId: string) => {
+		const ownerTs = project.disc.titlesets.find((ts) => ts.id === tsId);
+		if (!ownerTs) return;
+		const newTitles = ownerTs.titles
 			.filter((t) => t.id !== titleId)
 			.map((t, i) => ({ ...t, orderIndex: i }));
-		updateProject((p) => updateTitleInProject(p, titleset.id, newTitles));
+		updateProject((p) => updateTitleInProject(p, tsId, newTitles));
 		if (selectedTitleId === titleId) setSelectedTitleId(null);
 	};
 
-	const handleReorder = (titleId: string, direction: 'up' | 'down') => {
-		const idx = titles.findIndex((t) => t.id === titleId);
+	const handleReorder = (tsId: string, titleId: string, direction: 'up' | 'down') => {
+		const ownerTs = project.disc.titlesets.find((ts) => ts.id === tsId);
+		if (!ownerTs) return;
+		const tsTitles = ownerTs.titles;
+		const idx = tsTitles.findIndex((t) => t.id === titleId);
 		if (idx < 0) return;
 		const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
-		if (swapIdx < 0 || swapIdx >= titles.length) return;
-		const newTitles = [...titles];
+		if (swapIdx < 0 || swapIdx >= tsTitles.length) return;
+		const newTitles = [...tsTitles];
 		[newTitles[idx], newTitles[swapIdx]] = [newTitles[swapIdx], newTitles[idx]];
 		updateProject((p) =>
 			updateTitleInProject(
 				p,
-				titleset.id,
+				tsId,
 				newTitles.map((t, i) => ({ ...t, orderIndex: i })),
 			),
 		);
@@ -240,9 +251,9 @@ export function TitlesPage() {
 													setSelectedTitlesetId(ts.id);
 													setSelectedTitleId(title.id);
 												}}
-												onMoveUp={() => handleReorder(title.id, 'up')}
-												onMoveDown={() => handleReorder(title.id, 'down')}
-												onRemove={() => handleRemoveTitle(title.id)}
+												onMoveUp={() => handleReorder(ts.id, title.id, 'up')}
+												onMoveDown={() => handleReorder(ts.id, title.id, 'down')}
+												onRemove={() => handleRemoveTitle(ts.id, title.id)}
 											/>
 										))
 									)}
