@@ -541,8 +541,14 @@ fn run_spumux_command(
 #[cfg(test)]
 mod tests {
     use std::fs;
+    use std::ffi::OsString;
     use std::path::PathBuf;
+    use std::process::Command;
     use std::time::{SystemTime, UNIX_EPOCH};
+
+    use crate::build::test_support::{test_menu_with_action, test_project};
+    use crate::build::{execute_build_plan, generate_build_plan};
+    use crate::models::PlaybackAction;
 
     use super::reset_workspace_directory;
 
@@ -552,6 +558,17 @@ mod tests {
             .expect("clock before unix epoch")
             .as_nanos();
         std::env::temp_dir().join(format!("spindle-{name}-{}-{nanos}", std::process::id()))
+    }
+
+    fn find_tool_on_path(name: &str) -> Option<OsString> {
+        let path = std::env::var_os("PATH")?;
+        for dir in std::env::split_paths(&path) {
+            let candidate = dir.join(name);
+            if candidate.is_file() {
+                return Some(candidate.into_os_string());
+            }
+        }
+        None
     }
 
     #[test]
@@ -573,6 +590,110 @@ mod tests {
         assert!(
             output_dir.exists(),
             "expected parent output directory to remain"
+        );
+
+        fs::remove_dir_all(&output_dir).unwrap();
+    }
+
+    #[test]
+    #[ignore = "requires ffmpeg, spumux, and dvdauthor on PATH"]
+    fn execute_build_plan_smoke_authors_titleset_menu_return_path() {
+        let Some(ffmpeg_bin) = find_tool_on_path("ffmpeg") else {
+            eprintln!("Skipping smoke test because `ffmpeg` is not available on PATH.");
+            return;
+        };
+        if find_tool_on_path("spumux").is_none() || find_tool_on_path("dvdauthor").is_none() {
+            eprintln!(
+                "Skipping smoke test because `spumux` and/or `dvdauthor` are not available on PATH."
+            );
+            return;
+        }
+
+        let output_dir = unique_temp_dir("build-smoke");
+        let source_path = output_dir.join("source.mp4");
+        fs::create_dir_all(&output_dir).unwrap();
+
+        let ffmpeg_status = Command::new(ffmpeg_bin)
+            .args([
+                "-y",
+                "-f",
+                "lavfi",
+                "-i",
+                "color=c=black:s=640x360:d=1.5",
+                "-f",
+                "lavfi",
+                "-i",
+                "anullsrc=r=48000:cl=stereo",
+                "-shortest",
+                "-c:v",
+                "libx264",
+                "-pix_fmt",
+                "yuv420p",
+                "-c:a",
+                "aac",
+                "-b:a",
+                "128k",
+            ])
+            .arg(&source_path)
+            .status()
+            .expect("ffmpeg should launch for smoke test fixture generation");
+        assert!(
+            ffmpeg_status.success(),
+            "ffmpeg fixture generation failed with status {ffmpeg_status}"
+        );
+
+        let mut project = test_project();
+        project.assets[0].source_path = source_path.display().to_string();
+        project.assets[0].file_name = "source.mp4".to_string();
+        project.assets[0].duration_secs = Some(1.5);
+        project.disc.first_play_action = Some(PlaybackAction::ShowMenu {
+            menu_id: "menu-global".to_string(),
+        });
+        project.disc.global_menus.push(test_menu_with_action(
+            "menu-global",
+            "Main Menu",
+            PlaybackAction::ShowMenu {
+                menu_id: "menu-2".to_string(),
+            },
+        ));
+        project.disc.titlesets[0].menus.push(test_menu_with_action(
+            "menu-1",
+            "Titleset Root",
+            PlaybackAction::PlayTitle {
+                title_id: "title-1".to_string(),
+            },
+        ));
+        project.disc.titlesets[0].menus.push(test_menu_with_action(
+            "menu-2",
+            "Episode Menu",
+            PlaybackAction::PlayTitle {
+                title_id: "title-1".to_string(),
+            },
+        ));
+        project.disc.titlesets[0].titles[0].chapters = vec![project.disc.titlesets[0].titles[0]
+            .chapters[0]
+            .clone()];
+        project.disc.titlesets[0].titles[0].end_action = Some(PlaybackAction::ShowMenu {
+            menu_id: "menu-2".to_string(),
+        });
+
+        let plan = generate_build_plan(&project, output_dir.to_str().unwrap(), true).unwrap();
+        let result = execute_build_plan(&plan, |_| {});
+
+        if !result.success {
+            panic!(
+                "expected smoke build to succeed\n{}",
+                result.log_lines.join("\n")
+            );
+        }
+
+        assert!(
+            output_dir.join("VIDEO_TS/VIDEO_TS.IFO").exists(),
+            "expected VIDEO_TS.IFO in authored output"
+        );
+        assert!(
+            output_dir.join("VIDEO_TS/VTS_01_0.IFO").exists(),
+            "expected first titleset IFO in authored output"
         );
 
         fs::remove_dir_all(&output_dir).unwrap();
