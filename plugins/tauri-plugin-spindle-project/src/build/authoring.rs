@@ -123,8 +123,28 @@ fn append_menu_section(
     xml.push_str(&format!(
         "      <video format=\"{format_str}\" aspect=\"{aspect_str}\" />\n"
     ));
+
+    // For titleset menu sections with multiple PGCs, the entry PGC (first)
+    // needs a g0-based dispatch so VMGM buttons can target specific menus.
+    let needs_dispatch = matches!(domain, MenuDomain::Titleset(_)) && menus.len() > 1;
+
     for (menu_index, menu) in menus.iter().enumerate() {
-        append_menu_pgc(xml, menu, disc, domain, menu_index + 1, menus_dir)?;
+        let menu_number = menu_index + 1;
+        let pre_commands = if needs_dispatch && menu_index == 0 {
+            // Entry PGC: check g0 and jump to the targeted menu PGC, then clear g0.
+            let mut cmds = String::new();
+            for target in 2..=menus.len() {
+                cmds.push_str(&format!(
+                    "          if (g0 eq {target}) {{ g0 = 0; jump menu {target}; }}\n"
+                ));
+            }
+            cmds.push_str("          g0 = 0;\n");
+            Some(cmds)
+        } else {
+            None
+        };
+
+        append_menu_pgc(xml, menu, disc, domain, menu_number, menus_dir, pre_commands.as_deref())?;
     }
     xml.push_str("    </menus>\n");
     Ok(())
@@ -137,8 +157,14 @@ fn append_menu_pgc(
     domain: MenuDomain,
     menu_number: usize,
     menus_dir: &Path,
+    pre_commands: Option<&str>,
 ) -> crate::Result<()> {
     xml.push_str("      <pgc>\n");
+    if let Some(pre) = pre_commands {
+        xml.push_str("        <pre>\n");
+        xml.push_str(pre);
+        xml.push_str("        </pre>\n");
+    }
     let menu_vob_path = menus_dir.join(format!("{}.mpg", sanitise_filename(&menu.id)));
     xml.push_str(&format!(
         "        <vob file=\"{}\" pause=\"inf\" />\n",
@@ -392,9 +418,53 @@ mod tests {
 
         let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
 
-        assert!(plan
-            .dvdauthor_xml
-            .contains("<button>jump titleset 1 menu 1;</button>"));
+        assert!(
+            plan.dvdauthor_xml
+                .contains("<button>jump titleset 1 menu entry;</button>"),
+            "VMGM should use 'jump titleset N menu entry' (not menu number)"
+        );
+    }
+
+    #[test]
+    fn vmgm_to_second_titleset_menu_uses_g0_dispatch() {
+        let mut project = test_project();
+        // Create a global menu that targets the second menu in titleset 1
+        project.disc.global_menus.push(test_menu_with_action(
+            "menu-global",
+            "Main Menu",
+            PlaybackAction::ShowMenu {
+                menu_id: "ts-menu-2".to_string(),
+            },
+        ));
+        // Add two menus to titleset 1
+        project.disc.titlesets[0].menus.push(test_menu_with_action(
+            "ts-menu-1",
+            "Titleset Menu 1",
+            PlaybackAction::PlayTitle {
+                title_id: "title-1".to_string(),
+            },
+        ));
+        project.disc.titlesets[0].menus.push(test_menu_with_action(
+            "ts-menu-2",
+            "Titleset Menu 2",
+            PlaybackAction::PlayTitle {
+                title_id: "title-1".to_string(),
+            },
+        ));
+
+        let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+
+        // VMGM button should set g0 then jump to titleset menu entry
+        assert!(
+            plan.dvdauthor_xml
+                .contains("<button>g0 = 2; jump titleset 1 menu entry;</button>"),
+            "VMGM targeting second menu should use g0 register dispatch"
+        );
+        // First titleset menu PGC should have <pre> dispatch logic
+        assert!(
+            plan.dvdauthor_xml.contains("if (g0 eq 2)"),
+            "Entry PGC should dispatch based on g0"
+        );
     }
 
     #[test]
