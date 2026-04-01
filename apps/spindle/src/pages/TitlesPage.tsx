@@ -98,10 +98,14 @@ export function TitlesPage() {
 		}));
 	};
 
-	const handleAddTitle = () => {
+	const handleAddTitle = (targetTitlesetId = titleset.id) => {
+		const targetTitleset =
+			project.disc.titlesets.find((ts) => ts.id === targetTitlesetId) ?? project.disc.titlesets[0];
+		if (!targetTitleset) return;
+
 		const newTitle: Title = {
 			id: crypto.randomUUID(),
-			name: `Title ${titles.length + 1}`,
+			name: `Title ${targetTitleset.titles.length + 1}`,
 			sourceAssetId: null,
 			videoMapping: null,
 			videoOutputProfile: null,
@@ -109,12 +113,15 @@ export function TitlesPage() {
 			subtitleMappings: [],
 			chapters: [],
 			endAction: null,
-			orderIndex: titles.length,
+			orderIndex: targetTitleset.titles.length,
 		};
 		const allTitles = project.disc.titlesets.flatMap((ts) => ts.titles);
 		const isFirstTitle = allTitles.length === 0;
 		updateProject((p) => {
-			const withTitle = updateTitleInProject(p, titleset.id, [...titles, newTitle]);
+			const withTitle = updateTitleInProject(p, targetTitleset.id, [
+				...targetTitleset.titles,
+				newTitle,
+			]);
 			// Auto-set first-play to this title when adding the very first title
 			if (isFirstTitle && !p.disc.firstPlayAction) {
 				return {
@@ -127,6 +134,7 @@ export function TitlesPage() {
 			}
 			return withTitle;
 		});
+		setSelectedTitlesetId(targetTitleset.id);
 		setSelectedTitleId(newTitle.id);
 	};
 
@@ -212,7 +220,7 @@ export function TitlesPage() {
 					<button className="btn btn--secondary" onClick={handleAddTitleset}>
 						Add Titleset
 					</button>
-					<button className="btn btn--primary" onClick={handleAddTitle}>
+					<button className="btn btn--primary" onClick={() => handleAddTitle()}>
 						Add Title
 					</button>
 				</div>
@@ -279,7 +287,7 @@ export function TitlesPage() {
 												className="btn-link"
 												onClick={() => {
 													setSelectedTitlesetId(ts.id);
-													handleAddTitle();
+													handleAddTitle(ts.id);
 												}}
 											>
 												Add one
