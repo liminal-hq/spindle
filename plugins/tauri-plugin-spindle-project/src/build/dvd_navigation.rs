@@ -178,17 +178,18 @@ pub(crate) fn playback_action_to_dvd_command_in_context(
                         Ok(format!("jump menu {target_menu_number}"))
                     }
                     (_, MenuDomain::Vmgm) => Ok(format!("jump vmgm menu {target_menu_number}")),
-                    // From VMGM, dvdauthor only allows jumping to a titleset's
-                    // menu entry point — not to a specific menu PGC number.
-                    // For menu 1 (the entry PGC) we jump directly; for others
-                    // we stash the target in g0 and let the entry PGC dispatch.
+                    // From VMGM, dvdauthor can only jump into a titleset via
+                    // an entry menu target such as `menu entry root`.
+                    // For menu 1 we jump directly to the titleset's root
+                    // menu entry; for others we stash the target in `g0` and
+                    // let that entry PGC dispatch.
                     (MenuDomain::Vmgm, MenuDomain::Titleset(target_ts))
                         if target_menu_number == 1 =>
                     {
-                        Ok(format!("jump titleset {} menu entry", target_ts + 1))
+                        Ok(format!("jump titleset {} menu entry root", target_ts + 1))
                     }
                     (MenuDomain::Vmgm, MenuDomain::Titleset(target_ts)) => Ok(format!(
-                        "{{ g0 = {}; jump titleset {} menu entry; }}",
+                        "{{ g0 = {}; jump titleset {} menu entry root; }}",
                         target_menu_number,
                         target_ts + 1
                     )),

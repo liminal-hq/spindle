@@ -130,6 +130,10 @@ fn append_menu_section(
 
     for (menu_index, menu) in menus.iter().enumerate() {
         let menu_number = menu_index + 1;
+        let entry = match domain {
+            MenuDomain::Titleset(_) if menu_index == 0 => Some("root"),
+            _ => None,
+        };
         let pre_commands = if needs_dispatch && menu_index == 0 {
             // Entry PGC: check g0 and jump to the targeted menu PGC, then clear g0.
             let mut cmds = String::new();
@@ -144,7 +148,16 @@ fn append_menu_section(
             None
         };
 
-        append_menu_pgc(xml, menu, disc, domain, menu_number, menus_dir, pre_commands.as_deref())?;
+        append_menu_pgc(
+            xml,
+            menu,
+            disc,
+            domain,
+            menu_number,
+            menus_dir,
+            entry,
+            pre_commands.as_deref(),
+        )?;
     }
     xml.push_str("    </menus>\n");
     Ok(())
@@ -157,9 +170,13 @@ fn append_menu_pgc(
     domain: MenuDomain,
     menu_number: usize,
     menus_dir: &Path,
+    entry: Option<&str>,
     pre_commands: Option<&str>,
 ) -> crate::Result<()> {
-    xml.push_str("      <pgc>\n");
+    match entry {
+        Some(entry) => xml.push_str(&format!("      <pgc entry=\"{entry}\">\n")),
+        None => xml.push_str("      <pgc>\n"),
+    }
     if let Some(pre) = pre_commands {
         xml.push_str("        <pre>\n");
         xml.push_str(pre);
@@ -425,8 +442,12 @@ mod tests {
 
         assert!(
             plan.dvdauthor_xml
-                .contains("<button>jump titleset 1 menu entry;</button>"),
-            "VMGM should use 'jump titleset N menu entry' (not menu number)"
+                .contains("<button>jump titleset 1 menu entry root;</button>"),
+            "VMGM should jump to the titleset root menu entry"
+        );
+        assert!(
+            plan.dvdauthor_xml.contains("<pgc entry=\"root\">"),
+            "Titleset menu entry PGC should be marked as the root menu"
         );
     }
 
@@ -459,10 +480,10 @@ mod tests {
 
         let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
 
-        // VMGM button should set g0 then jump to titleset menu entry
+        // VMGM button should set g0 then jump to the titleset root menu entry
         assert!(
             plan.dvdauthor_xml
-                .contains("<button>{ g0 = 2; jump titleset 1 menu entry; }</button>"),
+                .contains("<button>{ g0 = 2; jump titleset 1 menu entry root; }</button>"),
             "VMGM targeting second menu should use g0 register dispatch"
         );
         // First titleset menu PGC should have <pre> dispatch logic
