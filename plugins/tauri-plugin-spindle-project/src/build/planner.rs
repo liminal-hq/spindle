@@ -157,14 +157,31 @@ pub fn generate_build_plan(
             crate::Error::Build(format!("Asset not found for title \"{}\"", title.name))
         })?;
 
-        // Build a cache key from asset ID + settings that affect the output file
+        // Build a cache key from asset ID + settings that affect the output file.
+        // Only include fields that change the ffmpeg output — exclude per-mapping
+        // UUIDs, labels, ordering, and default/forced flags which are metadata only.
+        let audio_key: Vec<_> = title
+            .audio_mappings
+            .iter()
+            .map(|am| {
+                format!(
+                    "{}:{:?}:{:?}",
+                    am.source_stream_index, am.copy_mode, am.output_target
+                )
+            })
+            .collect();
+        let subtitle_key: Vec<_> = title
+            .subtitle_mappings
+            .iter()
+            .map(|sm| format!("{}:{}", sm.source_stream_index, sm.language))
+            .collect();
         let cache_key = format!(
-            "{}|{:?}|{:?}|{:?}|{:?}",
+            "{}|{:?}|{:?}|{}|{}",
             source_asset_id,
             title.video_mapping,
             title.video_output_profile,
-            title.audio_mappings,
-            title.subtitle_mappings,
+            audio_key.join(","),
+            subtitle_key.join(","),
         );
 
         if let Some(existing_output) = transcode_cache.get(&cache_key) {
@@ -344,7 +361,7 @@ pub fn generate_build_plan(
 mod tests {
     use crate::build::test_support::{test_menu, test_project};
     use crate::build::{generate_build_plan, BuildJob};
-    use crate::models::{SubtitleStreamInfo, SubtitleTrackMapping, SubtitleType};
+    use crate::models::*;
 
     #[test]
     fn build_plan_generates_correct_job_count() {
@@ -427,5 +444,56 @@ mod tests {
             .jobs
             .iter()
             .any(|job| matches!(job, BuildJob::ExtractSubtitles { .. })));
+    }
+
+    #[test]
+    fn build_plan_deduplicates_identical_transcodes_with_different_mapping_ids() {
+        let mut project = test_project();
+
+        // Add a second titleset with a title that uses the same asset and
+        // identical stream/output settings but different mapping UUIDs.
+        let duplicate_title = Title {
+            id: "title-dup".to_string(),
+            name: "Same Feature Copy".to_string(),
+            source_asset_id: Some("asset-1".to_string()),
+            video_mapping: Some(VideoTrackMapping {
+                source_stream_index: 0,
+                copy_mode: CopyMode::ReEncode,
+            }),
+            video_output_profile: Some(VideoOutputProfile {
+                raster: VideoRaster::FullD1,
+                aspect: AspectMode::SixteenByNine,
+            }),
+            audio_mappings: vec![AudioTrackMapping {
+                id: "am-different-uuid".to_string(), // different ID!
+                source_stream_index: 1,
+                output_target: AudioOutputTarget::Ac3,
+                copy_mode: CopyMode::ReEncode,
+                label: "English".to_string(),
+                language: "eng".to_string(),
+                order_index: 0,
+                is_default: true,
+            }],
+            subtitle_mappings: vec![],
+            chapters: vec![],
+            end_action: Some(PlaybackAction::Stop),
+            order_index: 0,
+        };
+
+        project.disc.titlesets.push(Titleset {
+            id: "titleset-dup".to_string(),
+            name: "Duplicate".to_string(),
+            titles: vec![duplicate_title],
+            menus: vec![],
+        });
+
+        let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+
+        // Should have 1 transcode + 1 link, not 2 transcodes
+        assert_eq!(plan.summary.transcode_jobs, 1, "identical config should reuse transcode");
+        assert!(
+            plan.jobs.iter().any(|j| matches!(j, BuildJob::LinkTitle { .. })),
+            "duplicate title should be linked, not transcoded again"
+        );
     }
 }
