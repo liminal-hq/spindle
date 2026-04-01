@@ -2,12 +2,21 @@
 
 Spindle is a desktop optical-disc authoring studio built with Tauri, React, and Rust.
 
-This repository is organised as a `pnpm` workspace monorepo with a matching Cargo workspace for native code. The initial application shell lives in `apps/spindle`, and `plugins/` is reserved for future shared workspace packages and Tauri plugin work.
+This repository is organised as a `pnpm` workspace monorepo with a matching Cargo workspace for native code. The desktop app lives in `apps/spindle`, and shared native project logic lives in `plugins/tauri-plugin-spindle-project`.
+
+Current DVD authoring capabilities include:
+
+- titleset-aware project editing with drag-and-drop title organisation
+- chapter seeding from source media plus chapter-targeted menu and end actions
+- menu editing with auto-generated directional navigation
+- asset inspection, compatibility explanations, and fix-oriented validation
+- DVD build planning and execution with diagnostics export and toolchain checks
+- bitmap subtitle muxing, plus a developer option to skip unsupported text subtitle mappings during builds
 
 ## Workspace layout
 
-- `apps/spindle` contains the base desktop app skeleton
-- `plugins` is reserved for workspace packages and plugin experiments
+- `apps/spindle` contains the Tauri desktop application and React UI
+- `plugins/tauri-plugin-spindle-project` contains project schema, validation, inspection, and build logic
 - `tsconfig.base.json` provides shared TypeScript compiler defaults for workspace packages
 - `docs/initial-planning` contains product and implementation planning notes
 
@@ -33,7 +42,13 @@ Run the Tauri desktop shell:
 pnpm tauri dev
 ```
 
-Current app behaviour also includes a persistent thumbnail cache stored in the app cache directory, with Settings controls to inspect and clear cached previews when needed.
+If Rust tooling is not installed locally, run Rust and Tauri commands through `ghcr.io/liminal-hq/tauri-dev-desktop:latest`.
+
+Current app behaviour also includes:
+
+- a persistent thumbnail cache stored in the app cache directory, with Settings controls to inspect and clear cached previews
+- developer toggles to prefer host `PATH` tools over bundled sidecars and to skip unsupported subtitle mappings during builds
+- diagnostics bundle export including toolchain status, build logs, validation issues, project summary, and active developer options
 
 Build the frontend bundle:
 

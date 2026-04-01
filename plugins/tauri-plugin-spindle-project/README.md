@@ -8,9 +8,10 @@ It currently provides:
 - JSON parsing and pretty-printed serialisation
 - project validation for common authoring mistakes
 - asset inspection via `ffprobe`
+- source chapter extraction and compatibility detail reporting
 - thumbnail extraction for asset previews
 - build-plan generation and DVD build execution
-- menu-navigation assistance, toolchain checks, and diagnostics export
+- menu-navigation assistance, toolchain checks, diagnostics export, and titleset-aware DVD navigation
 
 The plugin is used by the desktop app in this repository, but it is structured as a standalone Tauri plugin so the project domain logic can stay in one place.
 
@@ -76,10 +77,13 @@ Validates a project and returns a list of `ValidationIssue` values. Current chec
 
 - missing titlesets
 - discs with no titles
+- menus without buttons, actions, default buttons, or directional navigation
 - titles without a source asset
 - titles pointing at missing assets
 - titles without a selected video stream
 - titles without a selected video output profile
+- titlesets with mismatched title output formats
+- dangling subtitle mappings and unsupported text-only subtitle authoring
 - discs with titles but no first-play action
 
 ### `inspect_asset`
@@ -200,12 +204,26 @@ const plan = await invoke('plugin:spindle-project|generate_build_plan', {
 	project,
 	outputDirectory: '/tmp/spindle-output',
 	skipSidecar: false,
+	skipUnsupportedStreams: false,
 });
 
 const result = await invoke('plugin:spindle-project|execute_build', {
 	project,
 	outputDirectory: '/tmp/spindle-output',
 	skipSidecar: false,
+	skipUnsupportedStreams: false,
+});
+```
+
+Diagnostics export records the same developer-option context:
+
+```ts
+const diagnostics = await invoke('plugin:spindle-project|export_diagnostics', {
+	project,
+	buildLog,
+	validationIssues,
+	skipSidecar: false,
+	skipUnsupportedStreams: false,
 });
 ```
 
