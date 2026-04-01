@@ -55,23 +55,40 @@ export function MenusPage() {
 	];
 	const selectedEntry = allMenus.find((e) => e.menu.id === selectedMenuId) ?? null;
 
+	const createMenu = (name: string): Menu => ({
+		id: crypto.randomUUID(),
+		name,
+		backgroundAssetId: null,
+		buttons: [],
+		defaultButtonId: null,
+		highlightColours: { ...DEFAULT_HIGHLIGHT_COLOURS },
+		backgroundMode: 'still',
+		motionDurationSecs: null,
+		motionAudioAssetId: null,
+		motionLoopCount: 0,
+		timeoutAction: null,
+	});
+
 	const handleAddGlobalMenu = () => {
-		const newMenu: Menu = {
-			id: crypto.randomUUID(),
-			name: `Menu ${disc.globalMenus.length + 1}`,
-			backgroundAssetId: null,
-			buttons: [],
-			defaultButtonId: null,
-			highlightColours: { ...DEFAULT_HIGHLIGHT_COLOURS },
-			backgroundMode: 'still',
-			motionDurationSecs: null,
-			motionAudioAssetId: null,
-			motionLoopCount: 0,
-			timeoutAction: null,
-		};
+		const newMenu = createMenu(`Menu ${disc.globalMenus.length + 1}`);
 		updateProject((p) => ({
 			...p,
 			disc: { ...p.disc, globalMenus: [...p.disc.globalMenus, newMenu] },
+		}));
+		setSelectedMenuId(newMenu.id);
+	};
+
+	const handleAddTitlesetMenu = (titlesetId: string) => {
+		const ts = disc.titlesets.find((t) => t.id === titlesetId);
+		const newMenu = createMenu(`${ts?.name ?? 'Titleset'} Menu ${(ts?.menus.length ?? 0) + 1}`);
+		updateProject((p) => ({
+			...p,
+			disc: {
+				...p.disc,
+				titlesets: p.disc.titlesets.map((t) =>
+					t.id === titlesetId ? { ...t, menus: [...t.menus, newMenu] } : t,
+				),
+			},
 		}));
 		setSelectedMenuId(newMenu.id);
 	};
@@ -108,24 +125,77 @@ export function MenusPage() {
 				<EmptyMenusView onAdd={handleAddGlobalMenu} />
 			) : (
 				<div className="menus__layout">
-					{/* Menu list */}
+					{/* Menu list — grouped by scope */}
 					<div className="menus__list">
-						{allMenus.map(({ menu, scope }) => (
-							<div
-								key={menu.id}
-								className={`menus__item card ${menu.id === selectedMenuId ? 'menus__item--selected' : ''}`}
-								onClick={() => setSelectedMenuId(menu.id)}
-								role="button"
-								tabIndex={0}
-								onKeyDown={(e) => e.key === 'Enter' && setSelectedMenuId(menu.id)}
-							>
-								<div className="menus__item-info">
-									<span className="menus__item-name">{menu.name}</span>
-									<span className="menus__item-scope text-muted">
-										{scope === 'global' ? 'Global' : 'Titleset'}
-									</span>
+						{/* Global menus */}
+						<div className="menus__scope-section">
+							<div className="menus__scope-header">
+								<span className="menus__scope-heading">Global</span>
+								<button
+									className="btn btn--ghost btn--sm"
+									onClick={handleAddGlobalMenu}
+									title="Add global menu"
+								>
+									+
+								</button>
+							</div>
+							{disc.globalMenus.length === 0 ? (
+								<div className="menus__scope-empty text-muted">No global menus</div>
+							) : (
+								disc.globalMenus.map((menu) => (
+									<div
+										key={menu.id}
+										className={`menus__item card ${menu.id === selectedMenuId ? 'menus__item--selected' : ''}`}
+										onClick={() => setSelectedMenuId(menu.id)}
+										role="button"
+										tabIndex={0}
+										onKeyDown={(e) =>
+											e.key === 'Enter' && setSelectedMenuId(menu.id)
+										}
+									>
+										<span className="menus__item-name">{menu.name}</span>
+										<span className="badge badge--neutral">
+											{menu.buttons.length} btn
+										</span>
+									</div>
+								))
+							)}
+						</div>
+
+						{/* Per-titleset menus */}
+						{disc.titlesets.map((ts) => (
+							<div key={ts.id} className="menus__scope-section">
+								<div className="menus__scope-header">
+									<span className="menus__scope-heading">{ts.name}</span>
+									<button
+										className="btn btn--ghost btn--sm"
+										onClick={() => handleAddTitlesetMenu(ts.id)}
+										title={`Add menu to ${ts.name}`}
+									>
+										+
+									</button>
 								</div>
-								<span className="badge badge--neutral">{menu.buttons.length} btn</span>
+								{ts.menus.length === 0 ? (
+									<div className="menus__scope-empty text-muted">No menus</div>
+								) : (
+									ts.menus.map((menu) => (
+										<div
+											key={menu.id}
+											className={`menus__item card ${menu.id === selectedMenuId ? 'menus__item--selected' : ''}`}
+											onClick={() => setSelectedMenuId(menu.id)}
+											role="button"
+											tabIndex={0}
+											onKeyDown={(e) =>
+												e.key === 'Enter' && setSelectedMenuId(menu.id)
+											}
+										>
+											<span className="menus__item-name">{menu.name}</span>
+											<span className="badge badge--neutral">
+												{menu.buttons.length} btn
+											</span>
+										</div>
+									))
+								)}
 							</div>
 						))}
 					</div>
