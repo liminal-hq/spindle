@@ -149,14 +149,10 @@ export function MenusPage() {
 										onClick={() => setSelectedMenuId(menu.id)}
 										role="button"
 										tabIndex={0}
-										onKeyDown={(e) =>
-											e.key === 'Enter' && setSelectedMenuId(menu.id)
-										}
+										onKeyDown={(e) => e.key === 'Enter' && setSelectedMenuId(menu.id)}
 									>
 										<span className="menus__item-name">{menu.name}</span>
-										<span className="badge badge--neutral">
-											{menu.buttons.length} btn
-										</span>
+										<span className="badge badge--neutral">{menu.buttons.length} btn</span>
 									</div>
 								))
 							)}
@@ -185,14 +181,10 @@ export function MenusPage() {
 											onClick={() => setSelectedMenuId(menu.id)}
 											role="button"
 											tabIndex={0}
-											onKeyDown={(e) =>
-												e.key === 'Enter' && setSelectedMenuId(menu.id)
-											}
+											onKeyDown={(e) => e.key === 'Enter' && setSelectedMenuId(menu.id)}
 										>
 											<span className="menus__item-name">{menu.name}</span>
-											<span className="badge badge--neutral">
-												{menu.buttons.length} btn
-											</span>
+											<span className="badge badge--neutral">{menu.buttons.length} btn</span>
 										</div>
 									))
 								)}

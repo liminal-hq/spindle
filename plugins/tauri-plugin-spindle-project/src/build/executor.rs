@@ -91,8 +91,8 @@ where
                 // Hard-link (or copy as fallback) the shared transcode output
                 let src = Path::new(source_path);
                 let dst = Path::new(link_path);
-                let result = std::fs::hard_link(src, dst)
-                    .or_else(|_| std::fs::copy(src, dst).map(|_| ()));
+                let result =
+                    std::fs::hard_link(src, dst).or_else(|_| std::fs::copy(src, dst).map(|_| ()));
                 match result {
                     Ok(()) => {
                         log_lines.push(format!("  Linked {}", dst.display()));
@@ -540,8 +540,8 @@ fn run_spumux_command(
 
 #[cfg(test)]
 mod tests {
-    use std::fs;
     use std::ffi::OsString;
+    use std::fs;
     use std::path::PathBuf;
     use std::process::Command;
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -670,9 +670,8 @@ mod tests {
                 title_id: "title-1".to_string(),
             },
         ));
-        project.disc.titlesets[0].titles[0].chapters = vec![project.disc.titlesets[0].titles[0]
-            .chapters[0]
-            .clone()];
+        project.disc.titlesets[0].titles[0].chapters =
+            vec![project.disc.titlesets[0].titles[0].chapters[0].clone()];
         project.disc.titlesets[0].titles[0].end_action = Some(PlaybackAction::ShowMenu {
             menu_id: "menu-2".to_string(),
         });

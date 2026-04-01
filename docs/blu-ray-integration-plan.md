@@ -5,6 +5,7 @@
 ### What already exists
 
 **libhdmv** (`liminal-hq/libhdmv`) — 9 crates, 98 tests, production-ready:
+
 - Full BDMV binary parsing & writing (index.bdmv, MovieObject.bdmv, MPLS, CLPI, sound.bdmv)
 - HDMV instruction decode/encode/disassemble
 - VM execution with event emission (4096 GPRs, 128 PSRs, 100K step limit)
@@ -16,6 +17,7 @@
 - 1 minor TODO: `PlayPlPi` doesn't extract play_item_id from second operand
 
 **tauri-plugin-hdmv** (`liminal-hq/tauri-plugin-workspace/plugins/hdmv`) — 14 Tauri commands:
+
 - Session lifecycle (open/close disc)
 - Disc inspection (info, titles, playlists, playlist detail)
 - Navigation (start, load scene, send key, mouse move/click)
@@ -24,6 +26,7 @@
 - TypeScript bindings (`@liminal-hq/plugin-hdmv`)
 
 **Spindle** (`liminal-hq/spindle`) — DVD-Video authoring complete:
+
 - Shared project model with `disc.family` field (currently `DvdVideo` only)
 - Full DVD pipeline: inspect → plan → transcode → render menus → author → ISO
 - Architecture already designed for pluggable format backends (per `dvd_bd_architecture_note.md`)
@@ -172,6 +175,7 @@ Bump `SCHEMA_VERSION` to 2. Add migration from v1 (all v1 projects are DVD, map 
 #### 1.9 — Frontend: format selector
 
 Update `CreateProjectRequest` to accept `DiscFamily`. Show format selector at project creation. Conditionally show DVD vs BD options throughout the UI:
+
 - DVD: NTSC/PAL, DVD-5/9, titlesets, VobSub
 - BD: Frame rate, BD-25/50, flat titles, H.264/HEVC profiles, PGS
 - UHD: BD-66/100, HEVC, HDR metadata editor
@@ -186,13 +190,13 @@ Update `CreateProjectRequest` to accept `DiscFamily`. Show format selector at pr
 
 Extend `inspect.rs` to assess assets against BD-legal requirements:
 
-| Property | BD-legal | UHD BD-legal |
-|----------|----------|--------------|
-| Video codec | H.264, VC-1, MPEG-2 | HEVC Main 10 |
-| Resolution | 1920×1080, 1280×720 | 3840×2160 |
-| Frame rate | 23.976, 24, 25, 29.97, 50i, 59.94i | + 50p, 59.94p |
-| Audio codec | AC-3, DTS, DTS-HD MA, TrueHD, LPCM | Same |
-| Subtitles | PGS | PGS |
+| Property    | BD-legal                           | UHD BD-legal  |
+| ----------- | ---------------------------------- | ------------- |
+| Video codec | H.264, VC-1, MPEG-2                | HEVC Main 10  |
+| Resolution  | 1920×1080, 1280×720                | 3840×2160     |
+| Frame rate  | 23.976, 24, 25, 29.97, 50i, 59.94i | + 50p, 59.94p |
+| Audio codec | AC-3, DTS, DTS-HD MA, TrueHD, LPCM | Same          |
+| Subtitles   | PGS                                | PGS           |
 
 #### 2.2 — BD-aware PropertyCheck
 
@@ -201,6 +205,7 @@ Change `PropertyCheck.dvd_requires` → `format_requires` (generic field name). 
 #### 2.3 — HDR compatibility
 
 For UHD BD projects:
+
 - Flag HDR10 sources as compatible (HEVC Main 10 + BT.2020 + SMPTE ST 2084)
 - Flag SDR sources as requiring tone-mapping or passthrough
 - Detect Dolby Vision RPU metadata presence
@@ -215,6 +220,7 @@ For UHD BD projects:
 #### 3.1 — BD capacity planner
 
 Add to `PlannerPage.tsx` and planner backend:
+
 - BD-25: 25,025,314,816 bytes
 - BD-50: 50,050,629,632 bytes
 - BD-66: 66,000,000,000 bytes (triple layer)
@@ -288,11 +294,13 @@ BuildJob::GenerateBdIso {
 #### 4.1 — tsMuxeR integration
 
 Add tsMuxeR as a sidecar tool alongside FFmpeg. tsMuxeR handles:
+
 - Muxing elementary streams → M2TS transport stream containers
 - Setting correct PID assignments
 - Injecting SEI messages for HDR10
 
 Tool adapter: `build/tsmuxer.rs`
+
 - Command construction from `MuxM2ts` job parameters
 - Meta file generation (tsMuxeR's native config format)
 - Progress parsing from stdout
@@ -303,12 +311,14 @@ Tool adapter: `build/tsmuxer.rs`
 Extend `build/ffmpeg.rs` with BD profiles:
 
 **H.264 (standard BD):**
+
 - `libx264` encoder, High Profile @ L4.1
 - Max 40 Mbps video bitrate
 - 1920×1080 or 1280×720 output
 - Bluray-compat flags: `bluray-compat=1`, `nal-hrd=vbr`, `slices=4`
 
 **HEVC (UHD BD):**
+
 - `libx265` encoder, Main 10 Profile @ L5.1
 - Max 108 Mbps video bitrate (82 Mbps practical target)
 - 3840×2160 output
@@ -317,6 +327,7 @@ Extend `build/ffmpeg.rs` with BD profiles:
 #### 4.3 — BD audio pipeline
 
 Extend `build/ffmpeg.rs`:
+
 - **AC-3 fallback generation:** Downmix from lossless source, 640 kbps, 5.1 channel layout
 - **DTS-HD MA passthrough:** Copy if source is DTS-HD MA; extract core DTS for fallback
 - **TrueHD passthrough:** Copy if source is TrueHD; generate AC-3 fallback
@@ -325,6 +336,7 @@ Extend `build/ffmpeg.rs`:
 #### 4.4 — BDMV structure generation
 
 Use `libhdmv::DiscBuilder` (via `tauri-plugin-hdmv` or direct crate dependency) to:
+
 1. Create `DiscBuilder::new(output_path)`
 2. For each title: `.add_title(TitleSpec { clip_id, codec_id, duration, streams, chapters })`
 3. Set first play and top menu commands
@@ -335,10 +347,12 @@ Use `libhdmv::DiscBuilder` (via `tauri-plugin-hdmv` or direct crate dependency) 
 #### 4.5 — BD ISO generation
 
 BD ISOs use UDF filesystem:
+
 - Standard BD: UDF 2.50
 - UHD BD: UDF 2.60
 
 Tool options:
+
 - `mkudffs` + `genisoimage` with UDF support
 - `mkisofs` with `-udf` flag
 - Dedicated UDF tool (may need new library — see "Missing libraries" section)
@@ -372,6 +386,7 @@ Compiled IGS segment stream needs to be muxed into the M2TS container on a dedic
 #### 5.3 — BD navigation model
 
 BD navigation differs from DVD:
+
 - No explicit `dvdauthor.xml` equivalent — navigation is compiled into HDMV movie objects
 - Movie objects contain bytecode programs (not XML commands)
 - First Play → Top Menu → title selection is standard flow
@@ -382,6 +397,7 @@ Extend libhdmv's `DiscBuilder` to accept richer movie object command sequences g
 #### 5.4 — Frontend: BD menu editor
 
 Adapt `MenusPage.tsx`:
+
 - Canvas resolution: 1920×1080 (BD) instead of 720×480 (DVD)
 - Support popup menu overlay mode (semi-transparent background)
 - Button artwork import (PNG/BMP → IGS objects)
@@ -397,12 +413,14 @@ Adapt `MenusPage.tsx`:
 #### 6.1 — Text → PGS rendering
 
 Convert SRT/ASS/SSA text subtitles to PGS bitmap streams:
+
 - Render text to bitmap at 1920×1080 (or 3840×2160 for UHD)
 - RLE compress each subtitle image
 - Generate PGS composition/window/palette/object/end segments with correct PTS timing
 - Output as PGS elementary stream (.sup file)
 
 This is a significant piece of work. Options:
+
 1. **Use FFmpeg's PGS encoder** (`-c:s hdmv_pgs_subtitle`) — limited but functional for basic subs
 2. **Build in libhdmv** — use existing `pgs` crate's RLE encoder + new composition builder
 3. **Use BDSup2Sub** — Java tool, not ideal for sidecar integration
@@ -412,6 +430,7 @@ Recommended: FFmpeg first (quick), then libhdmv native renderer for quality cont
 #### 6.2 — Bitmap sub → PGS conversion
 
 Convert DVD VobSub or other bitmap subs to PGS:
+
 - Re-palette (DVD 4-colour → PGS 256-colour)
 - Re-time to 90 kHz PTS
 - Scale to BD resolution if needed
@@ -465,6 +484,7 @@ PGS streams muxed into M2TS via tsMuxeR on dedicated PIDs (0x1200+ range).
 #### 8.1 — HDR10 metadata editor
 
 Frontend editor for HDR10 static metadata:
+
 - Display primaries (mastering display colour volume)
 - Max/min luminance
 - MaxCLL (maximum content light level)
@@ -493,9 +513,10 @@ Frontend editor for HDR10 static metadata:
 
 #### 1. `libpgs-author` — PGS subtitle authoring library
 
-**Why it's needed:** libhdmv has PGS *decode* and RLE encode, but no high-level authoring API for creating PGS streams from scratch. FFmpeg's PGS encoder exists but has limitations (no fine-grained composition control, no optimal palette generation, limited animation).
+**Why it's needed:** libhdmv has PGS _decode_ and RLE encode, but no high-level authoring API for creating PGS streams from scratch. FFmpeg's PGS encoder exists but has limitations (no fine-grained composition control, no optimal palette generation, limited animation).
 
 **What it would do:**
+
 - Accept timed subtitle events (text rendered to bitmap, or source bitmaps)
 - Generate properly timed PGS segment sequences (palette → object → composition → window → end)
 - Optimal palette quantisation (reduce full-colour renders to 256-entry YCbCrA palette)
@@ -511,9 +532,10 @@ Frontend editor for HDR10 static metadata:
 
 #### 2. `igs-author` — IGS interactive graphics authoring library
 
-**Why it's needed:** libhdmv can decode IGS and encode individual palette/object segments, but there's no facility to *compose* a complete interactive menu from scratch — i.e., take button definitions, render artwork to bitmaps, generate palettes, compile navigation commands, and produce a complete IGS segment stream ready for muxing.
+**Why it's needed:** libhdmv can decode IGS and encode individual palette/object segments, but there's no facility to _compose_ a complete interactive menu from scratch — i.e., take button definitions, render artwork to bitmaps, generate palettes, compile navigation commands, and produce a complete IGS segment stream ready for muxing.
 
 **What it would do:**
+
 - Accept a high-level menu definition (pages, buttons, artwork, navigation, actions)
 - Render button state images (normal, selected, activated) to bitmaps
 - Quantise to 256-colour palette per page
@@ -533,6 +555,7 @@ Frontend editor for HDR10 static metadata:
 **Why it's needed:** BD ISOs require UDF 2.50 (standard BD) or UDF 2.60 (UHD BD). The current ISO pipeline uses `genisoimage`/`mkisofs` which primarily target ISO 9660 + Joliet (DVD). While `mkisofs -udf` exists, its UDF support is basic and may not produce fully compliant BD images.
 
 **What it would do:**
+
 - Create UDF 2.50 and 2.60 filesystem images from a directory tree
 - Proper BD-ROM UDF compliance (correct partition descriptors, file set descriptors)
 - Handle large files (>4 GB for UHD BD streams)
@@ -541,6 +564,7 @@ Frontend editor for HDR10 static metadata:
 **Scope:** Large (~4-6 weeks for a from-scratch implementation).
 
 **Alternative:** Use existing tools:
+
 - `mkudffs` (part of udftools on Linux) — creates UDF filesystems
 - `genisoimage -udf` — basic UDF support
 - tsMuxeR has some BD image creation capability in newer versions
@@ -552,11 +576,13 @@ Frontend editor for HDR10 static metadata:
 These are extensions to the existing libhdmv codebase:
 
 **a) Movie object compiler** — Convert Spindle navigation model → HDMV bytecode programs
+
 - Currently: `DiscBuilder` generates simple "play playlist N; terminate" objects
 - Needed: Conditional logic, register operations, menu call/resume, stream selection, timer setup
 - Lives in: `libhdmv/crates/hdmv-insn/` (extend encoder) + `libhdmv/crates/libhdmv/src/builder.rs` (extend DiscBuilder)
 
 **b) Sound data compiler** — Create `sound.bdmv` from WAV/PCM button sound effects
+
 - Currently: `bdmv-parse` can read/write `SoundData` structure
 - Needed: Accept WAV files → convert to BD sound format (48 kHz PCM, mono/stereo) → write sound.bdmv
 - Lives in: `libhdmv/crates/bdmv-parse/` (extend with WAV import utility)
@@ -565,13 +591,13 @@ These are extensions to the existing libhdmv codebase:
 
 ## Libraries that are NOT needed (use existing tools instead)
 
-| Capability | Use instead of building |
-|---|---|
-| M2TS muxing | tsMuxeR (sidecar) — battle-tested, handles all BD stream types |
-| H.264/HEVC encoding | FFmpeg with libx264/libx265 (already a sidecar) |
-| Audio encoding (AC-3, DTS) | FFmpeg (already a sidecar) |
-| HDR metadata tools | `dovi_tool`, `hdr10plus_tool` Rust crates (direct dependency) |
-| BD playback verification | VLC / mpv (manual QA tool, not part of build pipeline) |
+| Capability                 | Use instead of building                                        |
+| -------------------------- | -------------------------------------------------------------- |
+| M2TS muxing                | tsMuxeR (sidecar) — battle-tested, handles all BD stream types |
+| H.264/HEVC encoding        | FFmpeg with libx264/libx265 (already a sidecar)                |
+| Audio encoding (AC-3, DTS) | FFmpeg (already a sidecar)                                     |
+| HDR metadata tools         | `dovi_tool`, `hdr10plus_tool` Rust crates (direct dependency)  |
+| BD playback verification   | VLC / mpv (manual QA tool, not part of build pipeline)         |
 
 ---
 
@@ -597,20 +623,20 @@ Spindle (tauri-plugin-spindle-project)
 
 ## Implementation order and milestones
 
-| Phase | Work | Where | Depends on | Est. effort |
-|-------|------|-------|------------|-------------|
-| **1** | Shared model extensions | Spindle | — | 2-3 weeks |
-| **2** | BD compatibility assessment | Spindle | Phase 1 | 1-2 weeks |
-| **3** | BD build planner | Spindle | Phase 1 | 2-3 weeks |
-| **4.1** | tsMuxeR integration | Spindle | — | 1-2 weeks |
-| **4.2-4.3** | BD video/audio transcode | Spindle | Phase 1, 4.1 | 2-3 weeks |
-| **4.4** | BDMV structure generation | Spindle + libhdmv | Phase 3 | 1-2 weeks |
-| **4.5** | BD ISO generation | Spindle | Phase 4.4 | 1 week |
-| **5.1-5.2** | IGS authoring (igs-author) | libhdmv | — | 4-6 weeks |
-| **5.3-5.4** | BD menu compilation + editor | Spindle + libhdmv | Phase 5.1 | 3-4 weeks |
-| **6** | PGS subtitle pipeline | libhdmv + Spindle | — | 2-3 weeks |
-| **7** | BD validation | Spindle | Phase 4, 5, 6 | 2-3 weeks |
-| **8** | UHD BD extensions (HDR/DV) | Spindle + libhdmv | Phase 7 | 3-4 weeks |
+| Phase       | Work                         | Where             | Depends on    | Est. effort |
+| ----------- | ---------------------------- | ----------------- | ------------- | ----------- |
+| **1**       | Shared model extensions      | Spindle           | —             | 2-3 weeks   |
+| **2**       | BD compatibility assessment  | Spindle           | Phase 1       | 1-2 weeks   |
+| **3**       | BD build planner             | Spindle           | Phase 1       | 2-3 weeks   |
+| **4.1**     | tsMuxeR integration          | Spindle           | —             | 1-2 weeks   |
+| **4.2-4.3** | BD video/audio transcode     | Spindle           | Phase 1, 4.1  | 2-3 weeks   |
+| **4.4**     | BDMV structure generation    | Spindle + libhdmv | Phase 3       | 1-2 weeks   |
+| **4.5**     | BD ISO generation            | Spindle           | Phase 4.4     | 1 week      |
+| **5.1-5.2** | IGS authoring (igs-author)   | libhdmv           | —             | 4-6 weeks   |
+| **5.3-5.4** | BD menu compilation + editor | Spindle + libhdmv | Phase 5.1     | 3-4 weeks   |
+| **6**       | PGS subtitle pipeline        | libhdmv + Spindle | —             | 2-3 weeks   |
+| **7**       | BD validation                | Spindle           | Phase 4, 5, 6 | 2-3 weeks   |
+| **8**       | UHD BD extensions (HDR/DV)   | Spindle + libhdmv | Phase 7       | 3-4 weeks   |
 
 **Total estimated effort:** ~25-35 weeks (6-9 months)
 

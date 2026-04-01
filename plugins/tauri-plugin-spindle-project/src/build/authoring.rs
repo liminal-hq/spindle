@@ -155,13 +155,15 @@ fn append_menu_section(
 
         append_menu_pgc(
             xml,
-            menu,
-            disc,
-            domain,
-            menu_number,
-            menus_dir,
-            entry,
-            pre_commands.as_deref(),
+            MenuPgcSpec {
+                menu,
+                disc,
+                domain,
+                menu_number,
+                menus_dir,
+                entry,
+                pre_commands: pre_commands.as_deref(),
+            },
         )?;
     }
     xml.push_str("    </menus>\n");
@@ -172,43 +174,50 @@ fn initial_button_command(menu: &Menu) -> Option<String> {
     let button_index = menu
         .default_button_id
         .as_deref()
-        .and_then(|default_id| menu.buttons.iter().position(|button| button.id == default_id))
+        .and_then(|default_id| {
+            menu.buttons
+                .iter()
+                .position(|button| button.id == default_id)
+        })
         .or_else(|| (!menu.buttons.is_empty()).then_some(0))?;
     let button_value = (button_index + 1) * 1024;
     Some(format!("          button = {button_value};\n"))
 }
 
-fn append_menu_pgc(
-    xml: &mut String,
-    menu: &Menu,
-    disc: &Disc,
+struct MenuPgcSpec<'a> {
+    menu: &'a Menu,
+    disc: &'a Disc,
     domain: MenuDomain,
     menu_number: usize,
-    menus_dir: &Path,
-    entry: Option<&str>,
-    pre_commands: Option<&str>,
-) -> crate::Result<()> {
-    match entry {
+    menus_dir: &'a Path,
+    entry: Option<&'a str>,
+    pre_commands: Option<&'a str>,
+}
+
+fn append_menu_pgc(xml: &mut String, spec: MenuPgcSpec<'_>) -> crate::Result<()> {
+    match spec.entry {
         Some(entry) => xml.push_str(&format!("      <pgc entry=\"{entry}\">\n")),
         None => xml.push_str("      <pgc>\n"),
     }
-    if let Some(pre) = pre_commands {
+    if let Some(pre) = spec.pre_commands {
         xml.push_str("        <pre>\n");
         xml.push_str(pre);
         xml.push_str("        </pre>\n");
     }
-    let menu_vob_path = menus_dir.join(format!("{}.mpg", sanitise_filename(&menu.id)));
+    let menu_vob_path = spec
+        .menus_dir
+        .join(format!("{}.mpg", sanitise_filename(&spec.menu.id)));
     xml.push_str(&format!(
         "        <vob file=\"{}\" pause=\"inf\" />\n",
         xml_escape(&menu_vob_path.display().to_string())
     ));
-    for button in &menu.buttons {
+    for button in &spec.menu.buttons {
         if let Some(ref action) = button.action {
             let cmd = playback_action_to_dvd_command_in_domain_result(
                 action,
-                disc,
-                domain,
-                Some(menu_number),
+                spec.disc,
+                spec.domain,
+                Some(spec.menu_number),
             )?;
             // Compound commands (wrapped in braces) are already terminated;
             // simple commands need a trailing semicolon.
@@ -528,7 +537,8 @@ mod tests {
         let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
 
         assert!(
-            plan.dvdauthor_xml.contains("<pre>\n          button = 1024;\n        </pre>"),
+            plan.dvdauthor_xml
+                .contains("<pre>\n          button = 1024;\n        </pre>"),
             "Menus without an explicit default should still select button 1 on entry"
         );
     }
@@ -568,7 +578,8 @@ mod tests {
         let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
 
         assert!(
-            plan.dvdauthor_xml.contains("<pre>\n          button = 2048;\n        </pre>"),
+            plan.dvdauthor_xml
+                .contains("<pre>\n          button = 2048;\n        </pre>"),
             "Menus should initialise the authored default button, not always button 1"
         );
     }
@@ -716,9 +727,9 @@ mod tests {
 
         let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
 
-        assert!(plan.dvdauthor_xml.contains(
-            "<post>\n          { g0 = 2; call menu entry root; };\n        </post>"
-        ));
+        assert!(plan
+            .dvdauthor_xml
+            .contains("<post>\n          { g0 = 2; call menu entry root; };\n        </post>"));
     }
 
     #[test]

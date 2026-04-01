@@ -230,9 +230,8 @@ export function SettingsPage() {
 						<div className="settings__toggle-text">
 							<span className="settings__toggle-label">Skip unsupported streams</span>
 							<span className="settings__toggle-desc text-muted">
-								Automatically strip text-based subtitle mappings during build instead of
-								blocking. Useful when sources only have text subtitles and you want to
-								author without them.
+								Automatically strip text-based subtitle mappings during build instead of blocking.
+								Useful when sources only have text subtitles and you want to author without them.
 							</span>
 						</div>
 						<input

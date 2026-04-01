@@ -37,9 +37,7 @@ export function PlannerPage() {
 	// Gather all menus with their scope
 	const allMenus: { menu: Menu; scope: string }[] = [
 		...disc.globalMenus.map((m) => ({ menu: m, scope: 'Global' })),
-		...disc.titlesets.flatMap((ts) =>
-			ts.menus.map((m) => ({ menu: m, scope: ts.name })),
-		),
+		...disc.titlesets.flatMap((ts) => ts.menus.map((m) => ({ menu: m, scope: ts.name }))),
 	];
 
 	// Estimate menu sizes: still menus are ~1-2 MB (MPEG-2 still + highlights),
@@ -206,7 +204,9 @@ export function PlannerPage() {
 						<div className="card planner__menus">
 							<div className="card__header">
 								<h3 className="card__title">Menu Breakdown</h3>
-								<span className="text-muted">{allMenus.length} {allMenus.length === 1 ? 'menu' : 'menus'}</span>
+								<span className="text-muted">
+									{allMenus.length} {allMenus.length === 1 ? 'menu' : 'menus'}
+								</span>
 							</div>
 							<div className="planner__title-list">
 								{allMenus.map(({ menu, scope }) => {
@@ -219,7 +219,8 @@ export function PlannerPage() {
 											<div className="planner__title-info">
 												<span className="planner__title-name">{menu.name}</span>
 												<span className="planner__title-meta text-muted">
-													{scope} · {isMotion ? `Motion (${menu.motionDurationSecs}s)` : 'Still'} · {menu.buttons.length} buttons
+													{scope} · {isMotion ? `Motion (${menu.motionDurationSecs}s)` : 'Still'} ·{' '}
+													{menu.buttons.length} buttons
 												</span>
 											</div>
 											<div className="planner__title-stats">

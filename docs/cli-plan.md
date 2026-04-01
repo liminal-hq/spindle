@@ -23,13 +23,13 @@ Both share the same underlying code paths; the difference is packaging and sidec
 
 ### Why both?
 
-| | Tauri CLI mode | Standalone `spindle-cli` |
-|---|---|---|
-| **Sidecar access** | Yes — bundled tools resolved automatically | No — uses system PATH only |
-| **Ships with app** | Yes — same binary | Separate build artifact |
-| **Startup weight** | Heavier (Tauri runtime initialises) | Light (~2 MB, no webview) |
-| **Use case** | End-user automation, post-install scripting | Dev workflow, CI, testing |
-| **Window** | Hidden (no window created) | N/A |
+|                    | Tauri CLI mode                              | Standalone `spindle-cli`   |
+| ------------------ | ------------------------------------------- | -------------------------- |
+| **Sidecar access** | Yes — bundled tools resolved automatically  | No — uses system PATH only |
+| **Ships with app** | Yes — same binary                           | Separate build artifact    |
+| **Startup weight** | Heavier (Tauri runtime initialises)         | Light (~2 MB, no webview)  |
+| **Use case**       | End-user automation, post-install scripting | Dev workflow, CI, testing  |
+| **Window**         | Hidden (no window created)                  | N/A                        |
 
 ---
 
@@ -58,103 +58,103 @@ Add a `plugins.cli` section:
 
 ```json
 {
-  "plugins": {
-    "cli": {
-      "description": "Spindle — optical disc authoring workstation",
-      "subcommands": {
-        "build": {
-          "description": "Build a project to DVD structure and/or ISO",
-          "args": [
-            {
-              "name": "project",
-              "index": 1,
-              "description": "Path to .spindle project file",
-              "required": true,
-              "takesValue": true
-            },
-            {
-              "name": "output",
-              "short": "o",
-              "description": "Output directory (overrides project buildSettings)",
-              "takesValue": true
-            },
-            {
-              "name": "iso",
-              "long": "iso",
-              "description": "Generate ISO image after authoring"
-            },
-            {
-              "name": "skip-unsupported",
-              "long": "skip-unsupported",
-              "description": "Skip subtitle streams that can't be authored"
-            },
-            {
-              "name": "dry-run",
-              "long": "dry-run",
-              "description": "Generate build plan without executing"
-            }
-          ]
-        },
-        "validate": {
-          "description": "Validate a project file and report issues",
-          "args": [
-            {
-              "name": "project",
-              "index": 1,
-              "description": "Path to .spindle project file",
-              "required": true,
-              "takesValue": true
-            },
-            {
-              "name": "format",
-              "short": "f",
-              "description": "Output format: text (default), json",
-              "takesValue": true
-            }
-          ]
-        },
-        "inspect": {
-          "description": "Inspect a media file and print stream information",
-          "args": [
-            {
-              "name": "path",
-              "index": 1,
-              "description": "Path to media file",
-              "required": true,
-              "takesValue": true
-            },
-            {
-              "name": "format",
-              "short": "f",
-              "description": "Output format: text (default), json",
-              "takesValue": true
-            }
-          ]
-        },
-        "toolchain": {
-          "description": "Check availability of external tools (ffmpeg, dvdauthor, etc.)",
-          "args": []
-        },
-        "diagnostics": {
-          "description": "Export a diagnostics bundle for troubleshooting",
-          "args": [
-            {
-              "name": "project",
-              "index": 1,
-              "description": "Path to .spindle project file (optional)",
-              "takesValue": true
-            },
-            {
-              "name": "output",
-              "short": "o",
-              "description": "Output file path (default: stdout)",
-              "takesValue": true
-            }
-          ]
-        }
-      }
-    }
-  }
+	"plugins": {
+		"cli": {
+			"description": "Spindle — optical disc authoring workstation",
+			"subcommands": {
+				"build": {
+					"description": "Build a project to DVD structure and/or ISO",
+					"args": [
+						{
+							"name": "project",
+							"index": 1,
+							"description": "Path to .spindle project file",
+							"required": true,
+							"takesValue": true
+						},
+						{
+							"name": "output",
+							"short": "o",
+							"description": "Output directory (overrides project buildSettings)",
+							"takesValue": true
+						},
+						{
+							"name": "iso",
+							"long": "iso",
+							"description": "Generate ISO image after authoring"
+						},
+						{
+							"name": "skip-unsupported",
+							"long": "skip-unsupported",
+							"description": "Skip subtitle streams that can't be authored"
+						},
+						{
+							"name": "dry-run",
+							"long": "dry-run",
+							"description": "Generate build plan without executing"
+						}
+					]
+				},
+				"validate": {
+					"description": "Validate a project file and report issues",
+					"args": [
+						{
+							"name": "project",
+							"index": 1,
+							"description": "Path to .spindle project file",
+							"required": true,
+							"takesValue": true
+						},
+						{
+							"name": "format",
+							"short": "f",
+							"description": "Output format: text (default), json",
+							"takesValue": true
+						}
+					]
+				},
+				"inspect": {
+					"description": "Inspect a media file and print stream information",
+					"args": [
+						{
+							"name": "path",
+							"index": 1,
+							"description": "Path to media file",
+							"required": true,
+							"takesValue": true
+						},
+						{
+							"name": "format",
+							"short": "f",
+							"description": "Output format: text (default), json",
+							"takesValue": true
+						}
+					]
+				},
+				"toolchain": {
+					"description": "Check availability of external tools (ffmpeg, dvdauthor, etc.)",
+					"args": []
+				},
+				"diagnostics": {
+					"description": "Export a diagnostics bundle for troubleshooting",
+					"args": [
+						{
+							"name": "project",
+							"index": 1,
+							"description": "Path to .spindle project file (optional)",
+							"takesValue": true
+						},
+						{
+							"name": "output",
+							"short": "o",
+							"description": "Output file path (default: stdout)",
+							"takesValue": true
+						}
+					]
+				}
+			}
+		}
+	}
 }
 ```
 
@@ -212,6 +212,7 @@ pub fn handle_subcommand(name: &str, matches: &Matches, app: &App) -> i32 {
 ```
 
 Each `cmd_*` function:
+
 1. Extracts arguments from `Matches`
 2. Calls the plugin's domain functions directly
 3. Prints output to stdout/stderr
@@ -231,19 +232,19 @@ Alternative: if `setup()` exit timing is tricky, set the window's `visible: fals
 
 Currently, some functions are unnecessarily behind the `SpindleProject<R>` Tauri wrapper. These need to be made callable without an `AppHandle`:
 
-| Function | Current location | Tauri coupling |
-|---|---|---|
-| `create_project(req)` | `desktop.rs` → `SpindleProject<R>` | None (doesn't use `self`) |
-| `parse_project(json)` | `desktop.rs` → `SpindleProject<R>` | None |
-| `serialise_project(project)` | `desktop.rs` → `SpindleProject<R>` | None |
-| `validate_project(project)` | `desktop.rs` → `SpindleProject<R>` | None |
-| `inspect(path)` | `inspect.rs` (private module) | None |
-| `extract_thumbnail(...)` | `inspect.rs` (private module) | None |
-| `generate_build_plan(...)` | `build/planner.rs` (pub) | None |
-| `execute_build_plan(plan, cb)` | `build/executor.rs` (pub) | None |
-| `cancel_build()` | `build/executor.rs` (pub) | None |
-| `auto_generate_navigation(menu)` | `build/navigation.rs` (pub) | None |
-| `resolve_tool(name, skip)` | `toolchain.rs` (pub) | None |
+| Function                         | Current location                   | Tauri coupling            |
+| -------------------------------- | ---------------------------------- | ------------------------- |
+| `create_project(req)`            | `desktop.rs` → `SpindleProject<R>` | None (doesn't use `self`) |
+| `parse_project(json)`            | `desktop.rs` → `SpindleProject<R>` | None                      |
+| `serialise_project(project)`     | `desktop.rs` → `SpindleProject<R>` | None                      |
+| `validate_project(project)`      | `desktop.rs` → `SpindleProject<R>` | None                      |
+| `inspect(path)`                  | `inspect.rs` (private module)      | None                      |
+| `extract_thumbnail(...)`         | `inspect.rs` (private module)      | None                      |
+| `generate_build_plan(...)`       | `build/planner.rs` (pub)           | None                      |
+| `execute_build_plan(plan, cb)`   | `build/executor.rs` (pub)          | None                      |
+| `cancel_build()`                 | `build/executor.rs` (pub)          | None                      |
+| `auto_generate_navigation(menu)` | `build/navigation.rs` (pub)        | None                      |
+| `resolve_tool(name, skip)`       | `toolchain.rs` (pub)               | None                      |
 
 **Key observation:** None of these functions actually use the Tauri runtime. They're behind the `SpindleProject<R>` wrapper only because that's how Tauri plugins are structured.
 
@@ -677,14 +678,14 @@ Loads a project, runs `auto_generate_navigation()` on every menu, writes the upd
 
 ## Effort estimate
 
-| Step | Work | Scope |
-|------|------|-------|
+| Step                       | Work                                                         | Scope        |
+| -------------------------- | ------------------------------------------------------------ | ------------ |
 | 1 — Extract free functions | Move ~500 LOC of validation from `desktop.rs` into `core.rs` | Small-medium |
-| 2 — Public inspect module | One-line change | Trivial |
-| 3 — Feature-gate Tauri | `cfg` annotations across 4 files, conditional `build.rs` | Medium |
-| 4 — `spindle-cli` crate | New crate, clap setup, 6 command modules | Medium |
-| 5 — Tauri CLI plugin | Plugin setup, config, startup intercept, handler module | Small-medium |
-| 6 — JSON output formatting | Text formatters for validate, inspect, toolchain | Small |
+| 2 — Public inspect module  | One-line change                                              | Trivial      |
+| 3 — Feature-gate Tauri     | `cfg` annotations across 4 files, conditional `build.rs`     | Medium       |
+| 4 — `spindle-cli` crate    | New crate, clap setup, 6 command modules                     | Medium       |
+| 5 — Tauri CLI plugin       | Plugin setup, config, startup intercept, handler module      | Small-medium |
+| 6 — JSON output formatting | Text formatters for validate, inspect, toolchain             | Small        |
 
 Steps 1–3 are prerequisites. Steps 4 and 5 can be done in parallel. Step 6 is polish.
 

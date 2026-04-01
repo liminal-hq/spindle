@@ -7,6 +7,7 @@ Compile high-level menu definitions into BD-native IGS (Interactive Graphics Str
 ## Why it's needed
 
 libhdmv can **decode** IGS streams and **encode** individual segments (palette, object), but cannot:
+
 - Compose a complete interactive composition from scratch
 - Render button state artwork to RLE-compressed bitmaps
 - Generate optimal palettes from full-colour source artwork
@@ -20,6 +21,7 @@ Without this, Spindle can author BD discs with titles and chapters but **cannot 
 `libhdmv/crates/igs-author/` — new crate in the libhdmv workspace.
 
 **Dependencies within workspace:**
+
 - `igs` — IGS type definitions, segment encode functions
 - `hdmv-insn` — HDMV instruction encoder (for button navigation commands)
 - `pgs` — Shared RLE encode/decode (IGS uses the same RLE format as PGS)

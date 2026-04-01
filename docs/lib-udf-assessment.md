@@ -13,11 +13,13 @@ Unlike igs-author and pgs::author which are definitively required, a native Rust
 ### Option 1: `genisoimage -udf` (or `mkisofs -udf`)
 
 **Pros:**
+
 - Already integrated as sidecar for DVD ISO
 - Supports UDF filesystem creation
 - Widely available on Linux
 
 **Cons:**
+
 - UDF support may be incomplete for BD compliance (UDF 2.50 specifically)
 - `genisoimage` is unmaintained (last release 2010)
 - May not handle UDF 2.60 for UHD BD
@@ -28,11 +30,13 @@ Unlike igs-author and pgs::author which are definitively required, a native Rust
 ### Option 2: `mkudffs` + `dd` + mount
 
 **Pros:**
+
 - Part of `udftools` package, actively maintained
 - Creates proper UDF filesystems
 - Supports UDF 2.50 and 2.60
 
 **Cons:**
+
 - Creates UDF on block devices or image files, not from directory trees directly
 - Workflow: create image → mkudffs → mount → copy files → unmount
 - Requires root/sudo for mount (or udisksctl/fuse)
@@ -43,10 +47,12 @@ Unlike igs-author and pgs::author which are definitively required, a native Rust
 ### Option 3: tsMuxeR BD image creation
 
 **Pros:**
+
 - tsMuxeR is already needed for M2TS muxing
 - Some versions support creating BD folder structures
 
 **Cons:**
+
 - BD image creation support varies by version/fork
 - May not produce standalone ISO images
 - Not its primary purpose
@@ -56,6 +62,7 @@ Unlike igs-author and pgs::author which are definitively required, a native Rust
 ### Option 4: Build `libudf` in Rust
 
 **Pros:**
+
 - Full control over UDF compliance level
 - No external tool dependency for ISO creation
 - Can guarantee UDF 2.50/2.60 correctness
@@ -63,6 +70,7 @@ Unlike igs-author and pgs::author which are definitively required, a native Rust
 - Can be reused across platforms without sidecar packaging
 
 **Cons:**
+
 - UDF is a complex specification (ECMA-167 + UDF revisions)
 - Significant implementation effort (~4-6 weeks)
 - Low-level filesystem work (partition descriptors, allocation tables, ICBs)
@@ -89,6 +97,7 @@ A minimal `libudf` for BD authoring would need:
 - Write to image file (sector-aligned, 2048-byte logical sectors)
 
 **Not needed for BD authoring:**
+
 - Reading/mounting existing UDF images
 - UDF journaling or metadata partition (not used for BD-ROM)
 - Sparing tables (not used for BD-ROM pressed discs)

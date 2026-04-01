@@ -132,9 +132,7 @@ export function TitlesPage() {
 
 	const handleUpdateTitle = (updated: Title) => {
 		// Find which titleset owns this title
-		const ownerTs = project.disc.titlesets.find((ts) =>
-			ts.titles.some((t) => t.id === updated.id),
-		);
+		const ownerTs = project.disc.titlesets.find((ts) => ts.titles.some((t) => t.id === updated.id));
 		if (!ownerTs) return;
 		const newTitles = ownerTs.titles.map((t) => (t.id === updated.id ? updated : t));
 		updateProject((p) => updateTitleInProject(p, ownerTs.id, newTitles));
@@ -171,9 +169,7 @@ export function TitlesPage() {
 
 	const handleMoveTitle = (titleId: string, targetTitlesetId: string) => {
 		// Find the source titleset
-		const sourceTs = project.disc.titlesets.find((ts) =>
-			ts.titles.some((t) => t.id === titleId),
-		);
+		const sourceTs = project.disc.titlesets.find((ts) => ts.titles.some((t) => t.id === titleId));
 		if (!sourceTs || sourceTs.id === targetTitlesetId) return;
 		const title = sourceTs.titles.find((t) => t.id === titleId);
 		if (!title) return;
@@ -296,11 +292,7 @@ export function TitlesPage() {
 												title={title}
 												index={idx}
 												totalCount={tsTitles.length}
-												asset={
-													project.assets.find(
-														(a) => a.id === title.sourceAssetId,
-													) ?? null
-												}
+												asset={project.assets.find((a) => a.id === title.sourceAssetId) ?? null}
 												isSelected={title.id === selectedTitleId}
 												onSelect={() => {
 													setSelectedTitlesetId(ts.id);

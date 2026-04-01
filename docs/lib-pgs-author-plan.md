@@ -7,6 +7,7 @@ Generate BD-native PGS (Presentation Graphics Stream) subtitle elementary stream
 ## Why it's needed
 
 libhdmv's `pgs` crate can **decode** PGS streams and **encode** RLE bitmaps, but cannot:
+
 - Accept timed subtitle events and produce a complete PGS elementary stream
 - Render text subtitles to bitmap images at BD/UHD resolution
 - Generate properly sequenced display sets (palette → window → object → composition → end)
@@ -20,6 +21,7 @@ Without this, BD projects in Spindle cannot include subtitles (a hard requiremen
 `libhdmv/crates/pgs/src/author.rs` — new module in the existing `pgs` crate.
 
 This is preferred over a new crate because:
+
 - The decode types and RLE encoder are already in `pgs`
 - No additional workspace member needed
 - Natural pairing: `pgs::decode` ↔ `pgs::author`

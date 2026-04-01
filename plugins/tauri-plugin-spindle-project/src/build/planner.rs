@@ -378,17 +378,19 @@ pub fn generate_build_plan_with_options(
 
 /// Remove subtitle mappings that reference text-based (non-bitmap) source streams.
 fn strip_unsupported_subtitle_mappings(project: &SpindleProjectFile) -> SpindleProjectFile {
-    let assets: HashMap<&str, &Asset> =
-        project.assets.iter().map(|a| (a.id.as_str(), a)).collect();
+    let assets: HashMap<&str, &Asset> = project.assets.iter().map(|a| (a.id.as_str(), a)).collect();
 
     let mut project = project.clone();
     for titleset in &mut project.disc.titlesets {
         for title in &mut titleset.titles {
-            if let Some(asset) = title.source_asset_id.as_deref().and_then(|id| assets.get(id)) {
+            if let Some(asset) = title
+                .source_asset_id
+                .as_deref()
+                .and_then(|id| assets.get(id))
+            {
                 title.subtitle_mappings.retain(|sm| {
                     asset.subtitle_streams.iter().any(|s| {
-                        s.index == sm.source_stream_index
-                            && s.subtitle_type == SubtitleType::Bitmap
+                        s.index == sm.source_stream_index && s.subtitle_type == SubtitleType::Bitmap
                     })
                 });
             }
@@ -530,9 +532,14 @@ mod tests {
         let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
 
         // Should have 1 transcode + 1 link, not 2 transcodes
-        assert_eq!(plan.summary.transcode_jobs, 1, "identical config should reuse transcode");
+        assert_eq!(
+            plan.summary.transcode_jobs, 1,
+            "identical config should reuse transcode"
+        );
         assert!(
-            plan.jobs.iter().any(|j| matches!(j, BuildJob::LinkTitle { .. })),
+            plan.jobs
+                .iter()
+                .any(|j| matches!(j, BuildJob::LinkTitle { .. })),
             "duplicate title should be linked, not transcoded again"
         );
     }
