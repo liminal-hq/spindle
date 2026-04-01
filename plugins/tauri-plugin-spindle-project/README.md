@@ -125,7 +125,7 @@ Reports availability and detected versions for the external authoring tools.
 
 ### `export_diagnostics`
 
-Builds a JSON diagnostics bundle containing toolchain information, validation issues, build logs, and a project summary.
+Builds a JSON diagnostics bundle containing toolchain information, validation issues, build logs, a project summary, and the active developer option flags used for export.
 
 ## Installation
 

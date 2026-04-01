@@ -1097,6 +1097,7 @@ Include:
 - logs
 - generated intermediate definitions
 - environment info
+- active developer-option flags that can affect tool resolution or build behaviour
 - tool versions
 - capability detection results
 

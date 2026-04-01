@@ -200,6 +200,7 @@ pub(crate) async fn export_diagnostics<R: Runtime>(
     build_log: Vec<String>,
     validation_issues: Vec<ValidationIssue>,
     skip_sidecar: bool,
+    skip_unsupported_streams: bool,
 ) -> Result<String> {
     let toolchain = {
         let tools = vec![
@@ -230,6 +231,10 @@ pub(crate) async fn export_diagnostics<R: Runtime>(
         "generated_at": chrono::Utc::now().to_rfc3339(),
         "platform": std::env::consts::OS,
         "arch": std::env::consts::ARCH,
+        "dev_options": {
+            "skip_sidecar": skip_sidecar,
+            "skip_unsupported_streams": skip_unsupported_streams,
+        },
         "toolchain": toolchain,
         "validation_issues": validation_issues,
         "build_log": build_log,

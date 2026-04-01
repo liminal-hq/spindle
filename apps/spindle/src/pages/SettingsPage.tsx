@@ -64,6 +64,7 @@ export function SettingsPage() {
 				buildLog,
 				validationIssues,
 				skipSidecar: devSkipSidecar,
+				skipUnsupportedStreams: devSkipUnsupportedStreams,
 			});
 
 			const path = await save({
@@ -187,7 +188,7 @@ export function SettingsPage() {
 				</div>
 				<p className="settings__hint text-muted">
 					Export a diagnostics bundle for troubleshooting. Includes toolchain status, validation
-					results, build log, and project summary (no media files).
+					results, build log, project summary, and active developer options (no media files).
 				</p>
 				<button
 					className="btn btn--sm"
