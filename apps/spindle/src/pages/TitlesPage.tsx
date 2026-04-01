@@ -158,70 +158,97 @@ export function TitlesPage() {
 		);
 	};
 
+	const allTitlesFlat = project.disc.titlesets.flatMap((ts) => ts.titles);
+	const hasTitles = allTitlesFlat.length > 0;
+
 	return (
 		<div className="titles">
 			<div className="page-header">
 				<h1 className="page-title">Titles</h1>
-				<button className="btn btn--primary" onClick={handleAddTitle}>
-					Add Title
-				</button>
-			</div>
-
-			{/* Titleset selector — compact when only one exists */}
-			{project.disc.titlesets.length > 1 || true ? (
-				<div className="titles__titleset-bar">
-					{project.disc.titlesets.map((ts) => (
-						<div
-							key={ts.id}
-							className={`titles__titleset-tab ${ts.id === titleset.id ? 'titles__titleset-tab--active' : ''}`}
-						>
-							<input
-								className="titles__titleset-name"
-								value={ts.name}
-								onChange={(e) => handleRenameTitleset(ts.id, e.target.value)}
-								onClick={() => {
-									setSelectedTitlesetId(ts.id);
-									setSelectedTitleId(null);
-								}}
-							/>
-							{ts.titles.length === 0 &&
-								ts.menus.length === 0 &&
-								project.disc.titlesets.length > 1 && (
-									<button
-										className="titles__titleset-remove"
-										onClick={() => handleRemoveTitleset(ts.id)}
-										title="Remove empty titleset"
-									>
-										×
-									</button>
-								)}
-						</div>
-					))}
-					<button className="btn btn--secondary btn--sm" onClick={handleAddTitleset}>
-						+ Titleset
+				<div className="page-header__actions">
+					<button className="btn btn--secondary" onClick={handleAddTitleset}>
+						Add Titleset
+					</button>
+					<button className="btn btn--primary" onClick={handleAddTitle}>
+						Add Title
 					</button>
 				</div>
-			) : null}
+			</div>
 
-			{titles.length === 0 ? (
+			{!hasTitles && project.disc.titlesets.length === 1 ? (
 				<EmptyTitlesView onAdd={handleAddTitle} />
 			) : (
 				<div className="titles__layout">
 					<div className="titles__list">
-						{titles.map((title, idx) => (
-							<TitleRow
-								key={title.id}
-								title={title}
-								index={idx}
-								totalCount={titles.length}
-								asset={project.assets.find((a) => a.id === title.sourceAssetId) ?? null}
-								isSelected={title.id === selectedTitleId}
-								onSelect={() => setSelectedTitleId(title.id)}
-								onMoveUp={() => handleReorder(title.id, 'up')}
-								onMoveDown={() => handleReorder(title.id, 'down')}
-								onRemove={() => handleRemoveTitle(title.id)}
-							/>
-						))}
+						{project.disc.titlesets.map((ts) => {
+							const tsTitles = ts.titles;
+							return (
+								<div key={ts.id} className="titles__titleset-section">
+									<div className="titles__titleset-header">
+										<input
+											className="titles__titleset-heading"
+											value={ts.name}
+											onChange={(e) => handleRenameTitleset(ts.id, e.target.value)}
+											onClick={() => {
+												setSelectedTitlesetId(ts.id);
+											}}
+										/>
+										<span className="titles__titleset-count text-muted">
+											{tsTitles.length} {tsTitles.length === 1 ? 'title' : 'titles'}
+											{ts.menus.length > 0 &&
+												` · ${ts.menus.length} ${ts.menus.length === 1 ? 'menu' : 'menus'}`}
+										</span>
+										{ts.titles.length === 0 &&
+											ts.menus.length === 0 &&
+											project.disc.titlesets.length > 1 && (
+												<button
+													className="titles__titleset-remove"
+													onClick={() => handleRemoveTitleset(ts.id)}
+													title="Remove empty titleset"
+												>
+													×
+												</button>
+											)}
+									</div>
+									{tsTitles.length === 0 ? (
+										<div className="titles__titleset-empty text-muted">
+											No titles in this titleset.{' '}
+											<button
+												className="btn-link"
+												onClick={() => {
+													setSelectedTitlesetId(ts.id);
+													handleAddTitle();
+												}}
+											>
+												Add one
+											</button>
+										</div>
+									) : (
+										tsTitles.map((title, idx) => (
+											<TitleRow
+												key={title.id}
+												title={title}
+												index={idx}
+												totalCount={tsTitles.length}
+												asset={
+													project.assets.find(
+														(a) => a.id === title.sourceAssetId,
+													) ?? null
+												}
+												isSelected={title.id === selectedTitleId}
+												onSelect={() => {
+													setSelectedTitlesetId(ts.id);
+													setSelectedTitleId(title.id);
+												}}
+												onMoveUp={() => handleReorder(title.id, 'up')}
+												onMoveDown={() => handleReorder(title.id, 'down')}
+												onRemove={() => handleRemoveTitle(title.id)}
+											/>
+										))
+									)}
+								</div>
+							);
+						})}
 					</div>
 					{selectedTitle && (
 						<TitleEditor

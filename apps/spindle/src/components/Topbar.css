@@ -142,9 +142,36 @@
 	color: var(--text-primary);
 }
 
+.btn--secondary {
+	background: transparent;
+	border-color: var(--border-default);
+	color: var(--text-secondary);
+}
+
+.btn--secondary:hover {
+	background: rgba(255, 255, 255, 0.04);
+	border-color: var(--border-strong);
+	color: var(--text-primary);
+}
+
 .btn--sm {
 	padding: 2px var(--space-2);
 	font-size: var(--text-xs);
+}
+
+.btn-link {
+	background: none;
+	border: none;
+	color: var(--brand-orange);
+	font-size: inherit;
+	cursor: pointer;
+	padding: 0;
+	text-decoration: underline;
+	text-underline-offset: 2px;
+}
+
+.btn-link:hover {
+	color: var(--brand-gold);
 }
 
 /* ── Window Controls (from Threshold) ──────────────────────────────── */
