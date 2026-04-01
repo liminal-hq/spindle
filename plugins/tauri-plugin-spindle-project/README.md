@@ -11,7 +11,7 @@ It currently provides:
 - source chapter extraction and compatibility detail reporting
 - thumbnail extraction for asset previews
 - build-plan generation and DVD build execution
-- menu-navigation assistance, toolchain checks, diagnostics export, and titleset-aware DVD navigation
+- menu-navigation assistance, toolchain checks, diagnostics export, titleset-aware DVD navigation, and entry-menu-safe return routing
 
 The plugin is used by the desktop app in this repository, but it is structured as a standalone Tauri plugin so the project domain logic can stay in one place.
 
@@ -115,6 +115,12 @@ Generates a dry-run `BuildPlan` for the current project and output directory.
 
 Runs the generated build pipeline and emits progress updates while authoring the disc output.
 
+The current DVD pipeline includes:
+
+- VMGM-to-titleset menu routing through titleset `root` entry menus
+- title end actions that return through legal menu-entry targets instead of direct titleset menu PGC calls
+- explicit menu-entry button initialisation so authored menus open with deterministic keyboard focus
+
 ### `cancel_build`
 
 Requests cancellation of the active build.
@@ -158,6 +164,23 @@ If you are using Tauri capabilities, include the default permission set:
 ```
 
 The default permission set enables the full command set registered by the plugin.
+
+## Test coverage notes
+
+The plugin's Rust tests now cover:
+
+- domain-aware DVD command generation for VMGM, titleset menus, and title post actions
+- titleset root-menu `g0` dispatch for non-root menu targets
+- explicit default-button selection in authored menu `<pre>` blocks
+- title returns to same-titleset and cross-titleset menus through menu-entry targets
+
+There is also an ignored smoke test for the full external-tool path:
+
+```bash
+cargo test -p tauri-plugin-spindle-project execute_build_plan_smoke_authors_titleset_menu_return_path -- --ignored --nocapture
+```
+
+That smoke test requires `ffmpeg`, `spumux`, and `dvdauthor` to be available on `PATH`.
 
 ## Frontend usage
 

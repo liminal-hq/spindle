@@ -327,6 +327,9 @@ That is why `PlaybackAction` is translated late. The legal DVD command depends o
 - title -> menu uses `call`
 - VMGM -> title uses disc-global `jump title N`
 - titleset-local title/chapter targets use local title numbering
+- non-root titleset menu targets are reached through a titleset `root` entry plus `g0` dispatch when needed
+- title returns into titleset menus are authored as `call ... menu entry root` instead of illegal direct titleset menu PGC calls
+- menu entry PGCs explicitly set the DVD `button` register so keyboard focus is deterministic on entry
 - invalid cross-titleset title/chapter routes are rejected during planning
 
 ## Current Visual Behaviour
@@ -356,6 +359,17 @@ The frontend can produce:
 - awkward geometry or overlapping button states
 
 These are mostly caught by validation and by build-time command generation.
+
+### Current automated coverage
+
+The Rust test suite covers the tricky menu-navigation cases that were most likely to regress:
+
+- VMGM to titleset root-entry jumps
+- `g0`-dispatched jumps to later titleset menus
+- title post returns to same-titleset and cross-titleset menus
+- menu entry initialisation for explicit defaults and first-button fallback
+
+There is also an ignored smoke test in `build/executor.rs` that runs a tiny `ffmpeg -> spumux -> dvdauthor` build and verifies that `VIDEO_TS` output is authored successfully. It is intended for container or CI environments that already provide the external DVD toolchain.
 
 ### Planner layer
 

@@ -9,6 +9,7 @@ Current DVD authoring capabilities include:
 - titleset-aware project editing with drag-and-drop title organisation
 - chapter seeding from source media plus chapter-targeted menu and end actions
 - menu editing with auto-generated directional navigation
+- authored menu routing for VMGM, titleset, and title-return paths, including keyboard-safe entry selection
 - asset inspection, compatibility explanations, and fix-oriented validation
 - DVD build planning and execution with diagnostics export and toolchain checks
 - bitmap subtitle muxing, plus a developer option to skip unsupported text subtitle mappings during builds
@@ -54,6 +55,18 @@ Build the frontend bundle:
 
 ```bash
 pnpm build
+```
+
+Run the Rust plugin tests:
+
+```bash
+cargo test -p tauri-plugin-spindle-project
+```
+
+For an opt-in end-to-end DVD authoring smoke test that exercises `ffmpeg`, `spumux`, and `dvdauthor`, run:
+
+```bash
+cargo test -p tauri-plugin-spindle-project execute_build_plan_smoke_authors_titleset_menu_return_path -- --ignored --nocapture
 ```
 
 ## Release preparation
