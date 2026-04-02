@@ -194,9 +194,7 @@ async function backfillAssetFormatTitles(project: SpindleProjectFile): Promise<v
 				project: {
 					...current,
 					assets: current.assets.map((a) =>
-						a.id === asset.id
-							? { ...a, formatTitle: inspected.formatTitle ?? '' }
-							: a,
+						a.id === asset.id ? { ...a, formatTitle: inspected.formatTitle ?? '' } : a,
 					),
 				},
 			});
