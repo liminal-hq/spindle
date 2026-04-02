@@ -28,6 +28,11 @@ Prefer durable, reusable context over narration.
 - Release stewardship likely spans `package.json`, `Cargo.toml`, `apps/spindle/src-tauri/tauri.conf.json`, and workflow files, so versioning and packaging work should be checked together.
 - Franklin's main value is synthesis: turn Edward's product cautions, Jullian's implementation facts, Kyle's review findings, and the frontend pair's design work into the next maintainable move.
 - When a thread crosses multiple layers, an MVH is more useful than a broad narrative summary.
+- The current implemented end-to-end DVD authoring flow works in practice based on direct user testing, so future reviews should treat baseline pipeline viability as known for the shipped scope unless new evidence contradicts it.
+- As of `v0.2.0`, Spindle's strongest coherent project story is working DVD authoring plus Linux-first release discipline, while Blu-ray, motion menus, and text subtitle rendering remain planned or partial rather than shipped.
+- GitHub PR hygiene and labels are in good shape, but the repository currently has no open issue backlog, so important future work is concentrated in docs and memory rather than visible execution tracking.
+- Trust and support surfaces should be checked alongside release surfaces; for example, diagnostics export can drift from runtime versioning even when the main app UI is current.
+- The shared filesystem-based agent communication layer now lives under `docs/agents/shared/`, with `context/` for Franklin/Edward broadcast state and `handoffs/<agent>/` inboxes for point-to-point JSON requests and responses.
 
 ## Open Questions
 
