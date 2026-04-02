@@ -1,6 +1,6 @@
 [package]
 name = "tauri-plugin-spindle-project"
-version = "0.1.1"
+version = "0.2.0"
 authors = ["Liminal HQ, Scott Morris"]
 description = "Tauri plugin for Spindle project schema, validation, and domain logic"
 edition = "2021"

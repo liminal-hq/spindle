@@ -1,5 +1,9 @@
 # Spindle
 
+<p align="center">
+  <img src="assets/hero.svg" alt="Spindle — Desktop optical-disc authoring studio" width="100%">
+</p>
+
 Spindle is a desktop optical-disc authoring studio built with Tauri, React, and Rust.
 
 This repository is organised as a `pnpm` workspace monorepo with a matching Cargo workspace for native code. The desktop app lives in `apps/spindle`, and shared native project logic lives in `plugins/tauri-plugin-spindle-project`.
