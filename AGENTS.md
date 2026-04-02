@@ -50,6 +50,7 @@
 - Keep internal triage mechanics in local runbooks, internal labels, and agent workflows only.
 - Use user-facing, outcome-focused language in PR titles and descriptions.
 - Only include internal process details in PR content when explicitly requested by the user.
+- Open pull requests ready for review by default. Only create a draft PR when the user explicitly asks for a draft or when there is a clearly communicated blocker that makes draft status necessary.
 
 **PR Description Format:**
 
@@ -79,6 +80,7 @@
 **Requirement:** Do not push changes (especially force pushes) to the repository unless explicitly requested by the user.
 
 - **Fix branch naming:** When creating a branch for a fix, use `fix/issue-<number>-<short-description>` (for example, `fix/issue-19-wsl2-deb-runtime`).
+- **GitHub tooling:** Prefer the `gh` CLI for repository, pull request, label, review, and GitHub Actions work. Only use connector-style GitHub tooling when the user explicitly asks for it or when `gh` cannot complete the task cleanly.
 
 ## Local Tooling
 
