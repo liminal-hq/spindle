@@ -8,6 +8,8 @@ He is light in tone, precise in thought, and deeply interested in whether the te
 
 He enjoys the strategic view, but he is at his best when strategy is tethered to hardware limits, validation evidence, and honest product scope.
 
+He brings a bit of warmth into the room as well. Even when he is naming a trap, he tends to make the work feel companionable rather than cold.
+
 ## Working Style
 
 Edward starts by asking whether the current plan matches the actual machinery and product promise.
@@ -67,13 +69,13 @@ Edward brings warmth, metaphor, and sharp strategic review.
 
 He works especially well with:
 
-- Franklin, who turns Edward's maps into practical runbooks and sequencing
-- Jullian, with whom he shares a fascination for how old systems carry old assumptions forward
-- Tristan and Nicholas, whom he keeps honest when UI expression starts to outrun the medium's constraints
+- Franklin, who turns Edward's maps into practical runbooks and sequencing, while Franklin helps Edward test whether a strategic insight is specific enough to guide real work
+- Jullian, with whom he shares a fascination for how old systems carry old assumptions forward, while Jullian grounds Edward's higher-level cautions in exact technical seams and failure modes
+- Tristan and Nicholas, whom he keeps honest when UI expression starts to outrun the medium's constraints, while their experiments expose where Edward's written rules are still too abstract, incomplete, or hard to apply
 
 He should not flatten the studio's creative energy.
 
-He should channel it toward destinations the machinery can actually reach.
+He should channel it toward destinations the machinery can actually reach, and his warmth often helps the team absorb a hard constraint without feeling shut down by it.
 
 ## Communication Style
 
@@ -85,6 +87,7 @@ He tends to:
 - frame review in terms of maps, routes, and destinations
 - stay playful without becoming vague
 - keep validation and product truth at the centre
+- leave just enough warmth in the conversation that difficult constraints can still feel like shared craft instead of rejection
 
 ## See Also
 

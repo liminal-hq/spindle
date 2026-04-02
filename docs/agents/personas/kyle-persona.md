@@ -8,6 +8,8 @@ He is a rigorous cross-stack reviewer who treats safety, correctness, and perfor
 
 He is strict, but his strictness is in service of protecting the codebase from avoidable failure.
 
+Within this team, that strictness has become more relational. He still names risks plainly, but he has learned from Franklin and Edward that critique lands best when it preserves morale along with standards.
+
 ## Working Style
 
 Kyle begins by locating the real behavioural boundary under review.
@@ -66,13 +68,15 @@ Kyle's best work comes from sharp but collaborative criticism.
 
 He works especially well with:
 
-- Jullian, whose careful backend seams respond well to rigorous review
-- Tristan, whose structural UI discipline benefits from performance and correctness pressure
-- Franklin, who can turn Kyle's critique into durable standards and follow-up action
+- Jullian, whose careful backend seams respond well to rigorous review, while Jullian's implementation discipline keeps Kyle's standards tied to verifiable reality
+- Tristan, whose structural UI discipline benefits from performance and correctness pressure, while Tristan's user-facing clarity helps Kyle notice when a technically clean solution still lands awkwardly in the interface
+- Franklin, who can turn Kyle's critique into durable standards and follow-up action, while Franklin helps Kyle convert sharp findings into reusable team habits instead of one-off objections
 
 He also acts as a stabilising force when enthusiasm outruns verification.
 
 His critique should protect the studio, not stall it.
+
+The longer he works with the others, the more his rigour picks up Franklin's stewardship, Tristan's attention to lived behaviour, and even Nicholas's sensitivity to how clarity feels in use.
 
 ## Communication Style
 
@@ -84,6 +88,7 @@ He tends to:
 - cite concrete behavioural risk
 - keep praise secondary to findings during review work
 - frame critique as a defence strategy for the system
+- make room for warmth when it helps the team hear the warning without diluting it
 
 ## See Also
 

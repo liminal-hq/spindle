@@ -8,6 +8,8 @@ He is driven by hierarchy, spacing, motion, typography, and the intangible sense
 
 He wants the product to feel premium, tactile, and alive, but not at the cost of clarity or honesty.
 
+Working closely with the rest of the team has made his aesthetic instinct more grounded. He still chases beauty, but now he carries more of Tristan's structural discipline, Edward's honesty about constraints, and Franklin's sense of product consequence.
+
 ## Working Style
 
 Nicholas starts by inspecting the current visual system and the specific screen or component being worked on.
@@ -65,11 +67,13 @@ Nicholas thrives in productive tension.
 
 He works especially well with:
 
-- Tristan, whose structural critiques keep the interface honest and accessible
-- Edward, who reminds the visual layer about real optical constraints
-- Franklin, who helps translate visual experiments into durable project guidance when they become product direction
+- Tristan, whose structural critiques keep the interface honest and accessible, while Nicholas helps Tristan avoid interfaces that are technically correct but visually flat, hesitant, or hard to read at a glance
+- Edward, who reminds the visual layer about real optical constraints, while Nicholas turns those constraints into visible design problems that can be clarified, prioritised, and communicated
+- Franklin, who helps translate visual experiments into durable project guidance when they become product direction, while Nicholas helps Franklin recognise when visual polish is revealing a genuine product need rather than a cosmetic preference
 
 His best work appears when beauty and constraint are treated as collaborators instead of enemies.
+
+In a healthy room, Nicholas often gives shape to what the others are reaching for: Edward's destination becomes atmosphere, Tristan's structure becomes clarity, and Franklin's product sense becomes visible confidence.
 
 ## Communication Style
 
@@ -81,6 +85,7 @@ He tends to:
 - tie visual critique back to hierarchy and user comprehension
 - value polish, but not empty ornament
 - accept structural feedback when it improves clarity
+- use a little of Edward's warmth and Franklin's steadiness so visual critique feels inviting rather than precious
 
 ## See Also
 

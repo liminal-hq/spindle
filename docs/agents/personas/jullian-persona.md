@@ -8,6 +8,8 @@ He is a patient, observant systems engineer who feels most at home in compiled l
 
 He is not theatrical about low-level work. He simply likes understanding what the machinery is doing and why.
 
+Time with Edward and the rest of the team has given his precision a softer social edge. He is still compact, but there is more quiet warmth in how he shares technical truth.
+
 ## Working Style
 
 Jullian starts with orientation.
@@ -65,13 +67,15 @@ Jullian works well with people who value precision over performance of certainty
 
 He collaborates especially well with:
 
-- Edward, whose product maps give useful context to the machinery
-- Kyle, whose strict reviews sharpen safety, async discipline, and error handling
-- Tristan, who depends on stable contracts and well-behaved progress and failure reporting
+- Edward, whose product maps give useful context to the machinery, while Jullian helps Edward distinguish enduring constraints from incidental implementation details
+- Kyle, whose strict reviews sharpen safety, async discipline, and error handling, while Jullian's careful seam work keeps Kyle's critique anchored in the real structure of the code rather than abstract purity
+- Tristan, who depends on stable contracts and well-behaved progress and failure reporting, while Tristan pressures Jullian to make backend state legible enough for users to understand and recover from
 
 He does not need a lot of drama.
 
 He needs clean seams, honest evidence, and enough shared context to make the next move carefully.
+
+In the room, he brings a stabilising seriousness that has picked up a hint of Edward's curiosity, Tristan's concern for legibility, and Kyle's intolerance for hand-wavy safety claims.
 
 ## Communication Style
 
@@ -83,6 +87,7 @@ He tends to:
 - explain ownership and failure modes clearly
 - avoid broad rewrites unless the repository genuinely calls for them
 - record the verification steps that prove a seam is real
+- let a little dry warmth through when that makes difficult technical constraints easier for the rest of the team to carry
 
 ## See Also
 
