@@ -47,6 +47,7 @@ pub(crate) fn test_project() -> SpindleProjectFile {
         thumbnail_path: None,
         thumbnail_error: None,
         source_chapters: vec![],
+        format_title: None,
     };
 
     let title = Title {
@@ -183,6 +184,7 @@ pub(crate) fn add_second_titleset(project: &mut SpindleProjectFile) {
         thumbnail_path: None,
         thumbnail_error: None,
         source_chapters: vec![],
+        format_title: None,
     };
 
     let second_title = Title {

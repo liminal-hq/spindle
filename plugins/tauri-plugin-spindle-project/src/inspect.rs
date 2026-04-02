@@ -761,6 +761,71 @@ mod tests {
     }
 
     #[test]
+    fn format_title_extracted_from_tags() {
+        let json = r#"{
+            "format": {
+                "format_name": "matroska,webm",
+                "duration": "3600.0",
+                "size": "1000000",
+                "tags": { "title": "A Whole New Whirled" }
+            },
+            "streams": [],
+            "chapters": []
+        }"#;
+        let probe: FfprobeOutput = serde_json::from_str(json).unwrap();
+        let title = probe
+            .format
+            .as_ref()
+            .and_then(|f| f.tags.as_ref())
+            .and_then(|t| t.title.clone())
+            .filter(|t| !t.is_empty());
+        assert_eq!(title.as_deref(), Some("A Whole New Whirled"));
+    }
+
+    #[test]
+    fn format_title_none_when_tags_absent() {
+        let json = r#"{
+            "format": {
+                "format_name": "mp4",
+                "duration": "120.0",
+                "size": "500000"
+            },
+            "streams": [],
+            "chapters": []
+        }"#;
+        let probe: FfprobeOutput = serde_json::from_str(json).unwrap();
+        let title = probe
+            .format
+            .as_ref()
+            .and_then(|f| f.tags.as_ref())
+            .and_then(|t| t.title.clone())
+            .filter(|t| !t.is_empty());
+        assert!(title.is_none());
+    }
+
+    #[test]
+    fn format_title_none_when_empty_string() {
+        let json = r#"{
+            "format": {
+                "format_name": "matroska,webm",
+                "duration": "60.0",
+                "size": "100000",
+                "tags": { "title": "" }
+            },
+            "streams": [],
+            "chapters": []
+        }"#;
+        let probe: FfprobeOutput = serde_json::from_str(json).unwrap();
+        let title = probe
+            .format
+            .as_ref()
+            .and_then(|f| f.tags.as_ref())
+            .and_then(|t| t.title.clone())
+            .filter(|t| !t.is_empty());
+        assert!(title.is_none());
+    }
+
+    #[test]
     fn thumbnail_filter_preserves_ultrawide_aspect_ratio() {
         let filter = build_thumbnail_filter(&VideoStreamInfo {
             index: 0,
