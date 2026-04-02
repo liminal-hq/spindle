@@ -497,6 +497,9 @@ pub struct Asset {
     /// Chapter markers detected in the source media file.
     #[serde(default)]
     pub source_chapters: Vec<SourceChapter>,
+    /// Container-level title tag from source media metadata (e.g. MKV/MP4 title).
+    #[serde(default)]
+    pub format_title: Option<String>,
 }
 
 impl Asset {
@@ -518,6 +521,7 @@ impl Asset {
             thumbnail_path: None,
             thumbnail_error: None,
             source_chapters: Vec::new(),
+            format_title: None,
         }
     }
 }

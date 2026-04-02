@@ -221,6 +221,8 @@ export interface Asset {
 	thumbnailError: string | null;
 	/** Chapter markers detected in the source media file. */
 	sourceChapters: SourceChapter[];
+	/** Container-level title tag from source media metadata (e.g. MKV/MP4 title). */
+	formatTitle: string | null;
 }
 
 export interface AssetWarning {

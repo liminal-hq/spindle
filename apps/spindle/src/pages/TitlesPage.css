@@ -246,6 +246,23 @@
 	min-width: 60px;
 }
 
+/* ── Source metadata ─────────────────────────────────────── */
+
+.titles__metadata-row {
+	display: flex;
+	align-items: center;
+	gap: var(--space-3);
+}
+
+.titles__metadata-value {
+	font-size: var(--text-sm);
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
 /* ── Shared select and input ──────────────────────────────── */
 
 .titles__select {

@@ -60,6 +60,12 @@ pub fn inspect(path: &str) -> crate::Result<Asset> {
         .and_then(|s| s.parse::<f64>().ok());
 
     let container_format = probe.format.as_ref().and_then(|f| f.format_name.clone());
+    let format_title = probe
+        .format
+        .as_ref()
+        .and_then(|f| f.tags.as_ref())
+        .and_then(|t| t.title.clone())
+        .filter(|t| !t.is_empty());
 
     let mut video_streams = Vec::new();
     let mut audio_streams = Vec::new();
@@ -175,6 +181,7 @@ pub fn inspect(path: &str) -> crate::Result<Asset> {
         thumbnail_path: None,
         thumbnail_error: None,
         source_chapters,
+        format_title,
     })
 }
 
@@ -581,6 +588,12 @@ struct FfprobeFormat {
     format_name: Option<String>,
     duration: Option<String>,
     size: Option<String>,
+    tags: Option<FormatTags>,
+}
+
+#[derive(Debug, Deserialize)]
+struct FormatTags {
+    title: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
