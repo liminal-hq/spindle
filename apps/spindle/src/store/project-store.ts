@@ -166,6 +166,34 @@ async function ensureProjectAssetThumbnails(project: SpindleProjectFile): Promis
 	}
 }
 
+/** Re-inspect assets missing formatTitle (projects saved before the field existed). */
+async function backfillAssetFormatTitles(project: SpindleProjectFile): Promise<void> {
+	const stale = project.assets.filter((a) => a.formatTitle === undefined || a.formatTitle === null);
+	if (stale.length === 0) return;
+
+	for (const asset of stale) {
+		try {
+			const inspected = await invoke<Asset>('plugin:spindle-project|inspect_asset', {
+				path: asset.sourcePath,
+			});
+			if (!inspected.formatTitle) continue;
+
+			const { project: current } = useProjectStore.getState();
+			if (!current) return;
+			useProjectStore.setState({
+				project: {
+					...current,
+					assets: current.assets.map((a) =>
+						a.id === asset.id ? { ...a, formatTitle: inspected.formatTitle } : a,
+					),
+				},
+			});
+		} catch {
+			// Source file may be missing — skip silently
+		}
+	}
+}
+
 function setProjectAssetThumbnail(
 	project: SpindleProjectFile,
 	assetId: string,
@@ -266,6 +294,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 				validationIssues: [],
 			});
 			await ensureProjectAssetThumbnails(project);
+			void backfillAssetFormatTitles(project);
 		} finally {
 			set({ isLoading: false });
 		}
