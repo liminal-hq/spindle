@@ -140,7 +140,7 @@ Someone who understands FFmpeg and DVD authoring basics and wants a better front
 ### 8.2 Media import and inspection
 
 - Import local media files.
-- Inspect container metadata and stream metadata.
+- Inspect container metadata and stream metadata, including the container-level title tag where present.
 - Detect video properties such as resolution, interlacing, frame rate, aspect ratio, and duration.
 - Detect audio streams, codecs, channel layouts, sample rates, and language tags where available.
 - Detect subtitle streams and distinguish between bitmap and text-based sources where possible.

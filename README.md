@@ -10,7 +10,7 @@ Current DVD authoring capabilities include:
 - chapter seeding from source media plus chapter-targeted menu and end actions
 - menu editing with auto-generated directional navigation
 - authored menu routing for VMGM, titleset, and title-return paths, including keyboard-safe entry selection
-- asset inspection, compatibility explanations, and fix-oriented validation
+- asset inspection with embedded metadata title surfacing, compatibility explanations, and fix-oriented validation
 - DVD build planning and execution with diagnostics export and toolchain checks
 - bitmap subtitle muxing, plus a developer option to skip unsupported text subtitle mappings during builds
 

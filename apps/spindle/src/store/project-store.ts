@@ -166,6 +166,44 @@ async function ensureProjectAssetThumbnails(project: SpindleProjectFile): Promis
 	}
 }
 
+/**
+ * Re-inspect assets missing formatTitle (projects saved before the field existed).
+ *
+ * Uses a session-level set to avoid redundant ffprobe calls on repeated opens.
+ * Assets that genuinely have no embedded title are updated to an empty string
+ * sentinel so they are not re-inspected next time.
+ */
+const backfilledProjectIds = new Set<string>();
+
+async function backfillAssetFormatTitles(project: SpindleProjectFile): Promise<void> {
+	if (backfilledProjectIds.has(project.project.id)) return;
+	backfilledProjectIds.add(project.project.id);
+
+	const stale = project.assets.filter((a) => a.formatTitle === null);
+	if (stale.length === 0) return;
+
+	for (const asset of stale) {
+		try {
+			const inspected = await invoke<Asset>('plugin:spindle-project|inspect_asset', {
+				path: asset.sourcePath,
+			});
+
+			const { project: current } = useProjectStore.getState();
+			if (!current) return;
+			useProjectStore.setState({
+				project: {
+					...current,
+					assets: current.assets.map((a) =>
+						a.id === asset.id ? { ...a, formatTitle: inspected.formatTitle ?? '' } : a,
+					),
+				},
+			});
+		} catch {
+			// Source file may be missing — skip silently
+		}
+	}
+}
+
 function setProjectAssetThumbnail(
 	project: SpindleProjectFile,
 	assetId: string,
@@ -266,6 +304,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 				validationIssues: [],
 			});
 			await ensureProjectAssetThumbnails(project);
+			void backfillAssetFormatTitles(project);
 		} finally {
 			set({ isLoading: false });
 		}
@@ -419,6 +458,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 				thumbnailPath: null,
 				thumbnailError: null,
 				sourceChapters: [],
+				formatTitle: null,
 			};
 		});
 

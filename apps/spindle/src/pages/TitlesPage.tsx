@@ -577,6 +577,24 @@ function TitleEditor({
 				</select>
 			</div>
 
+			{/* Source Metadata */}
+			{selectedAsset?.formatTitle && (
+				<div className="titles__editor-section">
+					<h4 className="titles__editor-heading">Source Metadata</h4>
+					<div className="titles__metadata-row">
+						<span className="titles__metadata-value text-muted" title={selectedAsset.formatTitle}>
+							{selectedAsset.formatTitle}
+						</span>
+						<button
+							className="btn btn--secondary btn--sm"
+							onClick={() => onUpdate({ ...title, name: selectedAsset!.formatTitle! })}
+						>
+							Use Asset Title
+						</button>
+					</div>
+				</div>
+			)}
+
 			{/* Video Output Profile */}
 			{title.videoOutputProfile && (
 				<div className="titles__editor-section">
