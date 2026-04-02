@@ -13,3 +13,12 @@ apps/*/src-tauri/binaries/
 
 .vscode/*
 !.vscode/extensions.json
+
+# Agent dynamic state & communication
+docs/agents/shared/handoffs/**/*.json
+docs/agents/shared/handoffs/**/*.md
+docs/agents/memory/daily-sessions/
+docs/agents/workspaces/
+
+# Allow the folder structures to exist in git even if empty
+!docs/agents/shared/handoffs/**/.gitkeep
