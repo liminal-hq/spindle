@@ -53,13 +53,13 @@ When all source streams are already mapped, the picker is disabled. The subtitle
 
 ### 4. Subtitle Authoring and Export Pipeline
 
-**Build planner** — `planner.rs` generates `ExtractSubtitles` jobs for each title with bitmap subtitle mappings. Only bitmap subtitles (`dvd_subtitle`, `dvdsub`, `hdmv_pgs_subtitle`, `pgssub`) are extracted; text subtitle rendering is out of scope.
+**Build planner** — `planner.rs` muxes bitmap subtitle mappings during `TranscodeTitle`. Text subtitle mappings generate explicit `RenderTextSubtitles` jobs that first normalise the source stream to SRT, then compose DVD subtitle streams onto the authored title MPEG with `spumux` text rendering.
 
-**FFmpeg extraction** — `ffmpeg.rs` provides `build_ffmpeg_subtitle_extract_command()` which generates: `ffmpeg -i source -map 0:{index} -c:s dvd_subtitle output.sub`
+**Rendering path** — `ffmpeg.rs` provides a text-subtitle preparation command that exports supported text subtitle streams to SRT. `spumux` then renders that text into DVD subpictures using a host font and DVD-safe defaults.
 
-**dvdauthor XML** — `authoring.rs` generates `<subpicture>` declarations with language attributes for each title's subtitle mappings within the titleset's `<titles>` section.
+**dvdauthor XML** — `authoring.rs` generates `<subpicture>` declarations with language attributes for each title's subtitle mappings within the titleset's `<titles>` section. The first-pass text subtitle path keeps that seam by producing a final title MPEG that already contains the rendered subtitle streams.
 
-**Build job type** — `ExtractSubtitles` variant added to `BuildJob` enum in `types.rs`, with title_id, title_name, source_path, output_path, command, and label fields. The frontend `BuildJob` union and `BuildPage.tsx` handle this job type for progress display.
+**Build job types** — `TranscodeTitle` remains the bitmap subtitle mux point, and `RenderTextSubtitles` adds the explicit text subtitle rendering stage surfaced on the Build page.
 
 ---
 
@@ -138,7 +138,7 @@ All fields use `#[serde(default)]` for backwards compatibility with existing pro
 | `titleset.format-mismatch`       | Ensure all titles in this titleset use the same resolution and aspect ratio, or move mismatched titles to a separate titleset. |
 | `build.no-output-dir`            | Set an output directory in the build settings to avoid being prompted each time.                                               |
 | `subtitle.dangling-stream`       | The source file may have changed. Remove this subtitle mapping or relink the asset.                                            |
-| `subtitle.text-only-unsupported` | Text subtitle rendering is not yet supported. Remove text subtitles or provide bitmap subtitle sources.                        |
+| `subtitle.text-rendering-simplified` | Text subtitle rendering uses first-pass DVD-safe styling with a host font. |
 
 **Clickable issue navigation** — Validation issues in OverviewPage and BuildPage are clickable. Clicking an issue navigates to the relevant page (titles, menus, build, etc.) and auto-selects the affected entity using a `NavigationContext` provided by `App.tsx`. Entity type determines the target route:
 
