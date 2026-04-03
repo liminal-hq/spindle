@@ -662,6 +662,8 @@ pub struct BuildSettings {
     pub generate_iso: bool,
     pub safety_margin_bytes: u64,
     pub allocation_strategy: AllocationStrategy,
+    #[serde(default)]
+    pub subtitle_render_mode: SubtitleRenderMode,
 }
 
 impl Default for BuildSettings {
@@ -672,6 +674,7 @@ impl Default for BuildSettings {
             // 50 MB default safety margin
             safety_margin_bytes: 50_000_000,
             allocation_strategy: AllocationStrategy::DurationWeighted,
+            subtitle_render_mode: SubtitleRenderMode::TwoPass,
         }
     }
 }
@@ -683,6 +686,20 @@ pub enum AllocationStrategy {
     EqualShare,
     DurationWeighted,
     PriorityWeighted,
+}
+
+/// High-level subtitle rendering mode for text subtitle authoring.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum SubtitleRenderMode {
+    OnePass,
+    TwoPass,
+}
+
+impl Default for SubtitleRenderMode {
+    fn default() -> Self {
+        Self::TwoPass
+    }
 }
 
 // ── Command payloads ────────────────────────────────────────────────────────

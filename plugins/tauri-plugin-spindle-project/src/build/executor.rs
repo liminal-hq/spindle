@@ -194,6 +194,7 @@ where
                     i,
                     total,
                     &label,
+                    "FFmpeg transcode",
                     &mut on_progress,
                 ) {
                     Ok(output) => {
@@ -202,6 +203,101 @@ where
                         }
                     }
                     Err(msg) => {
+                        log_lines.push(msg.clone());
+                        on_progress(BuildProgress::job(
+                            i,
+                            total,
+                            label,
+                            BuildJobStatus::Failed,
+                            Some(msg.clone()),
+                        ));
+                        return failure(plan, log_lines, i, msg);
+                    }
+                }
+            }
+            BuildJob::RenderTextSubtitles {
+                prepare_command,
+                spumux_xml,
+                command,
+                input_path,
+                output_path,
+                subtitle_path,
+                font_family,
+                ..
+            } => {
+                log_lines.push(format!("  $ {}", prepare_command.join(" ")));
+                on_progress(BuildProgress {
+                    job_index: i,
+                    total_jobs: total,
+                    current_label: label.clone(),
+                    status: BuildJobStatus::Running,
+                    output: None,
+                    step_label: Some("Prepare subtitle text".to_string()),
+                    step_percent: None,
+                    step_detail: Some(subtitle_path.clone()),
+                    step_status: Some(BuildJobStatus::Running),
+                });
+
+                match run_ffmpeg_command(
+                    prepare_command,
+                    None,
+                    i,
+                    total,
+                    &label,
+                    "Prepare subtitle text",
+                    &mut on_progress,
+                ) {
+                    Ok(output) => {
+                        if !output.is_empty() {
+                            log_lines.push(output);
+                        }
+                    }
+                    Err(msg) => {
+                        log_lines.push(msg.clone());
+                        on_progress(BuildProgress::job(
+                            i,
+                            total,
+                            label,
+                            BuildJobStatus::Failed,
+                            Some(msg.clone()),
+                        ));
+                        return failure(plan, log_lines, i, msg);
+                    }
+                }
+
+                let xml_path = command
+                    .last()
+                    .cloned()
+                    .unwrap_or_else(|| format!("{output_path}.xml"));
+                if let Err(e) = std::fs::write(&xml_path, spumux_xml) {
+                    let msg = format!("Failed to write subtitle render XML: {e}");
+                    log_lines.push(msg.clone());
+                    return failure(plan, log_lines, i, msg);
+                }
+                log_lines.push(format!("  Wrote {xml_path}"));
+
+                on_progress(BuildProgress {
+                    job_index: i,
+                    total_jobs: total,
+                    current_label: label.clone(),
+                    status: BuildJobStatus::Running,
+                    output: None,
+                    step_label: Some("Compose DVD subtitle stream".to_string()),
+                    step_percent: None,
+                    step_detail: Some(output_path.clone()),
+                    step_status: Some(BuildJobStatus::Running),
+                });
+
+                match run_spumux_command(command, input_path, output_path) {
+                    Ok(output) => {
+                        if !output.is_empty() {
+                            log_lines.push(output);
+                        }
+                    }
+                    Err(msg) => {
+                        let msg = format!(
+                            "{msg}\nText subtitle rendering uses the host font \"{font_family}\". Confirm that Fontconfig can resolve it on this machine."
+                        );
                         log_lines.push(msg.clone());
                         on_progress(BuildProgress::job(
                             i,
@@ -332,6 +428,7 @@ fn run_ffmpeg_command<F>(
     job_index: usize,
     total_jobs: usize,
     label: &str,
+    step_label: &str,
     on_progress: &mut F,
 ) -> std::result::Result<String, String>
 where
@@ -407,7 +504,7 @@ where
                         current_label: label.to_string(),
                         status: BuildJobStatus::Running,
                         output: None,
-                        step_label: Some("FFmpeg transcode".to_string()),
+                        step_label: Some(step_label.to_string()),
                         step_percent: pct,
                         step_detail: Some(detail),
                         step_status: Some(BuildJobStatus::Running),
@@ -548,7 +645,7 @@ mod tests {
 
     use crate::build::test_support::{test_menu_with_action, test_project};
     use crate::build::{execute_build_plan, generate_build_plan};
-    use crate::models::PlaybackAction;
+    use crate::models::{PlaybackAction, SubtitleStreamInfo, SubtitleType};
 
     use super::reset_workspace_directory;
 
@@ -693,6 +790,139 @@ mod tests {
         assert!(
             output_dir.join("VIDEO_TS/VTS_01_0.IFO").exists(),
             "expected first titleset IFO in authored output"
+        );
+
+        fs::remove_dir_all(&output_dir).unwrap();
+    }
+
+    #[test]
+    #[ignore = "requires ffmpeg, ffprobe, spumux, and dvdauthor on PATH"]
+    fn execute_build_plan_smoke_authors_text_subtitle_stream() {
+        let Some(ffmpeg_bin) = find_tool_on_path("ffmpeg") else {
+            eprintln!("Skipping smoke test because `ffmpeg` is not available on PATH.");
+            return;
+        };
+        let Some(ffprobe_bin) = find_tool_on_path("ffprobe") else {
+            eprintln!("Skipping smoke test because `ffprobe` is not available on PATH.");
+            return;
+        };
+        if find_tool_on_path("spumux").is_none() || find_tool_on_path("dvdauthor").is_none() {
+            eprintln!(
+                "Skipping smoke test because `spumux` and/or `dvdauthor` are not available on PATH."
+            );
+            return;
+        }
+
+        let output_dir = unique_temp_dir("build-text-subtitle-smoke");
+        let source_path = output_dir.join("source.mkv");
+        let subtitle_path = output_dir.join("subtitle.srt");
+        fs::create_dir_all(&output_dir).unwrap();
+        fs::write(
+            &subtitle_path,
+            "1\n00:00:00,000 --> 00:00:01,000\nHello from text subtitles.\n",
+        )
+        .unwrap();
+
+        let ffmpeg_status = Command::new(ffmpeg_bin)
+            .args([
+                "-y",
+                "-f",
+                "lavfi",
+                "-i",
+                "color=c=black:s=640x360:d=1.5",
+                "-f",
+                "lavfi",
+                "-i",
+                "anullsrc=r=48000:cl=stereo",
+                "-i",
+            ])
+            .arg(&subtitle_path)
+            .args([
+                "-shortest",
+                "-c:v",
+                "libx264",
+                "-pix_fmt",
+                "yuv420p",
+                "-c:a",
+                "aac",
+                "-b:a",
+                "128k",
+                "-c:s",
+                "srt",
+            ])
+            .arg(&source_path)
+            .status()
+            .expect("ffmpeg should launch for text subtitle smoke test fixture generation");
+        assert!(
+            ffmpeg_status.success(),
+            "ffmpeg fixture generation failed with status {ffmpeg_status}"
+        );
+
+        let mut project = test_project();
+        project.assets[0].source_path = source_path.display().to_string();
+        project.assets[0].file_name = "source.mkv".to_string();
+        project.assets[0].duration_secs = Some(1.5);
+        project.assets[0].subtitle_streams = vec![SubtitleStreamInfo {
+            index: 2,
+            codec: "subrip".to_string(),
+            language: Some("eng".to_string()),
+            subtitle_type: SubtitleType::Text,
+            title: Some("English".to_string()),
+        }];
+        project.disc.titlesets[0].titles[0].subtitle_mappings.push(
+            crate::models::SubtitleTrackMapping {
+                id: "sm-text".to_string(),
+                source_stream_index: 2,
+                label: "English".to_string(),
+                language: "eng".to_string(),
+                order_index: 0,
+                is_default: false,
+                is_forced: false,
+            },
+        );
+
+        let plan = generate_build_plan(&project, output_dir.to_str().unwrap(), true).unwrap();
+        let result = execute_build_plan(&plan, |_| {});
+
+        if !result.success {
+            panic!(
+                "expected text subtitle smoke build to succeed\n{}",
+                result.log_lines.join("\n")
+            );
+        }
+
+        let authored_title_path = PathBuf::from(&plan.working_directory)
+            .join("titles")
+            .join("title-1.mpg");
+        assert!(
+            authored_title_path.exists(),
+            "expected authored title MPEG at {}",
+            authored_title_path.display()
+        );
+
+        let ffprobe_output = Command::new(ffprobe_bin)
+            .args([
+                "-v",
+                "error",
+                "-select_streams",
+                "s",
+                "-show_entries",
+                "stream=codec_name",
+                "-of",
+                "csv=p=0",
+            ])
+            .arg(&authored_title_path)
+            .output()
+            .expect("ffprobe should inspect authored title MPEG");
+        assert!(
+            ffprobe_output.status.success(),
+            "ffprobe failed with status {}",
+            ffprobe_output.status
+        );
+        let subtitle_codecs = String::from_utf8_lossy(&ffprobe_output.stdout);
+        assert!(
+            subtitle_codecs.lines().any(|line| line.trim() == "dvd_subtitle"),
+            "expected authored title MPEG to include a dvd_subtitle stream, got:\n{subtitle_codecs}"
         );
 
         fs::remove_dir_all(&output_dir).unwrap();

@@ -363,6 +363,8 @@ function getJobIcon(job: BuildJob): string {
 			return '\u{1F517}';
 		case 'extractSubtitles':
 			return '\u{1F4DD}';
+		case 'renderTextSubtitles':
+			return '\u{1F5E8}';
 		case 'authorDvd':
 			return '\u{1F4BF}';
 		case 'createIso':

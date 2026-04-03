@@ -187,6 +187,28 @@ pub(crate) fn build_ffmpeg_transcode_command(
     cmd
 }
 
+/// Build an FFmpeg command that normalises a text subtitle stream to SRT.
+///
+/// This gives the first-pass text subtitle path one stable text format that
+/// `spumux` can render with a host font during subtitle composition.
+pub(crate) fn build_ffmpeg_text_subtitle_prepare_command(
+    source_path: &str,
+    output_path: &Path,
+    source_stream_index: u32,
+) -> Vec<String> {
+    vec![
+        "ffmpeg".to_string(),
+        "-y".to_string(),
+        "-i".to_string(),
+        source_path.to_string(),
+        "-map".to_string(),
+        format!("0:{source_stream_index}"),
+        "-f".to_string(),
+        "srt".to_string(),
+        output_path.display().to_string(),
+    ]
+}
+
 fn choose_output_fps(source_fps: Option<f64>, standard: VideoStandard) -> f64 {
     match standard {
         VideoStandard::Pal => 25.0,

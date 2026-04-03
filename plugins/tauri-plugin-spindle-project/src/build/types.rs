@@ -5,7 +5,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::models::VideoStandard;
+use crate::models::{SubtitleRenderMode, VideoStandard};
 
 /// A complete build plan for authoring a DVD-Video disc.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -90,6 +90,22 @@ pub enum BuildJob {
         command: Vec<String>,
         label: String,
     },
+    /// Prepare and render a text subtitle mapping into the authored title MPEG.
+    RenderTextSubtitles {
+        title_id: String,
+        title_name: String,
+        source_path: String,
+        source_stream_index: u32,
+        input_path: String,
+        output_path: String,
+        subtitle_path: String,
+        prepare_command: Vec<String>,
+        spumux_xml: String,
+        command: Vec<String>,
+        label: String,
+        render_mode: SubtitleRenderMode,
+        font_family: String,
+    },
     /// Symlink/copy a title's output from a shared transcode (deduplication).
     LinkTitle {
         title_id: String,
@@ -114,6 +130,7 @@ impl BuildJob {
             BuildJob::TranscodeTitle { label, .. }
             | BuildJob::LinkTitle { label, .. }
             | BuildJob::ExtractSubtitles { label, .. }
+            | BuildJob::RenderTextSubtitles { label, .. }
             | BuildJob::RenderMenu { label, .. }
             | BuildJob::ComposeMenuHighlights { label, .. }
             | BuildJob::AuthorDvd { label, .. }
@@ -126,6 +143,7 @@ impl BuildJob {
             BuildJob::PrepareWorkspace { .. } | BuildJob::LinkTitle { .. } => None,
             BuildJob::TranscodeTitle { command, .. }
             | BuildJob::ExtractSubtitles { command, .. }
+            | BuildJob::RenderTextSubtitles { command, .. }
             | BuildJob::RenderMenu { command, .. }
             | BuildJob::ComposeMenuHighlights { command, .. }
             | BuildJob::AuthorDvd { command, .. }
