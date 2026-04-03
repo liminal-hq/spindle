@@ -689,17 +689,12 @@ pub enum AllocationStrategy {
 }
 
 /// High-level subtitle rendering mode for text subtitle authoring.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "kebab-case")]
 pub enum SubtitleRenderMode {
     OnePass,
+    #[default]
     TwoPass,
-}
-
-impl Default for SubtitleRenderMode {
-    fn default() -> Self {
-        Self::TwoPass
-    }
 }
 
 // ── Command payloads ────────────────────────────────────────────────────────

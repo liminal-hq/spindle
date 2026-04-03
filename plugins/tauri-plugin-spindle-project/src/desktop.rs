@@ -303,6 +303,21 @@ impl<R: Runtime> SpindleProject<R> {
                                 entity_name: Some(title.name.clone()),
                                 suggested_fix: Some("First-pass subtitle rendering uses a host font and simplified DVD-safe styling. Review the authored disc output if subtitle appearance matters.".to_string()),
                             });
+
+                            if crate::toolchain::resolve_text_subtitle_font().is_none() {
+                                issues.push(ValidationIssue {
+                                    severity: IssueSeverity::Warning,
+                                    code: "subtitle.host-font-unavailable".to_string(),
+                                    message: format!(
+                                        "Title \"{}\" has text subtitle mappings, but no compatible host sans-serif font could be resolved.",
+                                        title.name
+                                    ),
+                                    context: Some(title.id.clone()),
+                                    entity_type: Some("title".to_string()),
+                                    entity_name: Some(title.name.clone()),
+                                    suggested_fix: Some("Install a Fontconfig-visible sans-serif font such as Noto Sans or Liberation Sans, or enable the developer option to skip unsupported streams for a subtitle-free build.".to_string()),
+                                });
+                            }
                         }
                     }
                 }

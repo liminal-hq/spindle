@@ -170,6 +170,8 @@ pub fn generate_build_plan_with_options(
     }
     let project = &owned_project;
 
+    let subtitle_font_family = crate::toolchain::resolve_text_subtitle_font();
+
     let paths = BuildPaths::new(output_dir);
     let tools = ResolvedToolchain::resolve(skip_sidecar);
 
@@ -247,6 +249,12 @@ pub fn generate_build_plan_with_options(
             })
             .collect();
         let has_text_subtitles = !text_subtitle_mappings.is_empty();
+        if has_text_subtitles && subtitle_font_family.is_none() {
+            return Err(crate::Error::Build(format!(
+                "Title \"{}\" has text subtitle mappings, but no host sans-serif font could be resolved with Fontconfig. Enable `skip unsupported streams` to author without text subtitles, or install a compatible font such as Noto Sans or Liberation Sans.",
+                title.name
+            )));
+        }
         let title_paths = paths.title_paths(&title.id);
 
         if !has_text_subtitles {
@@ -306,7 +314,9 @@ pub fn generate_build_plan_with_options(
                     aspect: AspectMode::SixteenByNine,
                 });
                 let mut current_input = output_path;
-                let font_family = "Sans".to_string();
+                let font_family = subtitle_font_family
+                    .clone()
+                    .expect("text subtitle titles should have a resolved host font");
 
                 for (text_job_index, (stream_index, sm)) in
                     text_subtitle_mappings.iter().enumerate()
@@ -515,7 +525,7 @@ fn generate_text_subtitle_spumux_xml(
     )
 }
 
-/// Remove subtitle mappings that cannot be authored by the current build.
+/// Remove subtitle mappings that the escape hatch should skip during build.
 fn strip_unsupported_subtitle_mappings(project: &mut SpindleProjectFile) {
     let assets: HashMap<&str, &Asset> = project.assets.iter().map(|a| (a.id.as_str(), a)).collect();
 
@@ -528,8 +538,7 @@ fn strip_unsupported_subtitle_mappings(project: &mut SpindleProjectFile) {
             {
                 title.subtitle_mappings.retain(|sm| {
                     asset.subtitle_streams.iter().any(|s| {
-                        s.index == sm.source_stream_index
-                            && matches!(s.subtitle_type, SubtitleType::Bitmap | SubtitleType::Text)
+                        s.index == sm.source_stream_index && s.subtitle_type == SubtitleType::Bitmap
                     })
                 });
             }
@@ -540,7 +549,7 @@ fn strip_unsupported_subtitle_mappings(project: &mut SpindleProjectFile) {
 #[cfg(test)]
 mod tests {
     use crate::build::test_support::{test_menu, test_project};
-    use crate::build::{generate_build_plan, BuildJob};
+    use crate::build::{generate_build_plan, generate_build_plan_with_options, BuildJob};
     use crate::models::*;
 
     #[test]
@@ -735,6 +744,48 @@ mod tests {
                 .windows(2)
                 .any(|window| { window == [String::from("-s"), String::from("0")] }),
             "text subtitle should render into stream slot 0 when it is the first subtitle mapping"
+        );
+    }
+
+    #[test]
+    fn build_plan_skip_unsupported_streams_removes_text_subtitles() {
+        let mut project = test_project();
+        project.assets[0].subtitle_streams.push(SubtitleStreamInfo {
+            index: 2,
+            codec: "subrip".to_string(),
+            language: Some("eng".to_string()),
+            subtitle_type: SubtitleType::Text,
+            title: Some("English text".to_string()),
+        });
+        project.disc.titlesets[0].titles[0]
+            .subtitle_mappings
+            .push(SubtitleTrackMapping {
+                id: "sm-text".to_string(),
+                source_stream_index: 2,
+                label: "English".to_string(),
+                language: "eng".to_string(),
+                order_index: 0,
+                is_default: false,
+                is_forced: false,
+            });
+
+        let plan =
+            generate_build_plan_with_options(&project, "/tmp/dvd_output", false, true).unwrap();
+
+        assert!(
+            !plan
+                .jobs
+                .iter()
+                .any(|job| matches!(job, BuildJob::RenderTextSubtitles { .. })),
+            "skip unsupported streams should strip text subtitle render jobs"
+        );
+        assert!(
+            plan.jobs
+                .iter()
+                .any(|job| matches!(job, BuildJob::TranscodeTitle {
+                output_path, ..
+            } if output_path.ends_with("title-1.mpg"))),
+            "text subtitle stripping should fall back to the direct title output path"
         );
     }
 

@@ -8,6 +8,7 @@
 // SPDX-License-Identifier: MIT
 
 use std::path::PathBuf;
+use std::process::Command;
 
 /// Resolve the path to an external tool.
 ///
@@ -26,6 +27,35 @@ pub fn resolve_tool(name: &str, skip_sidecar: bool) -> Option<PathBuf> {
         }
     }
     path_lookup(name)
+}
+
+/// Resolve a host font family for first-pass text subtitle rendering.
+///
+/// Returns the first family that Fontconfig can match from a conservative
+/// shortlist of sans-serif fonts commonly available on Linux desktops.
+pub fn resolve_text_subtitle_font() -> Option<String> {
+    let fontconfig = path_lookup("fc-match")?;
+    for family in [
+        "Noto Sans",
+        "Liberation Sans",
+        "DejaVu Sans",
+        "Arial",
+        "Helvetica",
+        "Sans",
+    ] {
+        let output = Command::new(&fontconfig)
+            .args(["-f", "%{family[0]}", family])
+            .output()
+            .ok()?;
+        if !output.status.success() {
+            continue;
+        }
+        let matched = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        if !matched.is_empty() {
+            return Some(matched);
+        }
+    }
+    None
 }
 
 /// Return the expected sidecar path: same directory as the running executable.
