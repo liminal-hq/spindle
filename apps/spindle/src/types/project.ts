@@ -306,6 +306,7 @@ export interface BuildSettings {
 	generateIso: boolean;
 	safetyMarginBytes: number;
 	allocationStrategy: AllocationStrategy;
+	subtitleRenderMode?: 'one-pass' | 'two-pass';
 }
 
 // ── Validation ──────────────────────────────────────────────────────────────
@@ -389,6 +390,22 @@ export type BuildJob =
 			outputPath: string;
 			command: string[];
 			label: string;
+	  }
+	| {
+			type: 'renderTextSubtitles';
+			titleId: string;
+			titleName: string;
+			sourcePath: string;
+			sourceStreamIndex: number;
+			inputPath: string;
+			outputPath: string;
+			subtitlePath: string;
+			prepareCommand: string[];
+			spumuxXml: string;
+			command: string[];
+			label: string;
+			renderMode: 'one-pass' | 'two-pass';
+			fontFamily: string;
 	  }
 	| {
 			type: 'authorDvd';

@@ -5,6 +5,8 @@
 
 use std::path::Path;
 
+use isolang::Language;
+
 use crate::models::*;
 
 use super::dvd_navigation::{
@@ -262,11 +264,14 @@ fn append_titles_section(
                 .titles
                 .iter()
                 .find_map(|t| t.subtitle_mappings.get(i).map(|sm| sm.language.as_str()))
-                .unwrap_or("und");
-            xml.push_str(&format!(
-                "      <subpicture lang=\"{}\" />\n",
-                xml_escape(lang)
-            ));
+                .and_then(dvdauthor_subpicture_language);
+            match lang {
+                Some(lang) => xml.push_str(&format!(
+                    "      <subpicture lang=\"{}\" />\n",
+                    xml_escape(&lang)
+                )),
+                None => xml.push_str("      <subpicture />\n"),
+            }
         }
     }
 
@@ -320,6 +325,52 @@ fn append_title_pgc(
 
     xml.push_str("      </pgc>\n");
     Ok(())
+}
+
+fn dvdauthor_subpicture_language(language: &str) -> Option<String> {
+    let normalised = language
+        .trim()
+        .split(['-', '_'])
+        .next()
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+
+    if matches!(normalised.as_str(), "" | "und" | "nolang") {
+        return None;
+    }
+
+    // FFprobe often surfaces ISO 639-2/B bibliographic codes from container metadata
+    // such as `fre`, while `isolang` resolves the canonical 639-3 form `fra`.
+    // Canonicalise the common bibliographic aliases here, then let `isolang`
+    // handle the real 639-1/639-3 conversion work.
+    let canonical = match normalised.as_str() {
+        "alb" => "sqi",
+        "arm" => "hye",
+        "baq" => "eus",
+        "bur" => "mya",
+        "chi" => "zho",
+        "cze" => "ces",
+        "dut" => "nld",
+        "fre" => "fra",
+        "geo" => "kat",
+        "ger" => "deu",
+        "gre" => "ell",
+        "ice" => "isl",
+        "mac" => "mkd",
+        "mao" => "mri",
+        "may" => "msa",
+        "per" => "fas",
+        "rum" => "ron",
+        "slo" => "slk",
+        "tib" => "bod",
+        "wel" => "cym",
+        _ => normalised.as_str(),
+    };
+
+    Language::from_639_1(canonical)
+        .and_then(|lang| lang.to_639_1())
+        .or_else(|| Language::from_639_3(canonical).and_then(|lang| lang.to_639_1()))
+        .map(str::to_string)
 }
 #[cfg(test)]
 mod tests {
@@ -393,7 +444,34 @@ mod tests {
     }
 
     #[test]
-    fn dvdauthor_xml_escapes_subpicture_language_values() {
+    fn dvdauthor_xml_normalises_subpicture_languages_for_dvdauthor() {
+        let mut project = test_project();
+        project.assets[0].subtitle_streams.push(SubtitleStreamInfo {
+            index: 2,
+            codec: "dvd_subtitle".to_string(),
+            language: Some("eng".to_string()),
+            subtitle_type: SubtitleType::Bitmap,
+            title: None,
+        });
+        project.disc.titlesets[0].titles[0]
+            .subtitle_mappings
+            .push(SubtitleTrackMapping {
+                id: "sm-1".to_string(),
+                source_stream_index: 2,
+                label: "English".to_string(),
+                language: "eng".to_string(),
+                order_index: 0,
+                is_default: false,
+                is_forced: false,
+            });
+
+        let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+
+        assert!(plan.dvdauthor_xml.contains("<subpicture lang=\"en\" />"));
+    }
+
+    #[test]
+    fn dvdauthor_xml_omits_invalid_subpicture_language_values() {
         let mut project = test_project();
         project.assets[0].subtitle_streams.push(SubtitleStreamInfo {
             index: 2,
@@ -416,9 +494,38 @@ mod tests {
 
         let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
 
-        assert!(plan
-            .dvdauthor_xml
-            .contains("<subpicture lang=\"en&amp;&quot;g\" />"));
+        assert!(plan.dvdauthor_xml.contains("<subpicture />"));
+    }
+
+    #[test]
+    fn dvdauthor_xml_normalises_bibliographic_french_language_code() {
+        let mut project = test_project();
+        project.assets[0].subtitle_streams.push(SubtitleStreamInfo {
+            index: 2,
+            codec: "dvd_subtitle".to_string(),
+            language: Some("fre".to_string()),
+            subtitle_type: SubtitleType::Bitmap,
+            title: None,
+        });
+        project.disc.titlesets[0].titles[0]
+            .subtitle_mappings
+            .push(SubtitleTrackMapping {
+                id: "sm-1".to_string(),
+                source_stream_index: 2,
+                label: "French".to_string(),
+                language: "fre".to_string(),
+                order_index: 0,
+                is_default: false,
+                is_forced: false,
+            });
+
+        let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+
+        assert!(
+            plan.dvdauthor_xml.contains("<subpicture lang=\"fr\" />"),
+            "expected bibliographic French code to normalise to fr\n{}",
+            plan.dvdauthor_xml
+        );
     }
 
     #[test]

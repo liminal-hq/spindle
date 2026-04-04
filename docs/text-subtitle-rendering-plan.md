@@ -10,7 +10,13 @@ Enable text-based subtitle streams (SRT, ASS/SSA, WebVTT, `mov_text`) to be rend
 
 ### Current state
 
-The bitmap subtitle path is fully functional: extraction via FFmpeg, muxing via spumux, and `<subpicture>` declarations in dvdauthor XML. Text subtitles are detected during inspection and classified as `SubtitleType::Text`, but the build pipeline filters them out. A `subtitle.text-only-unsupported` validation warning tells users that text subtitles cannot yet be authored.
+The shipped first pass now keeps the current `dvdauthor` seam intact by:
+
+1. transcoding titles to DVD MPEG as before
+2. normalising text subtitle mappings to SRT with FFmpeg
+3. composing rendered DVD subtitle streams onto the authored title MPEG with `spumux` text subtitle rendering
+
+Text subtitles are no longer blocked outright, but the first pass stays honest about simplified styling and host-font dependence.
 
 ### DVD subtitle constraints
 
@@ -38,36 +44,12 @@ From `inspect.rs::classify_subtitle_type`:
 
 ### Rendering approach
 
-Use FFmpeg's subtitle filter chain to render text subtitles into bitmap subpictures. FFmpeg can:
+The implemented first pass uses a hybrid seam:
 
-1. Decode all recognised text formats (SRT, ASS, SSA, WebVTT, `mov_text`).
-2. Render styled text onto a transparent canvas via the `subtitles` or `ass` filter.
-3. Output the result as a VOBsub stream (`-c:s dvd_subtitle`).
+1. FFmpeg decodes the mapped text subtitle stream and exports it to SRT.
+2. `spumux` renders that text input into DVD subtitle graphics while multiplexing the subtitle stream into the authored title MPEG.
 
-The rendering pipeline is a two-step process per text subtitle mapping:
-
-**Step 1 — Render text to bitmap video overlay**
-
-Generate a short video stream where each frame is a transparent canvas with the subtitle text rendered on it. FFmpeg's `subtitles` filter handles this when applied to a blank video input:
-
-```
-ffmpeg -f lavfi -i "color=c=black@0:s=720x480:d={duration}" \
-       -vf "subtitles={source}:si={stream_index}:force_style='{style}'" \
-       -c:v rawvideo -pix_fmt yuva420p \
-       {temp_overlay}.nut
-```
-
-**Step 2 — Convert overlay to VOBsub**
-
-Quantise the rendered overlay to DVD's 4-colour palette and package as VOBsub:
-
-```
-ffmpeg -i {temp_overlay}.nut \
-       -c:s dvd_subtitle \
-       {output}.sub
-```
-
-An alternative single-pass approach may be viable depending on FFmpeg version capabilities. The two-step approach is safer and allows intermediate inspection.
+This keeps the current authoring path compatible with `dvdauthor` and avoids relying on a direct FFmpeg text-to-`dvd_subtitle` path that is not available in the current toolchain.
 
 ### Style defaults
 

@@ -16,7 +16,7 @@ Current DVD authoring capabilities include:
 - authored menu routing for VMGM, titleset, and title-return paths, including keyboard-safe entry selection
 - asset inspection with embedded metadata title surfacing, compatibility explanations, and fix-oriented validation
 - DVD build planning and execution with diagnostics export and toolchain checks
-- bitmap subtitle muxing, plus a developer option to skip unsupported text subtitle mappings during builds
+- bitmap subtitle muxing plus first-pass text subtitle rendering for DVD authoring
 
 ## Workspace layout
 
@@ -52,7 +52,7 @@ If Rust tooling is not installed locally, run Rust and Tauri commands through `g
 Current app behaviour also includes:
 
 - a persistent thumbnail cache stored in the app cache directory, with Settings controls to inspect and clear cached previews
-- developer toggles to prefer host `PATH` tools over bundled sidecars and to skip unsupported subtitle mappings during builds
+- developer toggles to prefer host `PATH` tools over bundled sidecars and to skip unsupported subtitle mappings during builds, mainly for unknown subtitle types or debugging
 - diagnostics bundle export including toolchain status, build logs, validation issues, project summary, and active developer options
 
 Build the frontend bundle:

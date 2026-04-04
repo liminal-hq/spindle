@@ -1952,6 +1952,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "isolang"
+version = "2.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fe50d48c77760c55188549098b9a7f6e37ae980c586a24693d6b01c3b2010c3c"
+dependencies = [
+ "phf 0.11.3",
+]
+
+[[package]]
 name = "itoa"
 version = "1.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4334,6 +4343,7 @@ name = "tauri-plugin-spindle-project"
 version = "0.2.0"
 dependencies = [
  "chrono",
+ "isolang",
  "serde",
  "serde_json",
  "tauri",

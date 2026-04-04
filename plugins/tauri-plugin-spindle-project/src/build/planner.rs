@@ -9,10 +9,10 @@ use std::path::PathBuf;
 use crate::models::*;
 
 use super::authoring::generate_dvdauthor_xml;
-use super::ffmpeg::build_ffmpeg_transcode_command;
+use super::ffmpeg::{build_ffmpeg_text_subtitle_prepare_command, build_ffmpeg_transcode_command};
 use super::menu::{authorable_menus, build_ffmpeg_menu_command, generate_spumux_xml};
 use super::types::{BuildJob, BuildPlan, BuildSummary, MenuOverlayButton};
-use super::util::sanitise_filename;
+use super::util::{sanitise_filename, xml_escape};
 
 struct BuildPaths {
     output_dir: PathBuf,
@@ -28,6 +28,11 @@ struct MenuPaths {
     authored_video_path: PathBuf,
     highlight_image_path: PathBuf,
     select_image_path: PathBuf,
+}
+
+struct TitlePaths {
+    base_video_path: PathBuf,
+    authored_video_path: PathBuf,
 }
 
 impl BuildPaths {
@@ -66,9 +71,36 @@ impl BuildPaths {
         ]
     }
 
-    fn title_video_path(&self, title_id: &str) -> PathBuf {
-        self.titles_dir
-            .join(format!("{}.mpg", sanitise_filename(title_id)))
+    fn title_paths(&self, title_id: &str) -> TitlePaths {
+        let base_name = sanitise_filename(title_id);
+        TitlePaths {
+            base_video_path: self.titles_dir.join(format!("{base_name}_base.mpg")),
+            authored_video_path: self.titles_dir.join(format!("{base_name}.mpg")),
+        }
+    }
+
+    fn subtitle_text_path(&self, title_id: &str, source_stream_index: u32) -> PathBuf {
+        self.subtitles_dir.join(format!(
+            "{}_sub_{}.srt",
+            sanitise_filename(title_id),
+            source_stream_index
+        ))
+    }
+
+    fn title_subtitle_xml_path(&self, title_id: &str, stream_index: usize) -> PathBuf {
+        self.subtitles_dir.join(format!(
+            "{}_sub_{}.xml",
+            sanitise_filename(title_id),
+            stream_index
+        ))
+    }
+
+    fn title_subtitle_stage_path(&self, title_id: &str, stream_index: usize) -> PathBuf {
+        self.titles_dir.join(format!(
+            "{}_substage_{}.mpg",
+            sanitise_filename(title_id),
+            stream_index
+        ))
     }
 
     fn menu_paths(&self, menu_id: &str) -> MenuPaths {
@@ -132,15 +164,13 @@ pub fn generate_build_plan_with_options(
     skip_sidecar: bool,
     skip_unsupported_streams: bool,
 ) -> crate::Result<BuildPlan> {
-    // When skip_unsupported_streams is enabled, strip text subtitle mappings
-    // so the build proceeds without them.
-    let owned_project;
-    let project = if skip_unsupported_streams {
-        owned_project = strip_unsupported_subtitle_mappings(project);
-        &owned_project
-    } else {
-        project
-    };
+    let mut owned_project = project.clone();
+    if skip_unsupported_streams {
+        strip_unsupported_subtitle_mappings(&mut owned_project);
+    }
+    let project = &owned_project;
+
+    let subtitle_font_family = crate::toolchain::resolve_text_subtitle_font();
 
     let paths = BuildPaths::new(output_dir);
     let tools = ResolvedToolchain::resolve(skip_sidecar);
@@ -203,18 +233,44 @@ pub fn generate_build_plan_with_options(
             subtitle_key.join(","),
         );
 
-        if let Some(existing_output) = transcode_cache.get(&cache_key) {
-            // Reuse by symlinking to the existing transcode output
-            let link_path = paths.title_video_path(&title.id);
-            jobs.push(BuildJob::LinkTitle {
-                title_id: title.id.clone(),
-                title_name: title.name.clone(),
-                source_path: existing_output.display().to_string(),
-                link_path: link_path.display().to_string(),
-                label: format!("Link \"{}\" (shared transcode)", title.name),
-            });
-        } else {
-            let output_path = paths.title_video_path(&title.id);
+        let text_subtitle_mappings: Vec<_> = title
+            .subtitle_mappings
+            .iter()
+            .enumerate()
+            .filter_map(|(stream_index, sm)| {
+                asset
+                    .subtitle_streams
+                    .iter()
+                    .any(|stream| {
+                        stream.index == sm.source_stream_index
+                            && stream.subtitle_type == SubtitleType::Text
+                    })
+                    .then_some((stream_index, sm))
+            })
+            .collect();
+        let has_text_subtitles = !text_subtitle_mappings.is_empty();
+        let title_paths = paths.title_paths(&title.id);
+
+        if !has_text_subtitles {
+            if let Some(existing_output) = transcode_cache.get(&cache_key) {
+                // Reuse by symlinking to the existing transcode output
+                jobs.push(BuildJob::LinkTitle {
+                    title_id: title.id.clone(),
+                    title_name: title.name.clone(),
+                    source_path: existing_output.display().to_string(),
+                    link_path: title_paths.authored_video_path.display().to_string(),
+                    label: format!("Link \"{}\" (shared transcode)", title.name),
+                });
+                continue;
+            }
+        }
+
+        {
+            let output_path = if has_text_subtitles {
+                title_paths.base_video_path.clone()
+            } else {
+                title_paths.authored_video_path.clone()
+            };
 
             let video_info = title
                 .video_mapping
@@ -231,7 +287,9 @@ pub fn generate_build_plan_with_options(
             );
             command[0] = tools.ffmpeg.clone();
 
-            transcode_cache.insert(cache_key, output_path.clone());
+            if !has_text_subtitles {
+                transcode_cache.insert(cache_key, output_path.clone());
+            }
             transcode_count += 1;
 
             jobs.push(BuildJob::TranscodeTitle {
@@ -243,6 +301,67 @@ pub fn generate_build_plan_with_options(
                 label: format!("Transcode \"{}\"", title.name),
                 duration_secs: asset.duration_secs,
             });
+
+            if has_text_subtitles {
+                let profile = title.video_output_profile.unwrap_or(VideoOutputProfile {
+                    raster: VideoRaster::FullD1,
+                    aspect: AspectMode::SixteenByNine,
+                });
+                let mut current_input = output_path;
+                let font_family = subtitle_font_family.clone().unwrap_or_else(|| {
+                    crate::toolchain::default_text_subtitle_font_family().to_string()
+                });
+
+                for (text_job_index, (stream_index, sm)) in
+                    text_subtitle_mappings.iter().enumerate()
+                {
+                    let subtitle_path = paths.subtitle_text_path(&title.id, sm.source_stream_index);
+                    let mut prepare_command = build_ffmpeg_text_subtitle_prepare_command(
+                        &asset.source_path,
+                        &subtitle_path,
+                        sm.source_stream_index,
+                    );
+                    prepare_command[0] = tools.ffmpeg.clone();
+
+                    let output_path = if text_job_index + 1 == text_subtitle_mappings.len() {
+                        title_paths.authored_video_path.clone()
+                    } else {
+                        paths.title_subtitle_stage_path(&title.id, *stream_index)
+                    };
+                    let xml_path = paths.title_subtitle_xml_path(&title.id, *stream_index);
+                    let spumux_xml = generate_text_subtitle_spumux_xml(
+                        &subtitle_path,
+                        project.disc.standard,
+                        profile,
+                        &font_family,
+                    );
+
+                    jobs.push(BuildJob::RenderTextSubtitles {
+                        title_id: title.id.clone(),
+                        title_name: title.name.clone(),
+                        source_path: asset.source_path.clone(),
+                        source_stream_index: sm.source_stream_index,
+                        input_path: current_input.display().to_string(),
+                        output_path: output_path.display().to_string(),
+                        subtitle_path: subtitle_path.display().to_string(),
+                        prepare_command,
+                        spumux_xml,
+                        command: vec![
+                            tools.spumux.clone(),
+                            "-m".to_string(),
+                            "dvd".to_string(),
+                            "-s".to_string(),
+                            stream_index.to_string(),
+                            xml_path.display().to_string(),
+                        ],
+                        label: format!("Render subtitle \"{}\" for \"{}\"", sm.label, title.name),
+                        render_mode: project.build_settings.subtitle_render_mode,
+                        font_family: font_family.clone(),
+                    });
+
+                    current_input = output_path;
+                }
+            }
         }
     }
 
@@ -376,11 +495,34 @@ pub fn generate_build_plan_with_options(
     })
 }
 
-/// Remove subtitle mappings that reference text-based (non-bitmap) source streams.
-fn strip_unsupported_subtitle_mappings(project: &SpindleProjectFile) -> SpindleProjectFile {
+fn generate_text_subtitle_spumux_xml(
+    subtitle_path: &std::path::Path,
+    standard: VideoStandard,
+    profile: VideoOutputProfile,
+    font_family: &str,
+) -> String {
+    let format_str = match standard {
+        VideoStandard::Ntsc => "NTSC",
+        VideoStandard::Pal => "PAL",
+    };
+    let (width, height) = profile.raster.resolution(standard);
+    let aspect = match profile.aspect {
+        AspectMode::FourByThree => "4:3",
+        AspectMode::SixteenByNine => "16:9",
+    };
+    let fontsize = ((height as f64) * 0.05).round().clamp(24.0, 36.0);
+
+    format!(
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<subpictures format=\"{format_str}\">\n  <stream>\n    <textsub filename=\"{}\" characterset=\"UTF-8\" font=\"{}\" fontsize=\"{fontsize:.1}\" fill-color=\"#FFFFFF\" outline-color=\"#000000\" outline-thickness=\"2.0\" shadow-offset=\"0, 0\" horizontal-alignment=\"center\" vertical-alignment=\"bottom\" left-margin=\"60\" right-margin=\"60\" top-margin=\"20\" bottom-margin=\"30\" movie-width=\"{width}\" movie-height=\"{height}\" aspect=\"{aspect}\" />\n  </stream>\n</subpictures>\n",
+        xml_escape(&subtitle_path.display().to_string()),
+        xml_escape(font_family),
+    )
+}
+
+/// Remove subtitle mappings that the escape hatch should skip during build.
+fn strip_unsupported_subtitle_mappings(project: &mut SpindleProjectFile) {
     let assets: HashMap<&str, &Asset> = project.assets.iter().map(|a| (a.id.as_str(), a)).collect();
 
-    let mut project = project.clone();
     for titleset in &mut project.disc.titlesets {
         for title in &mut titleset.titles {
             if let Some(asset) = title
@@ -396,13 +538,12 @@ fn strip_unsupported_subtitle_mappings(project: &SpindleProjectFile) -> SpindleP
             }
         }
     }
-    project
 }
 
 #[cfg(test)]
 mod tests {
     use crate::build::test_support::{test_menu, test_project};
-    use crate::build::{generate_build_plan, BuildJob};
+    use crate::build::{generate_build_plan, generate_build_plan_with_options, BuildJob};
     use crate::models::*;
 
     #[test]
@@ -486,6 +627,160 @@ mod tests {
             .jobs
             .iter()
             .any(|job| matches!(job, BuildJob::ExtractSubtitles { .. })));
+    }
+
+    #[test]
+    fn build_plan_renders_text_subtitles_after_base_transcode() {
+        let mut project = test_project();
+        project.assets[0].subtitle_streams.push(SubtitleStreamInfo {
+            index: 2,
+            codec: "subrip".to_string(),
+            language: Some("eng".to_string()),
+            subtitle_type: SubtitleType::Text,
+            title: Some("English".to_string()),
+        });
+        project.disc.titlesets[0].titles[0]
+            .subtitle_mappings
+            .push(SubtitleTrackMapping {
+                id: "sm-text".to_string(),
+                source_stream_index: 2,
+                label: "English".to_string(),
+                language: "eng".to_string(),
+                order_index: 0,
+                is_default: false,
+                is_forced: false,
+            });
+
+        let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+
+        assert!(
+            plan.jobs
+                .iter()
+                .any(|job| matches!(job, BuildJob::RenderTextSubtitles { .. })),
+            "expected explicit text subtitle render job"
+        );
+
+        let transcode_output = plan.jobs.iter().find_map(|job| match job {
+            BuildJob::TranscodeTitle { output_path, .. } => Some(output_path),
+            _ => None,
+        });
+        assert!(
+            transcode_output.is_some_and(|path| path.contains("_base.mpg")),
+            "text subtitle titles should transcode to a base MPEG before composition"
+        );
+    }
+
+    #[test]
+    fn build_plan_preserves_mixed_subtitle_stream_order() {
+        let mut project = test_project();
+        project.assets[0].subtitle_streams.push(SubtitleStreamInfo {
+            index: 2,
+            codec: "subrip".to_string(),
+            language: Some("eng".to_string()),
+            subtitle_type: SubtitleType::Text,
+            title: Some("English text".to_string()),
+        });
+        project.assets[0].subtitle_streams.push(SubtitleStreamInfo {
+            index: 3,
+            codec: "dvd_subtitle".to_string(),
+            language: Some("fra".to_string()),
+            subtitle_type: SubtitleType::Bitmap,
+            title: Some("French bitmap".to_string()),
+        });
+        project.disc.titlesets[0].titles[0].subtitle_mappings = vec![
+            SubtitleTrackMapping {
+                id: "sm-text".to_string(),
+                source_stream_index: 2,
+                label: "English".to_string(),
+                language: "eng".to_string(),
+                order_index: 0,
+                is_default: false,
+                is_forced: false,
+            },
+            SubtitleTrackMapping {
+                id: "sm-bitmap".to_string(),
+                source_stream_index: 3,
+                label: "French".to_string(),
+                language: "fra".to_string(),
+                order_index: 1,
+                is_default: false,
+                is_forced: false,
+            },
+        ];
+
+        let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+
+        let transcode_job = plan
+            .jobs
+            .iter()
+            .find_map(|job| match job {
+                BuildJob::TranscodeTitle { command, .. } => Some(command),
+                _ => None,
+            })
+            .expect("expected transcode job");
+        assert!(
+            transcode_job
+                .windows(2)
+                .any(|window| window == [String::from("-c:s:0"), String::from("dvd_subtitle")]),
+            "bitmap subtitle should keep the first ffmpeg subtitle slot when it is the first bitmap mapping"
+        );
+
+        let render_job = plan
+            .jobs
+            .iter()
+            .find_map(|job| match job {
+                BuildJob::RenderTextSubtitles { command, .. } => Some(command),
+                _ => None,
+            })
+            .expect("expected text subtitle render job");
+        assert!(
+            render_job
+                .windows(2)
+                .any(|window| { window == [String::from("-s"), String::from("0")] }),
+            "text subtitle should render into stream slot 0 when it is the first subtitle mapping"
+        );
+    }
+
+    #[test]
+    fn build_plan_skip_unsupported_streams_removes_text_subtitles() {
+        let mut project = test_project();
+        project.assets[0].subtitle_streams.push(SubtitleStreamInfo {
+            index: 2,
+            codec: "subrip".to_string(),
+            language: Some("eng".to_string()),
+            subtitle_type: SubtitleType::Text,
+            title: Some("English text".to_string()),
+        });
+        project.disc.titlesets[0].titles[0]
+            .subtitle_mappings
+            .push(SubtitleTrackMapping {
+                id: "sm-text".to_string(),
+                source_stream_index: 2,
+                label: "English".to_string(),
+                language: "eng".to_string(),
+                order_index: 0,
+                is_default: false,
+                is_forced: false,
+            });
+
+        let plan =
+            generate_build_plan_with_options(&project, "/tmp/dvd_output", false, true).unwrap();
+
+        assert!(
+            !plan
+                .jobs
+                .iter()
+                .any(|job| matches!(job, BuildJob::RenderTextSubtitles { .. })),
+            "skip unsupported streams should strip text subtitle render jobs"
+        );
+        assert!(
+            plan.jobs
+                .iter()
+                .any(|job| matches!(job, BuildJob::TranscodeTitle {
+                output_path, ..
+            } if output_path.ends_with("title-1.mpg"))),
+            "text subtitle stripping should fall back to the direct title output path"
+        );
     }
 
     #[test]
