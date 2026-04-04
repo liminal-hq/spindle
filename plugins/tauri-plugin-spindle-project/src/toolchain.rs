@@ -58,6 +58,15 @@ pub fn resolve_text_subtitle_font() -> Option<String> {
     None
 }
 
+/// Default font-family hint used when Fontconfig is unavailable.
+///
+/// `spumux` can still attempt to resolve generic family names or font paths
+/// without Fontconfig, so planning should not fail solely because `fc-match`
+/// is missing on the host.
+pub fn default_text_subtitle_font_family() -> &'static str {
+    "sans-serif"
+}
+
 /// Return the expected sidecar path: same directory as the running executable.
 fn sidecar_path(name: &str) -> Option<PathBuf> {
     let exe = std::env::current_exe().ok()?;

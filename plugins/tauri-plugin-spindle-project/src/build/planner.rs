@@ -249,12 +249,6 @@ pub fn generate_build_plan_with_options(
             })
             .collect();
         let has_text_subtitles = !text_subtitle_mappings.is_empty();
-        if has_text_subtitles && subtitle_font_family.is_none() {
-            return Err(crate::Error::Build(format!(
-                "Title \"{}\" has text subtitle mappings, but no host sans-serif font could be resolved with Fontconfig. Enable `skip unsupported streams` to author without text subtitles, or install a compatible font such as Noto Sans or Liberation Sans.",
-                title.name
-            )));
-        }
         let title_paths = paths.title_paths(&title.id);
 
         if !has_text_subtitles {
@@ -314,9 +308,9 @@ pub fn generate_build_plan_with_options(
                     aspect: AspectMode::SixteenByNine,
                 });
                 let mut current_input = output_path;
-                let font_family = subtitle_font_family
-                    .clone()
-                    .expect("text subtitle titles should have a resolved host font");
+                let font_family = subtitle_font_family.clone().unwrap_or_else(|| {
+                    crate::toolchain::default_text_subtitle_font_family().to_string()
+                });
 
                 for (text_job_index, (stream_index, sm)) in
                     text_subtitle_mappings.iter().enumerate()
