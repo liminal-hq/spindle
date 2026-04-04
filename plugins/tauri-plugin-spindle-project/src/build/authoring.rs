@@ -5,6 +5,8 @@
 
 use std::path::Path;
 
+use isolang::Language;
+
 use crate::models::*;
 
 use super::dvd_navigation::{
@@ -326,76 +328,21 @@ fn append_title_pgc(
 }
 
 fn dvdauthor_subpicture_language(language: &str) -> Option<String> {
-    let normalised = language.trim().to_ascii_lowercase();
-    match normalised.as_str() {
-        "" | "und" | "nolang" => None,
-        "ab" | "aa" | "af" | "ak" | "sq" | "am" | "ar" | "an" | "hy" | "as" | "av" | "ae"
-        | "ay" | "az" | "ba" | "bm" | "eu" | "be" | "bn" | "bh" | "bi" | "bs" | "br" | "bg"
-        | "my" | "ca" | "cs" | "ch" | "ce" | "ny" | "zh" | "cu" | "cv" | "kw" | "co" | "cr"
-        | "hr" | "cy" | "da" | "de" | "dv" | "nl" | "dz" | "el" | "en" | "eo" | "et" | "ee"
-        | "fo" | "fa" | "fj" | "fi" | "fr" | "fy" | "ff" | "gd" | "ga" | "gl" | "gv" | "gn"
-        | "gu" | "ht" | "ha" | "he" | "hz" | "hi" | "ho" | "hu" | "ia" | "id" | "ie" | "ig"
-        | "ii" | "ik" | "io" | "is" | "it" | "iu" | "ja" | "jv" | "ka" | "kg" | "ki" | "kj"
-        | "kk" | "kl" | "km" | "kn" | "ko" | "kr" | "ks" | "ku" | "kv" | "ky" | "la" | "lb"
-        | "lg" | "li" | "ln" | "lo" | "lt" | "lu" | "lv" | "mg" | "mh" | "ml" | "mi" | "mk"
-        | "mr" | "ms" | "mt" | "mn" | "na" | "nv" | "nd" | "ne" | "ng" | "nb" | "nn" | "no"
-        | "nr" | "oc" | "oj" | "om" | "or" | "os" | "pa" | "pi" | "pl" | "ps" | "pt"
-        | "qu" | "rm" | "rn" | "ro" | "ru" | "rw" | "sa" | "sc" | "sd" | "se" | "sm" | "sg"
-        | "sr" | "sn" | "si" | "sk" | "sl" | "so" | "st" | "es" | "su" | "sw" | "ss" | "sv"
-        | "ta" | "te" | "tg" | "th" | "ti" | "tk" | "tl" | "tn" | "to" | "tr" | "ts" | "tt"
-        | "tw" | "ty" | "ug" | "uk" | "ur" | "uz" | "ve" | "vi" | "vo" | "wa" | "wo" | "xh"
-        | "yi" | "yo" | "za" | "zu" => Some(normalised),
-        "alb" | "sqi" => Some("sq".to_string()),
-        "ara" => Some("ar".to_string()),
-        "arm" | "hye" => Some("hy".to_string()),
-        "baq" | "eus" => Some("eu".to_string()),
-        "bul" => Some("bg".to_string()),
-        "bur" | "mya" => Some("my".to_string()),
-        "cat" => Some("ca".to_string()),
-        "chi" | "zho" => Some("zh".to_string()),
-        "hrv" => Some("hr".to_string()),
-        "cze" | "ces" => Some("cs".to_string()),
-        "dan" => Some("da".to_string()),
-        "dut" | "nld" => Some("nl".to_string()),
-        "eng" => Some("en".to_string()),
-        "est" => Some("et".to_string()),
-        "fin" => Some("fi".to_string()),
-        "fre" | "fra" => Some("fr".to_string()),
-        "geo" | "kat" => Some("ka".to_string()),
-        "ger" | "deu" => Some("de".to_string()),
-        "gre" | "ell" => Some("el".to_string()),
-        "heb" => Some("he".to_string()),
-        "hin" => Some("hi".to_string()),
-        "hun" => Some("hu".to_string()),
-        "ice" | "isl" => Some("is".to_string()),
-        "ind" => Some("id".to_string()),
-        "ita" => Some("it".to_string()),
-        "jpn" => Some("ja".to_string()),
-        "kor" => Some("ko".to_string()),
-        "lav" => Some("lv".to_string()),
-        "lit" => Some("lt".to_string()),
-        "mac" | "mkd" => Some("mk".to_string()),
-        "may" | "msa" => Some("ms".to_string()),
-        "mao" | "mri" => Some("mi".to_string()),
-        "nor" => Some("no".to_string()),
-        "nob" => Some("no".to_string()),
-        "nno" => Some("nn".to_string()),
-        "pol" => Some("pl".to_string()),
-        "por" => Some("pt".to_string()),
-        "rum" | "ron" => Some("ro".to_string()),
-        "rus" => Some("ru".to_string()),
-        "slo" | "slk" => Some("sk".to_string()),
-        "slv" => Some("sl".to_string()),
-        "spa" => Some("es".to_string()),
-        "srp" => Some("sr".to_string()),
-        "swe" => Some("sv".to_string()),
-        "tha" => Some("th".to_string()),
-        "tur" => Some("tr".to_string()),
-        "ukr" => Some("uk".to_string()),
-        "vie" => Some("vi".to_string()),
-        "wel" | "cym" => Some("cy".to_string()),
-        _ => None,
+    let normalised = language
+        .trim()
+        .split(['-', '_'])
+        .next()
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+
+    if matches!(normalised.as_str(), "" | "und" | "nolang") {
+        return None;
     }
+
+    Language::from_639_1(&normalised)
+        .and_then(|lang| lang.to_639_1())
+        .or_else(|| Language::from_639_3(&normalised).and_then(|lang| lang.to_639_1()))
+        .map(str::to_string)
 }
 #[cfg(test)]
 mod tests {
