@@ -166,6 +166,8 @@ export interface MenuDocument {
 	scene: MenuScene;
 	interaction: MenuInteractionGraph;
 	timing: MenuTiming;
+	highlightColours: MenuHighlightColours;
+	backgroundMode: BackgroundMode;
 	themeRef: string | null;
 	generationMeta: MenuGenerationMeta | null;
 	compilePolicy: MenuCompilePolicy;
@@ -199,7 +201,18 @@ export type SceneNode =
 	| { type: 'image'; id: string; assetId: string; x: number; y: number }
 	| { type: 'shape'; id: string; x: number; y: number }
 	| { type: 'video'; id: string; assetId: string; x: number; y: number }
-	| { type: 'button'; id: string; label: string; x: number; y: number; width: number; height: number }
+	| {
+			type: 'button';
+			id: string;
+			label: string;
+			x: number;
+			y: number;
+			width: number;
+			height: number;
+			highlightMode?: HighlightMode;
+			highlightKeyframes?: HighlightKeyframe[];
+			videoAssetId?: string | null;
+	  }
 	| { type: 'componentInstance'; id: string; componentId: string }
 	| { type: 'generatedCollection'; id: string; source: string };
 

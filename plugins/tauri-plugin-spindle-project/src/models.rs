@@ -28,12 +28,13 @@ impl SpindleProjectFile {
     /// Ensure all menus in the project have an authored document by migrating
     /// any legacy flat menu structures.
     pub fn migrate_all_menus(&mut self) {
+        let standard = self.disc.standard;
         for menu in &mut self.disc.global_menus {
-            menu.migrate_to_document(MenuDomain::Vmgm);
+            menu.migrate_to_document(MenuDomain::Vmgm, standard);
         }
         for titleset in &mut self.disc.titlesets {
             for menu in &mut titleset.menus {
-                menu.migrate_to_document(MenuDomain::Titleset);
+                menu.migrate_to_document(MenuDomain::Titleset, standard);
             }
         }
     }
@@ -120,6 +121,13 @@ impl VideoStandard {
         match self {
             VideoStandard::Ntsc => 29.97,
             VideoStandard::Pal => 25.0,
+        }
+    }
+
+    pub fn default_resolution(&self) -> (f64, f64) {
+        match self {
+            VideoStandard::Ntsc => (720.0, 480.0),
+            VideoStandard::Pal => (720.0, 576.0),
         }
     }
 }
@@ -391,15 +399,17 @@ impl Default for Menu {
 impl Menu {
     /// Lift a legacy menu into the new authored document format.
     /// This is used during migration to ensure old projects can be edited in the new scene editor.
-    pub fn migrate_to_document(&mut self, domain: MenuDomain) {
+    pub fn migrate_to_document(&mut self, domain: MenuDomain, standard: VideoStandard) {
         if self.authored_document.is_some() {
             return;
         }
 
+        let (res_w, res_h) = standard.default_resolution();
+
         let scene = MenuScene {
             design_size: MenuSize {
-                width: 720.0,  // Default DVD width
-                height: 480.0, // Default DVD height (NTSC)
+                width: res_w,
+                height: res_h,
             },
             background: SceneBackground {
                 asset_id: self.background_asset_id.clone(),
@@ -415,6 +425,9 @@ impl Menu {
                     y: b.bounds.y,
                     width: b.bounds.width,
                     height: b.bounds.height,
+                    highlight_mode: b.highlight_mode,
+                    highlight_keyframes: b.highlight_keyframes.clone(),
+                    video_asset_id: b.video_asset_id.clone(),
                 })
                 .collect(),
             guides: Vec::new(),
@@ -450,6 +463,8 @@ impl Menu {
             scene,
             interaction,
             timing,
+            highlight_colours: self.highlight_colours.clone(),
+            background_mode: self.background_mode,
             theme_ref: None,
             generation_meta: None,
             compile_policy: MenuCompilePolicy {
@@ -470,6 +485,8 @@ pub struct MenuDocument {
     pub scene: MenuScene,
     pub interaction: MenuInteractionGraph,
     pub timing: MenuTiming,
+    pub highlight_colours: MenuHighlightColours,
+    pub background_mode: BackgroundMode,
     pub theme_ref: Option<String>,
     pub generation_meta: Option<MenuGenerationMeta>,
     pub compile_policy: MenuCompilePolicy,
@@ -546,6 +563,12 @@ pub enum SceneNode {
         y: f64,
         width: f64,
         height: f64,
+        #[serde(default)]
+        highlight_mode: HighlightMode,
+        #[serde(default)]
+        highlight_keyframes: Vec<HighlightKeyframe>,
+        #[serde(default)]
+        video_asset_id: Option<String>,
     },
     ComponentInstance {
         id: String,
