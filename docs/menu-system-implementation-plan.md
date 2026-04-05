@@ -97,6 +97,26 @@ Exit criteria:
 - The new build pipeline successfully compiles scene-based menus into DVD-compliant MPEG and `spumux` outputs.
 - Diagnostics correctly warn users of target-specific downgrades.
 
+### Milestone 4: Automated Generation & Presets
+
+Deliverables:
+
+- Implement the **Generation Engine**: logic to create authored scenes based on project data (Titles, Chapters, Audio/Subtitle tracks).
+- Add **Generation Presets**: pre-defined layouts for common menu types (Main Menu, Chapter Grid, Title Shelf).
+- Implement **Data Binding**: authored nodes (text, image, button) can bind to project metadata (e.g., `chapter.name`, `title.thumbnail`).
+- Support **Safe Regeneration**: allow users to refresh a generated menu without losing manual design tweaks.
+
+Primary files:
+
+- `apps/spindle/src/store/project-store.ts` (Generation logic)
+- new generator components under `apps/spindle/src/components/menus/generators/`
+- `plugins/tauri-plugin-spindle-project/src/models.rs` (Generation metadata persistence)
+
+Exit criteria:
+
+- Users can generate a functional Chapter Menu with working thumbnails and navigation in one click.
+- Generated menus are fully editable authored documents.
+
 ## Workstreams
 
 The milestones above map to three practical workstreams that can run concurrently after Milestone 1 is defined:
