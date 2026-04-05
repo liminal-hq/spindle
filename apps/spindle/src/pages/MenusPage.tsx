@@ -313,6 +313,7 @@ function MenuEditor({
 	const [layersCollapsed, setLayersCollapsed] = useState(false);
 	const [inspectorCollapsed, setInspectorCollapsed] = useState(false);
 	const [honestPreview, setHonestPreview] = useState(false);
+	const [showNavLines, setShowNavLines] = useState(false);
 
 	// Derive the scene nodes from the authoredDocument
 	const sceneNodes: SceneNode[] = menu.authoredDocument?.scene.nodes ?? [];
@@ -410,6 +411,37 @@ function MenuEditor({
 					},
 				],
 			};
+		});
+		setSelectedNodeId(id);
+	};
+
+	const handleAddSceneNode = (nodeType: 'text' | 'image' | 'shape') => {
+		const id = crypto.randomUUID();
+		const nodeCount = menu.authoredDocument?.scene.nodes.filter((n) => n.type === nodeType).length ?? 0;
+		const x = 100 + nodeCount * 20;
+		const y = Math.min(200 + nodeCount * 20, canvasHeight - 60);
+
+		const newNode: SceneNode =
+			nodeType === 'text'
+				? { type: 'text', id, content: `Text ${nodeCount + 1}`, x, y }
+				: nodeType === 'image'
+					? { type: 'image', id, assetId: '', x, y }
+					: { type: 'shape', id, x, y };
+
+		onUpdate((m) => {
+			if (m.authoredDocument) {
+				return {
+					...m,
+					authoredDocument: {
+						...m.authoredDocument,
+						scene: {
+							...m.authoredDocument.scene,
+							nodes: [...m.authoredDocument.scene.nodes, newNode],
+						},
+					},
+				};
+			}
+			return m;
 		});
 		setSelectedNodeId(id);
 	};
@@ -520,9 +552,20 @@ function MenuEditor({
 					/>
 					<div className="menus__editor-actions">
 						{menuEditorMode === 'design' && (
-							<button className="btn btn--sm" onClick={handleAddButton}>
-								Add Button
-							</button>
+							<>
+								<button className="btn btn--sm" onClick={handleAddButton}>
+									+ Button
+								</button>
+								<button className="btn btn--sm" onClick={() => handleAddSceneNode('text')}>
+									+ Text
+								</button>
+								<button className="btn btn--sm" onClick={() => handleAddSceneNode('image')}>
+									+ Image
+								</button>
+								<button className="btn btn--sm" onClick={() => handleAddSceneNode('shape')}>
+									+ Shape
+								</button>
+							</>
 						)}
 						<button
 							className="btn btn--sm"
@@ -539,7 +582,7 @@ function MenuEditor({
 
 				{/* Mode switcher */}
 				<div className="menus__mode-switcher">
-					{(['design', 'bind', 'remote', 'compile'] as MenuEditorMode[]).map((mode) => (
+					{(['design', 'bind', 'compile'] as MenuEditorMode[]).map((mode) => (
 						<button
 							key={mode}
 							className={`btn btn--sm ${menuEditorMode === mode ? 'btn--primary' : 'btn--ghost'}`}
@@ -552,13 +595,12 @@ function MenuEditor({
 			</div>
 
 			{/* Canvas-first scene editor */}
-			{menuEditorMode === 'design' || menuEditorMode === 'remote' ? (
+			{menuEditorMode === 'design' ? (
 				<div className="scene-editor">
 					{/* Canvas — full width, the primary workspace */}
 					<div className="scene-canvas">
 						{/* Background assignment */}
-						{menuEditorMode === 'design' && (
-							<div className="menus__bg-select">
+						<div className="menus__bg-select">
 								<label className="text-muted">Background: </label>
 								<select
 									className="menus__select-sm"
@@ -611,7 +653,6 @@ function MenuEditor({
 									/>
 								)}
 							</div>
-						)}
 
 						<SceneCanvas
 							buttons={currentButtons}
@@ -623,10 +664,10 @@ function MenuEditor({
 							defaultButtonId={
 								menu.authoredDocument?.interaction.defaultFocusId ?? menu.defaultButtonId
 							}
-							previewMode={previewMode && menuEditorMode === 'remote'}
+							previewMode={previewMode}
 							highlightColours={highlightColours}
 							honestPreview={honestPreview}
-							showNavLines={menuEditorMode === 'remote'}
+							showNavLines={showNavLines}
 							selectedNodeId={selectedNodeId}
 							onSelectNode={setSelectedNodeId}
 						/>
@@ -649,16 +690,22 @@ function MenuEditor({
 								/>
 								DVD Preview
 							</label>
-							{menuEditorMode === 'remote' && (
-								<label className="scene-canvas__toolbar-toggle" title="Navigate with arrow keys">
-									<input
-										type="checkbox"
-										checked={previewMode}
-										onChange={(e) => setPreviewMode(e.target.checked)}
-									/>
-									Keyboard Nav
-								</label>
-							)}
+							<label className="scene-canvas__toolbar-toggle" title="Show navigation direction lines between buttons">
+								<input
+									type="checkbox"
+									checked={showNavLines}
+									onChange={(e) => setShowNavLines(e.target.checked)}
+								/>
+								Nav Lines
+							</label>
+							<label className="scene-canvas__toolbar-toggle" title="Navigate with arrow keys (remote preview)">
+								<input
+									type="checkbox"
+									checked={previewMode}
+									onChange={(e) => setPreviewMode(e.target.checked)}
+								/>
+								Keyboard Nav
+							</label>
 						</div>
 					</div>
 
@@ -687,34 +734,56 @@ function MenuEditor({
 					</div>
 				</div>
 			) : menuEditorMode === 'bind' ? (
-				<div className="card" style={{ padding: 'var(--space-4)' }}>
-					<BindMode
-						buttons={currentButtons}
-						allTitles={allTitles}
-						allMenus={allMenus}
-						currentMenuId={menu.id}
-						defaultFocusId={
-							menu.authoredDocument?.interaction.defaultFocusId ?? menu.defaultButtonId
-						}
-						onUpdateButton={handleUpdateButton}
-						onSetDefaultFocus={(btnId) =>
-							onUpdate((m) => {
-								if (m.authoredDocument) {
-									return {
-										...m,
-										authoredDocument: {
-											...m.authoredDocument,
-											interaction: {
-												...m.authoredDocument.interaction,
-												defaultFocusId: btnId,
+				<div className="bind-mode-layout">
+					{/* Mini canvas preview */}
+					<div className="bind-mode-layout__preview">
+						<SceneCanvas
+							buttons={currentButtons}
+							canvasHeight={canvasHeight}
+							onUpdateButton={handleUpdateButton}
+							showSafeArea={false}
+							backgroundLabel={backgroundAssetLabel}
+							backgroundColour={menu.authoredDocument?.scene.background.colour ?? null}
+							defaultButtonId={
+								menu.authoredDocument?.interaction.defaultFocusId ?? menu.defaultButtonId
+							}
+							previewMode={false}
+							highlightColours={highlightColours}
+							honestPreview={false}
+							showNavLines={true}
+							selectedNodeId={selectedNodeId}
+							onSelectNode={setSelectedNodeId}
+						/>
+					</div>
+					<div className="card" style={{ padding: 'var(--space-4)', flex: 1 }}>
+						<BindMode
+							buttons={currentButtons}
+							allTitles={allTitles}
+							allMenus={allMenus}
+							currentMenuId={menu.id}
+							defaultFocusId={
+								menu.authoredDocument?.interaction.defaultFocusId ?? menu.defaultButtonId
+							}
+							onUpdateButton={handleUpdateButton}
+							onSetDefaultFocus={(btnId) =>
+								onUpdate((m) => {
+									if (m.authoredDocument) {
+										return {
+											...m,
+											authoredDocument: {
+												...m.authoredDocument,
+												interaction: {
+													...m.authoredDocument.interaction,
+													defaultFocusId: btnId,
+												},
 											},
-										},
-									};
-								}
-								return { ...m, defaultButtonId: btnId };
-							})
-						}
-					/>
+										};
+									}
+									return { ...m, defaultButtonId: btnId };
+								})
+							}
+						/>
+					</div>
 				</div>
 			) : menuEditorMode === 'compile' ? (
 				<div className="card" style={{ padding: 'var(--space-4)' }}>

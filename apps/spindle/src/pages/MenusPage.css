@@ -635,6 +635,20 @@
 	margin-bottom: 0;
 }
 
+/* ── Bind mode layout ───────────────────────────────────── */
+
+.bind-mode-layout {
+	display: grid;
+	grid-template-columns: 300px 1fr;
+	gap: var(--space-4);
+	align-items: start;
+}
+
+.bind-mode-layout__preview {
+	position: sticky;
+	top: var(--space-4);
+}
+
 /* ── Mode Switcher ───────────────────────────────────────── */
 
 .menus__mode-switcher {
