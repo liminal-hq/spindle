@@ -36,11 +36,13 @@ export interface SceneCanvasProps {
 	onUpdateButton: (buttonId: string, updates: Partial<MenuButton>) => void;
 	showSafeArea: boolean;
 	backgroundLabel: string | null;
+	/** Solid background colour (CSS hex) when no asset is assigned. */
+	backgroundColour: string | null;
 	defaultButtonId: string | null;
 	/** When true, render in navigation preview mode with highlight colours. */
 	previewMode: boolean;
 	highlightColours: MenuHighlightColours;
-	/** When true, apply the Honest Preview treatment (DVD-safe visual filter). */
+	/** When true, apply the DVD Preview treatment (DVD-safe visual filter). */
 	honestPreview: boolean;
 	/** Show navigation lines between buttons. */
 	showNavLines: boolean;
@@ -56,6 +58,7 @@ export function SceneCanvas({
 	onUpdateButton,
 	showSafeArea,
 	backgroundLabel,
+	backgroundColour,
 	defaultButtonId,
 	previewMode,
 	highlightColours,
@@ -71,6 +74,7 @@ export function SceneCanvas({
 				canvasHeight={canvasHeight}
 				showSafeArea={showSafeArea}
 				backgroundLabel={backgroundLabel}
+				backgroundColour={backgroundColour}
 				defaultButtonId={defaultButtonId}
 				highlightColours={highlightColours}
 				honestPreview={honestPreview}
@@ -85,6 +89,7 @@ export function SceneCanvas({
 			onUpdateButton={onUpdateButton}
 			showSafeArea={showSafeArea}
 			backgroundLabel={backgroundLabel}
+			backgroundColour={backgroundColour}
 			defaultButtonId={defaultButtonId}
 			honestPreview={honestPreview}
 			showNavLines={showNavLines}
@@ -102,6 +107,7 @@ function DesignCanvas({
 	onUpdateButton,
 	showSafeArea,
 	backgroundLabel,
+	backgroundColour,
 	defaultButtonId,
 	honestPreview,
 	showNavLines,
@@ -113,6 +119,7 @@ function DesignCanvas({
 	onUpdateButton: (buttonId: string, updates: Partial<MenuButton>) => void;
 	showSafeArea: boolean;
 	backgroundLabel: string | null;
+	backgroundColour: string | null;
 	defaultButtonId: string | null;
 	honestPreview: boolean;
 	showNavLines: boolean;
@@ -276,7 +283,10 @@ function DesignCanvas({
 		<div
 			className={`scene-canvas__viewport ${honestPreview ? 'scene-canvas__viewport--honest' : ''}`}
 			ref={canvasRef}
-			style={{ aspectRatio: `${MENU_WIDTH} / ${canvasHeight}` }}
+			style={{
+				aspectRatio: `${MENU_WIDTH} / ${canvasHeight}`,
+				...(backgroundColour && !backgroundLabel ? { backgroundColor: backgroundColour } : {}),
+			}}
 			onClick={() => onSelectNode(null)}
 		>
 			{backgroundLabel && (
@@ -313,7 +323,9 @@ function DesignCanvas({
 							right: `${ACTION_SAFE_PCT * 100}%`,
 							bottom: `${ACTION_SAFE_PCT * 100}%`,
 						}}
-					/>
+					>
+						<span className="scene-canvas__safe-area-label">Action Safe</span>
+					</div>
 					<div
 						className="scene-canvas__safe-area scene-canvas__safe-area--title"
 						style={{
@@ -322,7 +334,9 @@ function DesignCanvas({
 							right: `${TITLE_SAFE_PCT * 100}%`,
 							bottom: `${TITLE_SAFE_PCT * 100}%`,
 						}}
-					/>
+					>
+						<span className="scene-canvas__safe-area-label">Title Safe</span>
+					</div>
 				</>
 			)}
 			{buttons.map((btn) => (
@@ -364,6 +378,7 @@ function NavigationPreview({
 	canvasHeight,
 	showSafeArea,
 	backgroundLabel,
+	backgroundColour,
 	defaultButtonId,
 	highlightColours,
 	honestPreview,
@@ -372,6 +387,7 @@ function NavigationPreview({
 	canvasHeight: number;
 	showSafeArea: boolean;
 	backgroundLabel: string | null;
+	backgroundColour: string | null;
 	defaultButtonId: string | null;
 	highlightColours: MenuHighlightColours;
 	honestPreview: boolean;
@@ -419,7 +435,10 @@ function NavigationPreview({
 			tabIndex={0}
 			onKeyDown={handleKeyDown}
 			onFocus={() => containerRef.current?.focus()}
-			style={{ aspectRatio: `${MENU_WIDTH} / ${canvasHeight}` }}
+			style={{
+				aspectRatio: `${MENU_WIDTH} / ${canvasHeight}`,
+				...(backgroundColour && !backgroundLabel ? { backgroundColor: backgroundColour } : {}),
+			}}
 		>
 			{backgroundLabel && (
 				<div className="scene-canvas__bg-label text-muted">{backgroundLabel}</div>
@@ -437,7 +456,9 @@ function NavigationPreview({
 							right: `${ACTION_SAFE_PCT * 100}%`,
 							bottom: `${ACTION_SAFE_PCT * 100}%`,
 						}}
-					/>
+					>
+						<span className="scene-canvas__safe-area-label">Action Safe</span>
+					</div>
 					<div
 						className="scene-canvas__safe-area scene-canvas__safe-area--title"
 						style={{
@@ -446,7 +467,9 @@ function NavigationPreview({
 							right: `${TITLE_SAFE_PCT * 100}%`,
 							bottom: `${TITLE_SAFE_PCT * 100}%`,
 						}}
-					/>
+					>
+						<span className="scene-canvas__safe-area-label">Title Safe</span>
+					</div>
 				</>
 			)}
 			<div className="scene-canvas__preview-hint text-muted">

@@ -137,6 +137,16 @@
 	border-color: var(--brand-orange);
 }
 
+.menus__bg-colour-input {
+	width: 28px;
+	height: 28px;
+	padding: 0;
+	border: 1px solid var(--border-subtle);
+	border-radius: var(--radius-sm);
+	cursor: pointer;
+	background: none;
+}
+
 /* ── Canvas ───────────────────────────────────────────────── */
 
 .menus__canvas-area {

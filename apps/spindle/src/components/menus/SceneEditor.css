@@ -548,6 +548,25 @@
 	border-color: rgba(0, 200, 255, 0.25);
 }
 
+.scene-canvas__safe-area-label {
+	position: absolute;
+	top: -1px;
+	left: 4px;
+	font-size: 9px;
+	letter-spacing: 0.04em;
+	padding: 0 3px;
+	line-height: 1.4;
+	pointer-events: none;
+}
+
+.scene-canvas__safe-area--action .scene-canvas__safe-area-label {
+	color: rgba(255, 255, 0, 0.5);
+}
+
+.scene-canvas__safe-area--title .scene-canvas__safe-area-label {
+	color: rgba(0, 200, 255, 0.5);
+}
+
 /* ── Navigation lines ───────────────────────────────────────── */
 
 .scene-canvas__nav-lines {

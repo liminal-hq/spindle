@@ -570,7 +570,7 @@ function MenuEditor({
 										}))
 									}
 								>
-									<option value="">None (solid colour)</option>
+									<option value="">Solid colour</option>
 									{project.assets
 										.filter(
 											(a) =>
@@ -582,6 +582,34 @@ function MenuEditor({
 											</option>
 										))}
 								</select>
+								{!menu.backgroundAssetId && (
+									<input
+										type="color"
+										className="menus__bg-colour-input"
+										value={menu.authoredDocument?.scene.background.colour ?? '#000000'}
+										onChange={(e) =>
+											onUpdate((m) => {
+												if (m.authoredDocument) {
+													return {
+														...m,
+														authoredDocument: {
+															...m.authoredDocument,
+															scene: {
+																...m.authoredDocument.scene,
+																background: {
+																	...m.authoredDocument.scene.background,
+																	colour: e.target.value,
+																},
+															},
+														},
+													};
+												}
+												return m;
+											})
+										}
+										title="Background colour"
+									/>
+								)}
 							</div>
 						)}
 
@@ -591,6 +619,7 @@ function MenuEditor({
 							onUpdateButton={handleUpdateButton}
 							showSafeArea={showSafeArea}
 							backgroundLabel={backgroundAssetLabel}
+							backgroundColour={menu.authoredDocument?.scene.background.colour ?? null}
 							defaultButtonId={
 								menu.authoredDocument?.interaction.defaultFocusId ?? menu.defaultButtonId
 							}
