@@ -173,6 +173,8 @@ function actionToString(action: PlaybackAction | null): string {
 			return `showMenu:${action.menuId}`;
 		case 'stop':
 			return 'stop';
+		default:
+			return '';
 	}
 }
 
