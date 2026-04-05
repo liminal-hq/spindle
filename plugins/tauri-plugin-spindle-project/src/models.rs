@@ -24,6 +24,21 @@ pub struct SpindleProjectFile {
     pub build_settings: BuildSettings,
 }
 
+impl SpindleProjectFile {
+    /// Ensure all menus in the project have an authored document by migrating
+    /// any legacy flat menu structures.
+    pub fn migrate_all_menus(&mut self) {
+        for menu in &mut self.disc.global_menus {
+            menu.migrate_to_document(MenuDomain::Vmgm);
+        }
+        for titleset in &mut self.disc.titlesets {
+            for menu in &mut titleset.menus {
+                menu.migrate_to_document(MenuDomain::Titleset);
+            }
+        }
+    }
+}
+
 impl Default for SpindleProjectFile {
     fn default() -> Self {
         Self {
@@ -348,6 +363,272 @@ pub struct Menu {
     /// Action when a motion menu times out after looping.
     #[serde(default)]
     pub timeout_action: Option<PlaybackAction>,
+    /// The new authored scene document that replaces the flat button model.
+    /// During the transition, this is optional.
+    #[serde(default)]
+    pub authored_document: Option<MenuDocument>,
+}
+
+impl Default for Menu {
+    fn default() -> Self {
+        Self {
+            id: Uuid::new_v4().to_string(),
+            name: "Untitled Menu".to_string(),
+            background_asset_id: None,
+            buttons: Vec::new(),
+            default_button_id: None,
+            highlight_colours: MenuHighlightColours::default(),
+            background_mode: BackgroundMode::Still,
+            motion_duration_secs: None,
+            motion_audio_asset_id: None,
+            motion_loop_count: 0,
+            timeout_action: None,
+            authored_document: None,
+        }
+    }
+}
+
+impl Menu {
+    /// Lift a legacy menu into the new authored document format.
+    /// This is used during migration to ensure old projects can be edited in the new scene editor.
+    pub fn migrate_to_document(&mut self, domain: MenuDomain) {
+        if self.authored_document.is_some() {
+            return;
+        }
+
+        let scene = MenuScene {
+            design_size: MenuSize {
+                width: 720.0,  // Default DVD width
+                height: 480.0, // Default DVD height (NTSC)
+            },
+            background: SceneBackground {
+                asset_id: self.background_asset_id.clone(),
+                colour: Some("#101014".to_string()),
+            },
+            nodes: self
+                .buttons
+                .iter()
+                .map(|b| SceneNode::Button {
+                    id: b.id.clone(),
+                    label: b.label.clone(),
+                    x: b.bounds.x,
+                    y: b.bounds.y,
+                    width: b.bounds.width,
+                    height: b.bounds.height,
+                })
+                .collect(),
+            guides: Vec::new(),
+        };
+
+        let interaction = MenuInteractionGraph {
+            default_focus_id: self.default_button_id.clone(),
+            nodes: self
+                .buttons
+                .iter()
+                .map(|b| FocusNode {
+                    node_id: b.id.clone(),
+                    nav_up: b.nav_up.clone(),
+                    nav_down: b.nav_down.clone(),
+                    nav_left: b.nav_left.clone(),
+                    nav_right: b.nav_right.clone(),
+                    action: b.action.clone(),
+                })
+                .collect(),
+            timeout_action: self.timeout_action.clone(),
+        };
+
+        let timing = MenuTiming {
+            intro_duration_secs: 0.0,
+            loop_duration_secs: self.motion_duration_secs.unwrap_or(0.0),
+            loop_count: self.motion_loop_count,
+        };
+
+        self.authored_document = Some(MenuDocument {
+            id: self.id.clone(),
+            name: self.name.clone(),
+            domain,
+            scene,
+            interaction,
+            timing,
+            theme_ref: None,
+            generation_meta: None,
+            compile_policy: MenuCompilePolicy {
+                safe_area_mode: SafeAreaMode::ActionSafe,
+                palette_strategy: PaletteStrategy::Auto,
+            },
+        });
+    }
+}
+
+/// A structured menu document that separates authored intent from target compilation.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MenuDocument {
+    pub id: String,
+    pub name: String,
+    pub domain: MenuDomain,
+    pub scene: MenuScene,
+    pub interaction: MenuInteractionGraph,
+    pub timing: MenuTiming,
+    pub theme_ref: Option<String>,
+    pub generation_meta: Option<MenuGenerationMeta>,
+    pub compile_policy: MenuCompilePolicy,
+}
+
+/// Menu domain indicates whether it belongs to the Video Manager (VMGM) or a Titleset.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum MenuDomain {
+    Vmgm,
+    Titleset,
+}
+
+/// The visual scene graph for the menu.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MenuScene {
+    pub design_size: MenuSize,
+    pub background: SceneBackground,
+    pub nodes: Vec<SceneNode>,
+    pub guides: Vec<SceneGuide>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MenuSize {
+    pub width: f64,
+    pub height: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SceneBackground {
+    pub asset_id: Option<String>,
+    pub colour: Option<String>,
+}
+
+/// A node within the authored menu scene graph.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", tag = "type")]
+pub enum SceneNode {
+    Group {
+        id: String,
+        name: String,
+        children: Vec<SceneNode>,
+    },
+    Text {
+        id: String,
+        content: String,
+        x: f64,
+        y: f64,
+    },
+    Image {
+        id: String,
+        asset_id: String,
+        x: f64,
+        y: f64,
+    },
+    Shape {
+        id: String,
+        x: f64,
+        y: f64,
+    },
+    Video {
+        id: String,
+        asset_id: String,
+        x: f64,
+        y: f64,
+    },
+    Button {
+        id: String,
+        label: String,
+        x: f64,
+        y: f64,
+        width: f64,
+        height: f64,
+    },
+    ComponentInstance {
+        id: String,
+        component_id: String,
+    },
+    GeneratedCollection {
+        id: String,
+        source: String,
+    },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SceneGuide {
+    pub orientation: GuideOrientation,
+    pub position: f64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum GuideOrientation {
+    Horizontal,
+    Vertical,
+}
+
+/// The interaction graph defining remote-driven behaviour.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MenuInteractionGraph {
+    pub default_focus_id: Option<String>,
+    pub nodes: Vec<FocusNode>,
+    pub timeout_action: Option<PlaybackAction>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FocusNode {
+    pub node_id: String,
+    pub nav_up: Option<String>,
+    pub nav_down: Option<String>,
+    pub nav_left: Option<String>,
+    pub nav_right: Option<String>,
+    pub action: Option<PlaybackAction>,
+}
+
+/// Timing and motion rules for the menu.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MenuTiming {
+    pub intro_duration_secs: f64,
+    pub loop_duration_secs: f64,
+    pub loop_count: u32, // 0 = infinite
+}
+
+/// Metadata for generated menus.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MenuGenerationMeta {
+    pub generator_id: String,
+    pub last_generated_at: String,
+}
+
+/// Format-specific compilation rules and safe-area policies.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MenuCompilePolicy {
+    pub safe_area_mode: SafeAreaMode,
+    pub palette_strategy: PaletteStrategy,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum SafeAreaMode {
+    ActionSafe,
+    TitleSafe,
+    None,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum PaletteStrategy {
+    Auto,
+    Manual,
 }
 
 /// Whether a menu background is a still frame or looping video.
@@ -912,5 +1193,66 @@ mod tests {
             settings.allocation_strategy,
             AllocationStrategy::DurationWeighted
         );
+    }
+
+    #[test]
+    fn menu_migration_lifts_legacy_fields() {
+        let mut menu = Menu {
+            id: "menu-1".to_string(),
+            name: "Main Menu".to_string(),
+            background_asset_id: Some("asset-1".to_string()),
+            buttons: vec![MenuButton {
+                id: "btn-1".to_string(),
+                label: "Play".to_string(),
+                bounds: ButtonBounds {
+                    x: 100.0,
+                    y: 200.0,
+                    width: 300.0,
+                    height: 50.0,
+                },
+                action: Some(PlaybackAction::PlayTitle {
+                    title_id: "title-1".to_string(),
+                }),
+                nav_up: None,
+                nav_down: None,
+                nav_left: None,
+                nav_right: None,
+                highlight_mode: HighlightMode::Static,
+                highlight_keyframes: Vec::new(),
+                video_asset_id: None,
+            }],
+            default_button_id: Some("btn-1".to_string()),
+            highlight_colours: MenuHighlightColours::default(),
+            background_mode: BackgroundMode::Still,
+            motion_duration_secs: Some(10.0),
+            motion_audio_asset_id: None,
+            motion_loop_count: 0,
+            timeout_action: None,
+            authored_document: None,
+        };
+
+        menu.migrate_to_document(MenuDomain::Vmgm);
+
+        let doc = menu.authored_document.expect("should have migrated");
+        assert_eq!(doc.id, "menu-1");
+        assert_eq!(doc.name, "Main Menu");
+        assert_eq!(doc.domain, MenuDomain::Vmgm);
+        assert_eq!(doc.scene.background.asset_id, Some("asset-1".to_string()));
+        assert_eq!(doc.scene.nodes.len(), 1);
+        
+        if let SceneNode::Button { id, label, x, y, width, height } = &doc.scene.nodes[0] {
+            assert_eq!(id, "btn-1");
+            assert_eq!(label, "Play");
+            assert_eq!(*x, 100.0);
+            assert_eq!(*y, 200.0);
+            assert_eq!(*width, 300.0);
+            assert_eq!(*height, 50.0);
+        } else {
+            panic!("expected button node");
+        }
+
+        assert_eq!(doc.interaction.nodes.len(), 1);
+        assert_eq!(doc.interaction.nodes[0].node_id, "btn-1");
+        assert_eq!(doc.timing.loop_duration_secs, 10.0);
     }
 }

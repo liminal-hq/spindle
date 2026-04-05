@@ -43,7 +43,8 @@ impl<R: Runtime> SpindleProject<R> {
             // Future: run migrations for older versions here
         }
 
-        let project: SpindleProjectFile = serde_json::from_value(raw)?;
+        let mut project: SpindleProjectFile = serde_json::from_value(raw)?;
+        project.migrate_all_menus();
         Ok(project)
     }
 

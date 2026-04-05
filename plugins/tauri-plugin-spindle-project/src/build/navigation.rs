@@ -164,6 +164,7 @@ mod tests {
             motion_audio_asset_id: None,
             motion_loop_count: 0,
             timeout_action: None,
+            authored_document: None,
         };
 
         auto_generate_navigation(&mut menu);
@@ -260,6 +261,7 @@ mod tests {
             motion_audio_asset_id: None,
             motion_loop_count: 0,
             timeout_action: None,
+            authored_document: None,
         };
 
         auto_generate_navigation(&mut menu);
@@ -342,6 +344,7 @@ mod tests {
             motion_audio_asset_id: None,
             motion_loop_count: 0,
             timeout_action: None,
+            authored_document: None,
         };
 
         auto_generate_navigation(&mut menu);
@@ -438,6 +441,7 @@ mod tests {
             motion_audio_asset_id: None,
             motion_loop_count: 0,
             timeout_action: None,
+            authored_document: None,
         };
 
         auto_generate_navigation(&mut menu);
