@@ -13,7 +13,7 @@ use super::dvd_navigation::{
     playback_action_to_dvd_command_in_context, playback_action_to_dvd_command_in_domain_result,
     playback_action_to_dvd_command_result, DvdCommandContext,
 };
-use super::menu::{menu_output_aspect, MenuDomain};
+use super::menu::{menu_output_aspect, AuthorableMenuRef, MenuDomain};
 use super::util::{format_dvd_timestamp, sanitise_filename, xml_escape};
 
 pub(crate) fn generate_dvdauthor_xml(
@@ -131,6 +131,7 @@ fn append_menu_section(
     let needs_dispatch = matches!(domain, MenuDomain::Titleset(_)) && menus.len() > 1;
 
     for (menu_index, menu) in menus.iter().enumerate() {
+        let menu_ref = AuthorableMenuRef { menu, domain };
         let menu_number = menu_index + 1;
         let entry = match domain {
             MenuDomain::Titleset(_) if menu_index == 0 => Some("root"),
@@ -146,7 +147,7 @@ fn append_menu_section(
             }
             pre_commands.push_str("          g0 = 0;\n");
         }
-        if let Some(button_command) = initial_button_command(menu) {
+        if let Some(button_command) = initial_button_command(&menu_ref) {
             pre_commands.push_str(&button_command);
         }
         let pre_commands = if pre_commands.is_empty() {
@@ -158,7 +159,7 @@ fn append_menu_section(
         append_menu_pgc(
             xml,
             MenuPgcSpec {
-                menu,
+                menu_ref: &menu_ref,
                 disc,
                 domain,
                 menu_number,
@@ -172,22 +173,22 @@ fn append_menu_section(
     Ok(())
 }
 
-fn initial_button_command(menu: &Menu) -> Option<String> {
-    let button_index = menu
-        .default_button_id
-        .as_deref()
+fn initial_button_command(menu_ref: &AuthorableMenuRef<'_>) -> Option<String> {
+    let buttons = menu_ref.buttons();
+    let button_index = menu_ref
+        .default_button_id()
         .and_then(|default_id| {
-            menu.buttons
+            buttons
                 .iter()
                 .position(|button| button.id == default_id)
         })
-        .or_else(|| (!menu.buttons.is_empty()).then_some(0))?;
+        .or_else(|| (!buttons.is_empty()).then_some(0))?;
     let button_value = (button_index + 1) * 1024;
     Some(format!("          button = {button_value};\n"))
 }
 
 struct MenuPgcSpec<'a> {
-    menu: &'a Menu,
+    menu_ref: &'a AuthorableMenuRef<'a>,
     disc: &'a Disc,
     domain: MenuDomain,
     menu_number: usize,
@@ -208,13 +209,13 @@ fn append_menu_pgc(xml: &mut String, spec: MenuPgcSpec<'_>) -> crate::Result<()>
     }
     let menu_vob_path = spec
         .menus_dir
-        .join(format!("{}.mpg", sanitise_filename(&spec.menu.id)));
+        .join(format!("{}.mpg", sanitise_filename(&spec.menu_ref.menu.id)));
     xml.push_str(&format!(
         "        <vob file=\"{}\" pause=\"inf\" />\n",
         xml_escape(&menu_vob_path.display().to_string())
     ));
-    for button in &spec.menu.buttons {
-        if let Some(ref action) = button.action {
+    for button in spec.menu_ref.buttons() {
+        if let Some(action) = button.action {
             let cmd = playback_action_to_dvd_command_in_domain_result(
                 action,
                 spec.disc,

@@ -9,8 +9,8 @@ The immediate thread is to replace the legacy flat menu model with the new scene
 Key workstreams:
 
 - **Milestone 1**: COMPLETED & VERIFIED. Schema expansion and standard-aware migration (NTSC/PAL) are locked in `models.rs`.
-- **Milestone 2**: IN PROGRESS (Top Priority). Tristan and Nicholas are rebuilding `MenusPage.tsx` as a multi-pane scene editor.
-- **Milestone 3**: PLANNED. Jullian will update the compiler (Milestone 3) once the frontend is producing scene data.
+- **Milestone 2**: IN PROGRESS. Tristan has completed the State & Sync foundations. Nicholas is now building the Scene Editor, Layers, and Inspector UI.
+- **Milestone 3**: PLANNED. Jullian to begin the Target-Aware Compiler, now that the frontend state is stabilized.
 
 ## Product Stance: Rich Design, Honest Compilation
 

@@ -23,6 +23,147 @@ pub(crate) struct AuthorableMenuRef<'a> {
     pub(crate) domain: MenuDomain,
 }
 
+impl<'a> AuthorableMenuRef<'a> {
+    pub(crate) fn name(&self) -> &str {
+        self.menu
+            .authored_document
+            .as_ref()
+            .map(|doc| doc.name.as_str())
+            .unwrap_or(self.menu.name.as_str())
+    }
+
+    pub(crate) fn background_asset_id(&self) -> Option<&str> {
+        self.menu
+            .authored_document
+            .as_ref()
+            .and_then(|doc| doc.scene.background.asset_id.as_deref())
+            .or(self.menu.background_asset_id.as_deref())
+    }
+
+    pub(crate) fn highlight_colours(&self) -> &MenuHighlightColours {
+        self.menu
+            .authored_document
+            .as_ref()
+            .map(|doc| &doc.highlight_colours)
+            .unwrap_or(&self.menu.highlight_colours)
+    }
+
+    pub(crate) fn background_mode(&self) -> BackgroundMode {
+        self.menu
+            .authored_document
+            .as_ref()
+            .map(|doc| doc.background_mode)
+            .unwrap_or(self.menu.background_mode)
+    }
+
+    pub(crate) fn timeout_action(&self) -> Option<&PlaybackAction> {
+        self.menu
+            .authored_document
+            .as_ref()
+            .and_then(|doc| doc.interaction.timeout_action.as_ref())
+            .or(self.menu.timeout_action.as_ref())
+    }
+
+    pub(crate) fn motion_duration_secs(&self) -> Option<f64> {
+        self.menu
+            .authored_document
+            .as_ref()
+            .map(|doc| doc.timing.loop_duration_secs)
+            .or(self.menu.motion_duration_secs)
+    }
+
+    pub(crate) fn motion_loop_count(&self) -> u32 {
+        self.menu
+            .authored_document
+            .as_ref()
+            .map(|doc| doc.timing.loop_count)
+            .unwrap_or(self.menu.motion_loop_count)
+    }
+
+    pub(crate) fn buttons(&self) -> Vec<AuthorableButtonRef<'_>> {
+        if let Some(doc) = &self.menu.authored_document {
+            doc.scene
+                .nodes
+                .iter()
+                .filter_map(|node| {
+                    if let SceneNode::Button {
+                        id,
+                        label,
+                        x,
+                        y,
+                        width,
+                        height,
+                        ..
+                    } = node
+                    {
+                        let interaction = doc
+                            .interaction
+                            .nodes
+                            .iter()
+                            .find(|f| f.node_id == *id);
+                        
+                        Some(AuthorableButtonRef {
+                            id,
+                            label,
+                            x: *x,
+                            y: *y,
+                            width: *width,
+                            height: *height,
+                            action: interaction.and_then(|f| f.action.as_ref()),
+                            nav_up: interaction.and_then(|f| f.nav_up.as_deref()),
+                            nav_down: interaction.and_then(|f| f.nav_down.as_deref()),
+                            nav_left: interaction.and_then(|f| f.nav_left.as_deref()),
+                            nav_right: interaction.and_then(|f| f.nav_right.as_deref()),
+                        })
+                    } else {
+                        None
+                    }
+                })
+                .collect()
+        } else {
+            self.menu
+                .buttons
+                .iter()
+                .map(|b| AuthorableButtonRef {
+                    id: &b.id,
+                    label: &b.label,
+                    x: b.bounds.x,
+                    y: b.bounds.y,
+                    width: b.bounds.width,
+                    height: b.bounds.height,
+                    action: b.action.as_ref(),
+                    nav_up: b.nav_up.as_deref(),
+                    nav_down: b.nav_down.as_deref(),
+                    nav_left: b.nav_left.as_deref(),
+                    nav_right: b.nav_right.as_deref(),
+                })
+                .collect()
+        }
+    }
+
+    pub(crate) fn default_button_id(&self) -> Option<&str> {
+        self.menu
+            .authored_document
+            .as_ref()
+            .and_then(|doc| doc.interaction.default_focus_id.as_deref())
+            .or(self.menu.default_button_id.as_deref())
+    }
+}
+
+pub(crate) struct AuthorableButtonRef<'a> {
+    pub(crate) id: &'a str,
+    pub(crate) label: &'a str,
+    pub(crate) x: f64,
+    pub(crate) y: f64,
+    pub(crate) width: f64,
+    pub(crate) height: f64,
+    pub(crate) action: Option<&'a PlaybackAction>,
+    pub(crate) nav_up: Option<&'a str>,
+    pub(crate) nav_down: Option<&'a str>,
+    pub(crate) nav_left: Option<&'a str>,
+    pub(crate) nav_right: Option<&'a str>,
+}
+
 pub(crate) fn authorable_menus(project: &SpindleProjectFile) -> Vec<AuthorableMenuRef<'_>> {
     let mut menus = Vec::new();
     for menu in &project.disc.global_menus {
@@ -86,11 +227,11 @@ pub(crate) fn build_ffmpeg_menu_command(
     let mut cmd = vec![ffmpeg_bin.to_string(), "-y".to_string()];
     let mut vf_parts = Vec::new();
 
-    if let Some(background_asset_id) = menu_ref.menu.background_asset_id.as_deref() {
+    if let Some(background_asset_id) = menu_ref.background_asset_id() {
         let asset = assets.get(background_asset_id).ok_or_else(|| {
             crate::Error::Build(format!(
                 "Background asset not found for menu \"{}\"",
-                menu_ref.menu.name
+                menu_ref.name()
             ))
         })?;
         cmd.extend(["-i".to_string(), asset.source_path.clone()]);
@@ -113,8 +254,8 @@ pub(crate) fn build_ffmpeg_menu_command(
         vf_parts.push(format!("fps={fps}"));
     }
 
-    vf_parts.push(menu_button_overlay_filter(menu_ref.menu));
-    if let Some(label_filter) = menu_button_label_filter(menu_ref.menu) {
+    vf_parts.push(menu_button_overlay_filter(menu_ref));
+    if let Some(label_filter) = menu_button_label_filter(menu_ref) {
         vf_parts.push(label_filter);
     }
     vf_parts.push(format!("setsar={sar}"));
@@ -161,24 +302,26 @@ fn menu_loop_frame_count(standard: VideoStandard) -> u32 {
     }
 }
 
-fn menu_button_overlay_filter(menu: &Menu) -> String {
-    if menu.buttons.is_empty() {
+fn menu_button_overlay_filter(menu_ref: &AuthorableMenuRef<'_>) -> String {
+    let buttons = menu_ref.buttons();
+    if buttons.is_empty() {
         return "null".to_string();
     }
 
     let mut filters = Vec::new();
-    for button in &menu.buttons {
-        let colour = if menu.default_button_id.as_deref() == Some(button.id.as_str()) {
+    let default_button_id = menu_ref.default_button_id();
+    for button in &buttons {
+        let colour = if default_button_id == Some(button.id) {
             "#ffaa40@0.50"
         } else {
             "#ffffff@0.28"
         };
         filters.push(format!(
             "drawbox=x={}:y={}:w={}:h={}:color={}:t=2",
-            button.bounds.x.round() as i32,
-            button.bounds.y.round() as i32,
-            button.bounds.width.round() as i32,
-            button.bounds.height.round() as i32,
+            button.x.round() as i32,
+            button.y.round() as i32,
+            button.width.round() as i32,
+            button.height.round() as i32,
             colour
         ));
     }
@@ -186,9 +329,9 @@ fn menu_button_overlay_filter(menu: &Menu) -> String {
     filters.join(",")
 }
 
-fn menu_button_label_filter(menu: &Menu) -> Option<String> {
-    let filters = menu
-        .buttons
+fn menu_button_label_filter(menu_ref: &AuthorableMenuRef<'_>) -> Option<String> {
+    let buttons = menu_ref.buttons();
+    let filters = buttons
         .iter()
         .filter_map(|button| {
             let label = button.label.trim();
@@ -196,11 +339,11 @@ fn menu_button_label_filter(menu: &Menu) -> Option<String> {
                 return None;
             }
 
-            let width = button.bounds.width.round().max(1.0) as i32;
-            let height = button.bounds.height.round().max(1.0) as i32;
+            let width = button.width.round().max(1.0) as i32;
+            let height = button.height.round().max(1.0) as i32;
             let font_size = (height as f64 * 0.34).round().clamp(14.0, 30.0) as i32;
-            let x = button.bounds.x.round() as i32;
-            let y = button.bounds.y.round() as i32;
+            let x = button.x.round() as i32;
+            let y = button.y.round() as i32;
             let escaped_label = escape_drawtext_text(label);
 
             Some(format!(
@@ -241,7 +384,7 @@ pub(crate) fn generate_spumux_xml(
         VideoStandard::Ntsc => "NTSC",
         VideoStandard::Pal => "PAL",
     };
-    let base_name = sanitise_filename(&menu_ref.menu.id);
+    let base_name = sanitise_filename(menu_ref.menu.id.as_str());
     let highlight_path = menus_dir.join(format!("{base_name}_highlight.png"));
     let select_path = menus_dir.join(format!("{base_name}_select.png"));
 
@@ -256,19 +399,20 @@ pub(crate) fn generate_spumux_xml(
         xml_escape(&select_path.display().to_string())
     ));
 
-    for (index, button) in menu_ref.menu.buttons.iter().enumerate() {
+    let buttons = menu_ref.buttons();
+    for (index, button) in buttons.iter().enumerate() {
         let name = (index + 1).to_string();
         xml.push_str(&format!(
             "      <button name=\"{}\" x0=\"{}\" y0=\"{}\" x1=\"{}\" y1=\"{}\"{}{}{}{} />\n",
             name,
-            button.bounds.x.round() as i32,
-            button.bounds.y.round() as i32,
-            (button.bounds.x + button.bounds.width).round() as i32,
-            (button.bounds.y + button.bounds.height).round() as i32,
-            button_nav_attr("up", button.nav_up.as_deref(), menu_ref.menu),
-            button_nav_attr("down", button.nav_down.as_deref(), menu_ref.menu),
-            button_nav_attr("left", button.nav_left.as_deref(), menu_ref.menu),
-            button_nav_attr("right", button.nav_right.as_deref(), menu_ref.menu)
+            button.x.round() as i32,
+            button.y.round() as i32,
+            (button.x + button.width).round() as i32,
+            (button.y + button.height).round() as i32,
+            button_nav_attr("up", button.nav_up, &buttons),
+            button_nav_attr("down", button.nav_down, &buttons),
+            button_nav_attr("left", button.nav_left, &buttons),
+            button_nav_attr("right", button.nav_right, &buttons)
         ));
     }
 
@@ -278,12 +422,11 @@ pub(crate) fn generate_spumux_xml(
     xml
 }
 
-fn button_nav_attr(direction: &str, target_button_id: Option<&str>, menu: &Menu) -> String {
+fn button_nav_attr(direction: &str, target_button_id: Option<&str>, buttons: &[AuthorableButtonRef<'_>]) -> String {
     let Some(target_button_id) = target_button_id else {
         return String::new();
     };
-    let Some(index) = menu
-        .buttons
+    let Some(index) = buttons
         .iter()
         .position(|button| button.id == target_button_id)
     else {

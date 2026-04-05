@@ -378,24 +378,23 @@ pub fn generate_build_plan_with_options(
 
         jobs.push(BuildJob::RenderMenu {
             menu_id: menu_ref.menu.id.clone(),
-            menu_name: menu_ref.menu.name.clone(),
+            menu_name: menu_ref.name().to_string(),
             output_path: menu_paths.base_video_path.display().to_string(),
             command: render_command,
-            label: format!("Render menu \"{}\"", menu_ref.menu.name),
+            label: format!("Render menu \"{}\"", menu_ref.name()),
             standard: project.disc.standard,
             highlight_image_path: menu_paths.highlight_image_path.display().to_string(),
             select_image_path: menu_paths.select_image_path.display().to_string(),
-            highlight_colour: menu_ref.menu.highlight_colours.select_colour.clone(),
-            select_colour: menu_ref.menu.highlight_colours.activate_colour.clone(),
+            highlight_colour: menu_ref.highlight_colours().select_colour.clone(),
+            select_colour: menu_ref.highlight_colours().activate_colour.clone(),
             button_bounds: menu_ref
-                .menu
-                .buttons
+                .buttons()
                 .iter()
                 .map(|button| MenuOverlayButton {
-                    x0: button.bounds.x.round() as i32,
-                    y0: button.bounds.y.round() as i32,
-                    x1: (button.bounds.x + button.bounds.width).round() as i32,
-                    y1: (button.bounds.y + button.bounds.height).round() as i32,
+                    x0: button.x.round() as i32,
+                    y0: button.y.round() as i32,
+                    x1: (button.x + button.width).round() as i32,
+                    y1: (button.y + button.height).round() as i32,
                 })
                 .collect(),
         });
