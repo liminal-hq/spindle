@@ -19,6 +19,7 @@ import type {
 	Menu,
 	MenuDocument,
 	MenuEditorMode,
+	SceneNode,
 	ToolchainStatus,
 } from '../types/project';
 
