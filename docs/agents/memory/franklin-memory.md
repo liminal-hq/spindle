@@ -33,6 +33,7 @@ Prefer durable, reusable context over narration.
 - GitHub PR hygiene and labels are in good shape, but the repository currently has no open issue backlog, so important future work is concentrated in docs and memory rather than visible execution tracking.
 - Trust and support surfaces should be checked alongside release surfaces; for example, diagnostics export can drift from runtime versioning even when the main app UI is current.
 - The shared filesystem-based agent communication layer now lives under `docs/agents/shared/`, with `context/` for Franklin/Edward broadcast state and `handoffs/<agent>/` inboxes for point-to-point JSON requests and responses.
+- The current laptop environment should be treated as container-first for verification work: when Rust tooling or mixed workspace validation is needed, prefer `ghcr.io/liminal-hq/tauri-dev-desktop:latest` rather than assuming host-installed Rust tools are available.
 
 ## Open Questions
 
