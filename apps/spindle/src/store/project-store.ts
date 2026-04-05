@@ -80,6 +80,14 @@ export interface ProjectState {
 	setShowSafeArea: (enabled: boolean) => void;
 	updateMenuDocument: (menuId: string, updater: (doc: MenuDocument) => MenuDocument) => void;
 	checkToolchain: () => Promise<void>;
+
+	// Undo/redo
+	undoStack: SpindleProjectFile[];
+	redoStack: SpindleProjectFile[];
+	undo: () => void;
+	redo: () => void;
+	canUndo: () => boolean;
+	canRedo: () => boolean;
 }
 
 function parentDir(filePath: string): string {
@@ -278,6 +286,8 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 	menuEditorMode: 'design',
 	previewMode: false,
 	showSafeArea: true,
+	undoStack: [],
+	redoStack: [],
 
 	createProject: async (req) => {
 		set({ isLoading: true });
@@ -403,9 +413,10 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 	},
 
 	updateProject: (updater) => {
-		const { project } = get();
+		const { project, undoStack } = get();
 		if (!project) return;
-		set({ project: updater(project), isDirty: true });
+		const newStack = [...undoStack, project].slice(-50); // cap at 50 entries
+		set({ project: updater(project), isDirty: true, undoStack: newStack, redoStack: [] });
 	},
 
 	validateProject: async () => {
@@ -958,4 +969,31 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 			// Toolchain check is best-effort
 		}
 	},
+
+	undo: () => {
+		const { project, undoStack, redoStack } = get();
+		if (undoStack.length === 0 || !project) return;
+		const prev = undoStack[undoStack.length - 1];
+		set({
+			project: prev,
+			undoStack: undoStack.slice(0, -1),
+			redoStack: [...redoStack, project],
+			isDirty: true,
+		});
+	},
+
+	redo: () => {
+		const { project, undoStack, redoStack } = get();
+		if (redoStack.length === 0 || !project) return;
+		const next = redoStack[redoStack.length - 1];
+		set({
+			project: next,
+			undoStack: [...undoStack, project],
+			redoStack: redoStack.slice(0, -1),
+			isDirty: true,
+		});
+	},
+
+	canUndo: () => get().undoStack.length > 0,
+	canRedo: () => get().redoStack.length > 0,
 }));

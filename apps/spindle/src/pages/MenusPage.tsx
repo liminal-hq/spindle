@@ -3,7 +3,7 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: MIT
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useProjectStore } from '../store/project-store';
 import { useNavigation } from '../App';
 import type {
@@ -315,6 +315,26 @@ function MenuEditor({
 	const [honestPreview, setHonestPreview] = useState(false);
 	const [showNavLines, setShowNavLines] = useState(false);
 
+	const undo = useProjectStore((s) => s.undo);
+	const redo = useProjectStore((s) => s.redo);
+
+	// Ctrl+Z / Ctrl+Shift+Z for undo/redo
+	useEffect(() => {
+		const handler = (e: KeyboardEvent) => {
+			if (!(e.ctrlKey || e.metaKey) || e.key !== 'z') return;
+			const tag = (e.target as HTMLElement).tagName;
+			if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+			e.preventDefault();
+			if (e.shiftKey) {
+				redo();
+			} else {
+				undo();
+			}
+		};
+		document.addEventListener('keydown', handler);
+		return () => document.removeEventListener('keydown', handler);
+	}, [undo, redo]);
+
 	// Derive the scene nodes from the authoredDocument
 	const sceneNodes: SceneNode[] = menu.authoredDocument?.scene.nodes ?? [];
 
@@ -526,6 +546,20 @@ function MenuEditor({
 		});
 		if (selectedNodeId === buttonId) setSelectedNodeId(null);
 	};
+
+	// Delete selected node with Delete key (or Backspace on Mac)
+	useEffect(() => {
+		const handler = (e: KeyboardEvent) => {
+			if (!selectedNodeId) return;
+			if (e.key !== 'Delete' && e.key !== 'Backspace') return;
+			const tag = (e.target as HTMLElement).tagName;
+			if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+			e.preventDefault();
+			handleRemoveButton(selectedNodeId);
+		};
+		document.addEventListener('keydown', handler);
+		return () => document.removeEventListener('keydown', handler);
+	}); // re-registers on every render to capture current selectedNodeId and handler
 
 	const handleUpdateHighlightColours = (colours: MenuHighlightColours) => {
 		onUpdate((m) => {
