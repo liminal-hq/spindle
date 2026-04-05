@@ -51,6 +51,10 @@ export interface ProjectState {
 	selectedMenuId: string | null;
 	/** Current editor mode for the menu system. */
 	menuEditorMode: MenuEditorMode;
+	/** Whether the menu is in navigation preview mode. */
+	previewMode: boolean;
+	/** Whether to show safe-area guides in the menu editor. */
+	showSafeArea: boolean;
 
 	// Actions
 	createProject: (req: CreateProjectRequest) => Promise<void>;
@@ -71,6 +75,8 @@ export interface ProjectState {
 	autoGenerateMenuNav: (menuId: string) => Promise<void>;
 	setSelectedMenuId: (id: string | null) => void;
 	setMenuEditorMode: (mode: MenuEditorMode) => void;
+	setPreviewMode: (enabled: boolean) => void;
+	setShowSafeArea: (enabled: boolean) => void;
 	updateMenuDocument: (menuId: string, updater: (doc: MenuDocument) => MenuDocument) => void;
 	checkToolchain: () => Promise<void>;
 }
@@ -269,6 +275,8 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 	toolchain: [],
 	selectedMenuId: null,
 	menuEditorMode: 'design',
+	previewMode: false,
+	showSafeArea: true,
 
 	createProject: async (req) => {
 		set({ isLoading: true });
@@ -745,6 +753,10 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
 	setMenuEditorMode: (mode) => set({ menuEditorMode: mode }),
 
+	setPreviewMode: (enabled) => set({ previewMode: enabled }),
+
+	setShowSafeArea: (enabled) => set({ showSafeArea: enabled }),
+
 	autoGenerateMenuNav: async (menuId) => {
 		const { project } = get();
 		if (!project) return;
@@ -772,25 +784,6 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 		const updated = await invoke<Menu>('plugin:spindle-project|auto_generate_menu_nav', {
 			menu: foundMenu,
 		});
-
-		// Sync auto-generated navigation back to authoredDocument interaction graph
-		if (updated.authoredDocument) {
-			updated.authoredDocument = {
-				...updated.authoredDocument,
-				interaction: {
-					...updated.authoredDocument.interaction,
-					defaultFocusId: updated.defaultButtonId,
-					nodes: updated.buttons.map((btn) => ({
-						nodeId: btn.id,
-						navUp: btn.navUp,
-						navDown: btn.navDown,
-						navLeft: btn.navLeft,
-						navRight: btn.navRight,
-						action: btn.action,
-					})),
-				},
-			};
-		}
 
 		get().updateProject((p) => {
 			if (scope === 'global') {
@@ -890,13 +883,10 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
 		// 3. Sync Layer: Reflect scene/interaction changes back to legacy DVD fields
 		const syncMenu = (m: Menu): Menu => {
-			const buttonNodes = updatedDoc.scene.nodes.filter(
-				(n): n is Extract<typeof n, { type: 'button' }> => n.type === 'button',
-			);
-
 			return {
 				...m,
 				authoredDocument: updatedDoc,
+				name: updatedDoc.name,
 				backgroundAssetId: updatedDoc.scene.background.assetId,
 				backgroundMode: updatedDoc.backgroundMode,
 				highlightColours: { ...updatedDoc.highlightColours },
@@ -904,22 +894,8 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 				motionDurationSecs: updatedDoc.timing.loopDurationSecs,
 				motionLoopCount: updatedDoc.timing.loopCount,
 				timeoutAction: updatedDoc.interaction.timeoutAction,
-				buttons: buttonNodes.map((node) => {
-					const interaction = updatedDoc.interaction.nodes.find((i) => i.nodeId === node.id);
-					return {
-						id: node.id,
-						label: node.label,
-						bounds: { x: node.x, y: node.y, width: node.width, height: node.height },
-						action: interaction?.action ?? null,
-						navUp: interaction?.navUp ?? null,
-						navDown: interaction?.navDown ?? null,
-						navLeft: interaction?.navLeft ?? null,
-						navRight: interaction?.navRight ?? null,
-						highlightMode: node.highlightMode ?? 'static',
-						highlightKeyframes: node.highlightKeyframes ?? [],
-						videoAssetId: node.videoAssetId ?? null,
-					};
-				}),
+				// Button mirroring is now handled by the scene-aware compiler.
+				// We keep the legacy array present to satisfy current UI components.
 			};
 		};
 

@@ -10,7 +10,7 @@ Key workstreams:
 
 - **Milestone 1**: COMPLETED & VERIFIED. Schema expansion and standard-aware migration (NTSC/PAL) are locked in `models.rs`.
 - **Milestone 2**: IN PROGRESS. Tristan has completed the State & Sync foundations. Nicholas is now building the Scene Editor, Layers, and Inspector UI.
-- **Milestone 3**: PLANNED. Jullian to begin the Target-Aware Compiler, now that the frontend state is stabilized.
+- **Milestone 3**: COMPLETED. Jullian has finalized the backend seams and decoupled the compiler via `AuthorableMenuRef`.
 
 ## Product Stance: Rich Design, Honest Compilation
 

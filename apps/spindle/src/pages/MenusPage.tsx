@@ -15,6 +15,7 @@ import type {
 	SpindleProjectFile,
 	VideoStandard,
 	MenuEditorMode,
+	SceneNode,
 } from '../types/project';
 import { DEFAULT_HIGHLIGHT_COLOURS } from '../types/project';
 
@@ -186,7 +187,12 @@ export function MenusPage() {
 										onKeyDown={(e) => e.key === 'Enter' && setSelectedMenuId(menu.id)}
 									>
 										<span className="menus__item-name">{menu.name}</span>
-										<span className="badge badge--neutral">{menu.buttons.length} btn</span>
+										<span className="badge badge--neutral">
+											{menu.authoredDocument
+												? menu.authoredDocument.scene.nodes.filter((n) => n.type === 'button').length
+												: menu.buttons.length}{' '}
+											btn
+										</span>
 									</div>
 								))
 							)}
@@ -218,7 +224,12 @@ export function MenusPage() {
 											onKeyDown={(e) => e.key === 'Enter' && setSelectedMenuId(menu.id)}
 										>
 											<span className="menus__item-name">{menu.name}</span>
-											<span className="badge badge--neutral">{menu.buttons.length} btn</span>
+											<span className="badge badge--neutral">
+											{menu.authoredDocument
+												? menu.authoredDocument.scene.nodes.filter((n) => n.type === 'button').length
+												: menu.buttons.length}{' '}
+											btn
+										</span>
 										</div>
 									))
 								)}
@@ -294,8 +305,33 @@ function MenuEditor({
 	];
 	const menuEditorMode = useProjectStore((s) => s.menuEditorMode);
 	const setMenuEditorMode = useProjectStore((s) => s.setMenuEditorMode);
-	const [showSafeArea, setShowSafeArea] = useState(true);
-	const [previewMode, setPreviewMode] = useState(false);
+	const previewMode = useProjectStore((s) => s.previewMode);
+	const setPreviewMode = useProjectStore((s) => s.setPreviewMode);
+	const showSafeArea = useProjectStore((s) => s.showSafeArea);
+	const setShowSafeArea = useProjectStore((s) => s.setShowSafeArea);
+
+	const currentButtons: MenuButton[] = menu.authoredDocument
+		? menu.authoredDocument.scene.nodes
+				.filter((n): n is Extract<SceneNode, { type: 'button' }> => n.type === 'button')
+				.map((node) => {
+					const interaction = menu.authoredDocument!.interaction.nodes.find(
+						(i) => i.nodeId === node.id,
+					);
+					return {
+						id: node.id,
+						label: node.label,
+						bounds: { x: node.x, y: node.y, width: node.width, height: node.height },
+						action: interaction?.action ?? null,
+						navUp: interaction?.navUp ?? null,
+						navDown: interaction?.navDown ?? null,
+						navLeft: interaction?.navLeft ?? null,
+						navRight: interaction?.navRight ?? null,
+						highlightMode: node.highlightMode ?? 'static',
+						highlightKeyframes: node.highlightKeyframes ?? [],
+						videoAssetId: node.videoAssetId ?? null,
+					};
+				})
+		: menu.buttons;
 
 	const backgroundAsset = menu.backgroundAssetId
 		? (project.assets.find((a) => a.id === menu.backgroundAssetId) ?? null)
@@ -303,40 +339,145 @@ function MenuEditor({
 	const backgroundAssetLabel = backgroundAsset ? backgroundAsset.fileName : null;
 
 	const handleAddButton = () => {
-		const newButton: MenuButton = {
-			id: crypto.randomUUID(),
-			label: `Button ${menu.buttons.length + 1}`,
-			bounds: {
-				x: 100 + menu.buttons.length * 20,
-				y: Math.min(300 + menu.buttons.length * 20, canvasHeight - 60),
-				width: 200,
-				height: 40,
-			},
-			action: null,
-			navUp: null,
-			navDown: null,
-			navLeft: null,
-			navRight: null,
-			highlightMode: 'static',
-			highlightKeyframes: [],
-			videoAssetId: null,
-		};
-		onUpdate((m) => ({ ...m, buttons: [...m.buttons, newButton] }));
+		const id = crypto.randomUUID();
+		const label = `Button ${(menu.authoredDocument?.scene.nodes.filter((n) => n.type === 'button').length ?? menu.buttons.length) + 1}`;
+		const x = 100 + (menu.authoredDocument?.scene.nodes.filter((n) => n.type === 'button').length ?? menu.buttons.length) * 20;
+		const y = Math.min(300 + (menu.authoredDocument?.scene.nodes.filter((n) => n.type === 'button').length ?? menu.buttons.length) * 20, canvasHeight - 60);
+
+		onUpdate((m) => {
+			if (m.authoredDocument) {
+				return {
+					...m,
+					authoredDocument: {
+						...m.authoredDocument,
+						scene: {
+							...m.authoredDocument.scene,
+							nodes: [
+								...m.authoredDocument.scene.nodes,
+								{
+									type: 'button',
+									id,
+									label,
+									x,
+									y,
+									width: 200,
+									height: 40,
+									highlightMode: 'static',
+									highlightKeyframes: [],
+									videoAssetId: null,
+								},
+							],
+						},
+						interaction: {
+							...m.authoredDocument.interaction,
+							nodes: [
+								...m.authoredDocument.interaction.nodes,
+								{ nodeId: id, navUp: null, navDown: null, navLeft: null, navRight: null, action: null },
+							],
+						},
+					},
+				};
+			}
+			return {
+				...m,
+				buttons: [
+					...m.buttons,
+					{
+						id,
+						label,
+						bounds: { x, y, width: 200, height: 40 },
+						action: null,
+						navUp: null,
+						navDown: null,
+						navLeft: null,
+						navRight: null,
+						highlightMode: 'static',
+						highlightKeyframes: [],
+						videoAssetId: null,
+					},
+				],
+			};
+		});
 	};
 
 	const handleUpdateButton = (buttonId: string, updates: Partial<MenuButton>) => {
-		onUpdate((m) => ({
-			...m,
-			buttons: m.buttons.map((b) => (b.id === buttonId ? { ...b, ...updates } : b)),
-		}));
+		onUpdate((m) => {
+			if (m.authoredDocument) {
+				const nodes = m.authoredDocument.scene.nodes.map((node) => {
+					if (node.type === 'button' && node.id === buttonId) {
+						return {
+							...node,
+							label: updates.label ?? node.label,
+							x: updates.bounds?.x ?? node.x,
+							y: updates.bounds?.y ?? node.y,
+							width: updates.bounds?.width ?? node.width,
+							height: updates.bounds?.height ?? node.height,
+							highlightMode: updates.highlightMode ?? node.highlightMode,
+							highlightKeyframes: updates.highlightKeyframes ?? node.highlightKeyframes,
+							videoAssetId: updates.videoAssetId ?? node.videoAssetId,
+						};
+					}
+					return node;
+				});
+
+				const interactionNodes = m.authoredDocument.interaction.nodes.map((node) => {
+					if (node.nodeId === buttonId) {
+						return {
+							...node,
+							action: updates.action !== undefined ? updates.action : node.action,
+							navUp: updates.navUp !== undefined ? updates.navUp : node.navUp,
+							navDown: updates.navDown !== undefined ? updates.navDown : node.navDown,
+							navLeft: updates.navLeft !== undefined ? updates.navLeft : node.navLeft,
+							navRight: updates.navRight !== undefined ? updates.navRight : node.navRight,
+						};
+					}
+					return node;
+				});
+
+				return {
+					...m,
+					authoredDocument: {
+						...m.authoredDocument,
+						scene: { ...m.authoredDocument.scene, nodes },
+						interaction: { ...m.authoredDocument.interaction, nodes: interactionNodes },
+					},
+				};
+			}
+			return {
+				...m,
+				buttons: m.buttons.map((b) => (b.id === buttonId ? { ...b, ...updates } : b)),
+			};
+		});
 	};
 
 	const handleRemoveButton = (buttonId: string) => {
-		onUpdate((m) => ({
-			...m,
-			buttons: m.buttons.filter((b) => b.id !== buttonId),
-			defaultButtonId: m.defaultButtonId === buttonId ? null : m.defaultButtonId,
-		}));
+		onUpdate((m) => {
+			if (m.authoredDocument) {
+				return {
+					...m,
+					authoredDocument: {
+						...m.authoredDocument,
+						scene: {
+							...m.authoredDocument.scene,
+							nodes: m.authoredDocument.scene.nodes.filter((n) => n.id !== buttonId),
+						},
+						interaction: {
+							...m.authoredDocument.interaction,
+							nodes: m.authoredDocument.interaction.nodes.filter((n) => n.nodeId !== buttonId),
+							defaultFocusId:
+								m.authoredDocument.interaction.defaultFocusId === buttonId
+									? null
+									: m.authoredDocument.interaction.defaultFocusId,
+						},
+					},
+				};
+			}
+			return {
+				...m,
+				buttons: m.buttons.filter((b) => b.id !== buttonId),
+				defaultButtonId: m.defaultButtonId === buttonId ? null : m.defaultButtonId,
+			};
+		});
 	};
 
 	return (
@@ -431,18 +572,27 @@ function MenuEditor({
 						<div className="menus__canvas-area">
 							{previewMode ? (
 								<NavigationPreview
-									menu={menu}
+									buttons={currentButtons}
 									canvasHeight={canvasHeight}
 									showSafeArea={showSafeArea}
 									backgroundLabel={backgroundAssetLabel}
+									defaultButtonId={
+										menu.authoredDocument?.interaction.defaultFocusId ?? menu.defaultButtonId
+									}
+									highlightColours={
+										menu.authoredDocument?.highlightColours ?? menu.highlightColours
+									}
 								/>
 							) : (
 								<MenuCanvas
-									menu={menu}
+									buttons={currentButtons}
 									canvasHeight={canvasHeight}
 									onUpdateButton={handleUpdateButton}
 									showSafeArea={showSafeArea}
 									backgroundLabel={backgroundAssetLabel}
+									defaultButtonId={
+										menu.authoredDocument?.interaction.defaultFocusId ?? menu.defaultButtonId
+									}
 								/>
 							)}
 						</div>
@@ -456,10 +606,10 @@ function MenuEditor({
 			</div>
 
 			{/* Button properties and Navigation (Design/Bind/Remote modes) */}
-			{menu.buttons.length > 0 && menuEditorMode !== 'compile' && (
+			{currentButtons.length > 0 && menuEditorMode !== 'compile' && (
 				<div className="card menus__buttons">
 					<h4 className="menus__section-heading">Buttons</h4>
-					{menu.buttons.map((btn) => (
+					{currentButtons.map((btn) => (
 						<div key={btn.id} className="menus__button-row">
 							<input
 								className="menus__button-label"
@@ -511,8 +661,27 @@ function MenuEditor({
 								<input
 									type="radio"
 									name={`default-${menu.id}`}
-									checked={menu.defaultButtonId === btn.id}
-									onChange={() => onUpdate((m) => ({ ...m, defaultButtonId: btn.id }))}
+									checked={
+										(menu.authoredDocument?.interaction.defaultFocusId ?? menu.defaultButtonId) ===
+										btn.id
+									}
+									onChange={() =>
+										onUpdate((m) => {
+											if (m.authoredDocument) {
+												return {
+													...m,
+													authoredDocument: {
+														...m.authoredDocument,
+														interaction: {
+															...m.authoredDocument.interaction,
+															defaultFocusId: btn.id,
+														},
+													},
+												};
+											}
+											return { ...m, defaultButtonId: btn.id };
+										})
+									}
 								/>
 								Default
 							</label>
@@ -529,7 +698,7 @@ function MenuEditor({
 					{/* Navigation editor */}
 					<div className="menus__nav-summary">
 						<h4 className="menus__section-heading">Navigation</h4>
-						{menu.buttons.map((btn) => (
+						{currentButtons.map((btn) => (
 							<div key={btn.id} className="menus__nav-editor-row">
 								<span className="menus__nav-btn-name">{btn.label}</span>
 								<div className="menus__nav-dirs">
@@ -553,7 +722,7 @@ function MenuEditor({
 												}
 											>
 												<option value="">—</option>
-												{menu.buttons
+												{currentButtons
 													.filter((b) => b.id !== btn.id)
 													.map((b) => (
 														<option key={b.id} value={b.id}>
@@ -597,17 +766,19 @@ const MIN_BUTTON_SIZE = 30;
 type ResizeEdge = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw';
 
 function MenuCanvas({
-	menu,
+	buttons,
 	canvasHeight,
 	onUpdateButton,
 	showSafeArea,
 	backgroundLabel,
+	defaultButtonId,
 }: {
-	menu: Menu;
+	buttons: MenuButton[];
 	canvasHeight: number;
 	onUpdateButton: (buttonId: string, updates: Partial<MenuButton>) => void;
 	showSafeArea: boolean;
 	backgroundLabel: string | null;
+	defaultButtonId: string | null;
 }) {
 	const canvasRef = useRef<HTMLDivElement>(null);
 	const dragState = useRef<{
@@ -624,7 +795,7 @@ function MenuCanvas({
 		(excludeId: string) => {
 			const xs: number[] = [];
 			const ys: number[] = [];
-			for (const btn of menu.buttons) {
+			for (const btn of buttons) {
 				if (btn.id === excludeId) continue;
 				xs.push(btn.bounds.x, btn.bounds.x + btn.bounds.width, btn.bounds.x + btn.bounds.width / 2);
 				ys.push(
@@ -638,7 +809,7 @@ function MenuCanvas({
 			ys.push(0, canvasHeight / 2, canvasHeight);
 			return { xs, ys };
 		},
-		[menu.buttons, canvasHeight],
+		[buttons, canvasHeight],
 	);
 
 	/** Snap a value to the nearest target within threshold. */
@@ -780,7 +951,7 @@ function MenuCanvas({
 				<div className="menus__canvas-bg-label text-muted">{backgroundLabel}</div>
 			)}
 			{/* Navigation connection lines */}
-			<NavLines buttons={menu.buttons} canvasWidth={MENU_WIDTH} canvasHeight={canvasHeight} />
+			<NavLines buttons={buttons} canvasWidth={MENU_WIDTH} canvasHeight={canvasHeight} />
 			{/* Snap guide lines */}
 			{snapLines.map((line, i) =>
 				line.axis === 'x' ? (
@@ -820,10 +991,10 @@ function MenuCanvas({
 					/>
 				</>
 			)}
-			{menu.buttons.map((btn) => (
+			{buttons.map((btn) => (
 				<div
 					key={btn.id}
-					className={`menus__canvas-button ${menu.defaultButtonId === btn.id ? 'menus__canvas-button--default' : ''}`}
+					className={`menus__canvas-button ${defaultButtonId === btn.id ? 'menus__canvas-button--default' : ''}`}
 					style={{
 						left: `${(btn.bounds.x / MENU_WIDTH) * 100}%`,
 						top: `${(btn.bounds.y / canvasHeight) * 100}%`,
@@ -913,18 +1084,22 @@ function NavLines({
 
 /** Keyboard-navigable preview of menu button focus. */
 function NavigationPreview({
-	menu,
+	buttons,
 	canvasHeight,
 	showSafeArea,
 	backgroundLabel,
+	defaultButtonId,
+	highlightColours,
 }: {
-	menu: Menu;
+	buttons: MenuButton[];
 	canvasHeight: number;
 	showSafeArea: boolean;
 	backgroundLabel: string | null;
+	defaultButtonId: string | null;
+	highlightColours: MenuHighlightColours;
 }) {
 	const [focusedId, setFocusedId] = useState<string | null>(
-		menu.defaultButtonId ?? menu.buttons[0]?.id ?? null,
+		defaultButtonId ?? buttons[0]?.id ?? null,
 	);
 	const containerRef = useRef<HTMLDivElement>(null);
 
@@ -941,7 +1116,7 @@ function NavigationPreview({
 			if (!isNavKey) return;
 			e.preventDefault();
 
-			const btn = menu.buttons.find((b) => b.id === focusedId);
+			const btn = buttons.find((b) => b.id === focusedId);
 			if (!btn) return;
 
 			let nextId: string | null = null;
@@ -964,7 +1139,7 @@ function NavigationPreview({
 				setFocusedId(nextId);
 			}
 		},
-		[focusedId, menu.buttons],
+		[focusedId, buttons],
 	);
 
 	return (
@@ -1003,13 +1178,13 @@ function NavigationPreview({
 			<div className="menus__preview-hint text-muted">
 				Use arrow keys to navigate. Press Enter to activate.
 			</div>
-			{menu.buttons.map((btn) => {
+			{buttons.map((btn) => {
 				const isFocused = btn.id === focusedId;
-				const hl = menu.highlightColours;
+				const hl = highlightColours;
 				return (
 					<div
 						key={btn.id}
-						className={`menus__canvas-button ${isFocused ? 'menus__canvas-button--focused' : ''} ${menu.defaultButtonId === btn.id ? 'menus__canvas-button--default' : ''}`}
+						className={`menus__canvas-button ${isFocused ? 'menus__canvas-button--focused' : ''} ${defaultButtonId === btn.id ? 'menus__canvas-button--default' : ''}`}
 						style={{
 							left: `${(btn.bounds.x / MENU_WIDTH) * 100}%`,
 							top: `${(btn.bounds.y / canvasHeight) * 100}%`,
