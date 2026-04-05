@@ -1,69 +1,45 @@
 # Menu System Implementation Plan
 
-This plan turns the menu-system specification into an implementation sequence that fits the current Spindle codebase.
-
-It assumes we preserve working DVD menu builds while we introduce a richer authored menu model, a more capable editor, and a format-aware compile pipeline that can later scale to Blu-ray.
+This plan turns the menu-system specification into an implementation sequence that completely replaces the legacy menu model.
 
 ## Purpose
 
-The immediate goal is not to replace everything at once. The goal is to move Spindle from a flat button-overlay menu model to a scene-driven menu system through staged, shippable milestones.
+The goal is to move Spindle from a flat button-overlay menu model to a fully scene-driven menu system. Because the team has chosen to "implement it all" in one holistic push, we are taking a direct replacement approach. We accept that the DVD authoring pipeline will temporarily break during this transition, provided the final system is robust, format-aware, and scalable to both DVD and future Blu-ray targets.
 
 The implementation plan therefore favours:
 
-- compatibility-preserving schema evolution
-- incremental frontend replacement
-- planner and renderer changes behind explicit build stages
-- diagnostics that show every downgrade from authored intent to DVD-safe output
-- test coverage at each seam so the richer model does not destabilise DVD authoring
+- **Direct Schema Replacement**: No legacy field projections. The `Menu` schema is replaced by `MenuDocument`.
+- **Holistic Frontend Rewrite**: The Menus page becomes a full scene editor immediately.
+- **New Compiler Pipeline**: The old `drawbox` renderer is discarded in favour of a state-pass extraction renderer.
+- **Motion from Day One**: Motion timing is integrated into the core schema and compiler rather than bolted on later.
 
 ## Current Baseline
 
 The current implementation is strong in a few important ways:
 
 - `apps/spindle/src/types/project.ts` and `plugins/tauri-plugin-spindle-project/src/models.rs` already share a stable menu schema
-- `apps/spindle/src/pages/MenusPage.tsx` edits the shared project model directly rather than keeping hidden editor state
-- `plugins/tauri-plugin-spindle-project/src/build/navigation.rs` already gives us deterministic auto-navigation
+- `apps/spindle/src/pages/MenusPage.tsx` edits the shared project model directly
 - `plugins/tauri-plugin-spindle-project/src/build/planner.rs` already splits menu work into explicit jobs
-- `plugins/tauri-plugin-spindle-project/src/build/menu.rs` and `plugins/tauri-plugin-spindle-project/src/build/authoring.rs` already separate video rendering, highlight composition, and DVD command generation
 
-The current implementation also defines the main constraints we need to break apart:
+The current implementation also defines the main constraints we are breaking apart:
 
-- a menu is still `backgroundAssetId + buttons[] + highlightColours`
+- a menu is currently `backgroundAssetId + buttons[] + highlightColours`
 - visual authoring is limited to rectangles, labels, and one menu-level highlight palette
-- motion fields exist, but there is no coherent timing or animation model
 - the frontend still treats the editor as a button list plus drag canvas, not as a scene document
 - the build plan cannot yet represent compile variants, downgrade reports, or richer authored state passes
 
 ## Delivery Strategy
 
-The work should ship in six phases. Each phase should leave the codebase in a releasable state.
+Instead of compatibility-preserving micro-phases, we will execute in three major, interdependent milestones. The codebase will not produce playable DVDs until Milestone 3 is complete.
 
-### Phase 0. Document and alignment foundation
-
-Deliverables:
-
-- finalise the canonical menu-system feature spec
-- create this implementation plan
-- align naming for authored scene, interaction graph, theme system, compile variants, and compiled assets
-
-Files:
-
-- `docs/Spindle_Menu_System_Spec.md`
-- `docs/menu-system-implementation-plan.md`
-
-Exit criteria:
-
-- one canonical spec exists
-- engineering terms are stable enough to use in schema and UI
-
-### Phase 1. Compatibility-preserving schema expansion
+### Milestone 1: The Unified Schema and Model
 
 Deliverables:
 
-- add a new authored menu document model alongside the legacy flat fields
-- keep legacy fields readable and writable while new fields are introduced
-- define migration helpers between legacy `Menu` data and the new scene-backed structure
-- add serialisation tests and round-trip fixtures
+- Replace the legacy `Menu` struct with `MenuDocument` containing Scene, Interaction, Timing, Theme, and Compile Policy.
+- Remove old `backgroundAssetId`, `buttons`, and `highlightColours` from the root schema entirely.
+- Write a one-way migration to lift existing projects into the new scene format upon load.
+- Update TypeScript types to match.
 
 Primary files:
 
@@ -71,349 +47,107 @@ Primary files:
 - `apps/spindle/src/types/project.ts`
 - `plugins/tauri-plugin-spindle-project/src/lib.rs`
 - `plugins/tauri-plugin-spindle-project/src/commands.rs`
-- `apps/spindle/src/types/project.test.ts`
-
-Key tasks:
-
-1. Introduce a `MenuDocument` style structure inside `Menu`, or replace `Menu` with a richer compatible shape if the migration cost stays acceptable.
-2. Separate authored layers:
-   - scene
-   - interaction
-   - timing
-   - theme reference
-   - compile policy
-3. Keep old fields available as a transitional projection:
-   - `backgroundAssetId`
-   - `buttons`
-   - `defaultButtonId`
-   - `highlightColours`
-4. Add migration helpers that can:
-   - lift legacy menus into a default scene
-   - flatten a simple scene back into legacy button overlays where needed
 
 Exit criteria:
 
-- existing projects still open
-- menu serialisation remains deterministic
-- the frontend can read the new schema without breaking build planning
+- Rust and TypeScript share the new scene-based schema.
+- Legacy projects migrate successfully in-memory upon load.
 
-### Phase 2. Scene-backed still-menu foundation
+### Milestone 2: The Scene Editor and Interactive Canvas
 
 Deliverables:
 
-- introduce a first-class scene graph for still menus
-- replace the current button-row mental model with layers plus inspector data structures
-- keep a simple-mode workflow for basic projects
+- Replace `MenusPage.tsx` with a multi-pane document editor (canvas, layers, inspector, preview).
+- Implement interactive nodes (Text, Image, Shape, Video, Button).
+- Implement the Interaction graph (focus routing, activation actions).
+- Implement the Timing model (intro, loop, timeout).
+- Introduce components and themes for reusable button/menu styling.
+- Add generation presets for common layouts (main menu, chapter grid).
 
 Primary files:
 
 - `apps/spindle/src/pages/MenusPage.tsx`
-- `apps/spindle/src/pages/MenusPage.css`
 - `apps/spindle/src/store/project-store.ts`
 - new editor components under `apps/spindle/src/components/`
 
-Key tasks:
-
-1. Split the Menus page into composable editor areas:
-   - document sidebar
-   - canvas
-   - layer list
-   - inspector
-   - remote preview
-2. Represent authored scene nodes explicitly:
-   - text
-   - image
-   - shape
-   - group
-   - button
-   - generated collection placeholder
-3. Keep a "quick edit" path that maps simple authored buttons onto the new inspector without exposing the entire scene model up front.
-4. Preserve current features during the transition:
-   - add menu
-   - add button
-   - resize and move interactive regions
-   - assign action
-   - auto-generate navigation
-
 Exit criteria:
 
-- users can author a still menu through the new scene-backed editor
-- simple menus remain easy to create
-- project-store updates stay serialisable and deterministic
+- Users can author complex still and motion scenes.
+- The interaction graph correctly simulates remote navigation.
 
-### Phase 3. Component, theme, and generated-layout system
+### Milestone 3: The Target-Aware Compiler and Diagnostics
 
 Deliverables:
 
-- reusable menu components with slots and defaults
-- theme tokens and style recipes
-- generated menu families that output editable scenes rather than locked templates
-
-Primary files:
-
-- `apps/spindle/src/pages/MenusPage.tsx`
-- `apps/spindle/src/store/project-store.ts`
-- `apps/spindle/src/types/project.ts`
-- new shared menu-component definitions
-- `SPEC.md` menu section only if product-level scope needs refreshing after implementation lands
-
-Key tasks:
-
-1. Define a component schema with:
-   - internal node tree
-   - bindable fields
-   - state variants
-   - DVD fallback hints
-2. Add theme tokens for:
-   - typography
-   - spacing
-   - colour ramps
-   - focus treatments
-   - thumbnail framing
-3. Implement generation presets for:
-   - main menu
-   - title selection
-   - chapter grid
-   - audio and subtitle pickers
-4. Track generation metadata so regeneration is explicit rather than destructive.
-
-Exit criteria:
-
-- at least one generated menu family creates editable authored scenes
-- component reuse replaces duplicated button styling logic
-- theme changes can affect multiple menus without mutating authored content directly
-
-### Phase 4. Compiler and preview rebuild
-
-Deliverables:
-
-- authored-scene render passes for preview and build
-- state-pass extraction for DVD overlays
-- compile variants and downgrade reporting
+- Delete the legacy `drawbox` and `drawtext` renderer in `build/menu.rs`.
+- Build a new render pipeline that reads `MenuScene` and `MenuTiming`.
+- Implement state-pass extraction: generate DVD highlight/select overlays by rendering the scene's focus and activate states using FFmpeg complex filtergraphs.
+- Implement downgrade diagnostics (e.g., warning if a scene uses too many palette colours for DVD limits).
+- Re-wire `build/planner.rs` and `build/navigation.rs` to consume the new `MenuDocument`.
 
 Primary files:
 
 - `plugins/tauri-plugin-spindle-project/src/build/menu.rs`
 - `plugins/tauri-plugin-spindle-project/src/build/planner.rs`
-- `plugins/tauri-plugin-spindle-project/src/build/types.rs`
 - `plugins/tauri-plugin-spindle-project/src/build/authoring.rs`
 - `plugins/tauri-plugin-spindle-project/src/build/dvd_navigation.rs`
-- `apps/spindle/src/pages/MenusPage.tsx`
-
-Key tasks:
-
-1. Replace the long-term `drawbox` and `drawtext` renderer with a render pipeline that can consume authored scene nodes.
-2. Add distinct render passes for:
-   - static background
-   - normal visual state
-   - focus mask extraction
-   - activate mask extraction
-3. Extend build jobs so the plan can surface:
-   - compile variant selection
-   - downgrade warnings
-   - overlay extraction outputs
-   - authored vs compiled previews
-4. Add a compile preview in the frontend that compares:
-   - authored view
-   - DVD-safe output
-   - constraint warnings
 
 Exit criteria:
 
-- still menus build through the new renderer
-- overlay generation comes from authored state passes instead of raw button bounds alone
-- the user can see compile compromises before a full build
-
-### Phase 5. Navigation, diagnostics, and verification hardening
-
-Deliverables:
-
-- richer focus-graph tooling
-- stronger diagnostics
-- verification coverage for authored vs compiled behaviour
-
-Primary files:
-
-- `plugins/tauri-plugin-spindle-project/src/build/navigation.rs`
-- `plugins/tauri-plugin-spindle-project/src/commands.rs`
-- `apps/spindle/src/store/project-store.ts`
-- `apps/spindle/src/pages/MenusPage.tsx`
-- validation and test files in both frontend and Rust
-
-Key tasks:
-
-1. Upgrade navigation heuristics to consider:
-   - component role
-   - group structure
-   - row and column intent
-   - focus-order presets
-2. Add diagnostics for:
-   - unreachable buttons
-   - conflicting neighbours
-   - unsafe typography
-   - overlay palette pressure
-   - excessive button count
-   - authored features dropped in DVD compile
-3. Expand remote simulation so it is a full view mode rather than a small preview helper.
-
-Exit criteria:
-
-- remote behaviour is testable and inspectable before build
-- validation covers both authored structure and DVD compile limits
-
-### Phase 6. Motion-menu foundation
-
-Deliverables:
-
-- authored timing model
-- loop and timeout semantics
-- animation tracks for supported node properties
-- motion-aware compile preview
-
-Primary files:
-
-- `plugins/tauri-plugin-spindle-project/src/models.rs`
-- `apps/spindle/src/types/project.ts`
-- `plugins/tauri-plugin-spindle-project/src/build/menu.rs`
-- `plugins/tauri-plugin-spindle-project/src/build/planner.rs`
-- `apps/spindle/src/pages/MenusPage.tsx`
-
-Key tasks:
-
-1. Convert existing motion placeholders into a real timing structure.
-2. Support intro, loop, and timeout semantics in the authored model.
-3. Restrict motion features to what the active backend can compile honestly.
-4. Surface build-cost diagnostics for motion menus.
-
-Exit criteria:
-
-- motion is modelled as an extension of the same menu document
-- still and motion menus share the same editor and compile pipeline concepts
+- The new build pipeline successfully compiles scene-based menus into DVD-compliant MPEG and `spumux` outputs.
+- Diagnostics correctly warn users of target-specific downgrades.
 
 ## Workstreams
 
-The phases above map to four practical workstreams.
+The milestones above map to three practical workstreams that can run concurrently after Milestone 1 is defined:
 
-### 1. Schema and migration
+### 1. Schema and Migration
+Responsibilities: new authored menu types, migration helpers, serialisation compatibility.
 
-Focus:
+### 2. Frontend Authoring Experience
+Responsibilities: scene editing, inspector, remote preview, component libraries, motion preview.
 
-- `plugins/tauri-plugin-spindle-project/src/models.rs`
-- `apps/spindle/src/types/project.ts`
-
-Responsibilities:
-
-- new authored menu types
-- migration helpers
-- serialisation compatibility
-- validation type updates
-
-### 2. Frontend authoring experience
-
-Focus:
-
-- `apps/spindle/src/pages/MenusPage.tsx`
-- `apps/spindle/src/store/project-store.ts`
-- new editor components
-
-Responsibilities:
-
-- scene editing
-- inspector and layer list
-- remote preview
-- generated-menu flows
-
-### 3. Build and compile pipeline
-
-Focus:
-
-- `plugins/tauri-plugin-spindle-project/src/build/*.rs`
-
-Responsibilities:
-
-- render passes
-- compile variants
-- overlay extraction
-- authored-to-DVD mapping
-
-### 4. Diagnostics and trust
-
-Focus:
-
-- frontend validation views
-- Rust validation logic
-- build plan reporting
-- compile preview
-
-Responsibilities:
-
-- downgrade visibility
-- navigation verification
-- authored-vs-compiled comparison
-- regression protection
+### 3. Build, Compile, and Diagnostics
+Responsibilities: render passes, compile variants, state overlay extraction, authored-to-DVD mapping, downgrade visibility.
 
 ## Recommended Sequencing
 
-Work should be sequenced to keep the repo stable:
-
-1. merge schema scaffolding before major UI rewrites
-2. land the editor shell before component libraries
-3. keep the legacy menu compiler working until the new render path is proven
-4. only remove legacy fields after the new pipeline can open, edit, preview, and build real projects
+1. Merge schema replacement (`models.rs` and `project.ts`). This deliberately breaks the build and the UI.
+2. Rebuild the frontend editor (`MenusPage.tsx`) on top of the new schema.
+3. Concurrently rebuild the backend compiler (`build/menu.rs`) to consume the new schema.
+4. Integrate compile previews and diagnostics into the editor.
+5. Restore end-to-end DVD building.
 
 ## Testing Plan
 
-Each phase should add or update tests in the same PR.
-
 Required coverage:
 
-- TypeScript schema tests for new menu types and migration helpers
-- Rust serialisation tests for forward and backward compatibility
-- Rust unit tests for navigation heuristics and compile-policy mapping
-- planner tests for new build-job types and output shapes
-- frontend tests for editor state transitions and quick-edit workflows
+- TypeScript and Rust serialisation tests for the new scene types.
+- Rust unit tests for the one-way legacy migration logic.
+- Rust unit tests for the new navigation heuristics across the scene graph.
+- Frontend tests for scene node manipulations and selection.
 
 Manual verification checkpoints:
 
-- open an older project and confirm menus still load
-- create a new simple menu and build a DVD project
-- generate a menu from title and chapter data, then edit it manually
-- compare authored preview against DVD compile preview
-- confirm downgrade warnings appear when authored features exceed DVD limits
+- Open a legacy project and verify its buttons are lifted into scene nodes.
+- Author a new complex menu with motion and verify the canvas preview matches intent.
+- Build a DVD and verify the final `spumux` XML and overlays exactly match the authored interaction states.
 
 ## Risks And Mitigations
 
-### Risk: schema churn breaks project compatibility
+### Risk: Prolonged broken state
+Because we are breaking DVD compatibility to "implement it all" at once, the `main` branch will be broken for an extended period.
+**Mitigation:** Use a feature branch for the overarching menu system overhaul, merging back to `main` only when end-to-end authoring is restored.
 
-Mitigation:
-
-- keep legacy projections during migration
-- add round-trip fixtures before removing old fields
-
-### Risk: editor rewrite stalls before build support catches up
-
-Mitigation:
-
-- gate the new editor on scene data that can still project into the existing build model early on
-
-### Risk: richer visuals create misleading previews
-
-Mitigation:
-
-- make compile preview and downgrade reporting mandatory before expanding motion and advanced effects
-
-### Risk: build-job growth makes planning noisy
-
-Mitigation:
-
-- group jobs by authored menu and expose sub-steps rather than flattening every tiny render pass into user-facing noise
+### Risk: The "Infinite Canvas"
+The new scene graph might inspire users to create layouts impossible to compile for DVD.
+**Mitigation:** The compiler *must* implement rigid downgrade reports and target-aware diagnostics to enforce DVD reality, even if the canvas is flexible.
 
 ## Definition Of Done
 
-The menu-system upgrade is complete when all of the following are true:
+The holistic menu-system implementation is complete when all of the following are true:
 
-- menus are authored as scene documents rather than flat button lists
-- interaction is modelled explicitly and tested independently of rendering
-- themes and generated components are reusable across menus
-- DVD output is compiled from authored state passes with visible downgrade reporting
-- the same architecture can support a future Blu-ray backend without another model rewrite
+- The legacy flat menu schema and `drawbox` renderer have been deleted.
+- Menus are authored as scene documents with explicit interaction, themes, and motion timing.
+- DVD output is compiled correctly from authored state passes.
+- Downgrades and target constraints are explicitly reported to the user prior to building.

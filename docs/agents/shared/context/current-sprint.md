@@ -2,7 +2,16 @@
 
 ## Focus
 
-Establishing the Spindle Agent Infrastructure and generating the initial persona templates.
+Executing the holistic menu-system overhaul.
+
+The immediate thread is to replace the legacy flat menu model with the new scene-driven `MenuDocument` architecture. This is a deliberate "break-the-pipeline" phase where we prioritize structural integrity and long-term scalability (including motion and Blu-ray) over maintaining a playable DVD build on the feature branch.
+
+Key workstreams:
+- **Milestone 1**: Direct schema replacement in `models.rs` and `project.ts`.
+- **Milestone 2**: Rebuilding `MenusPage.tsx` as a multi-pane scene editor.
+- **Milestone 3**: Implementing the state-pass extraction compiler in `build/menu.rs`.
+
+This work is isolated on the `feature/menu-system-overhaul` branch. Main remains stable for v0.2.x maintenance.
 
 ## Channel
 

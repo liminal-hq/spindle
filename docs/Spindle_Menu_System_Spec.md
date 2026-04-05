@@ -559,16 +559,14 @@ The advanced system should not punish the simple workflow.
 
 ## Delivery Phases
 
-The recommended delivery order is:
+Because the team has opted to "implement it all" in a holistic push, the delivery strategy is a direct, unified replacement:
 
-1. schema expansion with compatibility projections
-2. scene-backed still-menu editor
-3. components, themes, and generated menu families
-4. compile preview and downgrade reporting
-5. motion-menu support
-6. Blu-ray backend integration
+1. **The Unified Schema and Model**: Direct replacement of the legacy schema with `MenuDocument` and a one-way migration for older projects.
+2. **The Scene Editor and Interactive Canvas**: Rebuilding the Menus page as a multi-pane document editor with components and motion timing.
+3. **The Target-Aware Compiler and Diagnostics**: Deleting the legacy `drawbox` renderer and implementing state-pass extraction and downgrade reporting.
+4. **Blu-ray Backend Integration**: (Future Phase) Adding target-specific logic for BD authoring.
 
-Each phase should preserve working DVD builds.
+During this transition, the existing DVD pipeline will temporarily break until the new compiler successfully links the scene document to DVD-compliant output.
 
 ## Non-Goals
 

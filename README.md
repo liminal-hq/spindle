@@ -12,8 +12,8 @@ Current DVD authoring capabilities include:
 
 - titleset-aware project editing with drag-and-drop title organisation
 - chapter seeding from source media plus chapter-targeted menu and end actions
-- menu editing with auto-generated directional navigation
-- authored menu routing for VMGM, titleset, and title-return paths, including keyboard-safe entry selection
+- menu editing with authored scene documents, layers, and motion timing support
+- semantic interaction graphs and remote-navigation preview simulation
 - asset inspection with embedded metadata title surfacing, compatibility explanations, and fix-oriented validation
 - DVD build planning and execution with diagnostics export and toolchain checks
 - bitmap subtitle muxing plus first-pass text subtitle rendering for DVD authoring
