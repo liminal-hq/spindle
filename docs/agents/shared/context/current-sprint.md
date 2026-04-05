@@ -7,11 +7,13 @@ Executing the holistic menu-system overhaul.
 The immediate thread is to replace the legacy flat menu model with the new scene-driven `MenuDocument` architecture. This is a deliberate "break-the-pipeline" phase where we prioritize structural integrity and long-term scalability (including motion and Blu-ray) over maintaining a playable DVD build on the feature branch.
 
 Key workstreams:
-- **Milestone 1**: COMPLETED. Non-destructive schema expansion in `models.rs` and `project.ts`. In-memory migration is active.
-- **Milestone 2**: IN PROGRESS. Tristan and Nicholas are rebuilding `MenusPage.tsx` as a multi-pane scene editor.
-- **Milestone 3**: PLANNED. Jullian will update the compiler once the frontend is producing scene data.
+
+- **Milestone 1**: COMPLETED & VERIFIED. Schema expansion and standard-aware migration (NTSC/PAL) are locked in `models.rs`.
+- **Milestone 2**: IN PROGRESS (Top Priority). Tristan and Nicholas are rebuilding `MenusPage.tsx` as a multi-pane scene editor.
+- **Milestone 3**: PLANNED. Jullian will update the compiler (Milestone 3) once the frontend is producing scene data.
 
 ## Product Stance: Rich Design, Honest Compilation
+
 The primary menu design space must remain high-fidelity and unrestricted. The "Honest Preview" (showing DVD palette/resolution downgrades) is an optional mode or overlay, not a forced canvas constraint. Users should design in a rich environment and opt-in to see target-specific compromises.
 
 This work is isolated on the `feature/menu-system-overhaul` branch. Main remains stable for v0.2.x maintenance.

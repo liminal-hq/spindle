@@ -133,6 +133,7 @@ export interface SourceChapter {
 
 // ── Menus ───────────────────────────────────────────────────────────────────
 
+export type MenuEditorMode = 'design' | 'bind' | 'remote' | 'compile';
 export type BackgroundMode = 'still' | 'motion';
 export type HighlightMode = 'static' | 'animated';
 
@@ -342,7 +343,7 @@ export interface VideoStreamInfo {
 	title: string | null;
 	/** OETF transfer characteristics, e.g. "smpte2084" (HDR10), "arib-std-b67" (HLG). */
 	colorTransfer: string | null;
-	/** Color primaries, e.g. "bt2020" (HDR), "bt709" (SDR). */
+	/** Colour primaries, e.g. "bt2020" (HDR), "bt709" (SDR). */
 	colorPrimaries: string | null;
 	/** Dolby Vision profile when ffprobe exposes DOVI side data. */
 	dolbyVisionProfile: number | null;

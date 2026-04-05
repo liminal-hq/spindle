@@ -14,6 +14,7 @@ import type {
 	PlaybackAction,
 	SpindleProjectFile,
 	VideoStandard,
+	MenuEditorMode,
 } from '../types/project';
 import { DEFAULT_HIGHLIGHT_COLOURS } from '../types/project';
 
@@ -31,8 +32,9 @@ export function MenusPage() {
 	const project = useProjectStore((s) => s.project);
 	const updateProject = useProjectStore((s) => s.updateProject);
 	const autoGenerateMenuNav = useProjectStore((s) => s.autoGenerateMenuNav);
+	const selectedMenuId = useProjectStore((s) => s.selectedMenuId);
+	const setSelectedMenuId = useProjectStore((s) => s.setSelectedMenuId);
 	const { consumePendingEntityId } = useNavigation();
-	const [selectedMenuId, setSelectedMenuId] = useState<string | null>(null);
 
 	// Consume navigation target from validation issue click
 	useEffect(() => {
@@ -55,22 +57,51 @@ export function MenusPage() {
 	];
 	const selectedEntry = allMenus.find((e) => e.menu.id === selectedMenuId) ?? null;
 
-	const createMenu = (name: string): Menu => ({
-		id: crypto.randomUUID(),
-		name,
-		backgroundAssetId: null,
-		buttons: [],
-		defaultButtonId: null,
-		highlightColours: { ...DEFAULT_HIGHLIGHT_COLOURS },
-		backgroundMode: 'still',
-		motionDurationSecs: null,
-		motionAudioAssetId: null,
-		motionLoopCount: 0,
-		timeoutAction: null,
-	});
+	const createMenu = (name: string, domain: 'vmgm' | 'titleset'): Menu => {
+		const id = crypto.randomUUID();
+		return {
+			id,
+			name,
+			backgroundAssetId: null,
+			buttons: [],
+			defaultButtonId: null,
+			highlightColours: { ...DEFAULT_HIGHLIGHT_COLOURS },
+			backgroundMode: 'still',
+			motionDurationSecs: null,
+			motionAudioAssetId: null,
+			motionLoopCount: 0,
+			timeoutAction: null,
+			authoredDocument: {
+				id,
+				name,
+				domain,
+				scene: {
+					designSize: { width: 720, height: MENU_HEIGHT[project.disc.standard] },
+					background: { assetId: null, colour: null },
+					nodes: [],
+					guides: [],
+				},
+				interaction: {
+					defaultFocusId: null,
+					nodes: [],
+					timeoutAction: null,
+				},
+				timing: {
+					introDurationSecs: 0,
+					loopDurationSecs: 0,
+					loopCount: 0,
+				},
+				highlightColours: { ...DEFAULT_HIGHLIGHT_COLOURS },
+				backgroundMode: 'still',
+				themeRef: null,
+				generationMeta: null,
+				compilePolicy: { safeAreaMode: 'title-safe', paletteStrategy: 'auto' },
+			},
+		};
+	};
 
 	const handleAddGlobalMenu = () => {
-		const newMenu = createMenu(`Menu ${disc.globalMenus.length + 1}`);
+		const newMenu = createMenu(`Menu ${disc.globalMenus.length + 1}`, 'vmgm');
 		updateProject((p) => ({
 			...p,
 			disc: { ...p.disc, globalMenus: [...p.disc.globalMenus, newMenu] },
@@ -80,7 +111,10 @@ export function MenusPage() {
 
 	const handleAddTitlesetMenu = (titlesetId: string) => {
 		const ts = disc.titlesets.find((t) => t.id === titlesetId);
-		const newMenu = createMenu(`${ts?.name ?? 'Titleset'} Menu ${(ts?.menus.length ?? 0) + 1}`);
+		const newMenu = createMenu(
+			`${ts?.name ?? 'Titleset'} Menu ${(ts?.menus.length ?? 0) + 1}`,
+			'titleset',
+		);
 		updateProject((p) => ({
 			...p,
 			disc: {
@@ -258,6 +292,8 @@ function MenuEditor({
 		...project.disc.globalMenus,
 		...project.disc.titlesets.flatMap((ts) => ts.menus),
 	];
+	const menuEditorMode = useProjectStore((s) => s.menuEditorMode);
+	const setMenuEditorMode = useProjectStore((s) => s.setMenuEditorMode);
 	const [showSafeArea, setShowSafeArea] = useState(true);
 	const [previewMode, setPreviewMode] = useState(false);
 
@@ -305,6 +341,19 @@ function MenuEditor({
 
 	return (
 		<div className="menus__editor">
+			{/* Mode Switcher */}
+			<div className="menus__mode-switcher">
+				{(['design', 'bind', 'remote', 'compile'] as MenuEditorMode[]).map((mode) => (
+					<button
+						key={mode}
+						className={`btn btn--sm ${menuEditorMode === mode ? 'btn--primary' : 'btn--ghost'}`}
+						onClick={() => setMenuEditorMode(mode)}
+					>
+						{mode.charAt(0).toUpperCase() + mode.slice(1)}
+					</button>
+				))}
+			</div>
+
 			{/* Menu canvas */}
 			<div className="menus__canvas card">
 				<div className="card__header">
@@ -314,9 +363,11 @@ function MenuEditor({
 						onChange={(e) => onUpdate((m) => ({ ...m, name: e.target.value }))}
 					/>
 					<div className="menus__editor-actions">
-						<button className="btn btn--sm" onClick={handleAddButton}>
-							Add Button
-						</button>
+						{menuEditorMode === 'design' && (
+							<button className="btn btn--sm" onClick={handleAddButton}>
+								Add Button
+							</button>
+						)}
 						<button
 							className="btn btn--sm"
 							onClick={onAutoNav}
@@ -346,56 +397,66 @@ function MenuEditor({
 					</div>
 				</div>
 
-				{/* Background image assignment */}
-				<div className="menus__bg-select">
-					<label className="text-muted">Background: </label>
-					<select
-						className="menus__select-sm"
-						value={menu.backgroundAssetId ?? ''}
-						onChange={(e) =>
-							onUpdate((m) => ({
-								...m,
-								backgroundAssetId: e.target.value || null,
-							}))
-						}
-					>
-						<option value="">None (solid colour)</option>
-						{project.assets
-							.filter(
-								(a) =>
-									a.videoStreams.length > 0 || a.fileName.match(/\.(png|jpg|jpeg|bmp|tiff?)$/i),
-							)
-							.map((a) => (
-								<option key={a.id} value={a.id}>
-									{a.fileName}
-								</option>
-							))}
-					</select>
-				</div>
+				{/* Editor Content Seams */}
+				{menuEditorMode === 'design' ? (
+					<>
+						{/* Background image assignment */}
+						<div className="menus__bg-select">
+							<label className="text-muted">Background: </label>
+							<select
+								className="menus__select-sm"
+								value={menu.backgroundAssetId ?? ''}
+								onChange={(e) =>
+									onUpdate((m) => ({
+										...m,
+										backgroundAssetId: e.target.value || null,
+									}))
+								}
+							>
+								<option value="">None (solid colour)</option>
+								{project.assets
+									.filter(
+										(a) =>
+											a.videoStreams.length > 0 || a.fileName.match(/\.(png|jpg|jpeg|bmp|tiff?)$/i),
+									)
+									.map((a) => (
+										<option key={a.id} value={a.id}>
+											{a.fileName}
+										</option>
+									))}
+							</select>
+						</div>
 
-				{/* Visual layout area */}
-				<div className="menus__canvas-area">
-					{previewMode ? (
-						<NavigationPreview
-							menu={menu}
-							canvasHeight={canvasHeight}
-							showSafeArea={showSafeArea}
-							backgroundLabel={backgroundAssetLabel}
-						/>
-					) : (
-						<MenuCanvas
-							menu={menu}
-							canvasHeight={canvasHeight}
-							onUpdateButton={handleUpdateButton}
-							showSafeArea={showSafeArea}
-							backgroundLabel={backgroundAssetLabel}
-						/>
-					)}
-				</div>
+						{/* Visual layout area */}
+						<div className="menus__canvas-area">
+							{previewMode ? (
+								<NavigationPreview
+									menu={menu}
+									canvasHeight={canvasHeight}
+									showSafeArea={showSafeArea}
+									backgroundLabel={backgroundAssetLabel}
+								/>
+							) : (
+								<MenuCanvas
+									menu={menu}
+									canvasHeight={canvasHeight}
+									onUpdateButton={handleUpdateButton}
+									showSafeArea={showSafeArea}
+									backgroundLabel={backgroundAssetLabel}
+								/>
+							)}
+						</div>
+					</>
+				) : (
+					<div className="menus__editor-placeholder text-muted">
+						{menuEditorMode.charAt(0).toUpperCase() + menuEditorMode.slice(1)} View (Coming in
+						Milestone 2.2)
+					</div>
+				)}
 			</div>
 
-			{/* Button properties */}
-			{menu.buttons.length > 0 && (
+			{/* Button properties and Navigation (Design/Bind/Remote modes) */}
+			{menu.buttons.length > 0 && menuEditorMode !== 'compile' && (
 				<div className="card menus__buttons">
 					<h4 className="menus__section-heading">Buttons</h4>
 					{menu.buttons.map((btn) => (
@@ -510,17 +571,19 @@ function MenuEditor({
 			)}
 
 			{/* Highlight colours */}
-			<div className="card menus__highlights">
-				<h4 className="menus__section-heading">Overlay Highlight Colours</h4>
-				<p className="menus__highlights-hint text-muted">
-					DVD menus use a subpicture overlay with a 4-colour palette. The select colour is shown
-					when a button is focused; the activate colour flashes when pressed.
-				</p>
-				<HighlightColourEditor
-					colours={menu.highlightColours}
-					onChange={(colours) => onUpdate((m) => ({ ...m, highlightColours: colours }))}
-				/>
-			</div>
+			{menuEditorMode !== 'compile' && (
+				<div className="card menus__highlights">
+					<h4 className="menus__section-heading">Overlay Highlight Colours</h4>
+					<p className="menus__highlights-hint text-muted">
+						DVD menus use a subpicture overlay with a 4-colour palette. The select colour is shown
+						when a button is focused; the activate colour flashes when pressed.
+					</p>
+					<HighlightColourEditor
+						colours={menu.highlightColours}
+						onChange={(colours) => onUpdate((m) => ({ ...m, highlightColours: colours }))}
+					/>
+				</div>
+			)}
 		</div>
 	);
 }

@@ -102,12 +102,15 @@ Exit criteria:
 The milestones above map to three practical workstreams that can run concurrently after Milestone 1 is defined:
 
 ### 1. Schema and Migration
+
 Responsibilities: new authored menu types, migration helpers, serialisation compatibility.
 
 ### 2. Frontend Authoring Experience
+
 Responsibilities: scene editing, inspector, remote preview, component libraries, motion preview.
 
 ### 3. Build, Compile, and Diagnostics
+
 Responsibilities: render passes, compile variants, state overlay extraction, authored-to-DVD mapping, downgrade visibility.
 
 ## Recommended Sequencing
@@ -136,12 +139,14 @@ Manual verification checkpoints:
 ## Risks And Mitigations
 
 ### Risk: Prolonged broken state
+
 Because we are breaking DVD compatibility to "implement it all" at once, the `main` branch will be broken for an extended period.
 **Mitigation:** Use a feature branch for the overarching menu system overhaul, merging back to `main` only when end-to-end authoring is restored.
 
 ### Risk: The "Infinite Canvas"
+
 The new scene graph might inspire users to create layouts impossible to compile for DVD.
-**Mitigation:** The compiler *must* implement rigid downgrade reports and target-aware diagnostics to enforce DVD reality, even if the canvas is flexible.
+**Mitigation:** The compiler _must_ implement rigid downgrade reports and target-aware diagnostics to enforce DVD reality, even if the canvas is flexible.
 
 ## Definition Of Done
 

@@ -1767,4 +1767,4 @@ The design system is implemented as CSS custom properties in `design-system.css`
 - **Rust**: Unit tests in `models.rs` cover JSON round-trips, serialisation format, domain values, and field initialisation.
 - **Frontend**: Vitest with happy-dom and testing-library. Tests cover type helpers, constants, and project creation defaults.
 - **No Rust toolchain locally**: Rust tests run via Docker (`ghcr.io/liminal-hq/tauri-dev-desktop:latest`).
-.
+  .

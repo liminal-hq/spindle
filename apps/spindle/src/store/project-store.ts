@@ -17,6 +17,8 @@ import type {
 	BuildResult,
 	BuildProgress,
 	Menu,
+	MenuDocument,
+	MenuEditorMode,
 	ToolchainStatus,
 } from '../types/project';
 
@@ -45,6 +47,10 @@ export interface ProjectState {
 	buildLog: string[];
 	/** Detected toolchain status. */
 	toolchain: ToolchainStatus[];
+	/** Currently selected menu ID in the Menus page. */
+	selectedMenuId: string | null;
+	/** Current editor mode for the menu system. */
+	menuEditorMode: MenuEditorMode;
 
 	// Actions
 	createProject: (req: CreateProjectRequest) => Promise<void>;
@@ -63,6 +69,9 @@ export interface ProjectState {
 	cancelBuild: () => Promise<void>;
 	browseOutputDir: () => Promise<void>;
 	autoGenerateMenuNav: (menuId: string) => Promise<void>;
+	setSelectedMenuId: (id: string | null) => void;
+	setMenuEditorMode: (mode: MenuEditorMode) => void;
+	updateMenuDocument: (menuId: string, updater: (doc: MenuDocument) => MenuDocument) => void;
 	checkToolchain: () => Promise<void>;
 }
 
@@ -258,6 +267,8 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 	buildProgress: null,
 	buildLog: [],
 	toolchain: [],
+	selectedMenuId: null,
+	menuEditorMode: 'design',
 
 	createProject: async (req) => {
 		set({ isLoading: true });
@@ -377,6 +388,8 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 			buildResult: null,
 			buildProgress: null,
 			buildLog: [],
+			selectedMenuId: null,
+			menuEditorMode: 'design',
 		});
 	},
 
@@ -728,6 +741,10 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 		}
 	},
 
+	setSelectedMenuId: (id) => set({ selectedMenuId: id }),
+
+	setMenuEditorMode: (mode) => set({ menuEditorMode: mode }),
+
 	autoGenerateMenuNav: async (menuId) => {
 		const { project } = get();
 		if (!project) return;
@@ -756,6 +773,25 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 			menu: foundMenu,
 		});
 
+		// Sync auto-generated navigation back to authoredDocument interaction graph
+		if (updated.authoredDocument) {
+			updated.authoredDocument = {
+				...updated.authoredDocument,
+				interaction: {
+					...updated.authoredDocument.interaction,
+					defaultFocusId: updated.defaultButtonId,
+					nodes: updated.buttons.map((btn) => ({
+						nodeId: btn.id,
+						navUp: btn.navUp,
+						navDown: btn.navDown,
+						navLeft: btn.navLeft,
+						navRight: btn.navRight,
+						action: btn.action,
+					})),
+				},
+			};
+		}
+
 		get().updateProject((p) => {
 			if (scope === 'global') {
 				return {
@@ -773,6 +809,138 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 						titlesets: p.disc.titlesets.map((ts) =>
 							ts.id === titlesetId
 								? { ...ts, menus: ts.menus.map((m) => (m.id === menuId ? updated : m)) }
+								: ts,
+						),
+					},
+				};
+			}
+		});
+	},
+
+	updateMenuDocument: (menuId, updater) => {
+		const { project, updateProject } = get();
+		if (!project) return;
+
+		// Find the menu to update
+		let scope: 'global' | 'titleset' = 'global';
+		let titlesetId: string | null = null;
+		let menu = project.disc.globalMenus.find((m) => m.id === menuId);
+
+		if (!menu) {
+			for (const ts of project.disc.titlesets) {
+				menu = ts.menus.find((m) => m.id === menuId);
+				if (menu) {
+					scope = 'titleset';
+					titlesetId = ts.id;
+					break;
+				}
+			}
+		}
+
+		if (!menu) return;
+
+		// 1. Ensure authoredDocument exists, initializing from legacy if necessary
+		const doc: MenuDocument = menu.authoredDocument ?? {
+			id: menu.id,
+			name: menu.name,
+			domain: scope === 'global' ? 'vmgm' : 'titleset',
+			scene: {
+				designSize: { width: 720, height: project.disc.standard === 'NTSC' ? 480 : 576 },
+				background: { assetId: menu.backgroundAssetId, colour: null },
+				nodes: menu.buttons.map((btn) => ({
+					type: 'button',
+					id: btn.id,
+					label: btn.label,
+					x: btn.bounds.x,
+					y: btn.bounds.y,
+					width: btn.bounds.width,
+					height: btn.bounds.height,
+					highlightMode: btn.highlightMode,
+					highlightKeyframes: btn.highlightKeyframes,
+					videoAssetId: btn.videoAssetId,
+				})),
+				guides: [],
+			},
+			interaction: {
+				defaultFocusId: menu.defaultButtonId,
+				nodes: menu.buttons.map((btn) => ({
+					nodeId: btn.id,
+					navUp: btn.navUp,
+					navDown: btn.navDown,
+					navLeft: btn.navLeft,
+					navRight: btn.navRight,
+					action: btn.action,
+				})),
+				timeoutAction: menu.timeoutAction,
+			},
+			timing: {
+				introDurationSecs: 0,
+				loopDurationSecs: menu.motionDurationSecs ?? 0,
+				loopCount: menu.motionLoopCount,
+			},
+			highlightColours: { ...menu.highlightColours },
+			backgroundMode: menu.backgroundMode,
+			themeRef: null,
+			generationMeta: null,
+			compilePolicy: { safeAreaMode: 'title-safe', paletteStrategy: 'auto' },
+		};
+
+		// 2. Apply the updater
+		const updatedDoc = updater(doc);
+
+		// 3. Sync Layer: Reflect scene/interaction changes back to legacy DVD fields
+		const syncMenu = (m: Menu): Menu => {
+			const buttonNodes = updatedDoc.scene.nodes.filter(
+				(n): n is Extract<typeof n, { type: 'button' }> => n.type === 'button',
+			);
+
+			return {
+				...m,
+				authoredDocument: updatedDoc,
+				backgroundAssetId: updatedDoc.scene.background.assetId,
+				backgroundMode: updatedDoc.backgroundMode,
+				highlightColours: { ...updatedDoc.highlightColours },
+				defaultButtonId: updatedDoc.interaction.defaultFocusId,
+				motionDurationSecs: updatedDoc.timing.loopDurationSecs,
+				motionLoopCount: updatedDoc.timing.loopCount,
+				timeoutAction: updatedDoc.interaction.timeoutAction,
+				buttons: buttonNodes.map((node) => {
+					const interaction = updatedDoc.interaction.nodes.find((i) => i.nodeId === node.id);
+					return {
+						id: node.id,
+						label: node.label,
+						bounds: { x: node.x, y: node.y, width: node.width, height: node.height },
+						action: interaction?.action ?? null,
+						navUp: interaction?.navUp ?? null,
+						navDown: interaction?.navDown ?? null,
+						navLeft: interaction?.navLeft ?? null,
+						navRight: interaction?.navRight ?? null,
+						highlightMode: node.highlightMode ?? 'static',
+						highlightKeyframes: node.highlightKeyframes ?? [],
+						videoAssetId: node.videoAssetId ?? null,
+					};
+				}),
+			};
+		};
+
+		// 4. Update project with the synced menu
+		updateProject((p) => {
+			if (scope === 'global') {
+				return {
+					...p,
+					disc: {
+						...p.disc,
+						globalMenus: p.disc.globalMenus.map((m) => (m.id === menuId ? syncMenu(m) : m)),
+					},
+				};
+			} else {
+				return {
+					...p,
+					disc: {
+						...p.disc,
+						titlesets: p.disc.titlesets.map((ts) =>
+							ts.id === titlesetId
+								? { ...ts, menus: ts.menus.map((m) => (m.id === menuId ? syncMenu(m) : m)) }
 								: ts,
 						),
 					},

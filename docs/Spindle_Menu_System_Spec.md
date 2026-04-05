@@ -263,38 +263,38 @@ A representative direction is:
 
 ```ts
 export interface MenuDocument {
-  id: string;
-  name: string;
-  domain: 'vmgm' | 'titleset';
-  scene: MenuScene;
-  interaction: MenuInteractionGraph;
-  timing: MenuTiming;
-  themeRef: string | null;
-  generationMeta: MenuGenerationMeta | null;
-  compilePolicy: MenuCompilePolicy;
+	id: string;
+	name: string;
+	domain: 'vmgm' | 'titleset';
+	scene: MenuScene;
+	interaction: MenuInteractionGraph;
+	timing: MenuTiming;
+	themeRef: string | null;
+	generationMeta: MenuGenerationMeta | null;
+	compilePolicy: MenuCompilePolicy;
 }
 
 export interface MenuScene {
-  designSize: { width: number; height: number };
-  background: SceneBackground;
-  nodes: SceneNode[];
-  guides: SceneGuide[];
+	designSize: { width: number; height: number };
+	background: SceneBackground;
+	nodes: SceneNode[];
+	guides: SceneGuide[];
 }
 
 export type SceneNode =
-  | GroupNode
-  | TextNode
-  | ImageNode
-  | ShapeNode
-  | VideoNode
-  | ButtonNode
-  | ComponentInstanceNode
-  | GeneratedCollectionNode;
+	| GroupNode
+	| TextNode
+	| ImageNode
+	| ShapeNode
+	| VideoNode
+	| ButtonNode
+	| ComponentInstanceNode
+	| GeneratedCollectionNode;
 
 export interface MenuInteractionGraph {
-  defaultFocusId: string | null;
-  nodes: FocusNode[];
-  timeoutAction: PlaybackAction | null;
+	defaultFocusId: string | null;
+	nodes: FocusNode[];
+	timeoutAction: PlaybackAction | null;
 }
 ```
 
