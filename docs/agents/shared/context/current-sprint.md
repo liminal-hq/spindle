@@ -9,9 +9,10 @@ The immediate thread is to replace the legacy flat menu model with the new scene
 Key workstreams:
 
 - **Milestone 1**: COMPLETED & VERIFIED. Schema expansion and standard-aware migration (NTSC/PAL) are locked in `models.rs`.
-- **Milestone 2**: IN PROGRESS. Tristan has completed the State & Sync foundations. Nicholas is now building the Scene Editor, Layers, and Inspector UI.
-- **Milestone 3**: COMPLETED. Jullian has finalized the backend seams and decoupled the compiler via `AuthorableMenuRef`.
-- **Milestone 4**: PLANNED. Automated Generation & Presets (Chapter Grid, Title Shelf, Track Menus).
+- **Milestone 1**: COMPLETED & VERIFIED. Schema expansion and standard-aware migration (NTSC/PAL) are locked in `models.rs`.
+- **Milestone 2**: IN PROGRESS (Urgent). Nicholas delivered the UI shell, but 'Bind' and 'Compile' modes are currently placeholders. This is the top-priority gap before we can declare the manual UI 'Locked.'
+- **Milestone 3**: COMPLETED & VERIFIED. Jullian's backend seams are locked and palette-aware.
+- **Milestone 4**: IN PROGRESS (Logic Phase). Jullian and Tristan are implementing the **Auto-Pagination** engine and the **12-18 button hard budget** mandate.
 
 ## Product Stance: Rich Design, Honest Compilation
 

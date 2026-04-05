@@ -57,7 +57,8 @@ Exit criteria:
 
 Deliverables:
 
-- Replace `MenusPage.tsx` with a multi-pane document editor (canvas, layers, inspector, preview).
+- Replace `MenusPage.tsx` with a multi-pane document editor (canvas, layers, inspector).
+- **Implement the 'Bind' and 'Compile' modes**: These are no longer deferred. The UI must support authored-to-data binding and target-specific preview modes immediately.
 - Implement interactive nodes (Text, Image, Shape, Video, Button).
 - Implement the Interaction graph (focus routing, activation actions).
 - Implement the Timing model (intro, loop, timeout).
