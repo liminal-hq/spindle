@@ -883,6 +883,10 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
 		// 3. Sync Layer: Reflect scene/interaction changes back to legacy DVD fields
 		const syncMenu = (m: Menu): Menu => {
+			const buttonNodes = updatedDoc.scene.nodes.filter(
+				(n): n is Extract<SceneNode, { type: 'button' }> => n.type === 'button',
+			);
+
 			return {
 				...m,
 				authoredDocument: updatedDoc,
@@ -894,8 +898,25 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 				motionDurationSecs: updatedDoc.timing.loopDurationSecs,
 				motionLoopCount: updatedDoc.timing.loopCount,
 				timeoutAction: updatedDoc.interaction.timeoutAction,
-				// Button mirroring is now handled by the scene-aware compiler.
-				// We keep the legacy array present to satisfy current UI components.
+				// Mirror basic properties back to legacy buttons array for immediate UI compatibility
+				// (e.g. Planner, Logs, and backward-compatible compiler fallbacks).
+				buttons: buttonNodes.map((node) => {
+					const interaction = updatedDoc.interaction.nodes.find((i) => i.nodeId === node.id);
+					return {
+						id: node.id,
+						label: node.label,
+						bounds: { x: node.x, y: node.y, width: node.width, height: node.height },
+						action: interaction?.action ?? null,
+						// Navigation and complex highlights are now handled by the scene-aware compiler directly
+						navUp: interaction?.navUp ?? null,
+						navDown: interaction?.navDown ?? null,
+						navLeft: interaction?.navLeft ?? null,
+						navRight: interaction?.navRight ?? null,
+						highlightMode: node.highlightMode ?? 'static',
+						highlightKeyframes: node.highlightKeyframes ?? [],
+						videoAssetId: node.videoAssetId ?? null,
+					};
+				}),
 			};
 		};
 
