@@ -310,11 +310,15 @@ fn menu_button_overlay_filter(menu_ref: &AuthorableMenuRef<'_>) -> String {
 
     let mut filters = Vec::new();
     let default_button_id = menu_ref.default_button_id();
+    let highlight_colours = menu_ref.highlight_colours();
+    
     for button in &buttons {
+        // For the static background preview render, we highlight the default button
+        // using its authored select colour. Other buttons get a neutral hint.
         let colour = if default_button_id == Some(button.id) {
-            "#ffaa40@0.50"
+            format!("{}@0.50", highlight_colours.select_colour)
         } else {
-            "#ffffff@0.28"
+            "#ffffff@0.28".to_string()
         };
         filters.push(format!(
             "drawbox=x={}:y={}:w={}:h={}:color={}:t=2",
@@ -515,10 +519,73 @@ fn render_menu_overlay_image(
 mod tests {
     use std::cell::RefCell;
 
-    use crate::models::VideoStandard;
+    use crate::models::*;
 
-    use super::{generate_menu_overlay_images, MenuOverlayImages, MenuOverlayRender};
+    use super::{generate_menu_overlay_images, AuthorableMenuRef, MenuDomain, MenuOverlayImages, MenuOverlayRender};
     use crate::build::types::MenuOverlayButton;
+
+    #[test]
+    fn authorable_menu_ref_prefers_authored_document() {
+        let mut legacy_menu = Menu::default();
+        legacy_menu.id = "menu-1".to_string();
+        legacy_menu.name = "Legacy Name".to_string();
+        legacy_menu.background_asset_id = Some("asset-legacy".to_string());
+        legacy_menu.buttons = vec![MenuButton {
+            id: "btn-legacy".to_string(),
+            label: "Legacy Button".to_string(),
+            bounds: ButtonBounds { x: 0.0, y: 0.0, width: 100.0, height: 100.0 },
+            ..MenuButton::default()
+        }];
+
+        // Create authored document that contradicts legacy
+        legacy_menu.authored_document = Some(MenuDocument {
+            id: "menu-1".to_string(),
+            name: "Authored Name".to_string(),
+            domain: MenuDomain::Vmgm,
+            scene: MenuScene {
+                design_size: MenuSize { width: 720.0, height: 480.0 },
+                background: SceneBackground { asset_id: Some("asset-authored".to_string()), colour: None },
+                nodes: vec![SceneNode::Button {
+                    id: "btn-authored".to_string(),
+                    label: "Authored Button".to_string(),
+                    x: 50.0, y: 50.0, width: 200.0, height: 80.0,
+                    highlight_mode: HighlightMode::Static,
+                    highlight_keyframes: vec![],
+                    video_asset_id: None,
+                }],
+                guides: vec![],
+            },
+            interaction: MenuInteractionGraph {
+                default_focus_id: Some("btn-authored".to_string()),
+                nodes: vec![FocusNode {
+                    node_id: "btn-authored".to_string(),
+                    ..FocusNode::default()
+                }],
+                timeout_action: None,
+            },
+            timing: MenuTiming::default(),
+            highlight_colours: MenuHighlightColours::default(),
+            background_mode: BackgroundMode::Still,
+            theme_ref: None,
+            generation_meta: None,
+            compile_policy: MenuCompilePolicy::default(),
+        });
+
+        let menu_ref = AuthorableMenuRef {
+            menu: &legacy_menu,
+            domain: super::MenuDomain::Vmgm,
+        };
+
+        assert_eq!(menu_ref.name(), "Authored Name");
+        assert_eq!(menu_ref.background_asset_id(), Some("asset-authored"));
+        assert_eq!(menu_ref.default_button_id(), Some("btn-authored"));
+        
+        let buttons = menu_ref.buttons();
+        assert_eq!(buttons.len(), 1);
+        assert_eq!(buttons[0].id, "btn-authored");
+        assert_eq!(buttons[0].label, "Authored Button");
+        assert_eq!(buttons[0].x, 50.0);
+    }
 
     #[test]
     fn overlay_images_use_outline_boxes() {
