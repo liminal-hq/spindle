@@ -614,6 +614,19 @@ pub struct FocusNode {
     pub action: Option<PlaybackAction>,
 }
 
+impl Default for FocusNode {
+    fn default() -> Self {
+        Self {
+            node_id: String::new(),
+            nav_up: None,
+            nav_down: None,
+            nav_left: None,
+            nav_right: None,
+            action: None,
+        }
+    }
+}
+
 /// Timing and motion rules for the menu.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -621,6 +634,16 @@ pub struct MenuTiming {
     pub intro_duration_secs: f64,
     pub loop_duration_secs: f64,
     pub loop_count: u32, // 0 = infinite
+}
+
+impl Default for MenuTiming {
+    fn default() -> Self {
+        Self {
+            intro_duration_secs: 0.0,
+            loop_duration_secs: 0.0,
+            loop_count: 0,
+        }
+    }
 }
 
 /// Metadata for generated menus.
@@ -637,6 +660,15 @@ pub struct MenuGenerationMeta {
 pub struct MenuCompilePolicy {
     pub safe_area_mode: SafeAreaMode,
     pub palette_strategy: PaletteStrategy,
+}
+
+impl Default for MenuCompilePolicy {
+    fn default() -> Self {
+        Self {
+            safe_area_mode: SafeAreaMode::ActionSafe,
+            palette_strategy: PaletteStrategy::Auto,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -714,6 +746,29 @@ pub struct MenuButton {
     /// Video asset composited into the menu background at this button's bounds (Stage 2).
     #[serde(default)]
     pub video_asset_id: Option<String>,
+}
+
+impl Default for MenuButton {
+    fn default() -> Self {
+        Self {
+            id: Uuid::new_v4().to_string(),
+            label: "Untitled Button".to_string(),
+            bounds: ButtonBounds {
+                x: 0.0,
+                y: 0.0,
+                width: 100.0,
+                height: 50.0,
+            },
+            action: None,
+            nav_up: None,
+            nav_down: None,
+            nav_left: None,
+            nav_right: None,
+            highlight_mode: HighlightMode::Static,
+            highlight_keyframes: Vec::new(),
+            video_asset_id: None,
+        }
+    }
 }
 
 /// Whether button highlights are static or animated over the motion loop.
@@ -1265,7 +1320,7 @@ mod tests {
             authored_document: None,
         };
 
-        menu.migrate_to_document(MenuDomain::Vmgm);
+        menu.migrate_to_document(MenuDomain::Vmgm, VideoStandard::Ntsc);
 
         let doc = menu.authored_document.expect("should have migrated");
         assert_eq!(doc.id, "menu-1");
@@ -1274,7 +1329,7 @@ mod tests {
         assert_eq!(doc.scene.background.asset_id, Some("asset-1".to_string()));
         assert_eq!(doc.scene.nodes.len(), 1);
         
-        if let SceneNode::Button { id, label, x, y, width, height } = &doc.scene.nodes[0] {
+        if let SceneNode::Button { id, label, x, y, width, height, .. } = &doc.scene.nodes[0] {
             assert_eq!(id, "btn-1");
             assert_eq!(label, "Play");
             assert_eq!(*x, 100.0);

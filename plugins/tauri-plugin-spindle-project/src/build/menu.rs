@@ -48,6 +48,7 @@ impl<'a> AuthorableMenuRef<'a> {
             .unwrap_or(&self.menu.highlight_colours)
     }
 
+    #[allow(dead_code)]
     pub(crate) fn background_mode(&self) -> BackgroundMode {
         self.menu
             .authored_document
@@ -56,6 +57,7 @@ impl<'a> AuthorableMenuRef<'a> {
             .unwrap_or(self.menu.background_mode)
     }
 
+    #[allow(dead_code)]
     pub(crate) fn timeout_action(&self) -> Option<&PlaybackAction> {
         self.menu
             .authored_document
@@ -64,6 +66,7 @@ impl<'a> AuthorableMenuRef<'a> {
             .or(self.menu.timeout_action.as_ref())
     }
 
+    #[allow(dead_code)]
     pub(crate) fn motion_duration_secs(&self) -> Option<f64> {
         self.menu
             .authored_document
@@ -72,6 +75,7 @@ impl<'a> AuthorableMenuRef<'a> {
             .or(self.menu.motion_duration_secs)
     }
 
+    #[allow(dead_code)]
     pub(crate) fn motion_loop_count(&self) -> u32 {
         self.menu
             .authored_document
@@ -541,7 +545,7 @@ mod tests {
         legacy_menu.authored_document = Some(MenuDocument {
             id: "menu-1".to_string(),
             name: "Authored Name".to_string(),
-            domain: MenuDomain::Vmgm,
+            domain: crate::models::MenuDomain::Vmgm,
             scene: MenuScene {
                 design_size: MenuSize { width: 720.0, height: 480.0 },
                 background: SceneBackground { asset_id: Some("asset-authored".to_string()), colour: None },

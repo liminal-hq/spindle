@@ -8,7 +8,7 @@ use crate::models::{Menu, SceneNode};
 pub fn auto_generate_navigation(menu: &mut Menu) {
     if let Some(doc) = &mut menu.authored_document {
         // ── Scene-Aware Navigation Generation ───────────────────────────────
-        let mut buttons: Vec<(String, f64, f64)> = doc
+        let buttons: Vec<(String, f64, f64)> = doc
             .scene
             .nodes
             .iter()
