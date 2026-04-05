@@ -28,6 +28,9 @@ export type PlaybackAction =
 	| { type: 'playTitle'; titleId: string }
 	| { type: 'playChapter'; titleId: string; chapterId: string }
 	| { type: 'showMenu'; menuId: string }
+	| { type: 'setAudioStream'; streamIndex: number }
+	| { type: 'setSubtitleStream'; streamIndex: number | null }
+	| { type: 'sequence'; actions: PlaybackAction[] }
 	| { type: 'stop' };
 
 // ── Top-Level Project ───────────────────────────────────────────────────────

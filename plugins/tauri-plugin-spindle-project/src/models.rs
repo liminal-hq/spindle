@@ -769,6 +769,17 @@ pub enum PlaybackAction {
         #[serde(rename = "menuId")]
         menu_id: String,
     },
+    SetAudioStream {
+        #[serde(rename = "streamIndex")]
+        stream_index: u32,
+    },
+    SetSubtitleStream {
+        #[serde(rename = "streamIndex")]
+        stream_index: Option<u32>,
+    },
+    Sequence {
+        actions: Vec<PlaybackAction>,
+    },
     Stop,
 }
 

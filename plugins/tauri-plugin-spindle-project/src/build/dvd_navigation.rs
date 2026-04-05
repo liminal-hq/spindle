@@ -212,6 +212,30 @@ pub(crate) fn playback_action_to_dvd_command_in_context(
                 },
             }
         }
+        PlaybackAction::SetAudioStream { stream_index } => Ok(format!("audio = {stream_index}")),
+        PlaybackAction::SetSubtitleStream { stream_index } => {
+            let val = match stream_index {
+                None => 64, // Off
+                Some(idx) => idx + 64,
+            };
+            Ok(format!("subtitle = {val}"))
+        }
+        PlaybackAction::Sequence { actions } => {
+            let mut commands = Vec::new();
+            for action in actions {
+                let cmd = playback_action_to_dvd_command_in_context(action, disc, current_context)?;
+                commands.push(cmd);
+            }
+            // If it's a sequence, we wrap it in braces for dvdauthor if it's multiple commands
+            if commands.len() > 1 {
+                let joined = commands.join("; ");
+                Ok(format!("{{ {joined}; }}"))
+            } else if let Some(single) = commands.into_iter().next() {
+                Ok(single)
+            } else {
+                Ok("nop".to_string())
+            }
+        }
         PlaybackAction::Stop => Ok("exit".to_string()),
     }
 }
