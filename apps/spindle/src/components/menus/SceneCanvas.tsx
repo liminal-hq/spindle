@@ -337,6 +337,7 @@ function DesignCanvas({
 						width: `${(btn.bounds.width / MENU_WIDTH) * 100}%`,
 						height: `${(btn.bounds.height / canvasHeight) * 100}%`,
 					}}
+					onClick={(e) => e.stopPropagation()}
 					onMouseDown={(e) => {
 						e.stopPropagation();
 						startDrag(e, btn, 'move');

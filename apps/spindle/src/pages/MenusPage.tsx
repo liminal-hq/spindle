@@ -612,13 +612,13 @@ function MenuEditor({
 								/>
 								Safe Area
 							</label>
-							<label className="scene-canvas__toolbar-toggle" title="DVD-safe preview filter">
+							<label className="scene-canvas__toolbar-toggle" title="Preview with DVD-safe colour reduction">
 								<input
 									type="checkbox"
 									checked={honestPreview}
 									onChange={(e) => setHonestPreview(e.target.checked)}
 								/>
-								Honest Preview
+								DVD Preview
 							</label>
 							{menuEditorMode === 'remote' && (
 								<label className="scene-canvas__toolbar-toggle" title="Navigate with arrow keys">
