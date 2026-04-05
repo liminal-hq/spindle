@@ -19,6 +19,8 @@ import { DEFAULT_HIGHLIGHT_COLOURS } from '../types/project';
 import { SceneCanvas } from '../components/menus/SceneCanvas';
 import { LayersPanel } from '../components/menus/LayersPanel';
 import { InspectorPanel } from '../components/menus/InspectorPanel';
+import { BindMode } from '../components/menus/BindMode';
+import { CompileMode } from '../components/menus/CompileMode';
 import '../components/menus/SceneEditor.css';
 
 import './MenusPage.css';
@@ -549,19 +551,10 @@ function MenuEditor({
 				</div>
 			</div>
 
-			{/* Three-pane scene editor */}
+			{/* Canvas-first scene editor */}
 			{menuEditorMode === 'design' || menuEditorMode === 'remote' ? (
 				<div className="scene-editor">
-					{/* Layers */}
-					<LayersPanel
-						nodes={sceneNodes}
-						selectedNodeId={selectedNodeId}
-						onSelectNode={setSelectedNodeId}
-						collapsed={layersCollapsed}
-						onToggleCollapse={() => setLayersCollapsed(!layersCollapsed)}
-					/>
-
-					{/* Canvas */}
+					{/* Canvas — full width, the primary workspace */}
 					<div className="scene-canvas">
 						{/* Background assignment */}
 						{menuEditorMode === 'design' && (
@@ -640,27 +633,74 @@ function MenuEditor({
 						</div>
 					</div>
 
-					{/* Inspector */}
-					<InspectorPanel
-						selectedNode={selectedNode}
-						selectedButton={selectedButton}
-						highlightColours={highlightColours}
+					{/* Secondary panels — layers and inspector below the canvas */}
+					<div className="scene-editor__panels">
+						<LayersPanel
+							nodes={sceneNodes}
+							selectedNodeId={selectedNodeId}
+							onSelectNode={setSelectedNodeId}
+							collapsed={layersCollapsed}
+							onToggleCollapse={() => setLayersCollapsed(!layersCollapsed)}
+						/>
+						<InspectorPanel
+							selectedNode={selectedNode}
+							selectedButton={selectedButton}
+							highlightColours={highlightColours}
+							allTitles={allTitles}
+							allMenus={allMenus}
+							currentMenuId={menu.id}
+							onUpdateButton={handleUpdateButton}
+							onUpdateHighlightColours={handleUpdateHighlightColours}
+							onRemoveButton={handleRemoveButton}
+							collapsed={inspectorCollapsed}
+							onToggleCollapse={() => setInspectorCollapsed(!inspectorCollapsed)}
+						/>
+					</div>
+				</div>
+			) : menuEditorMode === 'bind' ? (
+				<div className="card" style={{ padding: 'var(--space-4)' }}>
+					<BindMode
+						buttons={currentButtons}
 						allTitles={allTitles}
 						allMenus={allMenus}
 						currentMenuId={menu.id}
+						defaultFocusId={
+							menu.authoredDocument?.interaction.defaultFocusId ?? menu.defaultButtonId
+						}
 						onUpdateButton={handleUpdateButton}
-						onUpdateHighlightColours={handleUpdateHighlightColours}
-						onRemoveButton={handleRemoveButton}
-						collapsed={inspectorCollapsed}
-						onToggleCollapse={() => setInspectorCollapsed(!inspectorCollapsed)}
+						onSetDefaultFocus={(btnId) =>
+							onUpdate((m) => {
+								if (m.authoredDocument) {
+									return {
+										...m,
+										authoredDocument: {
+											...m.authoredDocument,
+											interaction: {
+												...m.authoredDocument.interaction,
+												defaultFocusId: btnId,
+											},
+										},
+									};
+								}
+								return { ...m, defaultButtonId: btnId };
+							})
+						}
 					/>
 				</div>
-			) : (
-				<div className="menus__editor-placeholder text-muted">
-					{menuEditorMode.charAt(0).toUpperCase() + menuEditorMode.slice(1)} View (Coming in
-					Milestone 2.2)
+			) : menuEditorMode === 'compile' ? (
+				<div className="card" style={{ padding: 'var(--space-4)' }}>
+					<CompileMode
+						document={menu.authoredDocument ?? null}
+						buttons={currentButtons}
+						canvasHeight={canvasHeight}
+						highlightColours={highlightColours}
+						defaultFocusId={
+							menu.authoredDocument?.interaction.defaultFocusId ?? menu.defaultButtonId
+						}
+						backgroundLabel={backgroundAssetLabel}
+					/>
 				</div>
-			)}
+			) : null}
 		</div>
 	);
 }

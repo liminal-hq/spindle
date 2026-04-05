@@ -6,3 +6,5 @@
 export { SceneCanvas } from './SceneCanvas';
 export { LayersPanel } from './LayersPanel';
 export { InspectorPanel } from './InspectorPanel';
+export { BindMode } from './BindMode';
+export { CompileMode } from './CompileMode';
