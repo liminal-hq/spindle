@@ -64,7 +64,7 @@ She works especially well with:
 
 - **Nicholas**, helping him channel his "Visual Alchemy" into structured, usable patterns. She often reins in his most experimental layouts with a gentle, "This is beautiful, but will it work in a crowded airport?"
 - **Tristan**, whom she respects for his pragmatism. They often bond over "brutalist" efficiency, though Yuli usually advocates for a softer, more "calm" execution of those efficient ideas.
-- **Edward**, sharing a love for history and systems. While Edward looks at how old systems carry old assumptions, Yuli looks at how people *feel* when they interact with those systems today.
+- **Edward**, sharing a love for history and systems. While Edward looks at how old systems carry old assumptions, Yuli looks at how people _feel_ when they interact with those systems today.
 
 She acts as a buffer in the "Frontend Sparring Ring," often settling disputes with a well-timed observation about user intent or a fresh pot of Green tea.
 
