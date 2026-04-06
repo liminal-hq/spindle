@@ -28,6 +28,9 @@ export type PlaybackAction =
 	| { type: 'playTitle'; titleId: string }
 	| { type: 'playChapter'; titleId: string; chapterId: string }
 	| { type: 'showMenu'; menuId: string }
+	| { type: 'setAudioStream'; streamIndex: number }
+	| { type: 'setSubtitleStream'; streamIndex: number | null }
+	| { type: 'sequence'; actions: PlaybackAction[] }
 	| { type: 'stop' };
 
 // ── Top-Level Project ───────────────────────────────────────────────────────
@@ -133,6 +136,7 @@ export interface SourceChapter {
 
 // ── Menus ───────────────────────────────────────────────────────────────────
 
+export type MenuEditorMode = 'design' | 'bind' | 'remote' | 'compile';
 export type BackgroundMode = 'still' | 'motion';
 export type HighlightMode = 'static' | 'animated';
 
@@ -154,6 +158,132 @@ export interface Menu {
 	motionLoopCount: number;
 	/** Action when a motion menu times out after looping. */
 	timeoutAction: PlaybackAction | null;
+	/** The new authored scene document that replaces the flat button model. */
+	authoredDocument?: MenuDocument | null;
+}
+
+/** A structured menu document that separates authored intent from target compilation. */
+export interface MenuDocument {
+	id: string;
+	name: string;
+	domain: MenuDomain;
+	scene: MenuScene;
+	interaction: MenuInteractionGraph;
+	timing: MenuTiming;
+	highlightColours: MenuHighlightColours;
+	backgroundMode: BackgroundMode;
+	themeRef: string | null;
+	generationMeta: MenuGenerationMeta | null;
+	compilePolicy: MenuCompilePolicy;
+}
+
+/** Menu domain indicates whether it belongs to the Video Manager (VMGM) or a Titleset. */
+export type MenuDomain = 'vmgm' | 'titleset';
+
+/** The visual scene graph for the menu. */
+export interface MenuScene {
+	designSize: MenuSize;
+	background: SceneBackground;
+	nodes: SceneNode[];
+	guides: SceneGuide[];
+}
+
+export interface MenuSize {
+	width: number;
+	height: number;
+}
+
+export interface SceneBackground {
+	assetId: string | null;
+	colour: string | null;
+}
+
+/** A node within the authored menu scene graph. */
+export type SceneNode =
+	| { type: 'group'; id: string; name: string; children: SceneNode[] }
+	| {
+			type: 'text';
+			id: string;
+			content: string;
+			x: number;
+			y: number;
+			width: number;
+			height: number;
+			fontSize?: number;
+			colour?: string;
+	  }
+	| {
+			type: 'image';
+			id: string;
+			assetId: string;
+			x: number;
+			y: number;
+			width: number;
+			height: number;
+	  }
+	| {
+			type: 'shape';
+			id: string;
+			x: number;
+			y: number;
+			width: number;
+			height: number;
+			fill?: string;
+	  }
+	| { type: 'video'; id: string; assetId: string; x: number; y: number }
+	| {
+			type: 'button';
+			id: string;
+			label: string;
+			x: number;
+			y: number;
+			width: number;
+			height: number;
+			highlightMode?: HighlightMode;
+			highlightKeyframes?: HighlightKeyframe[];
+			videoAssetId?: string | null;
+	  }
+	| { type: 'componentInstance'; id: string; componentId: string }
+	| { type: 'generatedCollection'; id: string; source: string };
+
+export interface SceneGuide {
+	orientation: 'horizontal' | 'vertical';
+	position: number;
+}
+
+/** The interaction graph defining remote-driven behaviour. */
+export interface MenuInteractionGraph {
+	defaultFocusId: string | null;
+	nodes: FocusNode[];
+	timeoutAction: PlaybackAction | null;
+}
+
+export interface FocusNode {
+	nodeId: string;
+	navUp: string | null;
+	navDown: string | null;
+	navLeft: string | null;
+	navRight: string | null;
+	action: PlaybackAction | null;
+}
+
+/** Timing and motion rules for the menu. */
+export interface MenuTiming {
+	introDurationSecs: number;
+	loopDurationSecs: number;
+	loopCount: number; // 0 = infinite
+}
+
+/** Metadata for generated menus. */
+export interface MenuGenerationMeta {
+	generatorId: string;
+	lastGeneratedAt: string;
+}
+
+/** Format-specific compilation rules and safe-area policies. */
+export interface MenuCompilePolicy {
+	safeAreaMode: 'action-safe' | 'title-safe' | 'none';
+	paletteStrategy: 'auto' | 'manual';
 }
 
 /** DVD subpicture highlight palette for button overlays. */
@@ -242,7 +372,7 @@ export interface VideoStreamInfo {
 	title: string | null;
 	/** OETF transfer characteristics, e.g. "smpte2084" (HDR10), "arib-std-b67" (HLG). */
 	colorTransfer: string | null;
-	/** Color primaries, e.g. "bt2020" (HDR), "bt709" (SDR). */
+	/** Colour primaries, e.g. "bt2020" (HDR), "bt709" (SDR). */
 	colorPrimaries: string | null;
 	/** Dolby Vision profile when ffprobe exposes DOVI side data. */
 	dolbyVisionProfile: number | null;

@@ -43,7 +43,8 @@ impl<R: Runtime> SpindleProject<R> {
             // Future: run migrations for older versions here
         }
 
-        let project: SpindleProjectFile = serde_json::from_value(raw)?;
+        let mut project: SpindleProjectFile = serde_json::from_value(raw)?;
+        project.migrate_all_menus();
         Ok(project)
     }
 
@@ -344,6 +345,42 @@ impl<R: Runtime> SpindleProject<R> {
             .collect();
 
         for menu in &all_menus {
+            // Hard limit: 36 buttons per menu (DVD spec limit for most players/configurations)
+            if menu.buttons.len() > 36 {
+                issues.push(ValidationIssue {
+                    severity: IssueSeverity::Error,
+                    code: "menu.too-many-buttons".to_string(),
+                    message: format!(
+                        "Menu \"{}\" has {} buttons, which exceeds the DVD-Video limit of 36.",
+                        menu.name,
+                        menu.buttons.len()
+                    ),
+                    context: Some(menu.id.clone()),
+                    entity_type: Some("menu".to_string()),
+                    entity_name: Some(menu.name.clone()),
+                    suggested_fix: Some(
+                        "Remove some buttons or split the menu into multiple pages.".to_string(),
+                    ),
+                });
+            } else if menu.buttons.len() > 18 {
+                // Safe Zone warning (12-18 buttons is the recommended target)
+                issues.push(ValidationIssue {
+                    severity: IssueSeverity::Warning,
+                    code: "menu.button-density-high".to_string(),
+                    message: format!(
+                        "Menu \"{}\" has {} buttons. High button density may exceed the safe zone for some TV displays.",
+                        menu.name,
+                        menu.buttons.len()
+                    ),
+                    context: Some(menu.id.clone()),
+                    entity_type: Some("menu".to_string()),
+                    entity_name: Some(menu.name.clone()),
+                    suggested_fix: Some(
+                        "Aim for 12-18 buttons per menu for better readability and compatibility.".to_string(),
+                    ),
+                });
+            }
+
             // Empty menus
             if menu.buttons.is_empty() {
                 issues.push(ValidationIssue {
@@ -400,58 +437,17 @@ impl<R: Runtime> SpindleProject<R> {
                 }
 
                 // Validate action targets exist
-                match &button.action {
-                    Some(PlaybackAction::PlayTitle { title_id }) => {
-                        if !all_title_ids.contains(title_id.as_str()) {
-                            issues.push(ValidationIssue {
-                                severity: IssueSeverity::Error,
-                                code: "menu.dangling-title-ref".to_string(),
-                                message: format!(
-                                    "Button \"{}\" in menu \"{}\" references a title that does not exist.",
-                                    button.label, menu.name
-                                ),
-                                context: Some(menu.id.clone()),
-                                entity_type: Some("menu".to_string()),
-                                entity_name: Some(menu.name.clone()),
-                                suggested_fix: Some("Update the button action to point to an existing title or remove it.".to_string()),
-                            });
-                        }
-                    }
-                    Some(PlaybackAction::ShowMenu { menu_id }) => {
-                        if !all_menu_ids.contains(menu_id.as_str()) {
-                            issues.push(ValidationIssue {
-                                severity: IssueSeverity::Error,
-                                code: "menu.dangling-menu-ref".to_string(),
-                                message: format!(
-                                    "Button \"{}\" in menu \"{}\" references a menu that does not exist.",
-                                    button.label, menu.name
-                                ),
-                                context: Some(menu.id.clone()),
-                                entity_type: Some("menu".to_string()),
-                                entity_name: Some(menu.name.clone()),
-                                suggested_fix: Some("Update the button action to point to an existing menu or remove it.".to_string()),
-                            });
-                        }
-                    }
-                    Some(PlaybackAction::PlayChapter {
-                        title_id,
-                        chapter_id,
-                    }) => {
-                        if !chapter_target_exists(&project.disc, title_id, chapter_id) {
-                            issues.push(dangling_play_chapter_issue(
-                                "menu.dangling-chapter-ref",
-                                format!(
-                                    "Button \"{}\" in menu \"{}\" references a chapter target that does not exist.",
-                                    button.label, menu.name
-                                ),
-                                Some(menu.id.clone()),
-                                "menu",
-                                Some(menu.name.clone()),
-                                "Update the button action to point to an existing chapter or remove it.",
-                            ));
-                        }
-                    }
-                    _ => {}
+                if let Some(action) = &button.action {
+                    validate_action(
+                        action,
+                        &all_title_ids,
+                        &all_menu_ids,
+                        &project.disc,
+                        &menu.name,
+                        &menu.id,
+                        &button.label,
+                        &mut issues,
+                    );
                 }
 
                 // Navigation link validation
@@ -498,6 +494,73 @@ impl<R: Runtime> SpindleProject<R> {
                         entity_name: Some(menu.name.clone()),
                         suggested_fix: Some("Use the auto-generate navigation feature to create directional links for all buttons.".to_string()),
                     });
+                }
+            }
+
+            // ── Authored Document (Scene) Checks ───────────────────────────
+            if let Some(doc) = &menu.authored_document {
+                // Count buttons in scene nodes (including groups)
+                let scene_button_count = count_scene_buttons(&doc.scene.nodes);
+                if scene_button_count > 36 {
+                    issues.push(ValidationIssue {
+                        severity: IssueSeverity::Error,
+                        code: "menu.scene-too-many-buttons".to_string(),
+                        message: format!(
+                            "Authored scene for menu \"{}\" has {} buttons, which exceeds the DVD-Video limit of 36.",
+                            menu.name, scene_button_count
+                        ),
+                        context: Some(menu.id.clone()),
+                        entity_type: Some("menu".to_string()),
+                        entity_name: Some(menu.name.clone()),
+                        suggested_fix: Some(
+                            "Remove some buttons or split the scene into multiple pages.".to_string(),
+                        ),
+                    });
+                }
+
+                // Check background asset
+                if let Some(asset_id) = &doc.scene.background.asset_id {
+                    if !asset_ids.contains(asset_id.as_str()) {
+                        issues.push(ValidationIssue {
+                            severity: IssueSeverity::Error,
+                            code: "menu.scene-dangling-background".to_string(),
+                            message: format!(
+                                "Authored scene for menu \"{}\" references a background asset that no longer exists.",
+                                menu.name
+                            ),
+                            context: Some(menu.id.clone()),
+                            entity_type: Some("menu".to_string()),
+                            entity_name: Some(menu.name.clone()),
+                            suggested_fix: Some(
+                                "Re-assign a background asset in the menu editor.".to_string(),
+                            ),
+                        });
+                    }
+                }
+
+                // Validate all scene nodes recursively
+                validate_scene_nodes(
+                    &doc.scene.nodes,
+                    &asset_ids,
+                    &menu.name,
+                    &menu.id,
+                    &mut issues,
+                );
+
+                // Validate interaction graph actions
+                for focus_node in &doc.interaction.nodes {
+                    if let Some(action) = &focus_node.action {
+                        validate_action(
+                            action,
+                            &all_title_ids,
+                            &all_menu_ids,
+                            &project.disc,
+                            &menu.name,
+                            &menu.id,
+                            &format!("Interaction: {}", focus_node.node_id),
+                            &mut issues,
+                        );
+                    }
                 }
             }
         }
@@ -580,6 +643,175 @@ fn dangling_play_chapter_issue(
         entity_type: Some(entity_type.to_string()),
         entity_name,
         suggested_fix: Some(suggested_fix.to_string()),
+    }
+}
+
+fn count_scene_buttons(nodes: &[SceneNode]) -> usize {
+    let mut count = 0;
+    for node in nodes {
+        match node {
+            SceneNode::Button { .. } => count += 1,
+            SceneNode::Group { children, .. } => count += count_scene_buttons(children),
+            _ => {}
+        }
+    }
+    count
+}
+
+fn validate_scene_nodes(
+    nodes: &[SceneNode],
+    asset_ids: &std::collections::HashSet<&str>,
+    menu_name: &str,
+    menu_id: &str,
+    issues: &mut Vec<ValidationIssue>,
+) {
+    for node in nodes {
+        match node {
+            SceneNode::Image { asset_id, id, .. } => {
+                if !asset_ids.contains(asset_id.as_str()) {
+                    issues.push(ValidationIssue {
+                        severity: IssueSeverity::Error,
+                        code: "menu.scene-dangling-image".to_string(),
+                        message: format!(
+                            "Scene node \"{}\" in menu \"{}\" references an image asset that no longer exists.",
+                            id, menu_name
+                        ),
+                        context: Some(menu_id.to_string()),
+                        entity_type: Some("menu".to_string()),
+                        entity_name: Some(menu_name.to_string()),
+                        suggested_fix: Some("Update or remove the broken image node.".to_string()),
+                    });
+                }
+            }
+            SceneNode::Video { asset_id, id, .. } => {
+                if !asset_ids.contains(asset_id.as_str()) {
+                    issues.push(ValidationIssue {
+                        severity: IssueSeverity::Error,
+                        code: "menu.scene-dangling-video".to_string(),
+                        message: format!(
+                            "Scene node \"{}\" in menu \"{}\" references a video asset that no longer exists.",
+                            id, menu_name
+                        ),
+                        context: Some(menu_id.to_string()),
+                        entity_type: Some("menu".to_string()),
+                        entity_name: Some(menu_name.to_string()),
+                        suggested_fix: Some("Update or remove the broken video node.".to_string()),
+                    });
+                }
+            }
+            SceneNode::Button {
+                video_asset_id: Some(asset_id),
+                id,
+                ..
+            } => {
+                if !asset_ids.contains(asset_id.as_str()) {
+                    issues.push(ValidationIssue {
+                        severity: IssueSeverity::Error,
+                        code: "menu.scene-dangling-button-video".to_string(),
+                        message: format!(
+                            "Button \"{}\" in menu \"{}\" references a video background asset that no longer exists.",
+                            id, menu_name
+                        ),
+                        context: Some(menu_id.to_string()),
+                        entity_type: Some("menu".to_string()),
+                        entity_name: Some(menu_name.to_string()),
+                        suggested_fix: Some(
+                            "Update or remove the broken button video asset.".to_string(),
+                        ),
+                    });
+                }
+            }
+            SceneNode::Group { children, .. } => {
+                validate_scene_nodes(children, asset_ids, menu_name, menu_id, issues);
+            }
+            _ => {}
+        }
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn validate_action(
+    action: &PlaybackAction,
+    all_title_ids: &std::collections::HashSet<&str>,
+    all_menu_ids: &std::collections::HashSet<&str>,
+    disc: &Disc,
+    menu_name: &str,
+    menu_id: &str,
+    button_label: &str,
+    issues: &mut Vec<ValidationIssue>,
+) {
+    match action {
+        PlaybackAction::PlayTitle { title_id } => {
+            if !all_title_ids.contains(title_id.as_str()) {
+                issues.push(ValidationIssue {
+                    severity: IssueSeverity::Error,
+                    code: "menu.dangling-title-ref".to_string(),
+                    message: format!(
+                        "Action \"{}\" in menu \"{}\" references a title that does not exist.",
+                        button_label, menu_name
+                    ),
+                    context: Some(menu_id.to_string()),
+                    entity_type: Some("menu".to_string()),
+                    entity_name: Some(menu_name.to_string()),
+                    suggested_fix: Some(
+                        "Update the action to point to an existing title or remove it.".to_string(),
+                    ),
+                });
+            }
+        }
+        PlaybackAction::ShowMenu {
+            menu_id: target_id, ..
+        } => {
+            if !all_menu_ids.contains(target_id.as_str()) {
+                issues.push(ValidationIssue {
+                    severity: IssueSeverity::Error,
+                    code: "menu.dangling-menu-ref".to_string(),
+                    message: format!(
+                        "Action \"{}\" in menu \"{}\" references a menu that does not exist.",
+                        button_label, menu_name
+                    ),
+                    context: Some(menu_id.to_string()),
+                    entity_type: Some("menu".to_string()),
+                    entity_name: Some(menu_name.to_string()),
+                    suggested_fix: Some(
+                        "Update the action to point to an existing menu or remove it.".to_string(),
+                    ),
+                });
+            }
+        }
+        PlaybackAction::PlayChapter {
+            title_id,
+            chapter_id,
+        } => {
+            if !chapter_target_exists(disc, title_id, chapter_id) {
+                issues.push(dangling_play_chapter_issue(
+                    "menu.dangling-chapter-ref",
+                    format!(
+                        "Action \"{}\" in menu \"{}\" references a chapter target that does not exist.",
+                        button_label, menu_name
+                    ),
+                    Some(menu_id.to_string()),
+                    "menu",
+                    Some(menu_name.to_string()),
+                    "Update the action to point to an existing chapter or remove it.",
+                ));
+            }
+        }
+        PlaybackAction::Sequence { actions } => {
+            for nested in actions {
+                validate_action(
+                    nested,
+                    all_title_ids,
+                    all_menu_ids,
+                    disc,
+                    menu_name,
+                    menu_id,
+                    button_label,
+                    issues,
+                );
+            }
+        }
+        _ => {}
     }
 }
 

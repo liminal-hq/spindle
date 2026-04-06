@@ -25,6 +25,15 @@ Prefer structural review guidance over narration.
 - Review should prioritise the highest-risk behavioural issues first: unsafe command construction, optimistic error handling, contract mismatch, and unnecessary render churn.
 - Kyle's critique is strongest when it remains specific, fair, and oriented around protecting trust in the system.
 - The Jullian and Tristan handoffs are especially valuable because they expose backend safety and frontend structure from both sides of the same seam.
+- **Menu Overhaul Risks (2026-04-05)**:
+  - Fixed NTSC bias in migration logic; ensured `VideoStandard` is respected.
+  - Added missing fields to `MenuDocument` and `SceneNode` (highlights, background mode, button video) to prevent feature loss during migration.
+  - **CRITICAL**: The DVD compiler (`planner.rs` and `menu.rs`) still uses the legacy flat menu model. Edits in the new scene editor will NOT be reflected in the DVD build until the compiler is updated to use `MenuDocument`.
+  - **IPC Drift**: TypeScript types must stay aligned with `models.rs` as `SceneNode` evolves.
+  - **Full-Stack Integrity Review (2026-04-05)**:
+    - **Sync Layer Verified**: `project-store.ts` correctly handles initialization and sync-back from `authoredDocument` to legacy fields, verified by Tristan's TS unit tests.
+    - **Compiler Bridge Verified**: `AuthorableMenuRef` in `menu.rs` now properly prioritises `authoredDocument` data. Added a targeted Rust unit test to confirm this contract.
+    - **Air Gap Closed**: Refactored `menu_button_overlay_filter` to use user-authored `highlight_colours` instead of hardcoded hex values.
 
 ## Open Questions
 

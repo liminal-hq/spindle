@@ -17,6 +17,9 @@ import type {
 	BuildResult,
 	BuildProgress,
 	Menu,
+	MenuDocument,
+	MenuEditorMode,
+	SceneNode,
 	ToolchainStatus,
 } from '../types/project';
 
@@ -45,6 +48,14 @@ export interface ProjectState {
 	buildLog: string[];
 	/** Detected toolchain status. */
 	toolchain: ToolchainStatus[];
+	/** Currently selected menu ID in the Menus page. */
+	selectedMenuId: string | null;
+	/** Current editor mode for the menu system. */
+	menuEditorMode: MenuEditorMode;
+	/** Whether the menu is in navigation preview mode. */
+	previewMode: boolean;
+	/** Whether to show safe-area guides in the menu editor. */
+	showSafeArea: boolean;
 
 	// Actions
 	createProject: (req: CreateProjectRequest) => Promise<void>;
@@ -63,7 +74,20 @@ export interface ProjectState {
 	cancelBuild: () => Promise<void>;
 	browseOutputDir: () => Promise<void>;
 	autoGenerateMenuNav: (menuId: string) => Promise<void>;
+	setSelectedMenuId: (id: string | null) => void;
+	setMenuEditorMode: (mode: MenuEditorMode) => void;
+	setPreviewMode: (enabled: boolean) => void;
+	setShowSafeArea: (enabled: boolean) => void;
+	updateMenuDocument: (menuId: string, updater: (doc: MenuDocument) => MenuDocument) => void;
 	checkToolchain: () => Promise<void>;
+
+	// Undo/redo
+	undoStack: SpindleProjectFile[];
+	redoStack: SpindleProjectFile[];
+	undo: () => void;
+	redo: () => void;
+	canUndo: () => boolean;
+	canRedo: () => boolean;
 }
 
 function parentDir(filePath: string): string {
@@ -258,6 +282,12 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 	buildProgress: null,
 	buildLog: [],
 	toolchain: [],
+	selectedMenuId: null,
+	menuEditorMode: 'design',
+	previewMode: false,
+	showSafeArea: true,
+	undoStack: [],
+	redoStack: [],
 
 	createProject: async (req) => {
 		set({ isLoading: true });
@@ -265,7 +295,14 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 			const project = await invoke<SpindleProjectFile>('plugin:spindle-project|create_project', {
 				payload: req,
 			});
-			set({ project, filePath: null, isDirty: true, validationIssues: [] });
+			set({
+				project,
+				filePath: null,
+				isDirty: true,
+				validationIssues: [],
+				undoStack: [],
+				redoStack: [],
+			});
 		} finally {
 			set({ isLoading: false });
 		}
@@ -302,6 +339,8 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 				filePath: selected,
 				isDirty: false,
 				validationIssues: [],
+				undoStack: [],
+				redoStack: [],
 			});
 			await ensureProjectAssetThumbnails(project);
 			void backfillAssetFormatTitles(project);
@@ -377,13 +416,18 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 			buildResult: null,
 			buildProgress: null,
 			buildLog: [],
+			selectedMenuId: null,
+			menuEditorMode: 'design',
+			undoStack: [],
+			redoStack: [],
 		});
 	},
 
 	updateProject: (updater) => {
-		const { project } = get();
+		const { project, undoStack } = get();
 		if (!project) return;
-		set({ project: updater(project), isDirty: true });
+		const newStack = [...undoStack, project].slice(-50); // cap at 50 entries
+		set({ project: updater(project), isDirty: true, undoStack: newStack, redoStack: [] });
 	},
 
 	validateProject: async () => {
@@ -728,6 +772,14 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 		}
 	},
 
+	setSelectedMenuId: (id) => set({ selectedMenuId: id }),
+
+	setMenuEditorMode: (mode) => set({ menuEditorMode: mode }),
+
+	setPreviewMode: (enabled) => set({ previewMode: enabled }),
+
+	setShowSafeArea: (enabled) => set({ showSafeArea: enabled }),
+
 	autoGenerateMenuNav: async (menuId) => {
 		const { project } = get();
 		if (!project) return;
@@ -781,6 +833,142 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 		});
 	},
 
+	updateMenuDocument: (menuId, updater) => {
+		const { project, updateProject } = get();
+		if (!project) return;
+
+		// Find the menu to update
+		let scope: 'global' | 'titleset' = 'global';
+		let titlesetId: string | null = null;
+		let menu = project.disc.globalMenus.find((m) => m.id === menuId);
+
+		if (!menu) {
+			for (const ts of project.disc.titlesets) {
+				menu = ts.menus.find((m) => m.id === menuId);
+				if (menu) {
+					scope = 'titleset';
+					titlesetId = ts.id;
+					break;
+				}
+			}
+		}
+
+		if (!menu) return;
+
+		// 1. Ensure authoredDocument exists, initializing from legacy if necessary
+		const doc: MenuDocument = menu.authoredDocument ?? {
+			id: menu.id,
+			name: menu.name,
+			domain: scope === 'global' ? 'vmgm' : 'titleset',
+			scene: {
+				designSize: { width: 720, height: project.disc.standard === 'NTSC' ? 480 : 576 },
+				background: { assetId: menu.backgroundAssetId, colour: null },
+				nodes: menu.buttons.map((btn) => ({
+					type: 'button',
+					id: btn.id,
+					label: btn.label,
+					x: btn.bounds.x,
+					y: btn.bounds.y,
+					width: btn.bounds.width,
+					height: btn.bounds.height,
+					highlightMode: btn.highlightMode,
+					highlightKeyframes: btn.highlightKeyframes,
+					videoAssetId: btn.videoAssetId,
+				})),
+				guides: [],
+			},
+			interaction: {
+				defaultFocusId: menu.defaultButtonId,
+				nodes: menu.buttons.map((btn) => ({
+					nodeId: btn.id,
+					navUp: btn.navUp,
+					navDown: btn.navDown,
+					navLeft: btn.navLeft,
+					navRight: btn.navRight,
+					action: btn.action,
+				})),
+				timeoutAction: menu.timeoutAction,
+			},
+			timing: {
+				introDurationSecs: 0,
+				loopDurationSecs: menu.motionDurationSecs ?? 0,
+				loopCount: menu.motionLoopCount,
+			},
+			highlightColours: { ...menu.highlightColours },
+			backgroundMode: menu.backgroundMode,
+			themeRef: null,
+			generationMeta: null,
+			compilePolicy: { safeAreaMode: 'title-safe', paletteStrategy: 'auto' },
+		};
+
+		// 2. Apply the updater
+		const updatedDoc = updater(doc);
+
+		// 3. Sync Layer: Reflect scene/interaction changes back to legacy DVD fields
+		const syncMenu = (m: Menu): Menu => {
+			const buttonNodes = updatedDoc.scene.nodes.filter(
+				(n): n is Extract<SceneNode, { type: 'button' }> => n.type === 'button',
+			);
+
+			return {
+				...m,
+				authoredDocument: updatedDoc,
+				name: updatedDoc.name,
+				backgroundAssetId: updatedDoc.scene.background.assetId,
+				backgroundMode: updatedDoc.backgroundMode,
+				highlightColours: { ...updatedDoc.highlightColours },
+				defaultButtonId: updatedDoc.interaction.defaultFocusId,
+				motionDurationSecs: updatedDoc.timing.loopDurationSecs,
+				motionLoopCount: updatedDoc.timing.loopCount,
+				timeoutAction: updatedDoc.interaction.timeoutAction,
+				// Mirror basic properties back to legacy buttons array for immediate UI compatibility
+				// (e.g. Planner, Logs, and backward-compatible compiler fallbacks).
+				buttons: buttonNodes.map((node) => {
+					const interaction = updatedDoc.interaction.nodes.find((i) => i.nodeId === node.id);
+					return {
+						id: node.id,
+						label: node.label,
+						bounds: { x: node.x, y: node.y, width: node.width, height: node.height },
+						action: interaction?.action ?? null,
+						// Navigation and complex highlights are now handled by the scene-aware compiler directly
+						navUp: interaction?.navUp ?? null,
+						navDown: interaction?.navDown ?? null,
+						navLeft: interaction?.navLeft ?? null,
+						navRight: interaction?.navRight ?? null,
+						highlightMode: node.highlightMode ?? 'static',
+						highlightKeyframes: node.highlightKeyframes ?? [],
+						videoAssetId: node.videoAssetId ?? null,
+					};
+				}),
+			};
+		};
+
+		// 4. Update project with the synced menu
+		updateProject((p) => {
+			if (scope === 'global') {
+				return {
+					...p,
+					disc: {
+						...p.disc,
+						globalMenus: p.disc.globalMenus.map((m) => (m.id === menuId ? syncMenu(m) : m)),
+					},
+				};
+			} else {
+				return {
+					...p,
+					disc: {
+						...p.disc,
+						titlesets: p.disc.titlesets.map((ts) =>
+							ts.id === titlesetId
+								? { ...ts, menus: ts.menus.map((m) => (m.id === menuId ? syncMenu(m) : m)) }
+								: ts,
+						),
+					},
+				};
+			}
+		});
+	},
+
 	checkToolchain: async () => {
 		try {
 			const skipSidecar = useAppSettingsStore.getState().devSkipSidecar;
@@ -792,4 +980,31 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 			// Toolchain check is best-effort
 		}
 	},
+
+	undo: () => {
+		const { project, undoStack, redoStack } = get();
+		if (undoStack.length === 0 || !project) return;
+		const prev = undoStack[undoStack.length - 1];
+		set({
+			project: prev,
+			undoStack: undoStack.slice(0, -1),
+			redoStack: [...redoStack, project],
+			isDirty: true,
+		});
+	},
+
+	redo: () => {
+		const { project, undoStack, redoStack } = get();
+		if (redoStack.length === 0 || !project) return;
+		const next = redoStack[redoStack.length - 1];
+		set({
+			project: next,
+			undoStack: [...undoStack, project],
+			redoStack: redoStack.slice(0, -1),
+			isDirty: true,
+		});
+	},
+
+	canUndo: () => get().undoStack.length > 0,
+	canRedo: () => get().redoStack.length > 0,
 }));

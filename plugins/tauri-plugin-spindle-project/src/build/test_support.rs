@@ -142,6 +142,7 @@ pub(crate) fn test_menu_with_action(
         motion_audio_asset_id: None,
         motion_loop_count: 0,
         timeout_action: None,
+        authored_document: None,
     }
 }
 

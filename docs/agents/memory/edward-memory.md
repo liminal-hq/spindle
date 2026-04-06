@@ -26,7 +26,9 @@ Prefer structural facts over narration.
 - Edward is most useful when product ambition, UX language, and native machinery begin to diverge.
 - His strongest partnerships are with Franklin for runbook synthesis and Jullian for tracing legacy constraints down into exact system behaviour.
 - **Product Truth**: Bitmap subtitle extraction (dvd_subtitle) is the only supported path for v1; text-based subtitle rendering is currently a non-goal.
-- **Technical Trap**: The "root" menu role in multi-menu titlesets is a known failure point that can cause `DVDNAV_STOP` in authored output (see `docs/dvd-navigation-lab-notes.md`).
+- **Product Truth**: Placeholders (e.g., 'Coming in Milestone X') are a sign of unearned trust and must be actively avoided in core navigation flows.
+- **Technical Trap**: The 'root' menu role in multi-menu titlesets is a known failure point that can cause `DVDNAV_STOP` in authored output (see `docs/dvd-navigation-lab-notes.md`).
+- **Technical Trap**: Placeholder-based development can lead to 'Glossy but Broken' UI releases. All authored modes (Bind, Compile, Design, Remote) must be functional before a UI milestone is marked as 'Verified.'
 - **Validation Oracle**: The `execute_build_plan_smoke_authors_titleset_menu_return_path` test in the Rust plugin is the primary proof of a working end-to-end authoring loop.
 - **Architectural Boundary**: The project model and state are intentionally "format-agnostic" to support future Blu-ray, but implementation logic must remain strictly DVD-Video compliant for now.
 
