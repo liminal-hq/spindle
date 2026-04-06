@@ -23,6 +23,14 @@ vi.mock('@tauri-apps/plugin-fs', () => ({
 	readFile: vi.fn(),
 }));
 
+vi.mock('@tauri-apps/plugin-store', () => ({
+	load: vi.fn().mockResolvedValue({
+		get: vi.fn(),
+		set: vi.fn(),
+		save: vi.fn(),
+	}),
+}));
+
 describe('ProjectStore: updateMenuDocument', () => {
 	beforeEach(() => {
 		// Reset store state
@@ -240,5 +248,138 @@ describe('ProjectStore: updateMenuDocument', () => {
 
 		const updatedMenu = useProjectStore.getState().project!.disc.globalMenus[0];
 		expect(updatedMenu.authoredDocument?.scene.designSize).toEqual({ width: 720, height: 576 });
+	});
+
+	it('preserves non-button nodes (Text, Image, Shape) during serialization', async () => {
+		const { invoke } = await import('@tauri-apps/api/core');
+		const { saveProjectAs } = useProjectStore.getState();
+
+		// Setup a project with complex scene nodes
+		const menuId = 'complex-menu';
+		const project = createDefaultProject('Complex Project');
+		const menu: any = {
+			id: menuId,
+			name: 'Complex Menu',
+			backgroundAssetId: null,
+			buttons: [],
+			defaultButtonId: null,
+			highlightColours: {
+				selectColour: '#ffffff',
+				selectOpacity: 1,
+				activateColour: '#000000',
+				activateOpacity: 1,
+			},
+			backgroundMode: 'still',
+			motionDurationSecs: null,
+			motionAudioAssetId: null,
+			motionLoopCount: 0,
+			timeoutAction: null,
+			authoredDocument: {
+				id: menuId,
+				name: 'Complex Menu',
+				domain: 'vmgm',
+				scene: {
+					designSize: { width: 720, height: 480 },
+					background: { assetId: null, colour: null },
+					nodes: [
+						{
+							type: 'text',
+							id: 'text-1',
+							content: 'Hello World',
+							x: 10,
+							y: 20,
+							width: 100,
+							height: 30,
+							fontSize: 24,
+							colour: '#ff0000',
+						},
+						{
+							type: 'image',
+							id: 'img-1',
+							assetId: 'asset-123',
+							x: 50,
+							y: 100,
+							width: 200,
+							height: 150,
+						},
+						{
+							type: 'shape',
+							id: 'shape-1',
+							x: 0,
+							y: 0,
+							width: 720,
+							height: 480,
+							fill: '#0000ff',
+						},
+					],
+					guides: [],
+				},
+				interaction: { defaultFocusId: null, nodes: [], timeoutAction: null },
+				timing: { introDurationSecs: 0, loopDurationSecs: 0, loopCount: 0 },
+				highlightColours: {
+					selectColour: '#ffffff',
+					selectOpacity: 1,
+					activateColour: '#000000',
+					activateOpacity: 1,
+				},
+				backgroundMode: 'still',
+				themeRef: null,
+				generationMeta: null,
+				compilePolicy: { safeAreaMode: 'title-safe', paletteStrategy: 'auto' },
+			},
+		};
+
+		project.disc.globalMenus.push(menu);
+		useProjectStore.setState({ project, filePath: null });
+
+		// Mock the save dialog and invoke
+		const { save } = await import('@tauri-apps/plugin-dialog');
+		vi.mocked(save).mockResolvedValue('/path/to/project.spindle');
+		vi.mocked(invoke).mockResolvedValue(undefined);
+
+		await saveProjectAs();
+
+		// Verify the payload sent to Rust
+		const lastCall = vi.mocked(invoke).mock.calls.find((call) => call[0] === 'plugin:spindle-project|serialise_project');
+		expect(lastCall).toBeDefined();
+
+		const payload = lastCall![1] as any;
+		const savedMenu = payload.project.disc.globalMenus.find((m: any) => m.id === menuId);
+		const nodes = savedMenu.authoredDocument.scene.nodes;
+
+		const textNode = nodes.find((n: any) => n.type === 'text');
+		expect(textNode).toEqual({
+			type: 'text',
+			id: 'text-1',
+			content: 'Hello World',
+			x: 10,
+			y: 20,
+			width: 100,
+			height: 30,
+			fontSize: 24,
+			colour: '#ff0000',
+		});
+
+		const imgNode = nodes.find((n: any) => n.type === 'image');
+		expect(imgNode).toEqual({
+			type: 'image',
+			id: 'img-1',
+			assetId: 'asset-123',
+			x: 50,
+			y: 100,
+			width: 200,
+			height: 150,
+		});
+
+		const shapeNode = nodes.find((n: any) => n.type === 'shape');
+		expect(shapeNode).toEqual({
+			type: 'shape',
+			id: 'shape-1',
+			x: 0,
+			y: 0,
+			width: 720,
+			height: 480,
+			fill: '#0000ff',
+		});
 	});
 });
