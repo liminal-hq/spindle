@@ -8,10 +8,10 @@ The immediate thread is to replace the legacy flat menu model with the new scene
 
 Key workstreams:
 
-- **Milestone 1 (Expansion)**: URGENT. Jullian is synchronizing the Rust `SceneNode` enum with the new frontend requirements (width/height/styling for non-button nodes) to prevent data loss on save.
+- **Milestone 1**: COMPLETED & VERIFIED. Schema and serialization are 100% synchronized.
 - **Milestone 2**: COMPLETED & VERIFIED. Nicholas has delivered the fully functional Scene Editor.
 - **Milestone 3**: COMPLETED & VERIFIED. Jullian's backend seams are locked.
-- **Milestone 4**: IN PROGRESS (Logic Phase). Jullian and Tristan are implementing the **Auto-Pagination** engine and the **12-18 button hard budget** mandate.
+- **Milestone 4**: IN PROGRESS (Active Implementation). Jullian and Tristan are implementing the **Auto-Pagination** engine and the **18-button hard budget** heuristics.
 
 ## Product Stance: Rich Design, Honest Compilation
 
