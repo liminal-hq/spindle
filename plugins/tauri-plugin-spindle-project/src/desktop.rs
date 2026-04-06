@@ -646,64 +646,6 @@ fn dangling_play_chapter_issue(
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use crate::models::{ChapterPoint, Disc, IssueSeverity, Title, Titleset, VideoStandard};
-
-    use super::{chapter_target_exists, dangling_play_chapter_issue};
-
-    #[test]
-    fn chapter_target_exists_requires_matching_title_and_chapter() {
-        let disc = Disc {
-            standard: VideoStandard::Ntsc,
-            titlesets: vec![Titleset {
-                id: "titleset-1".to_string(),
-                name: "Main".to_string(),
-                titles: vec![Title {
-                    id: "title-1".to_string(),
-                    name: "Feature".to_string(),
-                    source_asset_id: None,
-                    video_mapping: None,
-                    video_output_profile: None,
-                    audio_mappings: vec![],
-                    subtitle_mappings: vec![],
-                    chapters: vec![ChapterPoint {
-                        id: "ch-2".to_string(),
-                        name: "Chapter 2".to_string(),
-                        timestamp_secs: 0.0,
-                        order_index: 0,
-                    }],
-                    end_action: None,
-                    order_index: 0,
-                }],
-                menus: vec![],
-            }],
-            ..Disc::default()
-        };
-
-        assert!(chapter_target_exists(&disc, "title-1", "ch-2"));
-        assert!(!chapter_target_exists(&disc, "title-1", "missing-chapter"));
-        assert!(!chapter_target_exists(&disc, "missing-title", "ch-2"));
-    }
-
-    #[test]
-    fn dangling_play_chapter_issue_marks_missing_targets_as_errors() {
-        let issue = dangling_play_chapter_issue(
-            "menu.dangling-chapter-ref",
-            "Button \"Play\" in menu \"Main Menu\" references a chapter target that does not exist."
-                .to_string(),
-            Some("menu-1".to_string()),
-            "menu",
-            Some("Main Menu".to_string()),
-            "Update the button action to point to an existing chapter or remove it.",
-        );
-
-        assert!(matches!(issue.severity, IssueSeverity::Error));
-        assert_eq!(issue.code, "menu.dangling-chapter-ref");
-        assert_eq!(issue.context.as_deref(), Some("menu-1"));
-    }
-}
-
 fn count_scene_buttons(nodes: &[SceneNode]) -> usize {
     let mut count = 0;
     for node in nodes {
@@ -758,25 +700,25 @@ fn validate_scene_nodes(
                 }
             }
             SceneNode::Button {
-                video_asset_id, id, ..
+                video_asset_id: Some(asset_id),
+                id,
+                ..
             } => {
-                if let Some(asset_id) = video_asset_id {
-                    if !asset_ids.contains(asset_id.as_str()) {
-                        issues.push(ValidationIssue {
-                            severity: IssueSeverity::Error,
-                            code: "menu.scene-dangling-button-video".to_string(),
-                            message: format!(
-                                "Button \"{}\" in menu \"{}\" references a video background asset that no longer exists.",
-                                id, menu_name
-                            ),
-                            context: Some(menu_id.to_string()),
-                            entity_type: Some("menu".to_string()),
-                            entity_name: Some(menu_name.to_string()),
-                            suggested_fix: Some(
-                                "Update or remove the broken button video asset.".to_string(),
-                            ),
-                        });
-                    }
+                if !asset_ids.contains(asset_id.as_str()) {
+                    issues.push(ValidationIssue {
+                        severity: IssueSeverity::Error,
+                        code: "menu.scene-dangling-button-video".to_string(),
+                        message: format!(
+                            "Button \"{}\" in menu \"{}\" references a video background asset that no longer exists.",
+                            id, menu_name
+                        ),
+                        context: Some(menu_id.to_string()),
+                        entity_type: Some("menu".to_string()),
+                        entity_name: Some(menu_name.to_string()),
+                        suggested_fix: Some(
+                            "Update or remove the broken button video asset.".to_string(),
+                        ),
+                    });
                 }
             }
             SceneNode::Group { children, .. } => {
@@ -787,6 +729,7 @@ fn validate_scene_nodes(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn validate_action(
     action: &PlaybackAction,
     all_title_ids: &std::collections::HashSet<&str>,
@@ -869,5 +812,63 @@ fn validate_action(
             }
         }
         _ => {}
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::models::{ChapterPoint, Disc, IssueSeverity, Title, Titleset, VideoStandard};
+
+    use super::{chapter_target_exists, dangling_play_chapter_issue};
+
+    #[test]
+    fn chapter_target_exists_requires_matching_title_and_chapter() {
+        let disc = Disc {
+            standard: VideoStandard::Ntsc,
+            titlesets: vec![Titleset {
+                id: "titleset-1".to_string(),
+                name: "Main".to_string(),
+                titles: vec![Title {
+                    id: "title-1".to_string(),
+                    name: "Feature".to_string(),
+                    source_asset_id: None,
+                    video_mapping: None,
+                    video_output_profile: None,
+                    audio_mappings: vec![],
+                    subtitle_mappings: vec![],
+                    chapters: vec![ChapterPoint {
+                        id: "ch-2".to_string(),
+                        name: "Chapter 2".to_string(),
+                        timestamp_secs: 0.0,
+                        order_index: 0,
+                    }],
+                    end_action: None,
+                    order_index: 0,
+                }],
+                menus: vec![],
+            }],
+            ..Disc::default()
+        };
+
+        assert!(chapter_target_exists(&disc, "title-1", "ch-2"));
+        assert!(!chapter_target_exists(&disc, "title-1", "missing-chapter"));
+        assert!(!chapter_target_exists(&disc, "missing-title", "ch-2"));
+    }
+
+    #[test]
+    fn dangling_play_chapter_issue_marks_missing_targets_as_errors() {
+        let issue = dangling_play_chapter_issue(
+            "menu.dangling-chapter-ref",
+            "Button \"Play\" in menu \"Main Menu\" references a chapter target that does not exist."
+                .to_string(),
+            Some("menu-1".to_string()),
+            "menu",
+            Some("Main Menu".to_string()),
+            "Update the button action to point to an existing chapter or remove it.",
+        );
+
+        assert!(matches!(issue.severity, IssueSeverity::Error));
+        assert_eq!(issue.code, "menu.dangling-chapter-ref");
+        assert_eq!(issue.context.as_deref(), Some("menu-1"));
     }
 }

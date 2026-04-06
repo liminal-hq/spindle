@@ -615,7 +615,7 @@ pub struct MenuInteractionGraph {
     pub timeout_action: Option<PlaybackAction>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FocusNode {
     pub node_id: String,
@@ -624,19 +624,6 @@ pub struct FocusNode {
     pub nav_left: Option<String>,
     pub nav_right: Option<String>,
     pub action: Option<PlaybackAction>,
-}
-
-impl Default for FocusNode {
-    fn default() -> Self {
-        Self {
-            node_id: String::new(),
-            nav_up: None,
-            nav_down: None,
-            nav_left: None,
-            nav_right: None,
-            action: None,
-        }
-    }
 }
 
 /// Timing and motion rules for the menu.
@@ -1340,8 +1327,17 @@ mod tests {
         assert_eq!(doc.domain, MenuDomain::Vmgm);
         assert_eq!(doc.scene.background.asset_id, Some("asset-1".to_string()));
         assert_eq!(doc.scene.nodes.len(), 1);
-        
-        if let SceneNode::Button { id, label, x, y, width, height, .. } = &doc.scene.nodes[0] {
+
+        if let SceneNode::Button {
+            id,
+            label,
+            x,
+            y,
+            width,
+            height,
+            ..
+        } = &doc.scene.nodes[0]
+        {
             assert_eq!(id, "btn-1");
             assert_eq!(label, "Play");
             assert_eq!(*x, 100.0);

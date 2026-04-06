@@ -177,11 +177,7 @@ fn initial_button_command(menu_ref: &AuthorableMenuRef<'_>) -> Option<String> {
     let buttons = menu_ref.buttons();
     let button_index = menu_ref
         .default_button_id()
-        .and_then(|default_id| {
-            buttons
-                .iter()
-                .position(|button| button.id == default_id)
-        })
+        .and_then(|default_id| buttons.iter().position(|button| button.id == default_id))
         .or_else(|| (!buttons.is_empty()).then_some(0))?;
     let button_value = (button_index + 1) * 1024;
     Some(format!("          button = {button_value};\n"))

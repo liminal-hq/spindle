@@ -100,12 +100,8 @@ impl<'a> AuthorableMenuRef<'a> {
                         ..
                     } = node
                     {
-                        let interaction = doc
-                            .interaction
-                            .nodes
-                            .iter()
-                            .find(|f| f.node_id == *id);
-                        
+                        let interaction = doc.interaction.nodes.iter().find(|f| f.node_id == *id);
+
                         Some(AuthorableButtonRef {
                             id,
                             label,
@@ -274,7 +270,9 @@ pub(crate) fn build_ffmpeg_menu_command(
             let asset = assets.get(asset_id.as_str()).ok_or_else(|| {
                 crate::Error::Build(format!(
                     "Image asset \"{}\" not found for node \"{}\" in menu \"{}\"",
-                    asset_id, id, menu_ref.name()
+                    asset_id,
+                    id,
+                    menu_ref.name()
                 ))
             })?;
             cmd.extend(["-i".to_string(), asset.source_path.clone()]);
@@ -285,23 +283,28 @@ pub(crate) fn build_ffmpeg_menu_command(
     // 3. Scene node rendering (non-buttons)
     // Render shapes and images first as they are often backgrounds
     for node in menu_ref.scene_nodes() {
-        match node {
-            SceneNode::Shape { x, y, width, height, fill, .. } => {
-                let fill = fill.as_deref().unwrap_or("#333333");
-                vf_parts.push(format!(
-                    "drawbox=x={}:y={}:w={}:h={}:color={}:t=fill",
-                    x.round() as i32,
-                    y.round() as i32,
-                    width.round() as i32,
-                    height.round() as i32,
-                    fill
-                ));
-            }
-            _ => {}
+        if let SceneNode::Shape {
+            x,
+            y,
+            width,
+            height,
+            fill,
+            ..
+        } = node
+        {
+            let fill = fill.as_deref().unwrap_or("#333333");
+            vf_parts.push(format!(
+                "drawbox=x={}:y={}:w={}:h={}:color={}:t=fill",
+                x.round() as i32,
+                y.round() as i32,
+                width.round() as i32,
+                height.round() as i32,
+                fill
+            ));
         }
     }
 
-    /* 
+    /*
     // Overlay images
     for (idx, node) in image_inputs.iter().enumerate() {
         if let SceneNode::Image { x, y, width, height, .. } = node {
@@ -331,7 +334,17 @@ pub(crate) fn build_ffmpeg_menu_command(
 
     // 4. Render text nodes
     for node in menu_ref.scene_nodes() {
-        if let SceneNode::Text { content, x, y, width, height, font_size, colour, .. } = node {
+        if let SceneNode::Text {
+            content,
+            x,
+            y,
+            width,
+            height,
+            font_size,
+            colour,
+            ..
+        } = node
+        {
             let font_size = font_size.unwrap_or(24.0);
             let colour = colour.as_deref().unwrap_or("white");
             let escaped_text = escape_drawtext_text(content);
@@ -406,7 +419,7 @@ fn menu_button_overlay_filter(menu_ref: &AuthorableMenuRef<'_>) -> String {
     let mut filters = Vec::new();
     let default_button_id = menu_ref.default_button_id();
     let highlight_colours = menu_ref.highlight_colours();
-    
+
     for button in &buttons {
         // For the static background preview render, we highlight the default button
         // using its authored select colour. Other buttons get a neutral hint.
@@ -521,7 +534,11 @@ pub(crate) fn generate_spumux_xml(
     xml
 }
 
-fn button_nav_attr(direction: &str, target_button_id: Option<&str>, buttons: &[AuthorableButtonRef<'_>]) -> String {
+fn button_nav_attr(
+    direction: &str,
+    target_button_id: Option<&str>,
+    buttons: &[AuthorableButtonRef<'_>],
+) -> String {
     let Some(target_button_id) = target_button_id else {
         return String::new();
     };
@@ -612,59 +629,70 @@ fn render_menu_overlay_image(
 
 #[cfg(test)]
 mod tests {
-    use std::cell::RefCell;
-
     use crate::models::*;
 
-    use super::{generate_menu_overlay_images, AuthorableMenuRef, MenuDomain, MenuOverlayImages, MenuOverlayRender};
-    use crate::build::types::MenuOverlayButton;
+    use super::AuthorableMenuRef;
 
     #[test]
     fn authorable_menu_ref_prefers_authored_document() {
-        let mut legacy_menu = Menu::default();
-        legacy_menu.id = "menu-1".to_string();
-        legacy_menu.name = "Legacy Name".to_string();
-        legacy_menu.background_asset_id = Some("asset-legacy".to_string());
-        legacy_menu.buttons = vec![MenuButton {
-            id: "btn-legacy".to_string(),
-            label: "Legacy Button".to_string(),
-            bounds: ButtonBounds { x: 0.0, y: 0.0, width: 100.0, height: 100.0 },
-            ..MenuButton::default()
-        }];
-
-        // Create authored document that contradicts legacy
-        legacy_menu.authored_document = Some(MenuDocument {
+        let legacy_menu = Menu {
             id: "menu-1".to_string(),
-            name: "Authored Name".to_string(),
-            domain: crate::models::MenuDomain::Vmgm,
-            scene: MenuScene {
-                design_size: MenuSize { width: 720.0, height: 480.0 },
-                background: SceneBackground { asset_id: Some("asset-authored".to_string()), colour: None },
-                nodes: vec![SceneNode::Button {
-                    id: "btn-authored".to_string(),
-                    label: "Authored Button".to_string(),
-                    x: 50.0, y: 50.0, width: 200.0, height: 80.0,
-                    highlight_mode: HighlightMode::Static,
-                    highlight_keyframes: vec![],
-                    video_asset_id: None,
-                }],
-                guides: vec![],
-            },
-            interaction: MenuInteractionGraph {
-                default_focus_id: Some("btn-authored".to_string()),
-                nodes: vec![FocusNode {
-                    node_id: "btn-authored".to_string(),
-                    ..FocusNode::default()
-                }],
-                timeout_action: None,
-            },
-            timing: MenuTiming::default(),
-            highlight_colours: MenuHighlightColours::default(),
-            background_mode: BackgroundMode::Still,
-            theme_ref: None,
-            generation_meta: None,
-            compile_policy: MenuCompilePolicy::default(),
-        });
+            name: "Legacy Name".to_string(),
+            background_asset_id: Some("asset-legacy".to_string()),
+            buttons: vec![MenuButton {
+                id: "btn-legacy".to_string(),
+                label: "Legacy Button".to_string(),
+                bounds: ButtonBounds {
+                    x: 0.0,
+                    y: 0.0,
+                    width: 100.0,
+                    height: 100.0,
+                },
+                ..MenuButton::default()
+            }],
+            authored_document: Some(MenuDocument {
+                id: "menu-1".to_string(),
+                name: "Authored Name".to_string(),
+                domain: crate::models::MenuDomain::Vmgm,
+                scene: MenuScene {
+                    design_size: MenuSize {
+                        width: 720.0,
+                        height: 480.0,
+                    },
+                    background: SceneBackground {
+                        asset_id: Some("asset-authored".to_string()),
+                        colour: None,
+                    },
+                    nodes: vec![SceneNode::Button {
+                        id: "btn-authored".to_string(),
+                        label: "Authored Button".to_string(),
+                        x: 50.0,
+                        y: 50.0,
+                        width: 200.0,
+                        height: 80.0,
+                        highlight_mode: HighlightMode::Static,
+                        highlight_keyframes: vec![],
+                        video_asset_id: None,
+                    }],
+                    guides: vec![],
+                },
+                interaction: MenuInteractionGraph {
+                    default_focus_id: Some("btn-authored".to_string()),
+                    nodes: vec![FocusNode {
+                        node_id: "btn-authored".to_string(),
+                        ..FocusNode::default()
+                    }],
+                    timeout_action: None,
+                },
+                timing: MenuTiming::default(),
+                highlight_colours: MenuHighlightColours::default(),
+                background_mode: BackgroundMode::Still,
+                theme_ref: None,
+                generation_meta: None,
+                compile_policy: MenuCompilePolicy::default(),
+            }),
+            ..Menu::default()
+        };
 
         let menu_ref = AuthorableMenuRef {
             menu: &legacy_menu,
@@ -674,7 +702,7 @@ mod tests {
         assert_eq!(menu_ref.name(), "Authored Name");
         assert_eq!(menu_ref.background_asset_id(), Some("asset-authored"));
         assert_eq!(menu_ref.default_button_id(), Some("btn-authored"));
-        
+
         let buttons = menu_ref.buttons();
         assert_eq!(buttons.len(), 1);
         assert_eq!(buttons[0].id, "btn-authored");
@@ -684,54 +712,71 @@ mod tests {
 
     #[test]
     fn build_ffmpeg_menu_command_includes_scene_nodes() {
-        let mut menu = Menu::default();
-        menu.id = "menu-1".to_string();
-        menu.authored_document = Some(MenuDocument {
+        let menu = Menu {
             id: "menu-1".to_string(),
-            name: "Test Menu".to_string(),
-            domain: crate::models::MenuDomain::Vmgm,
-            scene: MenuScene {
-                design_size: MenuSize { width: 720.0, height: 480.0 },
-                background: SceneBackground { asset_id: None, colour: Some("#000000".to_string()) },
-                nodes: vec![
-                    SceneNode::Shape {
-                        id: "shape-1".to_string(),
-                        x: 10.0, y: 20.0, width: 100.0, height: 50.0,
-                        fill: Some("#ff0000".to_string()),
+            authored_document: Some(MenuDocument {
+                id: "menu-1".to_string(),
+                name: "Test Menu".to_string(),
+                domain: crate::models::MenuDomain::Vmgm,
+                scene: MenuScene {
+                    design_size: MenuSize {
+                        width: 720.0,
+                        height: 480.0,
                     },
-                    SceneNode::Text {
-                        id: "text-1".to_string(),
-                        content: "Hello World".to_string(),
-                        x: 30.0, y: 40.0, width: 200.0, height: 30.0,
-                        font_size: Some(32.0),
-                        colour: Some("yellow".to_string()),
+                    background: SceneBackground {
+                        asset_id: None,
+                        colour: Some("#000000".to_string()),
                     },
-                    SceneNode::Button {
-                        id: "btn-1".to_string(),
-                        label: "Play".to_string(),
-                        x: 100.0, y: 150.0, width: 200.0, height: 40.0,
-                        highlight_mode: HighlightMode::Static,
-                        highlight_keyframes: vec![],
-                        video_asset_id: None,
-                    },
-                ],
-                guides: vec![],
-            },
-            interaction: MenuInteractionGraph {
-                default_focus_id: Some("btn-1".to_string()),
-                nodes: vec![FocusNode {
-                    node_id: "btn-1".to_string(),
-                    ..FocusNode::default()
-                }],
-                timeout_action: None,
-            },
-            timing: MenuTiming::default(),
-            highlight_colours: MenuHighlightColours::default(),
-            background_mode: BackgroundMode::Still,
-            theme_ref: None,
-            generation_meta: None,
-            compile_policy: MenuCompilePolicy::default(),
-        });
+                    nodes: vec![
+                        SceneNode::Shape {
+                            id: "shape-1".to_string(),
+                            x: 10.0,
+                            y: 20.0,
+                            width: 100.0,
+                            height: 50.0,
+                            fill: Some("#ff0000".to_string()),
+                        },
+                        SceneNode::Text {
+                            id: "text-1".to_string(),
+                            content: "Hello World".to_string(),
+                            x: 30.0,
+                            y: 40.0,
+                            width: 200.0,
+                            height: 30.0,
+                            font_size: Some(32.0),
+                            colour: Some("yellow".to_string()),
+                        },
+                        SceneNode::Button {
+                            id: "btn-1".to_string(),
+                            label: "Play".to_string(),
+                            x: 100.0,
+                            y: 150.0,
+                            width: 200.0,
+                            height: 40.0,
+                            highlight_mode: HighlightMode::Static,
+                            highlight_keyframes: vec![],
+                            video_asset_id: None,
+                        },
+                    ],
+                    guides: vec![],
+                },
+                interaction: MenuInteractionGraph {
+                    default_focus_id: Some("btn-1".to_string()),
+                    nodes: vec![FocusNode {
+                        node_id: "btn-1".to_string(),
+                        ..FocusNode::default()
+                    }],
+                    timeout_action: None,
+                },
+                timing: MenuTiming::default(),
+                highlight_colours: MenuHighlightColours::default(),
+                background_mode: BackgroundMode::Still,
+                theme_ref: None,
+                generation_meta: None,
+                compile_policy: MenuCompilePolicy::default(),
+            }),
+            ..Menu::default()
+        };
 
         let project = SpindleProjectFile::default();
         let menu_ref = AuthorableMenuRef {
@@ -751,13 +796,13 @@ mod tests {
         .unwrap();
 
         let cmd_str = cmd.join(" ");
-        
+
         // Check for shape rendering
         assert!(cmd_str.contains("drawbox=x=10:y=20:w=100:h=50:color=#ff0000:t=fill"));
-        
+
         // Check for text rendering
         assert!(cmd_str.contains("drawtext=text='Hello World':fontcolor=yellow:fontsize=32"));
-        
+
         // Check for button (overlay box)
         assert!(cmd_str.contains("drawbox=x=100:y=150:w=200:h=40"));
     }

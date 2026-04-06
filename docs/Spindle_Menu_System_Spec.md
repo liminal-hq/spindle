@@ -417,7 +417,6 @@ For projects with many titles or chapters, the generation engine creates a **Men
 - **Auto-Pagination**: If the content exceeds the theme's page capacity, the generator automatically adds "Next" and "Back" navigation buttons.
 - **Explicit Links**: Pagination buttons are standard authored nodes with `showMenu` actions, ensuring navigation is testable and editable.
 
-
 ## Motion Model
 
 Motion belongs in the same document model as still menus.

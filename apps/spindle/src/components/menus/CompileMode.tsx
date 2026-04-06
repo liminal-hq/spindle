@@ -3,11 +3,7 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: MIT
 
-import type {
-	MenuButton,
-	MenuHighlightColours,
-	MenuDocument,
-} from '../../types/project';
+import type { MenuButton, MenuHighlightColours, MenuDocument } from '../../types/project';
 
 export interface CompileModeProps {
 	document: MenuDocument | null;
@@ -43,13 +39,10 @@ export function CompileMode({
 			<div className="compile-mode__preview">
 				<h4 className="compile-mode__title">DVD-Safe Preview</h4>
 				<p className="compile-mode__hint text-muted">
-					This shows how the menu will appear after compilation to DVD format.
-					Colours are reduced to the subpicture overlay palette.
+					This shows how the menu will appear after compilation to DVD format. Colours are reduced
+					to the subpicture overlay palette.
 				</p>
-				<div
-					className="compile-mode__canvas"
-					style={{ aspectRatio: `720 / ${canvasHeight}` }}
-				>
+				<div className="compile-mode__canvas" style={{ aspectRatio: `720 / ${canvasHeight}` }}>
 					{backgroundLabel && (
 						<div className="compile-mode__bg-label text-muted">{backgroundLabel}</div>
 					)}
@@ -67,7 +60,10 @@ export function CompileMode({
 									height: `${(btn.bounds.height / canvasHeight) * 100}%`,
 									...(isFocused
 										? {
-												background: hexToRgba(highlightColours.selectColour, highlightColours.selectOpacity),
+												background: hexToRgba(
+													highlightColours.selectColour,
+													highlightColours.selectOpacity,
+												),
 												borderColor: highlightColours.selectColour,
 											}
 										: {}),
@@ -87,11 +83,15 @@ export function CompileMode({
 					<div className="compile-mode__policy-grid">
 						<div className="compile-mode__policy-item">
 							<span className="compile-mode__policy-label text-muted">Safe Area</span>
-							<span className="compile-mode__policy-value">{document.compilePolicy.safeAreaMode}</span>
+							<span className="compile-mode__policy-value">
+								{document.compilePolicy.safeAreaMode}
+							</span>
 						</div>
 						<div className="compile-mode__policy-item">
 							<span className="compile-mode__policy-label text-muted">Palette Strategy</span>
-							<span className="compile-mode__policy-value">{document.compilePolicy.paletteStrategy}</span>
+							<span className="compile-mode__policy-value">
+								{document.compilePolicy.paletteStrategy}
+							</span>
 						</div>
 						<div className="compile-mode__policy-item">
 							<span className="compile-mode__policy-label text-muted">Background Mode</span>
@@ -105,8 +105,8 @@ export function CompileMode({
 			<div className="compile-mode__palette">
 				<h4 className="compile-mode__title">Overlay Palette</h4>
 				<p className="compile-mode__hint text-muted">
-					DVD subpicture overlays support a maximum of {DVD_PALETTE_COLOURS} colours
-					(including transparent).
+					DVD subpicture overlays support a maximum of {DVD_PALETTE_COLOURS} colours (including
+					transparent).
 				</p>
 				<div className="compile-mode__palette-swatches">
 					<div className="compile-mode__swatch">
@@ -149,7 +149,10 @@ export function CompileMode({
 				) : (
 					<div className="compile-mode__diagnostic-list">
 						{diagnostics.map((d, i) => (
-							<div key={i} className={`compile-mode__diagnostic compile-mode__diagnostic--${d.severity}`}>
+							<div
+								key={i}
+								className={`compile-mode__diagnostic compile-mode__diagnostic--${d.severity}`}
+							>
 								<span className="compile-mode__diagnostic-badge">
 									{d.severity === 'error' ? 'ERR' : d.severity === 'warning' ? 'WARN' : 'INFO'}
 								</span>

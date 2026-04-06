@@ -153,7 +153,11 @@ function DesignCanvas({
 	/** Non-button scene nodes that have position and size. */
 	const positionedNodes = sceneNodes.filter(
 		(n): n is Extract<SceneNode, { x: number; width: number }> =>
-			n.type !== 'button' && n.type !== 'group' && n.type !== 'componentInstance' && n.type !== 'generatedCollection' && 'width' in n,
+			n.type !== 'button' &&
+			n.type !== 'group' &&
+			n.type !== 'componentInstance' &&
+			n.type !== 'generatedCollection' &&
+			'width' in n,
 	);
 
 	const getSnapTargets = useCallback(
@@ -163,7 +167,11 @@ function DesignCanvas({
 			for (const btn of buttons) {
 				if (btn.id === excludeId) continue;
 				xs.push(btn.bounds.x, btn.bounds.x + btn.bounds.width, btn.bounds.x + btn.bounds.width / 2);
-				ys.push(btn.bounds.y, btn.bounds.y + btn.bounds.height, btn.bounds.y + btn.bounds.height / 2);
+				ys.push(
+					btn.bounds.y,
+					btn.bounds.y + btn.bounds.height,
+					btn.bounds.y + btn.bounds.height / 2,
+				);
 			}
 			for (const node of positionedNodes) {
 				if (node.id === excludeId) continue;
@@ -309,7 +317,11 @@ function DesignCanvas({
 	);
 
 	const startNodeDrag = useCallback(
-		(e: React.MouseEvent, node: { id: string; x: number; y: number; width: number; height: number }, mode: 'move' | ResizeEdge) => {
+		(
+			e: React.MouseEvent,
+			node: { id: string; x: number; y: number; width: number; height: number },
+			mode: 'move' | ResizeEdge,
+		) => {
 			e.preventDefault();
 			e.stopPropagation();
 			const canvas = canvasRef.current;
@@ -435,9 +447,7 @@ function DesignCanvas({
 			{backgroundLabel && (
 				<div className="scene-canvas__bg-label text-muted">{backgroundLabel}</div>
 			)}
-			{honestPreview && (
-				<div className="scene-canvas__honest-badge">DVD Preview</div>
-			)}
+			{honestPreview && <div className="scene-canvas__honest-badge">DVD Preview</div>}
 			{showNavLines && (
 				<NavLines buttons={buttons} canvasWidth={MENU_WIDTH} canvasHeight={canvasHeight} />
 			)}
@@ -494,9 +504,15 @@ function DesignCanvas({
 						top: `${(node.y / canvasHeight) * 100}%`,
 						width: `${(node.width / MENU_WIDTH) * 100}%`,
 						height: `${(node.height / canvasHeight) * 100}%`,
-						...(node.type === 'shape' && 'fill' in node && node.fill ? { backgroundColor: node.fill } : {}),
-						...(node.type === 'text' && 'colour' in node && node.colour ? { color: node.colour } : {}),
-						...(node.type === 'text' && 'fontSize' in node && node.fontSize ? { fontSize: `${node.fontSize}px` } : {}),
+						...(node.type === 'shape' && 'fill' in node && node.fill
+							? { backgroundColor: node.fill }
+							: {}),
+						...(node.type === 'text' && 'colour' in node && node.colour
+							? { color: node.colour }
+							: {}),
+						...(node.type === 'text' && 'fontSize' in node && node.fontSize
+							? { fontSize: `${node.fontSize}px` }
+							: {}),
 					}}
 					onClick={(e) => e.stopPropagation()}
 					onMouseDown={(e) => {
@@ -622,9 +638,7 @@ function NavigationPreview({
 			{backgroundLabel && (
 				<div className="scene-canvas__bg-label text-muted">{backgroundLabel}</div>
 			)}
-			{honestPreview && (
-				<div className="scene-canvas__honest-badge">DVD Preview</div>
-			)}
+			{honestPreview && <div className="scene-canvas__honest-badge">DVD Preview</div>}
 			{showSafeArea && (
 				<>
 					<div

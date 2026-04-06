@@ -340,7 +340,9 @@ describe('ProjectStore: updateMenuDocument', () => {
 		await saveProjectAs();
 
 		// Verify the payload sent to Rust
-		const lastCall = vi.mocked(invoke).mock.calls.find((call) => call[0] === 'plugin:spindle-project|serialise_project');
+		const lastCall = vi
+			.mocked(invoke)
+			.mock.calls.find((call) => call[0] === 'plugin:spindle-project|serialise_project');
 		expect(lastCall).toBeDefined();
 
 		const payload = lastCall![1] as any;

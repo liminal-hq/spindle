@@ -3,12 +3,7 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: MIT
 
-import type {
-	MenuButton,
-	PlaybackAction,
-	Title,
-	Menu,
-} from '../../types/project';
+import type { MenuButton, PlaybackAction, Title, Menu } from '../../types/project';
 
 export interface BindModeProps {
 	buttons: MenuButton[];
@@ -51,9 +46,7 @@ export function BindMode({
 					</div>
 					{buttons.map((btn) => (
 						<div key={btn.id} className="bind-mode__row">
-							<span className="bind-mode__col bind-mode__col--name">
-								{btn.label}
-							</span>
+							<span className="bind-mode__col bind-mode__col--name">{btn.label}</span>
 							<span className="bind-mode__col bind-mode__col--action">
 								<select
 									className="bind-mode__select"
@@ -78,10 +71,7 @@ export function BindMode({
 												.filter((t) => t.chapters.length > 0)
 												.flatMap((t) =>
 													t.chapters.map((ch) => (
-														<option
-															key={`${t.id}:${ch.id}`}
-															value={`playChapter:${t.id}:${ch.id}`}
-														>
+														<option key={`${t.id}:${ch.id}`} value={`playChapter:${t.id}:${ch.id}`}>
 															{t.name} — {ch.name}
 														</option>
 													)),
@@ -136,9 +126,7 @@ export function BindMode({
 										<select
 											className="bind-mode__select bind-mode__select--nav"
 											value={btn[dir] ?? ''}
-											onChange={(e) =>
-												onUpdateButton(btn.id, { [dir]: e.target.value || null })
-											}
+											onChange={(e) => onUpdateButton(btn.id, { [dir]: e.target.value || null })}
 										>
 											<option value="">—</option>
 											{buttons

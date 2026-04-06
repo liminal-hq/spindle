@@ -22,13 +22,7 @@ describe('LayersPanel', () => {
 
 	it('renders scene nodes in reverse z-order', () => {
 		const onSelect = vi.fn();
-		render(
-			<LayersPanel
-				nodes={nodes}
-				selectedNodeId={null}
-				onSelectNode={onSelect}
-			/>,
-		);
+		render(<LayersPanel nodes={nodes} selectedNodeId={null} onSelectNode={onSelect} />);
 
 		const items = screen.getAllByRole('button');
 		// Reverse order: txt-1 first (top of stack), then btn-2, then btn-1
@@ -40,49 +34,29 @@ describe('LayersPanel', () => {
 	});
 
 	it('highlights the selected node', () => {
-		render(
-			<LayersPanel
-				nodes={nodes}
-				selectedNodeId="btn-1"
-				onSelectNode={vi.fn()}
-			/>,
-		);
+		render(<LayersPanel nodes={nodes} selectedNodeId="btn-1" onSelectNode={vi.fn()} />);
 
-		const items = screen.getAllByRole('button').filter((el) =>
-			el.classList.contains('layers-panel__item'),
-		);
-		const selected = items.find((el) =>
-			el.classList.contains('layers-panel__item--selected'),
-		);
+		const items = screen
+			.getAllByRole('button')
+			.filter((el) => el.classList.contains('layers-panel__item'));
+		const selected = items.find((el) => el.classList.contains('layers-panel__item--selected'));
 		expect(selected).toBeDefined();
 		expect(selected).toHaveTextContent('Play Movie');
 	});
 
 	it('calls onSelectNode when a layer item is clicked', () => {
 		const onSelect = vi.fn();
-		render(
-			<LayersPanel
-				nodes={nodes}
-				selectedNodeId={null}
-				onSelectNode={onSelect}
-			/>,
-		);
+		render(<LayersPanel nodes={nodes} selectedNodeId={null} onSelectNode={onSelect} />);
 
-		const items = screen.getAllByRole('button').filter((el) =>
-			el.classList.contains('layers-panel__item'),
-		);
+		const items = screen
+			.getAllByRole('button')
+			.filter((el) => el.classList.contains('layers-panel__item'));
 		fireEvent.click(items[1]); // Chapters
 		expect(onSelect).toHaveBeenCalledWith('btn-2');
 	});
 
 	it('shows empty state when no nodes', () => {
-		render(
-			<LayersPanel
-				nodes={[]}
-				selectedNodeId={null}
-				onSelectNode={vi.fn()}
-			/>,
-		);
+		render(<LayersPanel nodes={[]} selectedNodeId={null} onSelectNode={vi.fn()} />);
 
 		expect(screen.getByText('No scene nodes')).toBeTruthy();
 	});
@@ -194,7 +168,6 @@ describe('InspectorPanel', () => {
 		fireEvent.click(removeBtn);
 		expect(onRemove).toHaveBeenCalledWith('btn-1');
 	});
-
 });
 
 // ── SceneCanvas ────────────────────────────────────────────────────────────

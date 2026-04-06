@@ -479,10 +479,26 @@
 	opacity: 1;
 }
 
-.scene-canvas__resize-handle--nw { top: -4px; left: -4px; cursor: nw-resize; }
-.scene-canvas__resize-handle--ne { top: -4px; right: -4px; cursor: ne-resize; }
-.scene-canvas__resize-handle--sw { bottom: -4px; left: -4px; cursor: sw-resize; }
-.scene-canvas__resize-handle--se { bottom: -4px; right: -4px; cursor: se-resize; }
+.scene-canvas__resize-handle--nw {
+	top: -4px;
+	left: -4px;
+	cursor: nw-resize;
+}
+.scene-canvas__resize-handle--ne {
+	top: -4px;
+	right: -4px;
+	cursor: ne-resize;
+}
+.scene-canvas__resize-handle--sw {
+	bottom: -4px;
+	left: -4px;
+	cursor: sw-resize;
+}
+.scene-canvas__resize-handle--se {
+	bottom: -4px;
+	right: -4px;
+	cursor: se-resize;
+}
 
 .scene-canvas__resize-handle--n,
 .scene-canvas__resize-handle--s {
@@ -492,8 +508,12 @@
 	cursor: ns-resize;
 }
 
-.scene-canvas__resize-handle--n { top: -2px; }
-.scene-canvas__resize-handle--s { bottom: -2px; }
+.scene-canvas__resize-handle--n {
+	top: -2px;
+}
+.scene-canvas__resize-handle--s {
+	bottom: -2px;
+}
 
 .scene-canvas__resize-handle--e,
 .scene-canvas__resize-handle--w {
@@ -503,8 +523,12 @@
 	cursor: ew-resize;
 }
 
-.scene-canvas__resize-handle--e { right: -2px; }
-.scene-canvas__resize-handle--w { left: -2px; }
+.scene-canvas__resize-handle--e {
+	right: -2px;
+}
+.scene-canvas__resize-handle--w {
+	left: -2px;
+}
 
 /* ── Snap guide lines ───────────────────────────────────────── */
 

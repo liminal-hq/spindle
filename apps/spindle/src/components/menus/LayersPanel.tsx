@@ -34,11 +34,7 @@ export interface LayersPanelProps {
 	onSelectNode: (nodeId: string | null) => void;
 }
 
-export function LayersPanel({
-	nodes,
-	selectedNodeId,
-	onSelectNode,
-}: LayersPanelProps) {
+export function LayersPanel({ nodes, selectedNodeId, onSelectNode }: LayersPanelProps) {
 	return (
 		<div className="layers-panel">
 			<div className="layers-panel__header">
@@ -62,9 +58,7 @@ export function LayersPanel({
 							<span className="layers-panel__type-icon" title={NODE_TYPE_LABELS[node.type]}>
 								{NODE_TYPE_ICONS[node.type]}
 							</span>
-							<span className="layers-panel__node-name">
-								{getNodeLabel(node)}
-							</span>
+							<span className="layers-panel__node-name">{getNodeLabel(node)}</span>
 						</div>
 					))
 				)}
