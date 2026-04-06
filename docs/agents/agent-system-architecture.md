@@ -2,7 +2,7 @@
 
 This document describes the current agent-support infrastructure for `Spindle`.
 
-It adapts the lightweight `udftools` fork model to a six-persona, full-stack Rust, Tauri, React desktop application without turning the workflow into a heavy framework.
+It adapts the lightweight `udftools` fork model to a seven-persona, full-stack Rust, Tauri, React desktop application without turning the workflow into a heavy framework.
 
 The goal is practical continuity:
 
@@ -66,7 +66,7 @@ The human role is strongest at:
 
 ## Persona Set
 
-Spindle uses six named personas with bounded territories.
+Spindle uses seven named personas with bounded territories.
 
 ### Franklin
 
@@ -127,6 +127,18 @@ He is strongest at:
 - form and validation logic
 - component lifecycle discipline
 - translating backend state into trustworthy UI behaviour
+
+### Yuli
+
+Yuli is the UX Specialist.
+
+She is strongest at:
+
+- progressive disclosure
+- information architecture
+- calm and effortless workflows
+- human-factors and user-journey mapping
+- usability and design-pattern deconstruction
 
 ### Nicholas
 
