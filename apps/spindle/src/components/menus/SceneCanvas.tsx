@@ -8,6 +8,7 @@ import type {
 	MenuButton,
 	MenuHighlightColours,
 	ButtonBounds,
+	SceneNode,
 } from '../../types/project';
 
 // DVD menu canvas dimensions
@@ -32,8 +33,12 @@ const NAV_COLOURS: Record<string, string> = {
 
 export interface SceneCanvasProps {
 	buttons: MenuButton[];
+	/** All scene nodes (text, image, shape, etc.) for rendering non-button elements. */
+	sceneNodes: SceneNode[];
 	canvasHeight: number;
 	onUpdateButton: (buttonId: string, updates: Partial<MenuButton>) => void;
+	/** Update a non-button scene node's position/size. */
+	onUpdateSceneNode: (nodeId: string, updates: Partial<{ x: number; y: number; width: number; height: number }>) => void;
 	showSafeArea: boolean;
 	backgroundLabel: string | null;
 	/** Solid background colour (CSS hex) when no asset is assigned. */
@@ -54,8 +59,10 @@ export interface SceneCanvasProps {
 
 export function SceneCanvas({
 	buttons,
+	sceneNodes,
 	canvasHeight,
 	onUpdateButton,
+	onUpdateSceneNode,
 	showSafeArea,
 	backgroundLabel,
 	backgroundColour,
@@ -85,8 +92,10 @@ export function SceneCanvas({
 	return (
 		<DesignCanvas
 			buttons={buttons}
+			sceneNodes={sceneNodes}
 			canvasHeight={canvasHeight}
 			onUpdateButton={onUpdateButton}
+			onUpdateSceneNode={onUpdateSceneNode}
 			showSafeArea={showSafeArea}
 			backgroundLabel={backgroundLabel}
 			backgroundColour={backgroundColour}
@@ -103,8 +112,10 @@ export function SceneCanvas({
 
 function DesignCanvas({
 	buttons,
+	sceneNodes,
 	canvasHeight,
 	onUpdateButton,
+	onUpdateSceneNode,
 	showSafeArea,
 	backgroundLabel,
 	backgroundColour,
@@ -115,8 +126,10 @@ function DesignCanvas({
 	onSelectNode,
 }: {
 	buttons: MenuButton[];
+	sceneNodes: SceneNode[];
 	canvasHeight: number;
 	onUpdateButton: (buttonId: string, updates: Partial<MenuButton>) => void;
+	onUpdateSceneNode: (nodeId: string, updates: Partial<{ x: number; y: number; width: number; height: number }>) => void;
 	showSafeArea: boolean;
 	backgroundLabel: string | null;
 	backgroundColour: string | null;
@@ -129,12 +142,19 @@ function DesignCanvas({
 	const canvasRef = useRef<HTMLDivElement>(null);
 	const dragState = useRef<{
 		buttonId: string;
+		isSceneNode?: boolean;
 		mode: 'move' | ResizeEdge;
 		startX: number;
 		startY: number;
 		startBounds: ButtonBounds;
 	} | null>(null);
 	const [snapLines, setSnapLines] = useState<{ axis: 'x' | 'y'; pos: number }[]>([]);
+
+	/** Non-button scene nodes that have position and size. */
+	const positionedNodes = sceneNodes.filter(
+		(n): n is Extract<SceneNode, { x: number; width: number }> =>
+			n.type !== 'button' && n.type !== 'group' && n.type !== 'componentInstance' && n.type !== 'generatedCollection' && 'width' in n,
+	);
 
 	const getSnapTargets = useCallback(
 		(excludeId: string) => {
@@ -144,6 +164,11 @@ function DesignCanvas({
 				if (btn.id === excludeId) continue;
 				xs.push(btn.bounds.x, btn.bounds.x + btn.bounds.width, btn.bounds.x + btn.bounds.width / 2);
 				ys.push(btn.bounds.y, btn.bounds.y + btn.bounds.height, btn.bounds.y + btn.bounds.height / 2);
+			}
+			for (const node of positionedNodes) {
+				if (node.id === excludeId) continue;
+				xs.push(node.x, node.x + node.width, node.x + node.width / 2);
+				ys.push(node.y, node.y + node.height, node.y + node.height / 2);
 			}
 			xs.push(0, MENU_WIDTH / 2, MENU_WIDTH);
 			ys.push(0, canvasHeight / 2, canvasHeight);
@@ -263,7 +288,11 @@ function DesignCanvas({
 					};
 				}
 
-				onUpdateButton(state.buttonId, { bounds });
+				if (state.isSceneNode) {
+					onUpdateSceneNode(state.buttonId, bounds);
+				} else {
+					onUpdateButton(state.buttonId, { bounds });
+				}
 			};
 
 			const handleMouseUp = () => {
@@ -276,7 +305,121 @@ function DesignCanvas({
 			document.addEventListener('mousemove', handleMouseMove);
 			document.addEventListener('mouseup', handleMouseUp);
 		},
-		[onUpdateButton, canvasHeight, getSnapTargets, onSelectNode],
+		[onUpdateButton, onUpdateSceneNode, canvasHeight, getSnapTargets, onSelectNode],
+	);
+
+	const startNodeDrag = useCallback(
+		(e: React.MouseEvent, node: { id: string; x: number; y: number; width: number; height: number }, mode: 'move' | ResizeEdge) => {
+			e.preventDefault();
+			e.stopPropagation();
+			const canvas = canvasRef.current;
+			if (!canvas) return;
+
+			onSelectNode(node.id);
+
+			dragState.current = {
+				buttonId: node.id,
+				isSceneNode: true,
+				mode,
+				startX: e.clientX,
+				startY: e.clientY,
+				startBounds: { x: node.x, y: node.y, width: node.width, height: node.height },
+			};
+
+			// Reuse the same mouse-move logic by re-triggering startDrag's pattern
+			const targets = getSnapTargets(node.id);
+
+			const handleMouseMove = (moveEvent: MouseEvent) => {
+				const state = dragState.current;
+				if (!state || !canvas) return;
+
+				const rect = canvas.getBoundingClientRect();
+				const scaleX = MENU_WIDTH / rect.width;
+				const scaleY = canvasHeight / rect.height;
+				const dx = (moveEvent.clientX - state.startX) * scaleX;
+				const dy = (moveEvent.clientY - state.startY) * scaleY;
+				const sb = state.startBounds;
+
+				let bounds: ButtonBounds;
+				if (state.mode === 'move') {
+					let newX = sb.x + dx;
+					let newY = sb.y + dy;
+					newX = Math.max(0, Math.min(MENU_WIDTH - sb.width, newX));
+					newY = Math.max(0, Math.min(canvasHeight - sb.height, newY));
+
+					const lines: { axis: 'x' | 'y'; pos: number }[] = [];
+					const sLeft = snapValue(newX, targets.xs);
+					const sRight = snapValue(newX + sb.width, targets.xs);
+					const sCx = snapValue(newX + sb.width / 2, targets.xs);
+					if (sLeft.line != null) {
+						newX = sLeft.snapped;
+						lines.push({ axis: 'x', pos: sLeft.line });
+					} else if (sRight.line != null) {
+						newX = sRight.snapped - sb.width;
+						lines.push({ axis: 'x', pos: sRight.line });
+					} else if (sCx.line != null) {
+						newX = sCx.snapped - sb.width / 2;
+						lines.push({ axis: 'x', pos: sCx.line });
+					}
+
+					const sTop = snapValue(newY, targets.ys);
+					const sBottom = snapValue(newY + sb.height, targets.ys);
+					const sCy = snapValue(newY + sb.height / 2, targets.ys);
+					if (sTop.line != null) {
+						newY = sTop.snapped;
+						lines.push({ axis: 'y', pos: sTop.line });
+					} else if (sBottom.line != null) {
+						newY = sBottom.snapped - sb.height;
+						lines.push({ axis: 'y', pos: sBottom.line });
+					} else if (sCy.line != null) {
+						newY = sCy.snapped - sb.height / 2;
+						lines.push({ axis: 'y', pos: sCy.line });
+					}
+
+					setSnapLines(lines);
+					bounds = { x: Math.round(newX), y: Math.round(newY), width: sb.width, height: sb.height };
+				} else {
+					let { x, y, width, height } = sb;
+					const m = state.mode;
+					if (m.includes('e')) width = Math.max(MIN_BUTTON_SIZE, sb.width + dx);
+					if (m.includes('w')) {
+						width = Math.max(MIN_BUTTON_SIZE, sb.width - dx);
+						x = sb.x + sb.width - width;
+					}
+					if (m.includes('s')) height = Math.max(MIN_BUTTON_SIZE, sb.height + dy);
+					if (m.includes('n')) {
+						height = Math.max(MIN_BUTTON_SIZE, sb.height - dy);
+						y = sb.y + sb.height - height;
+					}
+
+					x = Math.max(0, Math.min(MENU_WIDTH - MIN_BUTTON_SIZE, x));
+					y = Math.max(0, Math.min(canvasHeight - MIN_BUTTON_SIZE, y));
+					if (x + width > MENU_WIDTH) width = MENU_WIDTH - x;
+					if (y + height > canvasHeight) height = canvasHeight - y;
+
+					setSnapLines([]);
+					bounds = {
+						x: Math.round(x),
+						y: Math.round(y),
+						width: Math.round(width),
+						height: Math.round(height),
+					};
+				}
+
+				onUpdateSceneNode(state.buttonId, bounds);
+			};
+
+			const handleMouseUp = () => {
+				dragState.current = null;
+				setSnapLines([]);
+				document.removeEventListener('mousemove', handleMouseMove);
+				document.removeEventListener('mouseup', handleMouseUp);
+			};
+
+			document.addEventListener('mousemove', handleMouseMove);
+			document.addEventListener('mouseup', handleMouseUp);
+		},
+		[onUpdateSceneNode, canvasHeight, getSnapTargets, onSelectNode],
 	);
 
 	return (
@@ -339,6 +482,42 @@ function DesignCanvas({
 					</div>
 				</>
 			)}
+			{/* Non-button scene nodes (text, image, shape) rendered first (below buttons) */}
+			{positionedNodes.map((node) => (
+				<div
+					key={node.id}
+					className={`scene-canvas__scene-node scene-canvas__scene-node--${node.type} ${
+						selectedNodeId === node.id ? 'scene-canvas__scene-node--selected' : ''
+					}`}
+					style={{
+						left: `${(node.x / MENU_WIDTH) * 100}%`,
+						top: `${(node.y / canvasHeight) * 100}%`,
+						width: `${(node.width / MENU_WIDTH) * 100}%`,
+						height: `${(node.height / canvasHeight) * 100}%`,
+						...(node.type === 'shape' && 'fill' in node && node.fill ? { backgroundColor: node.fill } : {}),
+						...(node.type === 'text' && 'colour' in node && node.colour ? { color: node.colour } : {}),
+						...(node.type === 'text' && 'fontSize' in node && node.fontSize ? { fontSize: `${node.fontSize}px` } : {}),
+					}}
+					onClick={(e) => e.stopPropagation()}
+					onMouseDown={(e) => {
+						e.stopPropagation();
+						startNodeDrag(e, node, 'move');
+					}}
+				>
+					{node.type === 'text' && 'content' in node ? node.content : null}
+					{node.type === 'image' ? (
+						<span className="scene-canvas__scene-node-badge">Image</span>
+					) : null}
+					{(['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'] as ResizeEdge[]).map((edge) => (
+						<div
+							key={edge}
+							className={`scene-canvas__resize-handle scene-canvas__resize-handle--${edge}`}
+							onMouseDown={(e) => startNodeDrag(e, node, edge)}
+						/>
+					))}
+				</div>
+			))}
+			{/* Button nodes (on top) */}
 			{buttons.map((btn) => (
 				<div
 					key={btn.id}

@@ -201,9 +201,9 @@ export interface SceneBackground {
 /** A node within the authored menu scene graph. */
 export type SceneNode =
 	| { type: 'group'; id: string; name: string; children: SceneNode[] }
-	| { type: 'text'; id: string; content: string; x: number; y: number }
-	| { type: 'image'; id: string; assetId: string; x: number; y: number }
-	| { type: 'shape'; id: string; x: number; y: number }
+	| { type: 'text'; id: string; content: string; x: number; y: number; width: number; height: number; fontSize?: number; colour?: string }
+	| { type: 'image'; id: string; assetId: string; x: number; y: number; width: number; height: number }
+	| { type: 'shape'; id: string; x: number; y: number; width: number; height: number; fill?: string }
 	| { type: 'video'; id: string; assetId: string; x: number; y: number }
 	| {
 			type: 'button';

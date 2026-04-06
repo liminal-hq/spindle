@@ -17,7 +17,7 @@ describe('LayersPanel', () => {
 	const nodes: SceneNode[] = [
 		{ type: 'button', id: 'btn-1', label: 'Play Movie', x: 10, y: 20, width: 200, height: 40 },
 		{ type: 'button', id: 'btn-2', label: 'Chapters', x: 10, y: 80, width: 200, height: 40 },
-		{ type: 'text', id: 'txt-1', content: 'Welcome', x: 100, y: 10 },
+		{ type: 'text', id: 'txt-1', content: 'Welcome', x: 100, y: 10, width: 200, height: 40 },
 	];
 
 	it('renders scene nodes in reverse z-order', () => {
@@ -234,7 +234,9 @@ describe('SceneCanvas', () => {
 			<SceneCanvas
 				buttons={buttons}
 				canvasHeight={480}
+				sceneNodes={[]}
 				onUpdateButton={vi.fn()}
+				onUpdateSceneNode={vi.fn()}
 				showSafeArea={false}
 				backgroundLabel={null}
 				backgroundColour={null}
@@ -257,7 +259,9 @@ describe('SceneCanvas', () => {
 			<SceneCanvas
 				buttons={buttons}
 				canvasHeight={480}
+				sceneNodes={[]}
 				onUpdateButton={vi.fn()}
+				onUpdateSceneNode={vi.fn()}
 				showSafeArea={false}
 				backgroundLabel={null}
 				backgroundColour={null}
@@ -281,7 +285,9 @@ describe('SceneCanvas', () => {
 			<SceneCanvas
 				buttons={buttons}
 				canvasHeight={480}
+				sceneNodes={[]}
 				onUpdateButton={vi.fn()}
+				onUpdateSceneNode={vi.fn()}
 				showSafeArea={false}
 				backgroundLabel={null}
 				backgroundColour={null}
@@ -304,7 +310,9 @@ describe('SceneCanvas', () => {
 			<SceneCanvas
 				buttons={buttons}
 				canvasHeight={480}
+				sceneNodes={[]}
 				onUpdateButton={vi.fn()}
+				onUpdateSceneNode={vi.fn()}
 				showSafeArea={false}
 				backgroundLabel={null}
 				backgroundColour={null}
@@ -327,7 +335,9 @@ describe('SceneCanvas', () => {
 			<SceneCanvas
 				buttons={buttons}
 				canvasHeight={480}
+				sceneNodes={[]}
 				onUpdateButton={vi.fn()}
+				onUpdateSceneNode={vi.fn()}
 				showSafeArea={false}
 				backgroundLabel={null}
 				backgroundColour={null}
@@ -349,7 +359,9 @@ describe('SceneCanvas', () => {
 			<SceneCanvas
 				buttons={buttons}
 				canvasHeight={480}
+				sceneNodes={[]}
 				onUpdateButton={vi.fn()}
+				onUpdateSceneNode={vi.fn()}
 				showSafeArea={true}
 				backgroundLabel={null}
 				backgroundColour={null}
@@ -372,7 +384,9 @@ describe('SceneCanvas', () => {
 			<SceneCanvas
 				buttons={buttons}
 				canvasHeight={480}
+				sceneNodes={[]}
 				onUpdateButton={vi.fn()}
+				onUpdateSceneNode={vi.fn()}
 				showSafeArea={false}
 				backgroundLabel={null}
 				backgroundColour={null}
@@ -395,7 +409,9 @@ describe('SceneCanvas', () => {
 			<SceneCanvas
 				buttons={buttons}
 				canvasHeight={480}
+				sceneNodes={[]}
 				onUpdateButton={vi.fn()}
+				onUpdateSceneNode={vi.fn()}
 				showSafeArea={false}
 				backgroundLabel={null}
 				backgroundColour={null}

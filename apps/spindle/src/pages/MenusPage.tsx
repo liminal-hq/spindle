@@ -441,10 +441,10 @@ function MenuEditor({
 
 		const newNode: SceneNode =
 			nodeType === 'text'
-				? { type: 'text', id, content: `Text ${nodeCount + 1}`, x, y }
+				? { type: 'text', id, content: `Text ${nodeCount + 1}`, x, y, width: 200, height: 40, fontSize: 24, colour: '#ffffff' }
 				: nodeType === 'image'
-					? { type: 'image', id, assetId: '', x, y }
-					: { type: 'shape', id, x, y };
+					? { type: 'image', id, assetId: '', x, y, width: 200, height: 150 }
+					: { type: 'shape', id, x, y, width: 200, height: 100, fill: '#333333' };
 
 		onUpdate((m) => {
 			if (m.authoredDocument) {
@@ -545,6 +545,49 @@ function MenuEditor({
 		if (selectedNodeId === buttonId) setSelectedNodeId(null);
 	};
 
+	const handleUpdateSceneNode = (nodeId: string, updates: Partial<{ x: number; y: number; width: number; height: number }>) => {
+		onUpdate((m) => {
+			if (!m.authoredDocument) return m;
+			return {
+				...m,
+				authoredDocument: {
+					...m.authoredDocument,
+					scene: {
+						...m.authoredDocument.scene,
+						nodes: m.authoredDocument.scene.nodes.map((node) => {
+							if (node.id !== nodeId) return node;
+							if (node.type === 'button' || node.type === 'group' || node.type === 'componentInstance' || node.type === 'generatedCollection') return node;
+							return { ...node, ...updates };
+						}),
+					},
+				},
+			};
+		});
+	};
+
+	const handleRemoveNode = (nodeId: string) => {
+		// Try removing as a button first, then as a generic scene node
+		const isButton = currentButtons.some((b) => b.id === nodeId);
+		if (isButton) {
+			handleRemoveButton(nodeId);
+			return;
+		}
+		onUpdate((m) => {
+			if (!m.authoredDocument) return m;
+			return {
+				...m,
+				authoredDocument: {
+					...m.authoredDocument,
+					scene: {
+						...m.authoredDocument.scene,
+						nodes: m.authoredDocument.scene.nodes.filter((n) => n.id !== nodeId),
+					},
+				},
+			};
+		});
+		if (selectedNodeId === nodeId) setSelectedNodeId(null);
+	};
+
 	// Delete selected node with Delete key (or Backspace on Mac)
 	useEffect(() => {
 		const handler = (e: KeyboardEvent) => {
@@ -553,7 +596,7 @@ function MenuEditor({
 			const tag = (e.target as HTMLElement).tagName;
 			if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
 			e.preventDefault();
-			handleRemoveButton(selectedNodeId);
+			handleRemoveNode(selectedNodeId);
 		};
 		document.addEventListener('keydown', handler);
 		return () => document.removeEventListener('keydown', handler);
@@ -688,8 +731,10 @@ function MenuEditor({
 
 						<SceneCanvas
 							buttons={currentButtons}
+							sceneNodes={sceneNodes}
 							canvasHeight={canvasHeight}
 							onUpdateButton={handleUpdateButton}
+							onUpdateSceneNode={handleUpdateSceneNode}
 							showSafeArea={showSafeArea}
 							backgroundLabel={backgroundAssetLabel}
 							backgroundColour={menu.authoredDocument?.scene.background.colour ?? null}
@@ -767,8 +812,10 @@ function MenuEditor({
 					<div className="bind-mode-layout__preview">
 						<SceneCanvas
 							buttons={currentButtons}
+							sceneNodes={sceneNodes}
 							canvasHeight={canvasHeight}
 							onUpdateButton={handleUpdateButton}
+							onUpdateSceneNode={handleUpdateSceneNode}
 							showSafeArea={false}
 							backgroundLabel={backgroundAssetLabel}
 							backgroundColour={menu.authoredDocument?.scene.background.colour ?? null}
