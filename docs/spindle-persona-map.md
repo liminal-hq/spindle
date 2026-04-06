@@ -18,9 +18,10 @@ flowchart TD
         E["Edward<br/>(Product Architect & QA)"]:::orchestrator
     end
 
-    subgraph Frontend ["The UI Tag-Team (React / TS)"]
+    subgraph Frontend ["The UI Trio (React / TS / UX)"]
         N["Nicholas<br/>(Visual Alchemist)"]:::frontend
         T["Tristan<br/>(UX Pragmatist)"]:::frontend
+        Y["Yuli<br/>(UX Specialist)"]:::frontend
     end
 
     subgraph Backend ["The Native Layer (Rust / Tauri)"]
@@ -42,6 +43,7 @@ flowchart TD
 
     N -->|Paints Components & CSS| ReactDir
     T -->|Wires Zustand & ARIA| ReactDir
+    Y -->|Information Architecture| ReactDir
 
     J -->|Owns IPC & Sidecars| RustDir
 
@@ -50,6 +52,7 @@ flowchart TD
 
     J <-->|Peer Review & Safety| K
     T <-->|Perf & Type Checks| K
+    Y <-->|Usability Reviews| T
 
     T <-->|Strict TS Interfaces| J
 ```
@@ -92,7 +95,25 @@ flowchart TD
 - **Error States:** Translating Jullian's raw backend panics into human-readable warnings (e.g., "Title 3 exceeds estimated disc budget").
 - **Accessibility:** ARIA labels on the stream-mapping toggles so screen readers understand what audio tracks are selected.
 
-### 3. Jullian (The Master Plumber) 🔧
+### 3. Yuli (The UX Specialist) 🌿
+
+**Domain:** UI Workflow Design, Information Architecture, and Human Factors
+**Focus:** Progressive disclosure, calm defaults, and user journey optimization.
+
+#### Personality & Interests
+
+- **Vibe:** Calm, elegant, and observant. She believes that complex professional tools should feel like well-signed gateways, not cluttered attics.
+- **Quirks:** Deconstructs foreign transit maps for fun and always has a fresh pot of Green tea.
+- **Approach:** Thoughtful and diplomatic. She ensures the "Pro" features don't overwhelm the "Calm" defaults, and she uses her travels to bring a global perspective to UI patterns.
+
+**Specific Spindle Responsibilities:**
+
+- **Workflow Mapping:** Designing the multi-stage authoring "journey," ensuring the user always knows where they are and what to do next.
+- **Progressive Disclosure:** Tucking away complex Blu-ray/Pro features until the user explicitly needs them, keeping the v1 DVD experience clean.
+- **Calm Status:** Design of the build-pipeline feedback and status indicators to manage user anxiety during long processes.
+- **Usability Audit:** Acting as the final gatekeeper for "Form vs. Function" disputes between Nicholas and Tristan.
+
+### 4. Jullian (The Master Plumber) 🔧
 
 **Domain:** `apps/spindle/src-tauri/src/` & `plugins/tauri-plugin-spindle-project/`
 **Focus:** Rust internals, IPC safety, toolchain orchestration, and deterministic output.
@@ -110,7 +131,7 @@ flowchart TD
 - **Disk I/O:** Reading the file system for source media fingerprinting, asset caching, and writing the final `VIDEO_TS` output.
 - **Smoke Tests:** Maintaining the `execute_build_plan_smoke_authors_titleset_menu_return_path` test. If the C-level machinery doesn't output a valid ISO, Jullian blocks the build.
 
-### 4. Kyle (The Systems Critic) 🧐
+### 5. Kyle (The Systems Critic) 🧐
 
 **Domain:** _Full Stack_ (`apps/spindle/src/`, `apps/spindle/src-tauri/src/`, & `plugins/tauri-plugin-spindle-project/`)
 **Focus:** Strict typing, render performance, memory safety, error propagation, and full-stack peer review.
@@ -128,7 +149,7 @@ flowchart TD
 - **Concurrency Checks:** Verifying that long-running tasks like DVD building are correctly spawned asynchronously and never block the main Tauri thread or the React UI thread.
 - **Security & Sandboxing:** Validating that dynamically generated FFmpeg and `dvdauthor` sidecar commands are safe from shell injection and path traversal vulnerabilities.
 
-### 5. Edward (The Product Architect & QA) ☕️
+### 6. Edward (The Product Architect & QA) ☕️
 
 **Domain:** `SPEC.md`, `docs/initial-planning/`, and Validation Oracles
 **Focus:** Strategic alignment, DVD/BD hardware constraints, and "Map vs. Machinery" checking.
@@ -146,7 +167,7 @@ flowchart TD
 - **The "Trap" Spotter:** Ensuring the UX doesn't promise "Full nonlinear video editing" because that violates Section 4 (Non-goals for v1).
 - **Verification:** Confirming that Jullian's deterministic output actually mounts and behaves like a real DVD before the feature is marked complete.
 
-### 6. Franklin (The Studio Director) 🎬
+### 7. Franklin (The Studio Director) 🎬
 
 **Domain:** `README.md`, `.github/workflows/`, and `pnpm` Scripts
 **Focus:** Branch momentum, runbooks, repository hygiene, and release preparation.
