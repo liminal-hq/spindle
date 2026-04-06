@@ -301,6 +301,7 @@ pub(crate) fn build_ffmpeg_menu_command(
         }
     }
 
+    /* 
     // Overlay images
     for (idx, node) in image_inputs.iter().enumerate() {
         if let SceneNode::Image { x, y, width, height, .. } = node {
@@ -308,7 +309,7 @@ pub(crate) fn build_ffmpeg_menu_command(
             let input_idx = idx + 1;
             // Scale the image input to its authored size
             // We use [v:input_idx] and overlay it
-            let overlay_filter = format!(
+            let _overlay_filter = format!(
                 "[{input_idx}:v]scale={w}:{h}:force_original_aspect_ratio=decrease,pad={w}:{h}:(ow-iw)/2:(oh-ih)/2[ovl{idx}];[v][ovl{idx}]overlay=x={x}:y={y}[v]",
                 input_idx = input_idx,
                 idx = idx,
@@ -322,6 +323,7 @@ pub(crate) fn build_ffmpeg_menu_command(
             // But let's see if we can use a simpler approach for now.
         }
     }
+    */
 
     // For now, let's keep it simple: Text and Buttons only for the "Full Loop" test
     // to avoid complex filtergraph logic until we really need it.
