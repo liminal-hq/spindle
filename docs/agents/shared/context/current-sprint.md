@@ -11,7 +11,6 @@ Key workstreams:
 - **Milestone 1**: COMPLETED & VERIFIED. Schema and serialization are 100% synchronized.
 - **Milestone 2**: COMPLETED & VERIFIED. Nicholas has delivered the fully functional Scene Editor.
 - **Milestone 3**: COMPLETED & VERIFIED. Jullian's backend seams are locked.
-- **Milestone 4**: IN PROGRESS. Jullian and Tristan are implementing the **Automated Generation Engine**, including the 'Menu Set' pagination logic (12-18 buttons per page) and the new 'SetSelection' actions for setup menus.
 
 ## Product Stance: Rich Design, Honest Compilation
 
