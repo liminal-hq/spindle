@@ -188,7 +188,8 @@ export function MenusPage() {
 										<span className="menus__item-name">{menu.name}</span>
 										<span className="badge badge--neutral">
 											{menu.authoredDocument
-												? menu.authoredDocument.scene.nodes.filter((n) => n.type === 'button').length
+												? menu.authoredDocument.scene.nodes.filter((n) => n.type === 'button')
+														.length
 												: menu.buttons.length}{' '}
 											btn
 										</span>
@@ -224,11 +225,12 @@ export function MenusPage() {
 										>
 											<span className="menus__item-name">{menu.name}</span>
 											<span className="badge badge--neutral">
-											{menu.authoredDocument
-												? menu.authoredDocument.scene.nodes.filter((n) => n.type === 'button').length
-												: menu.buttons.length}{' '}
-											btn
-										</span>
+												{menu.authoredDocument
+													? menu.authoredDocument.scene.nodes.filter((n) => n.type === 'button')
+															.length
+													: menu.buttons.length}{' '}
+												btn
+											</span>
 										</div>
 									))
 								)}
@@ -373,8 +375,18 @@ function MenuEditor({
 	const handleAddButton = () => {
 		const id = crypto.randomUUID();
 		const label = `Button ${(menu.authoredDocument?.scene.nodes.filter((n) => n.type === 'button').length ?? menu.buttons.length) + 1}`;
-		const x = 100 + (menu.authoredDocument?.scene.nodes.filter((n) => n.type === 'button').length ?? menu.buttons.length) * 20;
-		const y = Math.min(300 + (menu.authoredDocument?.scene.nodes.filter((n) => n.type === 'button').length ?? menu.buttons.length) * 20, canvasHeight - 60);
+		const x =
+			100 +
+			(menu.authoredDocument?.scene.nodes.filter((n) => n.type === 'button').length ??
+				menu.buttons.length) *
+				20;
+		const y = Math.min(
+			300 +
+				(menu.authoredDocument?.scene.nodes.filter((n) => n.type === 'button').length ??
+					menu.buttons.length) *
+					20,
+			canvasHeight - 60,
+		);
 
 		onUpdate((m) => {
 			if (m.authoredDocument) {
@@ -404,7 +416,14 @@ function MenuEditor({
 							...m.authoredDocument.interaction,
 							nodes: [
 								...m.authoredDocument.interaction.nodes,
-								{ nodeId: id, navUp: null, navDown: null, navLeft: null, navRight: null, action: null },
+								{
+									nodeId: id,
+									navUp: null,
+									navDown: null,
+									navLeft: null,
+									navRight: null,
+									action: null,
+								},
 							],
 						},
 					},
@@ -435,13 +454,24 @@ function MenuEditor({
 
 	const handleAddSceneNode = (nodeType: 'text' | 'image' | 'shape') => {
 		const id = crypto.randomUUID();
-		const nodeCount = menu.authoredDocument?.scene.nodes.filter((n) => n.type === nodeType).length ?? 0;
+		const nodeCount =
+			menu.authoredDocument?.scene.nodes.filter((n) => n.type === nodeType).length ?? 0;
 		const x = 100 + nodeCount * 20;
 		const y = Math.min(200 + nodeCount * 20, canvasHeight - 60);
 
 		const newNode: SceneNode =
 			nodeType === 'text'
-				? { type: 'text', id, content: `Text ${nodeCount + 1}`, x, y, width: 200, height: 40, fontSize: 24, colour: '#ffffff' }
+				? {
+						type: 'text',
+						id,
+						content: `Text ${nodeCount + 1}`,
+						x,
+						y,
+						width: 200,
+						height: 40,
+						fontSize: 24,
+						colour: '#ffffff',
+					}
 				: nodeType === 'image'
 					? { type: 'image', id, assetId: '', x, y, width: 200, height: 150 }
 					: { type: 'shape', id, x, y, width: 200, height: 100, fill: '#333333' };
@@ -556,7 +586,13 @@ function MenuEditor({
 						...m.authoredDocument.scene,
 						nodes: m.authoredDocument.scene.nodes.map((node) => {
 							if (node.id !== nodeId) return node;
-							if (node.type === 'button' || node.type === 'group' || node.type === 'componentInstance' || node.type === 'generatedCollection') return node;
+							if (
+								node.type === 'button' ||
+								node.type === 'group' ||
+								node.type === 'componentInstance' ||
+								node.type === 'generatedCollection'
+							)
+								return node;
 							return { ...node, ...updates };
 						}),
 					},
@@ -676,58 +712,71 @@ function MenuEditor({
 					<div className="scene-canvas">
 						{/* Background assignment */}
 						<div className="menus__bg-select">
-								<label className="text-muted">Background: </label>
-								<select
-									className="menus__select-sm"
-									value={menu.backgroundAssetId ?? ''}
+							<label className="text-muted">Background: </label>
+							<select
+								className="menus__select-sm"
+								value={menu.backgroundAssetId ?? ''}
+								onChange={(e) => {
+									const newAssetId = e.target.value || null;
+									onUpdate((m) => ({
+										...m,
+										backgroundAssetId: newAssetId,
+										authoredDocument: m.authoredDocument
+											? {
+													...m.authoredDocument,
+													scene: {
+														...m.authoredDocument.scene,
+														background: {
+															...m.authoredDocument.scene.background,
+															assetId: newAssetId,
+														},
+													},
+												}
+											: m.authoredDocument,
+									}));
+								}}
+							>
+								<option value="">Solid colour</option>
+								{project.assets
+									.filter(
+										(a) =>
+											a.videoStreams.length > 0 || a.fileName.match(/\.(png|jpg|jpeg|bmp|tiff?)$/i),
+									)
+									.map((a) => (
+										<option key={a.id} value={a.id}>
+											{a.fileName}
+										</option>
+									))}
+							</select>
+							{!menu.backgroundAssetId && (
+								<input
+									type="color"
+									className="menus__bg-colour-input"
+									value={menu.authoredDocument?.scene.background.colour ?? '#000000'}
 									onChange={(e) =>
-										onUpdate((m) => ({
-											...m,
-											backgroundAssetId: e.target.value || null,
-										}))
-									}
-								>
-									<option value="">Solid colour</option>
-									{project.assets
-										.filter(
-											(a) =>
-												a.videoStreams.length > 0 || a.fileName.match(/\.(png|jpg|jpeg|bmp|tiff?)$/i),
-										)
-										.map((a) => (
-											<option key={a.id} value={a.id}>
-												{a.fileName}
-											</option>
-										))}
-								</select>
-								{!menu.backgroundAssetId && (
-									<input
-										type="color"
-										className="menus__bg-colour-input"
-										value={menu.authoredDocument?.scene.background.colour ?? '#000000'}
-										onChange={(e) =>
-											onUpdate((m) => {
-												if (m.authoredDocument) {
-													return {
-														...m,
-														authoredDocument: {
-															...m.authoredDocument,
-															scene: {
-																...m.authoredDocument.scene,
-																background: {
-																	...m.authoredDocument.scene.background,
-																	colour: e.target.value,
-																},
+										onUpdate((m) => {
+											if (m.authoredDocument) {
+												return {
+													...m,
+													authoredDocument: {
+														...m.authoredDocument,
+														scene: {
+															...m.authoredDocument.scene,
+															background: {
+																...m.authoredDocument.scene.background,
+																colour: e.target.value,
 															},
 														},
-													};
-												}
-												return m;
-											})
-										}
-										title="Background colour"
-									/>
-								)}
-							</div>
+													},
+												};
+											}
+											return m;
+										})
+									}
+									title="Background colour"
+								/>
+							)}
+						</div>
 
 						<SceneCanvas
 							buttons={currentButtons}
@@ -759,7 +808,10 @@ function MenuEditor({
 								/>
 								Safe Area
 							</label>
-							<label className="scene-canvas__toolbar-toggle" title="Preview with DVD-safe colour reduction">
+							<label
+								className="scene-canvas__toolbar-toggle"
+								title="Preview with DVD-safe colour reduction"
+							>
 								<input
 									type="checkbox"
 									checked={honestPreview}
@@ -767,7 +819,10 @@ function MenuEditor({
 								/>
 								DVD Preview
 							</label>
-							<label className="scene-canvas__toolbar-toggle" title="Show navigation direction lines between buttons">
+							<label
+								className="scene-canvas__toolbar-toggle"
+								title="Show navigation direction lines between buttons"
+							>
 								<input
 									type="checkbox"
 									checked={showNavLines}
@@ -775,7 +830,10 @@ function MenuEditor({
 								/>
 								Nav Lines
 							</label>
-							<label className="scene-canvas__toolbar-toggle" title="Navigate with arrow keys (remote preview)">
+							<label
+								className="scene-canvas__toolbar-toggle"
+								title="Navigate with arrow keys (remote preview)"
+							>
 								<input
 									type="checkbox"
 									checked={previewMode}

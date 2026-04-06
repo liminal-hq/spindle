@@ -295,7 +295,14 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 			const project = await invoke<SpindleProjectFile>('plugin:spindle-project|create_project', {
 				payload: req,
 			});
-			set({ project, filePath: null, isDirty: true, validationIssues: [] });
+			set({
+				project,
+				filePath: null,
+				isDirty: true,
+				validationIssues: [],
+				undoStack: [],
+				redoStack: [],
+			});
 		} finally {
 			set({ isLoading: false });
 		}
@@ -332,6 +339,8 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 				filePath: selected,
 				isDirty: false,
 				validationIssues: [],
+				undoStack: [],
+				redoStack: [],
 			});
 			await ensureProjectAssetThumbnails(project);
 			void backfillAssetFormatTitles(project);
@@ -409,6 +418,8 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 			buildLog: [],
 			selectedMenuId: null,
 			menuEditorMode: 'design',
+			undoStack: [],
+			redoStack: [],
 		});
 	},
 
