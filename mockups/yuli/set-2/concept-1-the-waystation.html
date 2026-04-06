@@ -1,0 +1,1163 @@
+<!doctype html>
+<html lang="en-CA">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=1280" />
+		<title>Spindle — Concept 1: The Waystation</title>
+		<link rel="stylesheet" href="design-system.css" />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap"
+			rel="stylesheet"
+		/>
+		<style>
+			body {
+				background: var(--bg-app);
+				overflow: hidden;
+				display: flex;
+				flex-direction: column;
+				height: 100vh;
+			}
+
+			/* ── Four-Pane Layout ─────────────────────────────────── */
+			.editor-shell {
+				display: grid;
+				grid-template-columns: 260px 1fr 300px;
+				grid-template-rows: 1fr 200px;
+				grid-template-areas:
+					'left canvas right'
+					'left timeline right';
+				flex: 1;
+				overflow: hidden;
+			}
+
+			/* ── Left Rail: Layers + Components ───────────────────── */
+			.left-rail {
+				grid-area: left;
+				background: var(--bg-sidebar);
+				border-right: 1px solid var(--border-subtle);
+				display: flex;
+				flex-direction: column;
+				overflow: hidden;
+			}
+
+			.rail-tabs {
+				display: flex;
+				border-bottom: 1px solid var(--border-subtle);
+				background: rgba(0,0,0,0.2);
+			}
+
+			.rail-tab {
+				flex: 1;
+				padding: 10px 0;
+				text-align: center;
+				font-size: var(--text-xs);
+				font-weight: 600;
+				color: var(--text-muted);
+				cursor: pointer;
+				border-bottom: 2px solid transparent;
+				transition: all var(--transition-fast);
+			}
+
+			.rail-tab:hover { color: var(--text-primary); }
+			.rail-tab--active {
+				color: var(--brand-orange);
+				border-bottom-color: var(--brand-orange);
+			}
+
+			.rail-content {
+				flex: 1;
+				overflow-y: auto;
+				padding: var(--space-3);
+			}
+
+			.section-header {
+				font-size: var(--text-xs);
+				font-weight: 600;
+				letter-spacing: 0.08em;
+				color: var(--text-muted);
+				margin: var(--space-4) 0 var(--space-2);
+				display: flex;
+				justify-content: space-between;
+				align-items: center;
+			}
+
+			.section-header:first-child { margin-top: 0; }
+
+			.layer-row {
+				display: flex;
+				align-items: center;
+				gap: var(--space-2);
+				padding: 6px var(--space-3);
+				font-size: var(--text-sm);
+				color: var(--text-secondary);
+				border-radius: var(--radius-sm);
+				cursor: pointer;
+				transition: background var(--transition-fast);
+				margin-bottom: 1px;
+			}
+
+			.layer-row:hover { background: rgba(255,255,255,0.04); }
+			.layer-row--selected {
+				background: rgba(255,170,64,0.12);
+				color: var(--brand-orange);
+			}
+			.layer-row--group {
+				font-weight: 500;
+				color: var(--text-primary);
+			}
+
+			.layer-icon {
+				width: 16px;
+				height: 16px;
+				opacity: 0.6;
+				flex-shrink: 0;
+			}
+
+			.layer-row--selected .layer-icon { opacity: 1; }
+
+			.layer-vis {
+				margin-left: auto;
+				opacity: 0.3;
+				cursor: pointer;
+			}
+			.layer-vis:hover { opacity: 0.8; }
+
+			.layer-indent { padding-left: calc(var(--space-3) + 16px); }
+
+			/* Component mini-cards */
+			.comp-grid {
+				display: grid;
+				grid-template-columns: 1fr 1fr;
+				gap: var(--space-2);
+			}
+
+			.comp-card {
+				background: rgba(255,255,255,0.02);
+				border: 1px solid var(--border-subtle);
+				border-radius: var(--radius-md);
+				padding: var(--space-2);
+				cursor: grab;
+				transition: all var(--transition-fast);
+				text-align: center;
+			}
+
+			.comp-card:hover {
+				background: rgba(255,255,255,0.05);
+				border-color: var(--border-default);
+				transform: translateY(-1px);
+			}
+
+			.comp-card__preview {
+				height: 40px;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				margin-bottom: 4px;
+			}
+
+			.comp-card__name {
+				font-size: 10px;
+				color: var(--text-muted);
+			}
+
+			/* ── Central Canvas ───────────────────────────────────── */
+			.canvas-area {
+				grid-area: canvas;
+				display: flex;
+				flex-direction: column;
+				position: relative;
+				background: #08080c;
+			}
+
+			.canvas-toolbar {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				padding: var(--space-2) var(--space-4);
+				background: var(--bg-panel);
+				border-bottom: 1px solid var(--border-subtle);
+				z-index: 10;
+			}
+
+			.mode-switcher {
+				display: flex;
+				background: rgba(0,0,0,0.3);
+				border: 1px solid var(--border-subtle);
+				border-radius: 20px;
+				padding: 3px;
+				gap: 3px;
+			}
+
+			.mode-btn {
+				padding: 5px 14px;
+				border-radius: 16px;
+				font-size: var(--text-xs);
+				font-weight: 600;
+				cursor: pointer;
+				color: var(--text-muted);
+				transition: all var(--transition-fast);
+				display: flex;
+				align-items: center;
+				gap: 5px;
+				border: none;
+				background: none;
+			}
+
+			.mode-btn:hover { color: var(--text-primary); }
+			.mode-btn--active {
+				background: var(--brand-orange);
+				color: var(--text-inverse);
+			}
+			.mode-btn--active.mode-bind { background: var(--brand-purple); }
+			.mode-btn--active.mode-route { background: var(--brand-blue); }
+			.mode-btn--active.mode-compile { background: var(--brand-pink); }
+
+			.canvas-tools {
+				display: flex;
+				gap: var(--space-1);
+			}
+
+			.tool-btn {
+				width: 30px;
+				height: 30px;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				border-radius: var(--radius-sm);
+				border: none;
+				background: none;
+				color: var(--text-muted);
+				cursor: pointer;
+				transition: all var(--transition-fast);
+			}
+
+			.tool-btn:hover { background: rgba(255,255,255,0.06); color: var(--text-primary); }
+			.tool-btn--active { background: rgba(255,170,64,0.15); color: var(--brand-orange); }
+
+			.canvas-viewport {
+				flex: 1;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				background: radial-gradient(circle at 50% 50%, rgba(255,170,64,0.02) 0%, transparent 60%);
+				position: relative;
+			}
+
+			.zoom-indicator {
+				position: absolute;
+				bottom: var(--space-3);
+				right: var(--space-3);
+				font-family: var(--font-mono);
+				font-size: 10px;
+				color: var(--text-muted);
+				background: rgba(0,0,0,0.5);
+				padding: 2px 8px;
+				border-radius: 10px;
+			}
+
+			/* Safe area guides */
+			.menu-canvas {
+				width: 720px;
+				height: 480px;
+				position: relative;
+				border-radius: 4px;
+				overflow: hidden;
+				box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+				background: linear-gradient(160deg, #1a1828 0%, #0f0e1a 50%, #181520 100%);
+			}
+
+			.safe-area {
+				position: absolute;
+				border: 1px dashed rgba(255,170,64,0.15);
+				pointer-events: none;
+				z-index: 3;
+			}
+
+			.safe-area--title {
+				inset: 10% 10%;
+			}
+
+			.safe-area--action {
+				inset: 5% 5%;
+			}
+
+			.safe-label {
+				position: absolute;
+				font-size: 9px;
+				font-family: var(--font-mono);
+				color: rgba(255,170,64,0.25);
+			}
+
+			.safe-label--title { top: calc(10% - 14px); left: 10%; }
+			.safe-label--action { top: calc(5% - 14px); left: 5%; }
+
+			/* Canvas elements */
+			.canvas-bg-overlay {
+				position: absolute;
+				inset: 0;
+				background:
+					linear-gradient(180deg, rgba(0,0,0,0.1) 0%, transparent 30%),
+					radial-gradient(ellipse at 30% 20%, rgba(167,139,250,0.08) 0%, transparent 50%);
+				pointer-events: none;
+			}
+
+			.scene-title {
+				position: absolute;
+				top: 60px;
+				left: 72px;
+				font-family: var(--font-heading);
+				font-size: 34px;
+				font-weight: 700;
+				color: #fff;
+				letter-spacing: -0.02em;
+				z-index: 2;
+			}
+
+			.scene-subtitle {
+				position: absolute;
+				top: 102px;
+				left: 74px;
+				font-size: 13px;
+				color: rgba(255,255,255,0.5);
+				z-index: 2;
+			}
+
+			.scene-node {
+				position: absolute;
+				background: rgba(255,255,255,0.04);
+				border: 1.5px solid rgba(255,255,255,0.12);
+				border-radius: 6px;
+				display: flex;
+				align-items: center;
+				padding: 0 16px;
+				font-size: 14px;
+				color: var(--text-primary);
+				z-index: 2;
+				cursor: pointer;
+				transition: all var(--transition-fast);
+			}
+
+			.scene-node:hover { border-color: rgba(255,255,255,0.25); }
+
+			.scene-node--selected {
+				border-color: var(--brand-orange);
+				box-shadow: 0 0 0 1px var(--brand-orange), 0 0 20px rgba(255,170,64,0.15);
+				background: rgba(255,170,64,0.08);
+			}
+
+			.node-handle {
+				position: absolute;
+				width: 8px;
+				height: 8px;
+				background: var(--brand-orange);
+				border: 1.5px solid var(--bg-app);
+				border-radius: 2px;
+			}
+
+			.node-handle--tl { top: -4px; left: -4px; }
+			.node-handle--tr { top: -4px; right: -4px; }
+			.node-handle--bl { bottom: -4px; left: -4px; }
+			.node-handle--br { bottom: -4px; right: -4px; }
+
+			.node-icon {
+				margin-right: 8px;
+				opacity: 0.7;
+			}
+
+			/* Decorative image node */
+			.scene-image-node {
+				position: absolute;
+				border: 1.5px solid rgba(255,255,255,0.08);
+				border-radius: 6px;
+				overflow: hidden;
+				z-index: 1;
+			}
+
+			.image-placeholder {
+				width: 100%;
+				height: 100%;
+				background: linear-gradient(135deg, rgba(167,139,250,0.15) 0%, rgba(96,165,250,0.1) 100%);
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				color: rgba(255,255,255,0.15);
+			}
+
+			/* ── Right Rail: Inspector ────────────────────────────── */
+			.right-rail {
+				grid-area: right;
+				background: var(--bg-sidebar);
+				border-left: 1px solid var(--border-subtle);
+				display: flex;
+				flex-direction: column;
+				overflow-y: auto;
+			}
+
+			.inspector-header {
+				padding: var(--space-3) var(--space-4);
+				border-bottom: 1px solid var(--border-subtle);
+				display: flex;
+				align-items: center;
+				gap: var(--space-2);
+				background: rgba(0,0,0,0.15);
+			}
+
+			.inspector-label {
+				font-size: var(--text-xs);
+				font-weight: 600;
+				letter-spacing: 0.06em;
+				color: var(--text-muted);
+			}
+
+			.inspector-node-name {
+				font-size: var(--text-sm);
+				font-weight: 600;
+				color: var(--brand-orange);
+			}
+
+			.inspector-body {
+				padding: var(--space-4);
+				display: flex;
+				flex-direction: column;
+				gap: var(--space-4);
+			}
+
+			.prop-group {
+				background: rgba(255,255,255,0.02);
+				border: 1px solid var(--border-subtle);
+				border-radius: var(--radius-md);
+				overflow: hidden;
+			}
+
+			.prop-group__header {
+				padding: var(--space-2) var(--space-3);
+				font-size: var(--text-xs);
+				font-weight: 600;
+				color: var(--text-muted);
+				background: rgba(0,0,0,0.15);
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+			}
+
+			.prop-row {
+				padding: var(--space-2) var(--space-3);
+				display: flex;
+				align-items: center;
+				gap: var(--space-3);
+				border-bottom: 1px solid rgba(255,255,255,0.03);
+			}
+
+			.prop-row:last-child { border-bottom: none; }
+
+			.prop-label {
+				font-size: var(--text-xs);
+				color: var(--text-muted);
+				width: 60px;
+				flex-shrink: 0;
+			}
+
+			.prop-value {
+				flex: 1;
+			}
+
+			.prop-input {
+				width: 100%;
+				padding: 4px 8px;
+				font-family: var(--font-mono);
+				font-size: var(--text-xs);
+				background: var(--bg-input);
+				border: 1px solid var(--border-subtle);
+				border-radius: var(--radius-sm);
+				color: var(--text-primary);
+			}
+
+			.prop-input:focus {
+				outline: none;
+				border-color: var(--border-focus);
+			}
+
+			.prop-input--half {
+				width: 50px;
+			}
+
+			.coord-group {
+				display: flex;
+				gap: var(--space-2);
+				align-items: center;
+			}
+
+			.coord-label {
+				font-size: 10px;
+				color: var(--text-muted);
+				width: 12px;
+			}
+
+			/* State preview swatches */
+			.state-swatches {
+				display: flex;
+				gap: var(--space-2);
+			}
+
+			.state-swatch {
+				flex: 1;
+				height: 32px;
+				border-radius: var(--radius-sm);
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				font-size: 10px;
+				font-weight: 600;
+				cursor: pointer;
+				border: 1.5px solid transparent;
+				transition: all var(--transition-fast);
+			}
+
+			.state-swatch--normal {
+				background: rgba(255,255,255,0.05);
+				color: var(--text-secondary);
+				border-color: var(--border-subtle);
+			}
+
+			.state-swatch--focus {
+				background: rgba(255,170,64,0.15);
+				color: var(--brand-orange);
+				border-color: var(--brand-orange);
+			}
+
+			.state-swatch--activate {
+				background: rgba(46,198,106,0.15);
+				color: var(--brand-green);
+				border-color: rgba(46,198,106,0.4);
+			}
+
+			/* Action selector */
+			.action-chip {
+				display: inline-flex;
+				align-items: center;
+				gap: 4px;
+				padding: 4px 10px;
+				background: rgba(167,139,250,0.1);
+				border: 1px solid rgba(167,139,250,0.25);
+				border-radius: 12px;
+				font-size: var(--text-xs);
+				color: var(--brand-purple);
+				cursor: pointer;
+			}
+
+			/* Diagnostics inline */
+			.diag-inline {
+				display: flex;
+				align-items: flex-start;
+				gap: var(--space-2);
+				padding: var(--space-2) var(--space-3);
+				background: rgba(46,198,106,0.05);
+				border: 1px solid rgba(46,198,106,0.15);
+				border-radius: var(--radius-md);
+				font-size: var(--text-xs);
+				color: var(--text-secondary);
+				line-height: 1.4;
+			}
+
+			.diag-inline--warn {
+				background: rgba(251,191,36,0.05);
+				border-color: rgba(251,191,36,0.15);
+			}
+
+			.diag-icon {
+				flex-shrink: 0;
+				margin-top: 1px;
+			}
+
+			/* ── Bottom Timeline (Collapsible) ────────────────────── */
+			.timeline-area {
+				grid-area: timeline;
+				background: var(--bg-panel);
+				border-top: 1px solid var(--border-subtle);
+				display: flex;
+				flex-direction: column;
+			}
+
+			.timeline-header {
+				display: flex;
+				align-items: center;
+				padding: var(--space-2) var(--space-4);
+				background: var(--bg-sidebar);
+				border-bottom: 1px solid var(--border-subtle);
+				gap: var(--space-3);
+			}
+
+			.timeline-header__title {
+				font-size: var(--text-xs);
+				font-weight: 600;
+				color: var(--text-muted);
+				letter-spacing: 0.06em;
+			}
+
+			.motion-badge {
+				font-size: 10px;
+				font-weight: 600;
+				padding: 2px 8px;
+				border-radius: 10px;
+				background: rgba(96,165,250,0.15);
+				color: var(--brand-blue);
+			}
+
+			.timeline-playback {
+				display: flex;
+				align-items: center;
+				gap: var(--space-2);
+			}
+
+			.time-code {
+				font-family: var(--font-mono);
+				font-size: var(--text-xs);
+				color: var(--brand-orange);
+				background: rgba(255,170,64,0.1);
+				padding: 2px 6px;
+				border-radius: 4px;
+			}
+
+			.timeline-body {
+				flex: 1;
+				display: flex;
+				overflow: hidden;
+			}
+
+			.tl-labels {
+				width: 180px;
+				background: var(--bg-sidebar);
+				border-right: 1px solid var(--border-subtle);
+			}
+
+			.tl-label {
+				height: 36px;
+				display: flex;
+				align-items: center;
+				padding: 0 var(--space-3);
+				font-size: 10px;
+				color: var(--text-secondary);
+				gap: var(--space-2);
+				border-bottom: 1px solid rgba(255,255,255,0.03);
+			}
+
+			.tl-label svg { opacity: 0.5; }
+
+			.tl-tracks {
+				flex: 1;
+				position: relative;
+				background: repeating-linear-gradient(90deg,
+					transparent,
+					transparent 59px,
+					rgba(255,255,255,0.03) 60px
+				);
+			}
+
+			.tl-ruler {
+				height: 20px;
+				display: flex;
+				align-items: flex-end;
+				border-bottom: 1px solid var(--border-subtle);
+				padding: 0 0 2px;
+			}
+
+			.tl-tick {
+				position: absolute;
+				font-family: var(--font-mono);
+				font-size: 9px;
+				color: var(--text-muted);
+			}
+
+			.tl-lane {
+				position: absolute;
+				left: 0; right: 0;
+				height: 36px;
+				border-bottom: 1px solid rgba(255,255,255,0.03);
+			}
+
+			.tl-clip {
+				position: absolute;
+				top: 6px;
+				bottom: 6px;
+				border-radius: 3px;
+				display: flex;
+				align-items: center;
+				padding: 0 8px;
+				font-size: 10px;
+				font-weight: 500;
+				color: #fff;
+				overflow: hidden;
+			}
+
+			.tl-clip--video { background: rgba(96,165,250,0.3); border: 1px solid rgba(96,165,250,0.5); }
+			.tl-clip--audio { background: rgba(46,198,106,0.3); border: 1px solid rgba(46,198,106,0.5); }
+			.tl-clip--buttons { background: rgba(167,139,250,0.3); border: 1px solid rgba(167,139,250,0.5); }
+
+			.tl-playhead {
+				position: absolute;
+				top: 0; bottom: 0;
+				width: 2px;
+				background: var(--brand-orange);
+				z-index: 10;
+				left: 120px;
+			}
+
+			.tl-playhead::before {
+				content: '';
+				position: absolute;
+				top: 0; left: -4px;
+				width: 10px; height: 8px;
+				background: var(--brand-orange);
+				clip-path: polygon(0 0, 100% 0, 50% 100%);
+			}
+
+			.tl-region {
+				position: absolute;
+				top: 0; bottom: 0;
+				border-left: 1px dashed rgba(255,255,255,0.15);
+			}
+
+			.tl-region-label {
+				position: absolute;
+				top: 22px;
+				left: 4px;
+				font-size: 9px;
+				color: rgba(255,255,255,0.2);
+				letter-spacing: 0.04em;
+			}
+
+			/* ── Status Bar ───────────────────────────────────────── */
+			.status-bar {
+				display: flex;
+				align-items: center;
+				padding: 0 var(--space-4);
+				height: var(--statusbar-height);
+				background: var(--bg-sidebar);
+				border-top: 1px solid var(--border-subtle);
+				font-size: var(--text-xs);
+				color: var(--text-muted);
+				gap: var(--space-4);
+			}
+
+			.status-dot {
+				width: 6px;
+				height: 6px;
+				border-radius: 50%;
+				background: var(--colour-success);
+			}
+
+			.status-spacer { flex: 1; }
+		</style>
+	</head>
+	<body>
+		<!-- Top Bar -->
+		<div class="topbar">
+			<div class="topbar__logo">
+				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="url(#g)" stroke-width="2.5">
+					<defs><linearGradient id="g" x1="0" y1="0" x2="24" y2="24"><stop stop-color="#ffaa40"/><stop offset="1" stop-color="#f43f5e"/></linearGradient></defs>
+					<circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10"/>
+				</svg>
+				Spindle
+			</div>
+			<div class="text-sm text-muted" style="margin-left: var(--space-4);">/ Wedding Highlights / Main Menu</div>
+			<div class="topbar__actions">
+				<div style="display: flex; align-items: center; gap: 8px; margin-right: 12px;">
+					<span class="text-xs text-muted">DVD 4:3 NTSC</span>
+					<span class="badge badge--remux">Valid</span>
+				</div>
+				<button class="btn btn--ghost btn--sm">Preview</button>
+				<button class="btn btn--sm btn--primary">Build ISO</button>
+			</div>
+		</div>
+
+		<div class="editor-shell">
+			<!-- ═══ LEFT RAIL ═══ -->
+			<div class="left-rail">
+				<div class="rail-tabs">
+					<div class="rail-tab rail-tab--active">Layers</div>
+					<div class="rail-tab">Components</div>
+					<div class="rail-tab">Themes</div>
+				</div>
+
+				<div class="rail-content">
+					<!-- Scene Hierarchy -->
+					<div class="section-header">
+						<span>Scene Graph</span>
+						<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+					</div>
+
+					<div class="layer-row layer-row--group">
+						<svg class="layer-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+						Background
+						<svg class="layer-vis" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+					</div>
+
+					<div class="layer-row layer-indent">
+						<svg class="layer-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+						poster_bg.jpg
+						<svg class="layer-vis" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+					</div>
+
+					<div class="layer-row">
+						<svg class="layer-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>
+						Title Text
+						<svg class="layer-vis" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+					</div>
+
+					<div class="layer-row">
+						<svg class="layer-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>
+						Subtitle Text
+						<svg class="layer-vis" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+					</div>
+
+					<div class="section-header" style="margin-top: var(--space-5);">
+						<span>Interactive Nodes</span>
+						<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+					</div>
+
+					<div class="layer-row layer-row--selected">
+						<svg class="layer-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16"/></svg>
+						Play Ceremony
+						<svg class="layer-vis" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+					</div>
+
+					<div class="layer-row">
+						<svg class="layer-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16"/></svg>
+						Play Reception
+					</div>
+
+					<div class="layer-row">
+						<svg class="layer-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+						Chapter Select
+					</div>
+
+					<div class="layer-row">
+						<svg class="layer-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+						Audio Setup
+					</div>
+
+					<div class="section-header" style="margin-top: var(--space-5);">
+						<span>Guides</span>
+					</div>
+
+					<div class="layer-row" style="color: rgba(255,170,64,0.4);">
+						<svg class="layer-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+						Title Safe Area
+					</div>
+					<div class="layer-row" style="color: rgba(255,170,64,0.4);">
+						<svg class="layer-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+						Action Safe Area
+					</div>
+				</div>
+			</div>
+
+			<!-- ═══ CANVAS AREA ═══ -->
+			<div class="canvas-area">
+				<div class="canvas-toolbar">
+					<!-- Mode Switcher (the "gates" of the waystation) -->
+					<div class="mode-switcher">
+						<button class="mode-btn mode-btn--active">
+							<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4z"/></svg>
+							Design
+						</button>
+						<button class="mode-btn mode-bind">
+							<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
+							Bind
+						</button>
+						<button class="mode-btn mode-route">
+							<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
+							Route
+						</button>
+						<button class="mode-btn mode-compile">
+							<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg>
+							Compile
+						</button>
+					</div>
+
+					<!-- Canvas Tools -->
+					<div class="canvas-tools">
+						<button class="tool-btn tool-btn--active" title="Select">
+							<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/></svg>
+						</button>
+						<button class="tool-btn" title="Text">
+							<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>
+						</button>
+						<button class="tool-btn" title="Rectangle">
+							<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+						</button>
+						<button class="tool-btn" title="Image">
+							<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+						</button>
+						<div style="width: 1px; height: 20px; background: var(--border-subtle); margin: 0 4px;"></div>
+						<button class="tool-btn" title="Zoom In">
+							<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+						</button>
+						<button class="tool-btn" title="Zoom Out">
+							<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+						</button>
+					</div>
+				</div>
+
+				<div class="canvas-viewport">
+					<div class="menu-canvas">
+						<div class="canvas-bg-overlay"></div>
+
+						<!-- Safe area guides -->
+						<div class="safe-area safe-area--action"></div>
+						<div class="safe-area safe-area--title"></div>
+						<div class="safe-label safe-label--action">Action Safe</div>
+						<div class="safe-label safe-label--title">Title Safe</div>
+
+						<!-- Decorative image node -->
+						<div class="scene-image-node" style="left: 440px; top: 40px; width: 240px; height: 180px;">
+							<div class="image-placeholder">
+								<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+							</div>
+						</div>
+
+						<!-- Text nodes -->
+						<div class="scene-title">Wedding Highlights</div>
+						<div class="scene-subtitle">Emily & James — June 2025</div>
+
+						<!-- Interactive button nodes -->
+						<div class="scene-node scene-node--selected" style="left: 72px; top: 180px; width: 280px; height: 44px;">
+							<div class="node-handle node-handle--tl"></div>
+							<div class="node-handle node-handle--tr"></div>
+							<div class="node-handle node-handle--bl"></div>
+							<div class="node-handle node-handle--br"></div>
+							<span class="node-icon">&#9654;</span>
+							Play Ceremony
+						</div>
+
+						<div class="scene-node" style="left: 72px; top: 238px; width: 280px; height: 44px;">
+							<span class="node-icon">&#9654;</span>
+							Play Reception
+						</div>
+
+						<div class="scene-node" style="left: 72px; top: 296px; width: 280px; height: 44px;">
+							<span class="node-icon">&#9670;</span>
+							Chapter Select
+						</div>
+
+						<div class="scene-node" style="left: 72px; top: 354px; width: 280px; height: 44px;">
+							<span class="node-icon">&#9835;</span>
+							Audio Setup
+						</div>
+					</div>
+
+					<div class="zoom-indicator">100%</div>
+				</div>
+			</div>
+
+			<!-- ═══ RIGHT RAIL: Inspector ═══ -->
+			<div class="right-rail">
+				<div class="inspector-header">
+					<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--brand-orange)" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16"/></svg>
+					<div>
+						<div class="inspector-node-name">Play Ceremony</div>
+						<div class="inspector-label" style="margin-top: 1px;">Button Node</div>
+					</div>
+				</div>
+
+				<div class="inspector-body">
+					<!-- Transform -->
+					<div class="prop-group">
+						<div class="prop-group__header">
+							Transform
+							<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+						</div>
+						<div class="prop-row">
+							<span class="prop-label">Position</span>
+							<div class="prop-value">
+								<div class="coord-group">
+									<span class="coord-label">X</span>
+									<input class="prop-input prop-input--half" value="72" />
+									<span class="coord-label">Y</span>
+									<input class="prop-input prop-input--half" value="180" />
+								</div>
+							</div>
+						</div>
+						<div class="prop-row">
+							<span class="prop-label">Size</span>
+							<div class="prop-value">
+								<div class="coord-group">
+									<span class="coord-label">W</span>
+									<input class="prop-input prop-input--half" value="280" />
+									<span class="coord-label">H</span>
+									<input class="prop-input prop-input--half" value="44" />
+								</div>
+							</div>
+						</div>
+					</div>
+
+					<!-- Visual States -->
+					<div class="prop-group">
+						<div class="prop-group__header">
+							Visual States
+							<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+						</div>
+						<div class="prop-row">
+							<div class="prop-value">
+								<div class="state-swatches">
+									<div class="state-swatch state-swatch--normal">Normal</div>
+									<div class="state-swatch state-swatch--focus">Focus</div>
+									<div class="state-swatch state-swatch--activate">Activate</div>
+								</div>
+							</div>
+						</div>
+					</div>
+
+					<!-- Action Binding -->
+					<div class="prop-group">
+						<div class="prop-group__header">
+							Action
+							<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+						</div>
+						<div class="prop-row">
+							<span class="prop-label">On Press</span>
+							<div class="prop-value">
+								<div class="action-chip">
+									<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21"/></svg>
+									playTitle: "Ceremony"
+								</div>
+							</div>
+						</div>
+					</div>
+
+					<!-- Navigation -->
+					<div class="prop-group">
+						<div class="prop-group__header">
+							Navigation
+							<span class="badge badge--neutral" style="font-size: 9px;">Auto</span>
+						</div>
+						<div class="prop-row">
+							<span class="prop-label">Up</span>
+							<div class="prop-value">
+								<select class="prop-input" style="font-family: var(--font-body);">
+									<option>(none — top of menu)</option>
+								</select>
+							</div>
+						</div>
+						<div class="prop-row">
+							<span class="prop-label">Down</span>
+							<div class="prop-value">
+								<select class="prop-input" style="font-family: var(--font-body);">
+									<option>Play Reception</option>
+								</select>
+							</div>
+						</div>
+						<div class="prop-row">
+							<span class="prop-label">Left</span>
+							<div class="prop-value">
+								<select class="prop-input" style="font-family: var(--font-body);">
+									<option>(none)</option>
+								</select>
+							</div>
+						</div>
+						<div class="prop-row">
+							<span class="prop-label">Right</span>
+							<div class="prop-value">
+								<select class="prop-input" style="font-family: var(--font-body);">
+									<option>(none)</option>
+								</select>
+							</div>
+						</div>
+					</div>
+
+					<!-- Inline Diagnostics -->
+					<div class="diag-inline">
+						<svg class="diag-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--colour-success)" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+						<span>All navigation routes valid. No unreachable nodes detected.</span>
+					</div>
+
+					<div class="diag-inline diag-inline--warn">
+						<svg class="diag-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--colour-warning)" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+						<span>Button is near the edge of the action-safe area. Text may be cropped on some displays.</span>
+					</div>
+				</div>
+			</div>
+
+			<!-- ═══ BOTTOM TIMELINE ═══ -->
+			<div class="timeline-area">
+				<div class="timeline-header">
+					<div class="timeline-header__title">Motion Timeline</div>
+					<div class="motion-badge">Motion Menu</div>
+					<div class="timeline-playback">
+						<button class="btn btn--ghost btn--sm" style="padding: 2px 6px;">
+							<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="19 20 9 12 19 4 19 20"/><line x1="5" y1="19" x2="5" y2="5"/></svg>
+						</button>
+						<button class="btn btn--ghost btn--sm" style="padding: 2px 6px;">
+							<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21"/></svg>
+						</button>
+						<button class="btn btn--ghost btn--sm" style="padding: 2px 6px;">
+							<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg>
+						</button>
+					</div>
+					<div class="time-code">00:06;12</div>
+					<span class="text-xs text-muted" style="margin-left: auto;">30s loop | Count: 3 | Timeout: Play Title 1</span>
+				</div>
+
+				<div class="timeline-body">
+					<div class="tl-labels">
+						<div class="tl-label" style="height: 20px;"></div>
+						<div class="tl-label">
+							<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="2"/><line x1="7" y1="2" x2="7" y2="22"/></svg>
+							Background Video
+						</div>
+						<div class="tl-label">
+							<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/></svg>
+							Audio
+						</div>
+						<div class="tl-label">
+							<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+							Highlight Anim
+						</div>
+					</div>
+
+					<div class="tl-tracks" style="position: relative;">
+						<div class="tl-ruler">
+							<span class="tl-tick" style="left: 0;">0s</span>
+							<span class="tl-tick" style="left: 80px;">5s</span>
+							<span class="tl-tick" style="left: 160px;">10s</span>
+							<span class="tl-tick" style="left: 240px;">15s</span>
+							<span class="tl-tick" style="left: 320px;">20s</span>
+							<span class="tl-tick" style="left: 400px;">25s</span>
+							<span class="tl-tick" style="left: 480px;">30s</span>
+						</div>
+
+						<div class="tl-region" style="left: 80px;">
+							<div class="tl-region-label">Loop Start</div>
+						</div>
+
+						<div class="tl-lane" style="top: 20px;">
+							<div class="tl-clip tl-clip--video" style="left: 0; width: 480px;">hero_bg_motion.m2v</div>
+						</div>
+						<div class="tl-lane" style="top: 56px;">
+							<div class="tl-clip tl-clip--audio" style="left: 0; width: 480px;">ceremony_ambient.ac3</div>
+						</div>
+						<div class="tl-lane" style="top: 92px;">
+							<div class="tl-clip tl-clip--buttons" style="left: 0; width: 80px; opacity: 0.6;">Fade In</div>
+							<div class="tl-clip tl-clip--buttons" style="left: 80px; width: 400px; border-style: dashed;">Buttons Active</div>
+						</div>
+
+						<div class="tl-playhead"></div>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<!-- Status Bar -->
+		<div class="status-bar">
+			<div class="status-dot"></div>
+			<span>Ready</span>
+			<span>|</span>
+			<span>4 buttons</span>
+			<span>|</span>
+			<span>Menu 1 of 3</span>
+			<span>|</span>
+			<span>VMGM Domain</span>
+			<div class="status-spacer"></div>
+			<span>720 x 480 NTSC</span>
+		</div>
+	</body>
+</html>
