@@ -394,28 +394,29 @@ Spindle should make the mapping strategy explicit so users know whether the DVD 
 - automatic mask derivation
 - an explicit authored mask source
 
-## Layout And Generation
+## State Setting Actions
+
+The `PlaybackAction` model supports more than just navigation. To enable setup menus and stream selection, the following actions are available:
+
+- `setAudioStream`: Updates the player's active audio stream.
+- `setSubtitleStream`: Updates or disables the active subtitle stream.
+- `sequence`: Allows a single button activation to perform a series of actions (e.g., Set Audio + Show Menu).
+
+These semantic actions are compiled into target-specific VM commands (e.g., DVD `SetSTN`).
+
+## Layout and Generation
 
 Generated menus should create authored scenes based on project data and theme rules.
 
-Recommended first generated menu families:
+### Menu Sets and Auto-Pagination
 
-- main menu
-- title-selection menu
-- chapter-selection menu
-- audio-track menu
-- subtitle-track menu
+For projects with many titles or chapters, the generation engine creates a **Menu Set**—a sequence of linked `MenuDocument` objects.
 
-Generation must capture metadata about what was generated so the system can support safe regeneration, diffable updates, and selective relayout later.
+- **Safe Zone**: Generators target 12-18 buttons per page for optimal UX and palette safety.
+- **Hard Limit**: No generated menu may exceed 36 buttons (DVD hardware limit).
+- **Auto-Pagination**: If the content exceeds the theme's page capacity, the generator automatically adds "Next" and "Back" navigation buttons.
+- **Explicit Links**: Pagination buttons are standard authored nodes with `showMenu` actions, ensuring navigation is testable and editable.
 
-The system should also support data binding for common authored content:
-
-- title names
-- chapter names
-- chapter thumbnails
-- track labels
-- language labels
-- return actions
 
 ## Motion Model
 
