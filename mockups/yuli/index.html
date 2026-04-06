@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en-CA">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=1280" />
+		<title>Spindle — Yuli's Menu Editor Concepts</title>
+		<link rel="stylesheet" href="design-system.css" />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap"
+			rel="stylesheet"
+		/>
+		<style>
+			body {
+				background: var(--bg-app);
+				color: var(--text-primary);
+				padding: var(--space-8);
+				overflow-y: auto;
+			}
+			.container {
+				max-width: 900px;
+				margin: 0 auto;
+			}
+			.concept-card {
+				background: var(--bg-card);
+				border: 1px solid var(--border-subtle);
+				border-radius: var(--radius-lg);
+				padding: var(--space-6);
+				margin-bottom: var(--space-6);
+				transition: all var(--transition-base);
+			}
+			.concept-card:hover {
+				background: var(--bg-card-hover);
+				border-color: var(--border-default);
+				box-shadow: var(--shadow-card);
+			}
+			.concept-title {
+				font-family: var(--font-heading);
+				font-size: var(--text-xl);
+				font-weight: 700;
+				margin-bottom: var(--space-2);
+				display: flex;
+				align-items: center;
+				gap: var(--space-3);
+			}
+			.concept-desc {
+				color: var(--text-secondary);
+				font-size: var(--text-md);
+				line-height: 1.6;
+				margin-bottom: var(--space-4);
+			}
+			.header {
+				margin-bottom: var(--space-10);
+				text-align: center;
+			}
+			.header h1 {
+				font-size: var(--text-3xl);
+				background: var(--brand-gradient);
+				-webkit-background-clip: text;
+				-webkit-text-fill-color: transparent;
+				margin-bottom: var(--space-2);
+			}
+			.header p {
+				color: var(--text-muted);
+				font-size: var(--text-lg);
+			}
+		</style>
+	</head>
+	<body>
+		<div class="container">
+			<div class="header">
+				<h1>Spindle Menu Editor Concepts</h1>
+				<p>A UX exploration by Yuli focusing on calm design and progressive disclosure.</p>
+			</div>
+
+			<div class="concept-card">
+				<div class="concept-title">
+					<span>Concept 1: The "Zen" Scene Editor</span>
+					<div class="badge badge--neutral">Calm Defaults</div>
+				</div>
+				<div class="concept-desc">
+					Instead of overwhelming the user with a massive right-hand inspector panel, this concept uses a floating, contextual <strong>Action Island</strong> at the bottom of the screen. When you select a button, the island surfaces only what you need (Action routing, Style edit).
+				</div>
+				<a href="yuli-menu-concept-1.html" class="btn btn--primary" target="_blank">Open Concept 1</a>
+			</div>
+
+			<div class="concept-card">
+				<div class="concept-title">
+					<span>Concept 2: The Component "Boutique"</span>
+					<div class="badge badge--neutral">Themes & Generation</div>
+				</div>
+				<div class="concept-desc">
+					Professional tools don't have to look like spreadsheets. This concept reimagines the left sidebar as a curated "Component Boutique". Users drag-and-drop pre-defined components like <em>Hero Title Buttons</em> or <em>Chapter Tiles</em>.
+				</div>
+				<a href="yuli-menu-concept-2.html" class="btn btn--primary" target="_blank">Open Concept 2</a>
+			</div>
+
+			<div class="concept-card">
+				<div class="concept-title">
+					<span>Concept 3: The "Transit" Map</span>
+					<div class="badge badge--neutral">Navigation Routing</div>
+				</div>
+				<div class="concept-desc">
+					To make the DVD remote-control routing explicit and understandable, this concept introduces a "Routing Mode". It overlays a transit-style map of SVG arrows on the canvas, showing exactly how focus moves between buttons.
+				</div>
+				<a href="yuli-menu-concept-3.html" class="btn btn--primary" target="_blank">Open Concept 3</a>
+			</div>
+
+			<div class="concept-card">
+				<div class="concept-title">
+					<span>Concept 4: The "Timeline"</span>
+					<div class="badge badge--neutral">Motion Architecture</div>
+				</div>
+				<div class="concept-desc">
+					Bringing motion into the still-menu editor without causing clutter. This mockup introduces a clean, collapsible timeline panel at the bottom. It visually separates the "Intro" segment from the "Loop Segment".
+				</div>
+				<a href="yuli-menu-concept-4.html" class="btn btn--primary" target="_blank">Open Concept 4</a>
+			</div>
+
+			<div class="concept-card">
+				<div class="concept-title">
+					<span>Concept 5: The "Honest" Compile Preview</span>
+					<div class="badge badge--neutral">Diagnostics & Trust</div>
+				</div>
+				<div class="concept-desc">
+					Spindle shouldn't pretend DVD is more capable than it is. This concept provides a split-screen "Compile Preview" comparing the rich "Authored Scene Intent" with the "DVD Compiled Output".
+				</div>
+				<a href="yuli-menu-concept-5.html" class="btn btn--primary" target="_blank">Open Concept 5</a>
+			</div>
+		</div>
+	</body>
+</html>
