@@ -3,7 +3,7 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: MIT
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useProjectStore } from '../store/project-store';
 import { useNavigation } from '../App';
 import type {
@@ -310,8 +310,6 @@ function MenuEditor({
 	const setShowSafeArea = useProjectStore((s) => s.setShowSafeArea);
 
 	const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
-	const [layersCollapsed, setLayersCollapsed] = useState(false);
-	const [inspectorCollapsed, setInspectorCollapsed] = useState(false);
 	const [honestPreview, setHonestPreview] = useState(false);
 	const [showNavLines, setShowNavLines] = useState(false);
 
@@ -749,8 +747,6 @@ function MenuEditor({
 							nodes={sceneNodes}
 							selectedNodeId={selectedNodeId}
 							onSelectNode={setSelectedNodeId}
-							collapsed={layersCollapsed}
-							onToggleCollapse={() => setLayersCollapsed(!layersCollapsed)}
 						/>
 						<InspectorPanel
 							selectedNode={selectedNode}
@@ -762,8 +758,6 @@ function MenuEditor({
 							onUpdateButton={handleUpdateButton}
 							onUpdateHighlightColours={handleUpdateHighlightColours}
 							onRemoveButton={handleRemoveButton}
-							collapsed={inspectorCollapsed}
-							onToggleCollapse={() => setInspectorCollapsed(!inspectorCollapsed)}
 						/>
 					</div>
 				</div>

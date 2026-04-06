@@ -23,8 +23,6 @@ export interface InspectorPanelProps {
 	onUpdateButton: (buttonId: string, updates: Partial<MenuButton>) => void;
 	onUpdateHighlightColours: (colours: MenuHighlightColours) => void;
 	onRemoveButton: (buttonId: string) => void;
-	collapsed: boolean;
-	onToggleCollapse: () => void;
 }
 
 export function InspectorPanel({
@@ -37,33 +35,10 @@ export function InspectorPanel({
 	onUpdateButton,
 	onUpdateHighlightColours,
 	onRemoveButton,
-	collapsed,
-	onToggleCollapse,
 }: InspectorPanelProps) {
-	if (collapsed) {
-		return (
-			<div className="inspector-panel inspector-panel--collapsed">
-				<button
-					className="inspector-panel__collapse-btn"
-					onClick={onToggleCollapse}
-					title="Expand inspector"
-				>
-					<span className="inspector-panel__collapse-icon">I</span>
-				</button>
-			</div>
-		);
-	}
-
 	return (
 		<div className="inspector-panel">
 			<div className="inspector-panel__header">
-				<button
-					className="inspector-panel__collapse-btn"
-					onClick={onToggleCollapse}
-					title="Collapse inspector"
-				>
-					&rsaquo;
-				</button>
 				<h4 className="inspector-panel__title">Inspector</h4>
 			</div>
 			<div className="inspector-panel__body">

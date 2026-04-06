@@ -32,42 +32,17 @@ export interface LayersPanelProps {
 	nodes: SceneNode[];
 	selectedNodeId: string | null;
 	onSelectNode: (nodeId: string | null) => void;
-	collapsed: boolean;
-	onToggleCollapse: () => void;
 }
 
 export function LayersPanel({
 	nodes,
 	selectedNodeId,
 	onSelectNode,
-	collapsed,
-	onToggleCollapse,
 }: LayersPanelProps) {
-	if (collapsed) {
-		return (
-			<div className="layers-panel layers-panel--collapsed">
-				<button
-					className="layers-panel__collapse-btn"
-					onClick={onToggleCollapse}
-					title="Expand layers"
-				>
-					<span className="layers-panel__collapse-icon">L</span>
-				</button>
-			</div>
-		);
-	}
-
 	return (
 		<div className="layers-panel">
 			<div className="layers-panel__header">
 				<h4 className="layers-panel__title">Layers</h4>
-				<button
-					className="layers-panel__collapse-btn"
-					onClick={onToggleCollapse}
-					title="Collapse layers"
-				>
-					&lsaquo;
-				</button>
 			</div>
 			<div className="layers-panel__list">
 				{nodes.length === 0 ? (

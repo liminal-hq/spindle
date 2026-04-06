@@ -27,14 +27,11 @@ describe('LayersPanel', () => {
 				nodes={nodes}
 				selectedNodeId={null}
 				onSelectNode={onSelect}
-				collapsed={false}
-				onToggleCollapse={vi.fn()}
 			/>,
 		);
 
 		const items = screen.getAllByRole('button');
 		// Reverse order: txt-1 first (top of stack), then btn-2, then btn-1
-		// Plus the collapse button, so filter to layer items
 		const layerItems = items.filter((el) => el.classList.contains('layers-panel__item'));
 		expect(layerItems).toHaveLength(3);
 		expect(layerItems[0]).toHaveTextContent('Welcome');
@@ -48,8 +45,6 @@ describe('LayersPanel', () => {
 				nodes={nodes}
 				selectedNodeId="btn-1"
 				onSelectNode={vi.fn()}
-				collapsed={false}
-				onToggleCollapse={vi.fn()}
 			/>,
 		);
 
@@ -70,8 +65,6 @@ describe('LayersPanel', () => {
 				nodes={nodes}
 				selectedNodeId={null}
 				onSelectNode={onSelect}
-				collapsed={false}
-				onToggleCollapse={vi.fn()}
 			/>,
 		);
 
@@ -82,34 +75,12 @@ describe('LayersPanel', () => {
 		expect(onSelect).toHaveBeenCalledWith('btn-2');
 	});
 
-	it('renders collapsed state with icon rail', () => {
-		render(
-			<LayersPanel
-				nodes={nodes}
-				selectedNodeId={null}
-				onSelectNode={vi.fn()}
-				collapsed={true}
-				onToggleCollapse={vi.fn()}
-			/>,
-		);
-
-		const panel = document.querySelector('.layers-panel--collapsed');
-		expect(panel).toBeTruthy();
-		// No layer items visible when collapsed
-		const items = screen.queryAllByRole('button').filter((el) =>
-			el.classList.contains('layers-panel__item'),
-		);
-		expect(items).toHaveLength(0);
-	});
-
 	it('shows empty state when no nodes', () => {
 		render(
 			<LayersPanel
 				nodes={[]}
 				selectedNodeId={null}
 				onSelectNode={vi.fn()}
-				collapsed={false}
-				onToggleCollapse={vi.fn()}
 			/>,
 		);
 
@@ -156,8 +127,6 @@ describe('InspectorPanel', () => {
 				onUpdateButton={vi.fn()}
 				onUpdateHighlightColours={vi.fn()}
 				onRemoveButton={vi.fn()}
-				collapsed={false}
-				onToggleCollapse={vi.fn()}
 			/>,
 		);
 
@@ -176,8 +145,6 @@ describe('InspectorPanel', () => {
 				onUpdateButton={vi.fn()}
 				onUpdateHighlightColours={vi.fn()}
 				onRemoveButton={vi.fn()}
-				collapsed={false}
-				onToggleCollapse={vi.fn()}
 			/>,
 		);
 
@@ -199,8 +166,6 @@ describe('InspectorPanel', () => {
 				onUpdateButton={onUpdate}
 				onUpdateHighlightColours={vi.fn()}
 				onRemoveButton={vi.fn()}
-				collapsed={false}
-				onToggleCollapse={vi.fn()}
 			/>,
 		);
 
@@ -222,8 +187,6 @@ describe('InspectorPanel', () => {
 				onUpdateButton={vi.fn()}
 				onUpdateHighlightColours={vi.fn()}
 				onRemoveButton={onRemove}
-				collapsed={false}
-				onToggleCollapse={vi.fn()}
 			/>,
 		);
 
@@ -232,26 +195,6 @@ describe('InspectorPanel', () => {
 		expect(onRemove).toHaveBeenCalledWith('btn-1');
 	});
 
-	it('shows collapsed state', () => {
-		render(
-			<InspectorPanel
-				selectedNode={buttonNode}
-				selectedButton={button}
-				highlightColours={colours}
-				allTitles={[]}
-				allMenus={[]}
-				currentMenuId="menu-1"
-				onUpdateButton={vi.fn()}
-				onUpdateHighlightColours={vi.fn()}
-				onRemoveButton={vi.fn()}
-				collapsed={true}
-				onToggleCollapse={vi.fn()}
-			/>,
-		);
-
-		const panel = document.querySelector('.inspector-panel--collapsed');
-		expect(panel).toBeTruthy();
-	});
 });
 
 // ── SceneCanvas ────────────────────────────────────────────────────────────
@@ -294,6 +237,7 @@ describe('SceneCanvas', () => {
 				onUpdateButton={vi.fn()}
 				showSafeArea={false}
 				backgroundLabel={null}
+				backgroundColour={null}
 				defaultButtonId={null}
 				previewMode={false}
 				highlightColours={DEFAULT_HIGHLIGHT_COLOURS}
@@ -316,6 +260,7 @@ describe('SceneCanvas', () => {
 				onUpdateButton={vi.fn()}
 				showSafeArea={false}
 				backgroundLabel={null}
+				backgroundColour={null}
 				defaultButtonId={null}
 				previewMode={false}
 				highlightColours={DEFAULT_HIGHLIGHT_COLOURS}
@@ -339,6 +284,7 @@ describe('SceneCanvas', () => {
 				onUpdateButton={vi.fn()}
 				showSafeArea={false}
 				backgroundLabel={null}
+				backgroundColour={null}
 				defaultButtonId={null}
 				previewMode={false}
 				highlightColours={DEFAULT_HIGHLIGHT_COLOURS}
@@ -361,6 +307,7 @@ describe('SceneCanvas', () => {
 				onUpdateButton={vi.fn()}
 				showSafeArea={false}
 				backgroundLabel={null}
+				backgroundColour={null}
 				defaultButtonId={null}
 				previewMode={false}
 				highlightColours={DEFAULT_HIGHLIGHT_COLOURS}
@@ -383,6 +330,7 @@ describe('SceneCanvas', () => {
 				onUpdateButton={vi.fn()}
 				showSafeArea={false}
 				backgroundLabel={null}
+				backgroundColour={null}
 				defaultButtonId={null}
 				previewMode={false}
 				highlightColours={DEFAULT_HIGHLIGHT_COLOURS}
@@ -404,6 +352,7 @@ describe('SceneCanvas', () => {
 				onUpdateButton={vi.fn()}
 				showSafeArea={true}
 				backgroundLabel={null}
+				backgroundColour={null}
 				defaultButtonId={null}
 				previewMode={false}
 				highlightColours={DEFAULT_HIGHLIGHT_COLOURS}
@@ -426,6 +375,7 @@ describe('SceneCanvas', () => {
 				onUpdateButton={vi.fn()}
 				showSafeArea={false}
 				backgroundLabel={null}
+				backgroundColour={null}
 				defaultButtonId="btn-1"
 				previewMode={true}
 				highlightColours={DEFAULT_HIGHLIGHT_COLOURS}
@@ -448,6 +398,7 @@ describe('SceneCanvas', () => {
 				onUpdateButton={vi.fn()}
 				showSafeArea={false}
 				backgroundLabel={null}
+				backgroundColour={null}
 				defaultButtonId={null}
 				previewMode={false}
 				highlightColours={DEFAULT_HIGHLIGHT_COLOURS}
