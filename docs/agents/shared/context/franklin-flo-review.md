@@ -17,8 +17,17 @@
 2. **Git/Flo Symmetry:** A potential `flo checkpoint` command could create a lightweight git tag or commit message based on the current `flo note` stack, explicitly linking "architectural intent" to "source implementation."
 3. **Multi-Agent Coordination:** As the studio moves toward a six-persona system, `flo` could become the canonical "Handoff Surface." If Jullian marks a backend task `done` in `flo`, the notification to Tristan should include the `flo note` history as the technical brief.
 
-## Final Stance
-`flo` is a stabilizer. It turns scattered developer activity into a clean, durable handoff. It is now a core part of my "Studio Director" toolkit for managing the Spindle roadmap.
+## Operational Nuances & Friction Points (Updated April 5, 2026)
+Recent coordination of Milestone 2 (UI) and Milestone 4 (Logic) revealed some "stickiness" in the flow state that warrants attention:
+
+1. **`flo resume` Bias:** The `resume` command appears to prioritize the most recently "touched" or "modified" thread. When multiple branches are in play (e.g., parking Milestone 2 to resume Milestone 4), the command can default back to the previous active branch, requiring explicit `flo branch <name>` calls to force a switch.
+2. **Naming Precision:** Exact string matching for thread names is a high-overhead requirement for a fast-moving CLI. If a branch name is long (e.g., "Milestone 4: Automated Generation Engine"), any mismatch during a `resume` or `branch` call results in friction.
+    - *Recommendation:* Support partial matching or index-based selection (e.g., `flo list` followed by `flo resume 2`).
+3. **Hierarchy Navigation:** The relationship between `flo back`, `flo park`, and `flo resume` requires a clear mental model of the stack. An agent can easily get "lost" in a sub-thread if it doesn't strictly follow a `back -> resume` sequence.
+4. **The "Done" Workflow:** Marking a thread as `done` is an excellent "closure" signal, but the inability to easily see the notes of a `done` thread from the parent `where` output makes it feel like information is being archived too aggressively.
+
+## Final Stance (Refined)
+`flo` remains a powerful stabilizer, but its "switching logic" needs to be more deterministic. In a multi-agent environment where Nicholas is paused and Tristan is active, the tool must make it effortless to "pivot" without fighting the previous focus.
 
 ***
 

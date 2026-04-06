@@ -538,17 +538,29 @@ pub enum SceneNode {
         content: String,
         x: f64,
         y: f64,
+        width: f64,
+        height: f64,
+        #[serde(default)]
+        font_size: Option<f64>,
+        #[serde(default)]
+        colour: Option<String>,
     },
     Image {
         id: String,
         asset_id: String,
         x: f64,
         y: f64,
+        width: f64,
+        height: f64,
     },
     Shape {
         id: String,
         x: f64,
         y: f64,
+        width: f64,
+        height: f64,
+        #[serde(default)]
+        fill: Option<String>,
     },
     Video {
         id: String,
