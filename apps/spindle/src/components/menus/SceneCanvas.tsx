@@ -38,7 +38,7 @@ export interface SceneCanvasProps {
 	canvasHeight: number;
 	onUpdateButton: (buttonId: string, updates: Partial<MenuButton>) => void;
 	/** Update a non-button scene node's position/size. */
-	onUpdateSceneNode: (nodeId: string, updates: Partial<{ x: number; y: number; width: number; height: number }>) => void;
+	onUpdateSceneNode: (nodeId: string, updates: Record<string, unknown>) => void;
 	showSafeArea: boolean;
 	backgroundLabel: string | null;
 	/** Solid background colour (CSS hex) when no asset is assigned. */
@@ -129,7 +129,7 @@ function DesignCanvas({
 	sceneNodes: SceneNode[];
 	canvasHeight: number;
 	onUpdateButton: (buttonId: string, updates: Partial<MenuButton>) => void;
-	onUpdateSceneNode: (nodeId: string, updates: Partial<{ x: number; y: number; width: number; height: number }>) => void;
+	onUpdateSceneNode: (nodeId: string, updates: Record<string, unknown>) => void;
 	showSafeArea: boolean;
 	backgroundLabel: string | null;
 	backgroundColour: string | null;
@@ -289,7 +289,7 @@ function DesignCanvas({
 				}
 
 				if (state.isSceneNode) {
-					onUpdateSceneNode(state.buttonId, bounds);
+					onUpdateSceneNode(state.buttonId, { ...bounds });
 				} else {
 					onUpdateButton(state.buttonId, { bounds });
 				}
@@ -406,7 +406,7 @@ function DesignCanvas({
 					};
 				}
 
-				onUpdateSceneNode(state.buttonId, bounds);
+				onUpdateSceneNode(state.buttonId, { ...bounds });
 			};
 
 			const handleMouseUp = () => {

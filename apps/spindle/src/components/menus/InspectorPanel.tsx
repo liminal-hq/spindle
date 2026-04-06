@@ -10,6 +10,7 @@ import type {
 	PlaybackAction,
 	Title,
 	Menu,
+	Asset,
 } from '../../types/project';
 
 export interface InspectorPanelProps {
@@ -23,6 +24,12 @@ export interface InspectorPanelProps {
 	onUpdateButton: (buttonId: string, updates: Partial<MenuButton>) => void;
 	onUpdateHighlightColours: (colours: MenuHighlightColours) => void;
 	onRemoveButton: (buttonId: string) => void;
+	/** Update a non-button scene node's properties. */
+	onUpdateSceneNode?: (nodeId: string, updates: Record<string, unknown>) => void;
+	/** Remove any scene node. */
+	onRemoveNode?: (nodeId: string) => void;
+	/** Available assets for image node picker. */
+	assets?: Asset[];
 }
 
 export function InspectorPanel({
@@ -35,6 +42,9 @@ export function InspectorPanel({
 	onUpdateButton,
 	onUpdateHighlightColours,
 	onRemoveButton,
+	onUpdateSceneNode,
+	onRemoveNode,
+	assets,
 }: InspectorPanelProps) {
 	return (
 		<div className="inspector-panel">
@@ -56,6 +66,25 @@ export function InspectorPanel({
 						onUpdateButton={onUpdateButton}
 						onUpdateHighlightColours={onUpdateHighlightColours}
 						onRemoveButton={onRemoveButton}
+					/>
+				) : selectedNode.type === 'text' ? (
+					<TextNodeInspector
+						node={selectedNode}
+						onUpdate={onUpdateSceneNode}
+						onRemove={onRemoveNode}
+					/>
+				) : selectedNode.type === 'image' ? (
+					<ImageNodeInspector
+						node={selectedNode}
+						assets={assets}
+						onUpdate={onUpdateSceneNode}
+						onRemove={onRemoveNode}
+					/>
+				) : selectedNode.type === 'shape' ? (
+					<ShapeNodeInspector
+						node={selectedNode}
+						onUpdate={onUpdateSceneNode}
+						onRemove={onRemoveNode}
 					/>
 				) : (
 					<GenericNodeInspector node={selectedNode} />
@@ -244,6 +273,192 @@ function ButtonInspector({
 					Remove Button
 				</button>
 			</div>
+		</div>
+	);
+}
+
+// ── Text Node Inspector ────────────────────────────────────────────────────
+
+function TextNodeInspector({
+	node,
+	onUpdate,
+	onRemove,
+}: {
+	node: Extract<SceneNode, { type: 'text' }>;
+	onUpdate?: (nodeId: string, updates: Record<string, unknown>) => void;
+	onRemove?: (nodeId: string) => void;
+}) {
+	return (
+		<div className="inspector-panel__section-group">
+			<div className="inspector-panel__section">
+				<h5 className="inspector-panel__section-heading">Text</h5>
+				<label className="inspector-panel__field">
+					<span className="inspector-panel__field-label">Content</span>
+					<input
+						className="inspector-panel__input"
+						value={node.content}
+						onChange={(e) => onUpdate?.(node.id, { content: e.target.value })}
+					/>
+				</label>
+			</div>
+			<div className="inspector-panel__section">
+				<h5 className="inspector-panel__section-heading">Position & Size</h5>
+				<div className="inspector-panel__grid-2">
+					<label className="inspector-panel__field">
+						<span className="inspector-panel__field-label">X</span>
+						<input className="inspector-panel__input inspector-panel__input--num" type="number" value={node.x} onChange={(e) => onUpdate?.(node.id, { x: Number(e.target.value) })} />
+					</label>
+					<label className="inspector-panel__field">
+						<span className="inspector-panel__field-label">Y</span>
+						<input className="inspector-panel__input inspector-panel__input--num" type="number" value={node.y} onChange={(e) => onUpdate?.(node.id, { y: Number(e.target.value) })} />
+					</label>
+					<label className="inspector-panel__field">
+						<span className="inspector-panel__field-label">W</span>
+						<input className="inspector-panel__input inspector-panel__input--num" type="number" value={node.width} onChange={(e) => onUpdate?.(node.id, { width: Number(e.target.value) })} />
+					</label>
+					<label className="inspector-panel__field">
+						<span className="inspector-panel__field-label">H</span>
+						<input className="inspector-panel__input inspector-panel__input--num" type="number" value={node.height} onChange={(e) => onUpdate?.(node.id, { height: Number(e.target.value) })} />
+					</label>
+				</div>
+			</div>
+			<div className="inspector-panel__section">
+				<h5 className="inspector-panel__section-heading">Style</h5>
+				<label className="inspector-panel__field">
+					<span className="inspector-panel__field-label">Font Size</span>
+					<input className="inspector-panel__input inspector-panel__input--num" type="number" value={node.fontSize ?? 24} onChange={(e) => onUpdate?.(node.id, { fontSize: Number(e.target.value) })} />
+				</label>
+				<label className="inspector-panel__field">
+					<span className="inspector-panel__field-label">Colour</span>
+					<div className="inspector-panel__colour-row">
+						<input type="color" className="inspector-panel__colour-input" value={node.colour ?? '#ffffff'} onChange={(e) => onUpdate?.(node.id, { colour: e.target.value })} />
+						<input className="inspector-panel__input inspector-panel__input--hex" value={node.colour ?? '#ffffff'} onChange={(e) => onUpdate?.(node.id, { colour: e.target.value })} maxLength={7} />
+					</div>
+				</label>
+			</div>
+			{onRemove && (
+				<div className="inspector-panel__section">
+					<button className="btn btn--sm btn--danger" onClick={() => onRemove(node.id)}>Remove Text</button>
+				</div>
+			)}
+		</div>
+	);
+}
+
+// ── Image Node Inspector ───────────────────────────────────────────────────
+
+function ImageNodeInspector({
+	node,
+	assets,
+	onUpdate,
+	onRemove,
+}: {
+	node: Extract<SceneNode, { type: 'image' }>;
+	assets?: Asset[];
+	onUpdate?: (nodeId: string, updates: Record<string, unknown>) => void;
+	onRemove?: (nodeId: string) => void;
+}) {
+	const imageAssets = assets?.filter(
+		(a) => a.fileName.match(/\.(png|jpg|jpeg|bmp|tiff?)$/i),
+	) ?? [];
+
+	return (
+		<div className="inspector-panel__section-group">
+			<div className="inspector-panel__section">
+				<h5 className="inspector-panel__section-heading">Image</h5>
+				<label className="inspector-panel__field">
+					<span className="inspector-panel__field-label">Asset</span>
+					<select
+						className="inspector-panel__select"
+						value={node.assetId}
+						onChange={(e) => onUpdate?.(node.id, { assetId: e.target.value })}
+					>
+						<option value="">None</option>
+						{imageAssets.map((a) => (
+							<option key={a.id} value={a.id}>{a.fileName}</option>
+						))}
+					</select>
+				</label>
+			</div>
+			<div className="inspector-panel__section">
+				<h5 className="inspector-panel__section-heading">Position & Size</h5>
+				<div className="inspector-panel__grid-2">
+					<label className="inspector-panel__field">
+						<span className="inspector-panel__field-label">X</span>
+						<input className="inspector-panel__input inspector-panel__input--num" type="number" value={node.x} onChange={(e) => onUpdate?.(node.id, { x: Number(e.target.value) })} />
+					</label>
+					<label className="inspector-panel__field">
+						<span className="inspector-panel__field-label">Y</span>
+						<input className="inspector-panel__input inspector-panel__input--num" type="number" value={node.y} onChange={(e) => onUpdate?.(node.id, { y: Number(e.target.value) })} />
+					</label>
+					<label className="inspector-panel__field">
+						<span className="inspector-panel__field-label">W</span>
+						<input className="inspector-panel__input inspector-panel__input--num" type="number" value={node.width} onChange={(e) => onUpdate?.(node.id, { width: Number(e.target.value) })} />
+					</label>
+					<label className="inspector-panel__field">
+						<span className="inspector-panel__field-label">H</span>
+						<input className="inspector-panel__input inspector-panel__input--num" type="number" value={node.height} onChange={(e) => onUpdate?.(node.id, { height: Number(e.target.value) })} />
+					</label>
+				</div>
+			</div>
+			{onRemove && (
+				<div className="inspector-panel__section">
+					<button className="btn btn--sm btn--danger" onClick={() => onRemove(node.id)}>Remove Image</button>
+				</div>
+			)}
+		</div>
+	);
+}
+
+// ── Shape Node Inspector ───────────────────────────────────────────────────
+
+function ShapeNodeInspector({
+	node,
+	onUpdate,
+	onRemove,
+}: {
+	node: Extract<SceneNode, { type: 'shape' }>;
+	onUpdate?: (nodeId: string, updates: Record<string, unknown>) => void;
+	onRemove?: (nodeId: string) => void;
+}) {
+	return (
+		<div className="inspector-panel__section-group">
+			<div className="inspector-panel__section">
+				<h5 className="inspector-panel__section-heading">Shape</h5>
+				<label className="inspector-panel__field">
+					<span className="inspector-panel__field-label">Fill</span>
+					<div className="inspector-panel__colour-row">
+						<input type="color" className="inspector-panel__colour-input" value={node.fill ?? '#333333'} onChange={(e) => onUpdate?.(node.id, { fill: e.target.value })} />
+						<input className="inspector-panel__input inspector-panel__input--hex" value={node.fill ?? '#333333'} onChange={(e) => onUpdate?.(node.id, { fill: e.target.value })} maxLength={7} />
+					</div>
+				</label>
+			</div>
+			<div className="inspector-panel__section">
+				<h5 className="inspector-panel__section-heading">Position & Size</h5>
+				<div className="inspector-panel__grid-2">
+					<label className="inspector-panel__field">
+						<span className="inspector-panel__field-label">X</span>
+						<input className="inspector-panel__input inspector-panel__input--num" type="number" value={node.x} onChange={(e) => onUpdate?.(node.id, { x: Number(e.target.value) })} />
+					</label>
+					<label className="inspector-panel__field">
+						<span className="inspector-panel__field-label">Y</span>
+						<input className="inspector-panel__input inspector-panel__input--num" type="number" value={node.y} onChange={(e) => onUpdate?.(node.id, { y: Number(e.target.value) })} />
+					</label>
+					<label className="inspector-panel__field">
+						<span className="inspector-panel__field-label">W</span>
+						<input className="inspector-panel__input inspector-panel__input--num" type="number" value={node.width} onChange={(e) => onUpdate?.(node.id, { width: Number(e.target.value) })} />
+					</label>
+					<label className="inspector-panel__field">
+						<span className="inspector-panel__field-label">H</span>
+						<input className="inspector-panel__input inspector-panel__input--num" type="number" value={node.height} onChange={(e) => onUpdate?.(node.id, { height: Number(e.target.value) })} />
+					</label>
+				</div>
+			</div>
+			{onRemove && (
+				<div className="inspector-panel__section">
+					<button className="btn btn--sm btn--danger" onClick={() => onRemove(node.id)}>Remove Shape</button>
+				</div>
+			)}
 		</div>
 	);
 }

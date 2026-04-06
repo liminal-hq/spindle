@@ -545,7 +545,7 @@ function MenuEditor({
 		if (selectedNodeId === buttonId) setSelectedNodeId(null);
 	};
 
-	const handleUpdateSceneNode = (nodeId: string, updates: Partial<{ x: number; y: number; width: number; height: number }>) => {
+	const handleUpdateSceneNode = (nodeId: string, updates: Record<string, unknown>) => {
 		onUpdate((m) => {
 			if (!m.authoredDocument) return m;
 			return {
@@ -803,6 +803,9 @@ function MenuEditor({
 							onUpdateButton={handleUpdateButton}
 							onUpdateHighlightColours={handleUpdateHighlightColours}
 							onRemoveButton={handleRemoveButton}
+							onUpdateSceneNode={handleUpdateSceneNode}
+							onRemoveNode={handleRemoveNode}
+							assets={project.assets}
 						/>
 					</div>
 				</div>
