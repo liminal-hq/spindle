@@ -10,7 +10,7 @@ Key workstreams:
 
 - **Milestone 1**: COMPLETED & VERIFIED. Schema expansion and standard-aware migration (NTSC/PAL) are locked in `models.rs`.
 - **Milestone 1**: COMPLETED & VERIFIED. Schema expansion and standard-aware migration (NTSC/PAL) are locked in `models.rs`.
-- **Milestone 2**: IN PROGRESS (Urgent). Nicholas delivered the UI shell, but 'Bind' and 'Compile' modes are currently placeholders. This is the top-priority gap before we can declare the manual UI 'Locked.'
+- **Milestone 2**: COMPLETED & VERIFIED. Nicholas has delivered the fully functional Scene Editor with Undo/Redo, Text/Image/Shape tools, and QA issues resolved.
 - **Milestone 3**: COMPLETED & VERIFIED. Jullian's backend seams are locked and palette-aware.
 - **Milestone 4**: IN PROGRESS (Logic Phase). Jullian and Tristan are implementing the **Auto-Pagination** engine and the **12-18 button hard budget** mandate.
 
