@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en-CA">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=1280" />
+		<title>Spindle — Yuli's Menu Editor Concepts (Set 2)</title>
+		<link rel="stylesheet" href="design-system.css" />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap"
+			rel="stylesheet"
+		/>
+		<style>
+			body {
+				background: var(--bg-app);
+				color: var(--text-primary);
+				padding: var(--space-8);
+				overflow-y: auto;
+			}
+			.container {
+				max-width: 920px;
+				margin: 0 auto;
+			}
+			.header {
+				margin-bottom: var(--space-10);
+				text-align: center;
+			}
+			.header h1 {
+				font-size: var(--text-3xl);
+				background: var(--brand-gradient);
+				-webkit-background-clip: text;
+				-webkit-text-fill-color: transparent;
+				margin-bottom: var(--space-2);
+			}
+			.header p {
+				color: var(--text-muted);
+				font-size: var(--text-lg);
+				max-width: 640px;
+				margin: 0 auto;
+				line-height: 1.6;
+			}
+			.header .set-note {
+				font-size: var(--text-sm);
+				color: var(--text-secondary);
+				margin-top: var(--space-4);
+				padding: var(--space-3) var(--space-4);
+				background: rgba(255,255,255,0.02);
+				border: 1px solid var(--border-subtle);
+				border-radius: var(--radius-md);
+				display: inline-block;
+			}
+			.concept-card {
+				background: var(--bg-card);
+				border: 1px solid var(--border-subtle);
+				border-radius: var(--radius-lg);
+				padding: var(--space-6);
+				margin-bottom: var(--space-6);
+				transition: all var(--transition-base);
+			}
+			.concept-card:hover {
+				background: var(--bg-card-hover);
+				border-color: var(--border-default);
+				box-shadow: var(--shadow-card);
+			}
+			.concept-title {
+				font-family: var(--font-heading);
+				font-size: var(--text-xl);
+				font-weight: 700;
+				margin-bottom: var(--space-2);
+				display: flex;
+				align-items: center;
+				gap: var(--space-3);
+			}
+			.concept-desc {
+				color: var(--text-secondary);
+				font-size: var(--text-md);
+				line-height: 1.6;
+				margin-bottom: var(--space-4);
+			}
+			.concept-features {
+				display: flex;
+				flex-wrap: wrap;
+				gap: var(--space-2);
+				margin-bottom: var(--space-4);
+			}
+			.feature-tag {
+				font-size: var(--text-xs);
+				padding: 3px 10px;
+				border-radius: 12px;
+				background: rgba(255,255,255,0.04);
+				border: 1px solid var(--border-subtle);
+				color: var(--text-secondary);
+			}
+			.feature-tag--scene { background: rgba(255,170,64,0.08); border-color: rgba(255,170,64,0.2); color: var(--brand-orange); }
+			.feature-tag--interact { background: rgba(167,139,250,0.08); border-color: rgba(167,139,250,0.2); color: var(--brand-purple); }
+			.feature-tag--theme { background: rgba(34,211,238,0.08); border-color: rgba(34,211,238,0.2); color: var(--brand-cyan); }
+			.feature-tag--compile { background: rgba(244,63,94,0.08); border-color: rgba(244,63,94,0.2); color: var(--brand-pink); }
+			.feature-tag--motion { background: rgba(96,165,250,0.08); border-color: rgba(96,165,250,0.2); color: var(--brand-blue); }
+			.feature-tag--gen { background: rgba(46,198,106,0.08); border-color: rgba(46,198,106,0.2); color: var(--brand-green); }
+			.back-link {
+				display: inline-flex;
+				align-items: center;
+				gap: var(--space-2);
+				color: var(--text-muted);
+				font-size: var(--text-sm);
+				margin-bottom: var(--space-6);
+			}
+			.back-link:hover { color: var(--text-primary); }
+		</style>
+	</head>
+	<body>
+		<div class="container">
+			<a href="../set-1/index.html" class="back-link">
+				<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+				Back to Set 1
+			</a>
+
+			<div class="header">
+				<h1>Spindle Menu Editor Concepts — Set 2</h1>
+				<p>Where Set 1 explored individual ideas like gallery exhibits, Set 2 assembles those ideas into complete, integrated workspaces. Each concept is a holistic vision for how the full menu editor could work.</p>
+				<div class="set-note">
+					5 concepts covering all spec features: scene documents, interaction graphs, themes, components, motion, compile preview, and diagnostics.
+				</div>
+			</div>
+
+			<div class="concept-card">
+				<div class="concept-title">
+					<span>Concept 1: The Waystation</span>
+					<div class="badge badge--neutral">Unified Workspace</div>
+				</div>
+				<div class="concept-desc">
+					Like an airport terminal with a central concourse and branching gates. A four-pane layout with layers and components on the left, a central canvas with mode switcher (Design / Bind / Route / Compile), an adaptive inspector on the right, and a collapsible motion timeline at the bottom. Everything accessible, nothing hidden.
+				</div>
+				<div class="concept-features">
+					<span class="feature-tag feature-tag--scene">Scene Graph</span>
+					<span class="feature-tag feature-tag--interact">Inspector</span>
+					<span class="feature-tag feature-tag--theme">Components</span>
+					<span class="feature-tag feature-tag--motion">Timeline</span>
+					<span class="feature-tag feature-tag--compile">Safe Areas</span>
+					<span class="feature-tag feature-tag--gen">Mode Switcher</span>
+				</div>
+				<a href="concept-1-the-waystation.html" class="btn btn--primary" target="_blank">Open Concept 1</a>
+			</div>
+
+			<div class="concept-card">
+				<div class="concept-title">
+					<span>Concept 2: The Greenhouse</span>
+					<div class="badge badge--neutral">Template-First Progressive</div>
+				</div>
+				<div class="concept-desc">
+					A growth-oriented editor inspired by botanical gardens. Start with a seed template (Classic Main Menu, Chapter Grid, Audio Setup, Poster Shelf, or Blank Canvas), choose a theme, and the interface progressively unfurls to reveal layout customisation, action binding, motion options, and compile settings. Each step unlocks the next — beginners are guided, experts can skip ahead.
+				</div>
+				<div class="concept-features">
+					<span class="feature-tag feature-tag--gen">Templates</span>
+					<span class="feature-tag feature-tag--theme">Themes</span>
+					<span class="feature-tag feature-tag--interact">Action Binding</span>
+					<span class="feature-tag feature-tag--scene">Progressive Disclosure</span>
+					<span class="feature-tag feature-tag--gen">Auto-Pagination</span>
+					<span class="feature-tag feature-tag--compile">Diagnostics</span>
+				</div>
+				<a href="concept-2-the-greenhouse.html" class="btn btn--primary" target="_blank">Open Concept 2</a>
+			</div>
+
+			<div class="concept-card">
+				<div class="concept-title">
+					<span>Concept 3: The Cartographer</span>
+					<div class="badge badge--neutral">Multi-Menu Navigator</div>
+				</div>
+				<div class="concept-desc">
+					A bird's-eye transit map of the entire disc's menu system. Every menu is a card on the map with a thumbnail preview, every connection is a colour-coded line (showMenu, playTitle, return). Click any menu to see its details, buttons, and diagnostics in the right panel. Perfect for understanding and managing complex multi-menu, multi-titleset projects with auto-paginated chapter menus.
+				</div>
+				<div class="concept-features">
+					<span class="feature-tag feature-tag--interact">Navigation Map</span>
+					<span class="feature-tag feature-tag--scene">VMGM / VTS Domains</span>
+					<span class="feature-tag feature-tag--gen">Auto-Pagination</span>
+					<span class="feature-tag feature-tag--compile">Route Diagnostics</span>
+					<span class="feature-tag feature-tag--theme">Menu Thumbnails</span>
+				</div>
+				<a href="concept-3-the-cartographer.html" class="btn btn--primary" target="_blank">Open Concept 3</a>
+			</div>
+
+			<div class="concept-card">
+				<div class="concept-title">
+					<span>Concept 4: The Darkroom</span>
+					<div class="badge badge--neutral">State-Focused Editor</div>
+				</div>
+				<div class="concept-desc">
+					Like a photographer's darkroom where you control every exposure. A triple-canvas view showing Normal, Focus, and Activate states side by side for any selected button. The left panel exposes the DVD 4-colour CLUT palette. The right inspector lets you edit per-state visual treatments and shows exactly how authored styles (gradients, glows, rounded corners) compile down into DVD subpicture overlays. Includes a highlight animation keyframe editor for motion menus.
+				</div>
+				<div class="concept-features">
+					<span class="feature-tag feature-tag--scene">Normal / Focus / Activate</span>
+					<span class="feature-tag feature-tag--compile">DVD Overlay Mapping</span>
+					<span class="feature-tag feature-tag--interact">CLUT Palette Editor</span>
+					<span class="feature-tag feature-tag--motion">Highlight Animation</span>
+					<span class="feature-tag feature-tag--compile">Downgrade Preview</span>
+				</div>
+				<a href="concept-4-the-darkroom.html" class="btn btn--primary" target="_blank">Open Concept 4</a>
+			</div>
+
+			<div class="concept-card">
+				<div class="concept-title">
+					<span>Concept 5: The Switchboard</span>
+					<div class="badge badge--neutral">Action Binding Workspace</div>
+				</div>
+				<div class="concept-desc">
+					Like an old-fashioned telephone switchboard where operators physically connected calls. A visual wiring board showing all buttons on the left, all targets (titles, menus, audio streams, subtitle streams) on the right, with colour-coded wires connecting them. The right inspector provides an action builder with sequence chaining (for setup menus that need setAudio + showMenu in one press), a navigation grid, and a live DVD VM command preview showing the compiled instructions.
+				</div>
+				<div class="concept-features">
+					<span class="feature-tag feature-tag--interact">Visual Wiring</span>
+					<span class="feature-tag feature-tag--interact">Sequence Actions</span>
+					<span class="feature-tag feature-tag--scene">setAudio / setSubtitle</span>
+					<span class="feature-tag feature-tag--compile">DVD Command Preview</span>
+					<span class="feature-tag feature-tag--interact">Navigation Grid</span>
+					<span class="feature-tag feature-tag--gen">Cross-Menu Binding</span>
+				</div>
+				<a href="concept-5-the-switchboard.html" class="btn btn--primary" target="_blank">Open Concept 5</a>
+			</div>
+		</div>
+	</body>
+</html>
