@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en-CA">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Spindle — The Concourse</title>
+		<link rel="stylesheet" href="design-system.css" />
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=IBM+Plex+Mono:wght@400;500&family=Sora:wght@400;500;600;700&display=swap"
+			rel="stylesheet"
+		/>
+	</head>
+	<body>
+		<div class="page-shell">
+			<div class="page-frame">
+				<header class="page-header">
+					<div>
+						<div class="eyebrow">Concept 1 / The Concourse</div>
+						<h1 class="page-title">A grand arrival hall that guides the user from structure, to scene, to remote logic, to a trustworthy build.</h1>
+						<p class="page-copy">
+							This concept treats the editor like a well-signed transit interchange. Every important task has a platform: menu scope on the left, authored scene at centre, and context-aware controls on the right. Advanced tools are visible, but they read as destinations rather than clutter.
+						</p>
+						<div class="page-subnav">
+							<a class="cta cta--secondary" href="index.html">Back to set index</a>
+							<div class="pill pill--mint">Progressive disclosure</div>
+							<div class="pill pill--warm">Generated menu sets stay editable</div>
+							<div class="pill pill--sky">Remote and compile views never feel bolted on</div>
+						</div>
+					</div>
+				</header>
+
+				<section class="menu-shell">
+					<div class="workspace workspace--three">
+						<aside class="panel">
+							<div class="panel-header">
+								<div>
+									<div class="panel-kicker">Route board</div>
+									<h3 class="panel-title">Disc menu network</h3>
+								</div>
+								<div class="mode-chip">DVD-Video</div>
+							</div>
+							<div class="list">
+								<div class="list-item list-item--selected">
+									<strong>Global / Main Menu</strong>
+									<div class="meta">6 buttons · still background · default focus set · compile ready</div>
+								</div>
+								<div class="list-item">
+									<strong>Titleset 1 / Chapter Set A</strong>
+									<div class="meta">12 chapter tiles · auto-pagination 1 of 2 · theme linked</div>
+								</div>
+								<div class="list-item">
+									<strong>Titleset 1 / Chapter Set B</strong>
+									<div class="meta">12 chapter tiles · generated navigation preserved after edits</div>
+								</div>
+								<div class="list-item">
+									<strong>Setup / Audio + Subtitle</strong>
+									<div class="meta">`setAudioStream`, `setSubtitleStream`, sequence actions</div>
+								</div>
+							</div>
+							<div class="panel" style="margin-top: 16px">
+								<div class="panel-kicker">Generators</div>
+								<div class="list" style="margin-top: 12px">
+									<div class="generator-card generator-card--selected">
+										<strong>Chapter grid</strong>
+										<div class="meta">12 to 18 buttons per page · Next and Back as authored nodes</div>
+									</div>
+									<div class="generator-card">
+										<strong>Title shelf</strong>
+										<div class="meta">Hero card plus chapter branch for longform discs</div>
+									</div>
+									<div class="generator-card">
+										<strong>Setup menu</strong>
+										<div class="meta">Audio, subtitle, resume, and return flows</div>
+									</div>
+								</div>
+							</div>
+						</aside>
+
+						<div class="artboard-wrap">
+							<div class="artboard-toolbar">
+								<div class="badge badge--mint">Design</div>
+								<div class="tiny-pill">Bind</div>
+								<div class="tiny-pill">Remote</div>
+								<div class="tiny-pill">Compile</div>
+								<div class="tiny-pill">720 × 480 NTSC</div>
+								<div class="tiny-pill">Theme: Harbour Evening</div>
+								<div class="tiny-pill">Motion: Off</div>
+							</div>
+
+							<div class="artboard artboard--cool">
+								<div class="grid-overlay"></div>
+								<div class="safe-zone safe-zone--action"></div>
+								<div class="safe-zone safe-zone--title"></div>
+								<div class="canvas-label canvas-label--action">Action-safe</div>
+								<div class="canvas-label canvas-label--title">Title-safe</div>
+
+								<div class="text-node" style="top: 9%; left: 11%; width: 37%; height: 14%">
+									<div style="font-size: 2rem">Northern Tides</div>
+									<div class="meta" style="margin-top: 6px">Main menu · global scope</div>
+								</div>
+
+								<div class="image-node" style="top: 16%; right: 11%; width: 24%; height: 36%"></div>
+								<div class="video-node" style="bottom: 16%; left: 11%; width: 24%; height: 24%"></div>
+
+								<div class="button-node button-node--focus button-node--mint" style="top: 32%; left: 14%; width: 24%; height: 12%">
+									Play feature
+								</div>
+								<div class="button-node button-node--sky" style="top: 46%; left: 14%; width: 24%; height: 12%">
+									Scenes
+								</div>
+								<div class="button-node" style="top: 60%; left: 14%; width: 24%; height: 12%">Set-up</div>
+								<div class="button-node button-node--coral" style="top: 52%; right: 14%; width: 24%; height: 11%">
+									Audio tour
+								</div>
+								<div class="button-node" style="top: 66%; right: 14%; width: 24%; height: 11%">Subtitles</div>
+
+								<div class="flow-line" style="top: 38%; left: 38%; width: 14%; transform: rotate(12deg)"></div>
+								<div class="flow-line flow-line--warm" style="top: 52%; left: 38%; width: 14%; transform: rotate(0deg)"></div>
+								<div class="flow-line" style="top: 58%; left: 54%; width: 18%; transform: rotate(18deg)"></div>
+
+								<div class="floating-card" style="right: 8%; bottom: 8%; width: 24%">
+									<div class="panel-kicker">Auto-route summary</div>
+									<div class="meta" style="margin-top: 8px">
+										Up and down follow the left stack. Right moves into the set-up cluster. Enter on “Scenes” opens generated chapter page 1.
+									</div>
+								</div>
+							</div>
+
+							<div class="status-strip">
+								<div class="pill pill--mint">3 node types on canvas</div>
+								<div class="pill pill--warm">1 motion tile prepared for later</div>
+								<div class="pill pill--sky">Default focus: Play feature</div>
+								<div class="pill">Compile policy: title-safe / auto palette</div>
+							</div>
+						</div>
+
+						<aside class="panel panel--solid">
+							<div class="panel-header">
+								<div>
+									<div class="panel-kicker">Selected stop</div>
+									<h3 class="panel-title">Scenes button</h3>
+								</div>
+								<div class="badge badge--warm">Button node</div>
+							</div>
+
+							<div class="property-grid">
+								<div class="property-card">
+									<span>Action</span>
+									<strong>Show menu → Chapter Set A</strong>
+								</div>
+								<div class="property-card">
+									<span>Neighbours</span>
+									<strong>Up / Down / Right mapped</strong>
+								</div>
+								<div class="property-card">
+									<span>State model</span>
+									<strong>Normal · Focus · Activate</strong>
+								</div>
+								<div class="property-card">
+									<span>Highlight</span>
+									<strong>Static overlay · palette slot 2</strong>
+								</div>
+							</div>
+
+							<div class="panel" style="margin-top: 16px">
+								<div class="panel-kicker">Remote simulator</div>
+								<div class="stack-row" style="justify-content: space-between; margin: 12px 0">
+									<div class="meta">Arrow keys and enter mirror DVD focus rules.</div>
+									<div class="badge badge--mint">Live</div>
+								</div>
+								<div class="remote" style="margin: 0 auto 14px">
+									<div></div>
+									<button class="is-active">▲</button>
+									<div></div>
+									<button>◀</button>
+									<button>OK</button>
+									<button>▶</button>
+									<div></div>
+									<button>▼</button>
+									<div></div>
+								</div>
+								<div class="meta">Timeout after 3 loops can route back to this page or stop playback.</div>
+							</div>
+
+							<div class="panel" style="margin-top: 16px">
+								<div class="panel-kicker">Compile honesty</div>
+								<div class="diag-grid" style="margin-top: 12px">
+									<div class="diagnostic diagnostic--info">
+										<div class="badge">INFO</div>
+										<div class="meta">Button count is safe for DVD and leaves room for auto-pagination controls.</div>
+									</div>
+									<div class="diagnostic diagnostic--warning">
+										<div class="badge">WARN</div>
+										<div class="meta">Motion tile will flatten to still output until motion mode is enabled for this menu.</div>
+									</div>
+									<div class="diagnostic diagnostic--info">
+										<div class="badge">INFO</div>
+										<div class="meta">Setup branch uses semantic actions and can compile to `SetSTN` on DVD.</div>
+									</div>
+									<div class="diagnostic diagnostic--info">
+										<div class="badge">INFO</div>
+										<div class="meta">No unreachable buttons detected from default focus.</div>
+									</div>
+								</div>
+							</div>
+						</aside>
+					</div>
+				</section>
+
+				<p class="footer-note">
+					The Concourse keeps the author grounded with strong wayfinding. It is intentionally gentle, but still exposes the real authored scene, interaction graph, and compilation contract.
+				</p>
+			</div>
+		</div>
+	</body>
+</html>
