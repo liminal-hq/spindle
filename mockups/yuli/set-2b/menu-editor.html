@@ -1,0 +1,2043 @@
+<!doctype html>
+<html lang="en-CA">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=1280" />
+		<title>Spindle — Menu Editor (Set 2b)</title>
+		<link rel="stylesheet" href="design-system.css" />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+			rel="stylesheet"
+		/>
+		<style>
+			html, body { overflow: hidden; height: 100%; margin: 0; }
+			body {
+				background: var(--bg-app);
+				display: flex;
+				flex-direction: column;
+				font-family: var(--font-body);
+				font-size: 13px;
+				color: var(--text-primary);
+			}
+
+			/* ── Content area grid ──────────────────────────────── */
+			.menus-content {
+				display: grid;
+				grid-template-columns: 260px 1fr;
+				gap: 0;
+				flex: 1;
+				overflow: hidden;
+			}
+
+			/* ── LEFT: Menu Navigator ─────────────────────────────── */
+			.menu-nav {
+				background: var(--bg-panel);
+				border-right: 1px solid var(--border-subtle);
+				display: flex;
+				flex-direction: column;
+				overflow: hidden;
+			}
+
+			.menu-nav__header {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				padding: var(--space-3) var(--space-4);
+				border-bottom: 1px solid var(--border-subtle);
+			}
+
+			.menu-nav__title {
+				font-family: var(--font-heading);
+				font-size: var(--text-md);
+				font-weight: 700;
+			}
+
+			.menu-nav__view-toggle {
+				display: flex;
+				background: rgba(0,0,0,0.25);
+				border: 1px solid var(--border-subtle);
+				border-radius: 12px;
+				padding: 2px;
+				gap: 2px;
+			}
+
+			.nav-view-btn {
+				padding: 3px 8px;
+				border-radius: 10px;
+				font-size: 10px;
+				font-weight: 600;
+				cursor: pointer;
+				color: var(--text-muted);
+				transition: all var(--transition-fast);
+				border: none;
+				background: none;
+			}
+
+			.nav-view-btn:hover { color: var(--text-primary); }
+			.nav-view-btn--active { background: rgba(255,255,255,0.1); color: var(--text-primary); }
+
+			.menu-nav__body {
+				flex: 1;
+				overflow-y: auto;
+				padding: var(--space-2);
+			}
+
+			/* Scope groups */
+			.scope-group { margin-bottom: var(--space-3); }
+
+			.scope-header {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				padding: var(--space-1) var(--space-2);
+				margin-bottom: var(--space-1);
+			}
+
+			.scope-label {
+				font-size: var(--text-xs);
+				font-weight: 600;
+				letter-spacing: 0.06em;
+				color: var(--text-muted);
+				display: flex;
+				align-items: center;
+				gap: var(--space-2);
+			}
+
+			.scope-badge {
+				font-size: 9px;
+				padding: 1px 5px;
+				border-radius: 6px;
+				font-weight: 600;
+			}
+
+			.scope-badge--vmgm { background: rgba(34,211,238,0.12); color: var(--brand-cyan); }
+			.scope-badge--vts { background: rgba(167,139,250,0.12); color: var(--brand-purple); }
+
+			.scope-add-btn {
+				background: none;
+				border: none;
+				color: var(--text-muted);
+				cursor: pointer;
+				font-size: 14px;
+				padding: 2px 6px;
+				border-radius: var(--radius-sm);
+				transition: all var(--transition-fast);
+			}
+
+			.scope-add-btn:hover { background: rgba(255,255,255,0.06); color: var(--text-primary); }
+
+			/* Menu item card */
+			.menu-item {
+				display: flex;
+				align-items: center;
+				gap: var(--space-2);
+				padding: 8px var(--space-3);
+				border-radius: var(--radius-md);
+				cursor: pointer;
+				transition: all var(--transition-fast);
+				margin-bottom: 2px;
+				border: 1px solid transparent;
+				position: relative;
+			}
+
+			.menu-item:hover { background: rgba(255,255,255,0.03); }
+			.menu-item--selected {
+				background: rgba(255,170,64,0.06);
+				border-color: rgba(255,170,64,0.2);
+			}
+
+			.menu-item__preview {
+				width: 48px;
+				height: 32px;
+				border-radius: 3px;
+				background: linear-gradient(135deg, #1a1828, #0f0e1a);
+				flex-shrink: 0;
+				position: relative;
+				overflow: hidden;
+				border: 1px solid var(--border-subtle);
+			}
+
+			.menu-item--selected .menu-item__preview { border-color: rgba(255,170,64,0.3); }
+
+			.menu-item__mini-btn {
+				position: absolute;
+				background: rgba(255,255,255,0.15);
+				border-radius: 1px;
+				height: 3px;
+			}
+
+			.menu-item__info { flex: 1; min-width: 0; }
+
+			.menu-item__name {
+				font-size: var(--text-sm);
+				font-weight: 500;
+				color: var(--text-secondary);
+				white-space: nowrap;
+				overflow: hidden;
+				text-overflow: ellipsis;
+			}
+
+			.menu-item--selected .menu-item__name { color: var(--brand-orange); font-weight: 600; }
+
+			.menu-item__meta {
+				font-size: 10px;
+				color: var(--text-muted);
+				display: flex;
+				gap: var(--space-2);
+				align-items: center;
+			}
+
+			/* Connection indicators on menu items */
+			.menu-item__conns {
+				display: flex;
+				gap: 3px;
+				align-items: center;
+			}
+
+			.conn-indicator {
+				display: flex;
+				align-items: center;
+				gap: 1px;
+				font-size: 8px;
+				font-weight: 600;
+				padding: 0 3px;
+				border-radius: 4px;
+				height: 14px;
+				line-height: 14px;
+			}
+
+			.conn-indicator--out { background: rgba(34,211,238,0.1); color: var(--brand-cyan); }
+			.conn-indicator--in { background: rgba(167,139,250,0.1); color: var(--brand-purple); }
+
+			.menu-item__status {
+				width: 6px;
+				height: 6px;
+				border-radius: 50%;
+				flex-shrink: 0;
+				align-self: center;
+			}
+
+			.menu-item__status--ok { background: var(--colour-success); }
+			.menu-item__status--warn { background: var(--colour-warning); }
+
+			/* Template picker (collapsed) */
+			.template-section {
+				border-top: 1px solid var(--border-subtle);
+				overflow: hidden;
+			}
+
+			.template-toggle {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				padding: var(--space-2) var(--space-3);
+				cursor: pointer;
+				transition: background var(--transition-fast);
+			}
+
+			.template-toggle:hover { background: rgba(255,255,255,0.02); }
+
+			.template-toggle__label {
+				font-size: 10px;
+				font-weight: 600;
+				color: var(--text-muted);
+				letter-spacing: 0.06em;
+				display: flex;
+				align-items: center;
+				gap: var(--space-2);
+			}
+
+			.template-toggle__chevron {
+				transition: transform var(--transition-fast);
+				color: var(--text-muted);
+			}
+
+			.template-toggle__chevron--open { transform: rotate(180deg); }
+
+			.template-list {
+				padding: 0 var(--space-2) var(--space-3);
+				display: none;
+			}
+
+			.template-list--open { display: flex; flex-direction: column; gap: var(--space-1); }
+
+			.template-option {
+				display: flex;
+				align-items: center;
+				gap: var(--space-2);
+				padding: 6px var(--space-2);
+				border-radius: var(--radius-sm);
+				cursor: pointer;
+				font-size: var(--text-xs);
+				color: var(--text-secondary);
+				transition: all var(--transition-fast);
+			}
+
+			.template-option:hover { background: rgba(255,255,255,0.04); color: var(--text-primary); }
+
+			.template-option__icon {
+				width: 24px;
+				height: 16px;
+				background: linear-gradient(135deg, #1a1828, #0f0e1a);
+				border-radius: 2px;
+				border: 1px solid var(--border-subtle);
+				flex-shrink: 0;
+			}
+
+			/* ── RIGHT: Editor Area ───────────────────────────────── */
+			.editor-area {
+				display: flex;
+				flex-direction: column;
+				overflow: hidden;
+			}
+
+			/* Editor toolbar */
+			.editor-toolbar {
+				display: flex;
+				align-items: center;
+				padding: var(--space-2) var(--space-4);
+				border-bottom: 1px solid var(--border-subtle);
+				background: var(--bg-panel);
+				gap: var(--space-3);
+				flex-shrink: 0;
+			}
+
+			.editor-toolbar__name {
+				font-family: var(--font-heading);
+				font-size: var(--text-md);
+				font-weight: 600;
+				color: var(--text-primary);
+				background: none;
+				border: none;
+				border-bottom: 1px solid transparent;
+				padding: 2px 0;
+				min-width: 120px;
+			}
+
+			.editor-toolbar__name:focus {
+				outline: none;
+				border-bottom-color: var(--brand-orange);
+				color: var(--brand-orange);
+			}
+
+			.toolbar-spacer { flex: 1; }
+
+			.toolbar-info {
+				font-size: var(--text-xs);
+				color: var(--text-muted);
+				display: flex;
+				align-items: center;
+				gap: var(--space-2);
+			}
+
+			/* Preview toggle */
+			.preview-toggle {
+				display: flex;
+				align-items: center;
+				gap: 6px;
+				padding: 4px 12px;
+				border-radius: 14px;
+				font-size: var(--text-xs);
+				font-weight: 600;
+				cursor: pointer;
+				border: 1px solid var(--border-subtle);
+				background: rgba(0,0,0,0.2);
+				color: var(--text-muted);
+				transition: all var(--transition-fast);
+			}
+
+			.preview-toggle:hover { color: var(--text-primary); border-color: var(--border-default); }
+			.preview-toggle--active {
+				background: rgba(244,63,94,0.1);
+				border-color: rgba(244,63,94,0.3);
+				color: var(--brand-pink);
+			}
+
+			.preview-dot {
+				width: 6px;
+				height: 6px;
+				border-radius: 50%;
+				background: currentColor;
+				transition: all var(--transition-fast);
+			}
+
+			.preview-toggle--active .preview-dot {
+				box-shadow: 0 0 6px var(--brand-pink);
+				animation: preview-pulse 2s ease-in-out infinite;
+			}
+
+			@keyframes preview-pulse {
+				0%, 100% { opacity: 1; }
+				50% { opacity: 0.4; }
+			}
+
+			/* Editor body: canvas + inspector */
+			.editor-body {
+				display: grid;
+				grid-template-columns: 1fr 300px;
+				flex: 1;
+				overflow: hidden;
+				transition: grid-template-columns 0.2s ease;
+			}
+
+			.editor-body--no-inspector { grid-template-columns: 1fr; }
+
+			/* ── Canvas viewport ──────────────────────────────────── */
+			.canvas-viewport {
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				background: #08080c;
+				background-image: radial-gradient(circle at 50% 50%, rgba(255,170,64,0.015) 0%, transparent 60%);
+				position: relative;
+				overflow: hidden;
+			}
+
+			.canvas-tools-floating {
+				position: absolute;
+				top: var(--space-3);
+				left: var(--space-3);
+				display: flex;
+				flex-direction: column;
+				gap: 2px;
+				z-index: 10;
+			}
+
+			.canvas-tool-btn {
+				width: 30px;
+				height: 30px;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				background: rgba(16,16,22,0.85);
+				backdrop-filter: blur(8px);
+				border: 1px solid var(--border-subtle);
+				border-radius: var(--radius-sm);
+				color: var(--text-muted);
+				cursor: pointer;
+				transition: all var(--transition-fast);
+			}
+
+			.canvas-tool-btn:hover { background: rgba(30,30,40,0.9); color: var(--text-primary); }
+			.canvas-tool-btn--active { background: rgba(255,170,64,0.15); color: var(--brand-orange); border-color: rgba(255,170,64,0.3); }
+
+			.tool-sep {
+				width: 24px;
+				height: 1px;
+				background: var(--border-subtle);
+				margin: 2px 3px;
+			}
+
+			.menu-canvas {
+				width: 720px;
+				height: 480px;
+				position: relative;
+				border-radius: 4px;
+				overflow: hidden;
+				box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+				background: linear-gradient(160deg, #1a1828 0%, #0f0e1a 50%, #181520 100%);
+				transform-origin: center center;
+				transition: filter 0.3s ease, box-shadow 0.3s ease;
+			}
+
+			.menu-canvas--preview {
+				filter: saturate(0.75) contrast(1.05);
+				box-shadow: 0 8px 40px rgba(0,0,0,0.5), 0 0 0 2px rgba(244,63,94,0.25);
+			}
+
+			.canvas-bg-layer {
+				position: absolute;
+				inset: 0;
+				pointer-events: none;
+			}
+
+			/* Safe-area guides */
+			.safe-guide {
+				position: absolute;
+				border: 1px dashed;
+				pointer-events: none;
+				z-index: 1;
+				display: none;
+			}
+
+			.safe-guide--visible { display: block; }
+			.safe-guide--action { inset: 5% 5%; border-color: rgba(255,255,0,0.2); }
+			.safe-guide--title { inset: 10% 10%; border-color: rgba(0,200,255,0.2); }
+
+			/* Scene text nodes */
+			.scene-text {
+				position: absolute;
+				z-index: 2;
+				cursor: move;
+				user-select: none;
+			}
+
+			.scene-text--title {
+				font-family: var(--font-heading);
+				font-size: 32px;
+				font-weight: 700;
+				color: #fff;
+				letter-spacing: -0.02em;
+			}
+
+			.scene-text--subtitle {
+				font-size: 13px;
+				color: rgba(255,255,255,0.45);
+			}
+
+			/* Scene button nodes */
+			.scene-btn {
+				position: absolute;
+				background: rgba(255,255,255,0.04);
+				border: 1.5px solid rgba(255,255,255,0.12);
+				border-radius: 6px;
+				display: flex;
+				align-items: center;
+				padding: 0 16px;
+				font-size: 14px;
+				color: var(--text-primary);
+				z-index: 3;
+				cursor: move;
+				user-select: none;
+				transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+				gap: 8px;
+			}
+
+			.scene-btn:hover { border-color: rgba(255,255,255,0.25); }
+
+			.scene-btn--selected {
+				border-color: var(--brand-orange);
+				box-shadow: 0 0 0 1px var(--brand-orange), 0 0 16px rgba(255,170,64,0.12);
+				background: rgba(255,170,64,0.06);
+			}
+
+			.scene-btn--default .scene-btn__default-marker { display: block; }
+
+			.scene-btn__default-marker {
+				display: none;
+				position: absolute;
+				top: -8px;
+				right: -8px;
+				width: 16px;
+				height: 16px;
+				background: var(--brand-orange);
+				border-radius: 50%;
+				border: 2px solid #08080c;
+				z-index: 10;
+			}
+
+			/* Action badge on button (visible in design view) */
+			.scene-btn__action-badge {
+				position: absolute;
+				right: 8px;
+				top: 50%;
+				transform: translateY(-50%);
+				font-size: 9px;
+				font-weight: 600;
+				padding: 1px 6px;
+				border-radius: 8px;
+				opacity: 0;
+				transition: opacity 0.15s;
+				pointer-events: none;
+			}
+
+			.scene-btn:hover .scene-btn__action-badge,
+			.scene-btn--selected .scene-btn__action-badge { opacity: 1; }
+
+			.action-badge--play { background: rgba(46,198,106,0.15); color: var(--brand-green); }
+			.action-badge--menu { background: rgba(34,211,238,0.15); color: var(--brand-cyan); }
+			.action-badge--audio { background: rgba(167,139,250,0.15); color: var(--brand-purple); }
+
+			/* Resize handles */
+			.resize-handle {
+				position: absolute;
+				width: 8px;
+				height: 8px;
+				background: var(--brand-orange);
+				border: 1.5px solid #08080c;
+				border-radius: 2px;
+				display: none;
+				z-index: 10;
+			}
+
+			.scene-btn--selected .resize-handle { display: block; }
+			.resize-handle--tl { top: -4px; left: -4px; cursor: nw-resize; }
+			.resize-handle--tr { top: -4px; right: -4px; cursor: ne-resize; }
+			.resize-handle--bl { bottom: -4px; left: -4px; cursor: sw-resize; }
+			.resize-handle--br { bottom: -4px; right: -4px; cursor: se-resize; }
+
+			/* Navigation route arrows (inline, always subtle) */
+			.nav-arrows-overlay {
+				position: absolute;
+				inset: 0;
+				z-index: 4;
+				pointer-events: none;
+				opacity: 0;
+				transition: opacity 0.2s;
+			}
+
+			.nav-arrows-overlay--visible { opacity: 1; }
+
+			/* Compile preview overlay */
+			.compile-overlay {
+				position: absolute;
+				inset: 0;
+				z-index: 20;
+				pointer-events: none;
+				display: none;
+			}
+
+			.compile-overlay--visible { display: flex; flex-direction: column; }
+
+			.compile-banner {
+				background: rgba(244,63,94,0.9);
+				color: #fff;
+				font-size: 10px;
+				font-weight: 600;
+				padding: 4px 12px;
+				display: flex;
+				align-items: center;
+				gap: 6px;
+				letter-spacing: 0.04em;
+			}
+
+			.compile-info {
+				position: absolute;
+				bottom: 8px;
+				left: 8px;
+				right: 8px;
+				background: rgba(0,0,0,0.85);
+				backdrop-filter: blur(8px);
+				border: 1px solid rgba(244,63,94,0.2);
+				border-radius: var(--radius-md);
+				padding: 8px 12px;
+				font-size: 10px;
+				color: var(--text-secondary);
+				display: flex;
+				gap: 16px;
+			}
+
+			.compile-stat {
+				display: flex;
+				flex-direction: column;
+				gap: 2px;
+			}
+
+			.compile-stat__label { color: var(--text-muted); font-size: 9px; }
+			.compile-stat__value { font-family: var(--font-mono); font-weight: 500; }
+			.compile-stat__value--ok { color: var(--colour-success); }
+			.compile-stat__value--warn { color: var(--colour-warning); }
+
+			/* Zoom indicator */
+			.zoom-info {
+				position: absolute;
+				bottom: var(--space-2);
+				right: var(--space-2);
+				font-family: var(--font-mono);
+				font-size: 10px;
+				color: var(--text-muted);
+				background: rgba(0,0,0,0.5);
+				padding: 2px 6px;
+				border-radius: 8px;
+				z-index: 10;
+			}
+
+			/* ── Navigation Map View ─────────────────────────────── */
+			.nav-map-view {
+				display: none;
+				flex: 1;
+				overflow: hidden;
+				flex-direction: column;
+			}
+
+			.nav-map-view--visible { display: flex; }
+
+			.map-toolbar {
+				display: flex;
+				align-items: center;
+				padding: var(--space-2) var(--space-4);
+				border-bottom: 1px solid var(--border-subtle);
+				background: var(--bg-panel);
+				gap: var(--space-3);
+				flex-shrink: 0;
+			}
+
+			.map-toolbar__title {
+				font-family: var(--font-heading);
+				font-size: var(--text-md);
+				font-weight: 600;
+				color: var(--text-primary);
+			}
+
+			.map-legend {
+				display: flex;
+				gap: var(--space-3);
+				margin-left: auto;
+			}
+
+			.legend-item {
+				display: flex;
+				align-items: center;
+				gap: 4px;
+				font-size: 10px;
+				color: var(--text-muted);
+			}
+
+			.legend-line {
+				width: 16px;
+				height: 2px;
+				border-radius: 1px;
+			}
+
+			.legend-line--show { background: var(--brand-cyan); }
+			.legend-line--play { background: var(--brand-green); }
+			.legend-line--return { background: var(--brand-purple); stroke-dasharray: 4 2; }
+			.legend-line--audio { background: var(--brand-amber); }
+
+			.map-canvas-wrap {
+				flex: 1;
+				background: #08080c;
+				background-image:
+					radial-gradient(circle at 30% 40%, rgba(34,211,238,0.02) 0%, transparent 50%),
+					radial-gradient(circle at 70% 60%, rgba(167,139,250,0.02) 0%, transparent 50%);
+				position: relative;
+				overflow: hidden;
+			}
+
+			.map-canvas-wrap svg {
+				width: 100%;
+				height: 100%;
+			}
+
+			/* Map menu cards */
+			.map-menu-card {
+				position: absolute;
+				background: rgba(16,16,22,0.95);
+				border: 1.5px solid var(--border-default);
+				border-radius: var(--radius-md);
+				padding: 10px 14px;
+				min-width: 140px;
+				cursor: pointer;
+				transition: all var(--transition-fast);
+				z-index: 5;
+			}
+
+			.map-menu-card:hover {
+				border-color: var(--border-strong);
+				box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+				transform: translateY(-1px);
+			}
+
+			.map-menu-card--selected {
+				border-color: var(--brand-orange);
+				box-shadow: 0 0 0 1px var(--brand-orange), 0 4px 20px rgba(255,170,64,0.1);
+			}
+
+			.map-menu-card--target {
+				border-style: dashed;
+				background: rgba(16,16,22,0.7);
+			}
+
+			.map-card__name {
+				font-size: var(--text-sm);
+				font-weight: 600;
+				margin-bottom: 4px;
+			}
+
+			.map-menu-card--selected .map-card__name { color: var(--brand-orange); }
+
+			.map-card__scope {
+				font-size: 9px;
+				font-weight: 600;
+				padding: 1px 4px;
+				border-radius: 4px;
+				margin-bottom: 6px;
+				display: inline-block;
+			}
+
+			.map-card__preview {
+				width: 100%;
+				height: 56px;
+				background: linear-gradient(135deg, #1a1828, #0f0e1a);
+				border-radius: 3px;
+				margin-bottom: 6px;
+				position: relative;
+				overflow: hidden;
+				border: 1px solid var(--border-subtle);
+			}
+
+			.map-card__preview-btn {
+				position: absolute;
+				background: rgba(255,255,255,0.12);
+				border-radius: 2px;
+			}
+
+			.map-card__btns {
+				font-size: 9px;
+				color: var(--text-muted);
+			}
+
+			/* Map connection lines SVG */
+			.map-connections {
+				position: absolute;
+				inset: 0;
+				pointer-events: none;
+				z-index: 1;
+			}
+
+			.map-conn-line {
+				fill: none;
+				stroke-width: 2;
+				opacity: 0.5;
+			}
+
+			.map-conn-line--show { stroke: var(--brand-cyan); }
+			.map-conn-line--play { stroke: var(--brand-green); stroke-dasharray: 6 3; }
+			.map-conn-line--return { stroke: var(--brand-purple); stroke-dasharray: 3 3; }
+			.map-conn-line--audio { stroke: var(--brand-amber); stroke-dasharray: 2 2; }
+
+			.map-conn-arrow {
+				opacity: 0.6;
+			}
+
+			/* ── Inspector Panel ──────────────────────────────────── */
+			.inspector {
+				background: var(--bg-panel);
+				border-left: 1px solid var(--border-subtle);
+				overflow-y: auto;
+				display: flex;
+				flex-direction: column;
+			}
+
+			.inspector--hidden { display: none; }
+
+			.inspector__header {
+				padding: var(--space-3) var(--space-4);
+				border-bottom: 1px solid var(--border-subtle);
+				background: rgba(0,0,0,0.1);
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+			}
+
+			.inspector__selected-name {
+				font-size: var(--text-sm);
+				font-weight: 600;
+				color: var(--brand-orange);
+			}
+
+			.inspector__close {
+				background: none;
+				border: none;
+				color: var(--text-muted);
+				cursor: pointer;
+				padding: 2px;
+			}
+
+			.inspector__close:hover { color: var(--text-primary); }
+
+			.inspector__body {
+				padding: var(--space-3);
+				display: flex;
+				flex-direction: column;
+				gap: var(--space-3);
+			}
+
+			/* Inspector sections */
+			.insp-section {
+				border: 1px solid var(--border-subtle);
+				border-radius: var(--radius-md);
+				overflow: hidden;
+			}
+
+			.insp-section__header {
+				padding: var(--space-2) var(--space-3);
+				background: rgba(0,0,0,0.12);
+				font-size: var(--text-xs);
+				font-weight: 600;
+				color: var(--text-muted);
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				cursor: pointer;
+			}
+
+			.insp-section__header:hover { color: var(--text-primary); }
+
+			.insp-section__body { padding: var(--space-2) var(--space-3); }
+
+			.insp-row {
+				display: flex;
+				align-items: center;
+				gap: var(--space-2);
+				padding: 4px 0;
+			}
+
+			.insp-label {
+				font-size: 10px;
+				color: var(--text-muted);
+				width: 50px;
+				flex-shrink: 0;
+			}
+
+			.insp-input {
+				flex: 1;
+				padding: 3px 6px;
+				background: var(--bg-input);
+				border: 1px solid var(--border-subtle);
+				border-radius: var(--radius-sm);
+				color: var(--text-primary);
+				font-family: var(--font-mono);
+				font-size: 10px;
+			}
+
+			.insp-input:focus { outline: none; border-color: var(--border-focus); }
+			.insp-input--sm { width: 48px; flex: none; }
+
+			.insp-select {
+				flex: 1;
+				padding: 3px 6px;
+				background: var(--bg-input);
+				border: 1px solid var(--border-subtle);
+				border-radius: var(--radius-sm);
+				color: var(--text-primary);
+				font-size: 10px;
+			}
+
+			/* State chips */
+			.state-row {
+				display: flex;
+				gap: var(--space-1);
+				padding: 4px 0;
+			}
+
+			.state-chip {
+				flex: 1;
+				padding: 6px 0;
+				text-align: center;
+				font-size: 9px;
+				font-weight: 600;
+				border-radius: var(--radius-sm);
+				cursor: pointer;
+				border: 1.5px solid transparent;
+				transition: all var(--transition-fast);
+			}
+
+			.state-chip--normal { background: rgba(255,255,255,0.04); color: var(--text-muted); border-color: var(--border-subtle); }
+			.state-chip--focus { background: rgba(255,170,64,0.1); color: var(--brand-orange); border-color: rgba(255,170,64,0.3); }
+			.state-chip--activate { background: rgba(46,198,106,0.1); color: var(--brand-green); border-color: rgba(46,198,106,0.3); }
+			.state-chip--active { box-shadow: 0 0 6px currentColor; }
+
+			/* Action editor (inline, not a separate mode) */
+			.action-row {
+				display: flex;
+				align-items: center;
+				gap: 4px;
+				padding: 4px 8px;
+				background: rgba(167,139,250,0.06);
+				border: 1px solid rgba(167,139,250,0.15);
+				border-radius: 8px;
+				font-size: 10px;
+				color: var(--brand-purple);
+				margin-top: 4px;
+			}
+
+			.action-row__icon {
+				flex-shrink: 0;
+				opacity: 0.7;
+			}
+
+			.action-row__text { flex: 1; }
+			.action-row__edit {
+				background: none;
+				border: none;
+				color: var(--brand-purple);
+				cursor: pointer;
+				font-size: 9px;
+				font-weight: 600;
+				opacity: 0.6;
+				padding: 2px 4px;
+				border-radius: 4px;
+			}
+
+			.action-row__edit:hover { opacity: 1; background: rgba(167,139,250,0.1); }
+
+			/* Connection section in inspector */
+			.conn-list { display: flex; flex-direction: column; gap: 4px; }
+
+			.conn-entry {
+				display: flex;
+				align-items: center;
+				gap: 6px;
+				padding: 4px 8px;
+				border-radius: 6px;
+				font-size: 10px;
+				cursor: pointer;
+				transition: background var(--transition-fast);
+			}
+
+			.conn-entry:hover { background: rgba(255,255,255,0.03); }
+
+			.conn-entry__dir {
+				font-size: 8px;
+				font-weight: 700;
+				width: 24px;
+				text-align: center;
+				padding: 1px 0;
+				border-radius: 4px;
+			}
+
+			.conn-entry__dir--out { background: rgba(34,211,238,0.1); color: var(--brand-cyan); }
+			.conn-entry__dir--in { background: rgba(167,139,250,0.1); color: var(--brand-purple); }
+
+			.conn-entry__target { color: var(--text-secondary); }
+			.conn-entry__type { color: var(--text-muted); font-style: italic; margin-left: auto; }
+
+			/* Navigation direction editor */
+			.nav-grid {
+				display: grid;
+				grid-template-columns: 1fr 1fr 1fr;
+				grid-template-rows: auto auto auto;
+				gap: 4px;
+				padding: 4px 0;
+			}
+
+			.nav-grid__cell {
+				display: flex;
+				align-items: center;
+				justify-content: center;
+			}
+
+			.nav-grid__btn {
+				padding: 4px 8px;
+				background: var(--bg-input);
+				border: 1px solid var(--border-subtle);
+				border-radius: var(--radius-sm);
+				font-size: 9px;
+				color: var(--text-secondary);
+				cursor: pointer;
+				transition: all var(--transition-fast);
+				text-align: center;
+				min-width: 60px;
+			}
+
+			.nav-grid__btn:hover { border-color: var(--border-default); color: var(--text-primary); }
+
+			.nav-grid__center {
+				font-size: 10px;
+				color: var(--text-muted);
+				text-align: center;
+			}
+
+			/* Diagnostics */
+			.diag-chip {
+				display: flex;
+				align-items: flex-start;
+				gap: var(--space-2);
+				padding: var(--space-2) var(--space-3);
+				border-radius: var(--radius-md);
+				font-size: 10px;
+				line-height: 1.4;
+			}
+
+			.diag-chip--ok { background: rgba(46,198,106,0.06); border: 1px solid rgba(46,198,106,0.12); color: var(--text-secondary); }
+			.diag-chip--warn { background: rgba(251,191,36,0.06); border: 1px solid rgba(251,191,36,0.12); color: var(--text-secondary); }
+
+			/* ── Map view inspector ────────────────────────────────── */
+			.map-inspector__header {
+				display: flex;
+				align-items: center;
+				gap: var(--space-2);
+				margin-bottom: var(--space-2);
+			}
+
+			.map-inspector__name {
+				font-size: var(--text-md);
+				font-weight: 600;
+			}
+
+			.map-inspector__scope {
+				font-size: 9px;
+				padding: 1px 5px;
+				border-radius: 4px;
+				font-weight: 600;
+			}
+
+			.map-inspector__stat-row {
+				display: flex;
+				gap: var(--space-4);
+				padding: var(--space-2) 0;
+				border-bottom: 1px solid var(--border-subtle);
+				margin-bottom: var(--space-2);
+			}
+
+			.map-inspector__stat {
+				font-size: 10px;
+				color: var(--text-muted);
+			}
+
+			.map-inspector__stat strong {
+				color: var(--text-primary);
+				font-weight: 600;
+			}
+		</style>
+	</head>
+	<body>
+		<div class="menus-content">
+			<!-- ═══ LEFT: Menu Navigator ═══ -->
+			<div class="menu-nav">
+				<div class="menu-nav__header">
+					<span class="menu-nav__title">Menus</span>
+					<div class="menu-nav__view-toggle">
+						<button class="nav-view-btn nav-view-btn--active" data-nav-view="editor" title="Edit selected menu">Editor</button>
+						<button class="nav-view-btn" data-nav-view="map" title="Navigation map overview">Map</button>
+					</div>
+				</div>
+
+				<div class="menu-nav__body" id="menuNavBody">
+					<!-- Global Menus -->
+					<div class="scope-group">
+						<div class="scope-header">
+							<span class="scope-label">
+								<span class="scope-badge scope-badge--vmgm">VMGM</span>
+								Global
+							</span>
+							<button class="scope-add-btn" title="Add global menu">+</button>
+						</div>
+
+						<div class="menu-item menu-item--selected" data-menu="main-menu">
+							<div class="menu-item__preview">
+								<div class="menu-item__mini-btn" style="left: 15%; top: 50%; width: 70%;"></div>
+								<div class="menu-item__mini-btn" style="left: 15%; top: 62%; width: 70%;"></div>
+								<div class="menu-item__mini-btn" style="left: 15%; top: 74%; width: 70%;"></div>
+							</div>
+							<div class="menu-item__info">
+								<div class="menu-item__name">Main Menu</div>
+								<div class="menu-item__meta">
+									<span>4 buttons</span>
+									<span>&middot;</span>
+									<span>Still</span>
+									<span>&middot;</span>
+									<div class="menu-item__conns">
+										<span class="conn-indicator conn-indicator--out" title="2 outgoing connections">&#8594;2</span>
+										<span class="conn-indicator conn-indicator--in" title="1 incoming connection">&#8592;1</span>
+									</div>
+								</div>
+							</div>
+							<div class="menu-item__status menu-item__status--ok"></div>
+						</div>
+					</div>
+
+					<!-- Titleset Menus -->
+					<div class="scope-group">
+						<div class="scope-header">
+							<span class="scope-label">
+								<span class="scope-badge scope-badge--vts">VTS 1</span>
+								Feature Film
+							</span>
+							<button class="scope-add-btn" title="Add titleset menu">+</button>
+						</div>
+
+						<div class="menu-item" data-menu="chapter-select">
+							<div class="menu-item__preview">
+								<div class="menu-item__mini-btn" style="left: 5%; top: 30%; width: 28%; height: 30%;"></div>
+								<div class="menu-item__mini-btn" style="left: 36%; top: 30%; width: 28%; height: 30%;"></div>
+								<div class="menu-item__mini-btn" style="left: 67%; top: 30%; width: 28%; height: 30%;"></div>
+							</div>
+							<div class="menu-item__info">
+								<div class="menu-item__name">Chapter Select</div>
+								<div class="menu-item__meta">
+									<span>6 + nav</span>
+									<span>&middot;</span>
+									<span>Motion</span>
+									<span>&middot;</span>
+									<div class="menu-item__conns">
+										<span class="conn-indicator conn-indicator--out" title="1 outgoing">&#8594;1</span>
+										<span class="conn-indicator conn-indicator--in" title="1 incoming">&#8592;1</span>
+									</div>
+								</div>
+							</div>
+							<div class="menu-item__status menu-item__status--ok"></div>
+						</div>
+
+						<div class="menu-item" data-menu="audio-setup">
+							<div class="menu-item__preview">
+								<div class="menu-item__mini-btn" style="left: 10%; top: 40%; width: 80%;"></div>
+								<div class="menu-item__mini-btn" style="left: 10%; top: 55%; width: 80%;"></div>
+							</div>
+							<div class="menu-item__info">
+								<div class="menu-item__name">Audio Setup</div>
+								<div class="menu-item__meta">
+									<span>3 buttons</span>
+									<span>&middot;</span>
+									<span>setAudio</span>
+									<span>&middot;</span>
+									<div class="menu-item__conns">
+										<span class="conn-indicator conn-indicator--out" title="0 outgoing">&#8594;0</span>
+										<span class="conn-indicator conn-indicator--in" title="1 incoming">&#8592;1</span>
+									</div>
+								</div>
+							</div>
+							<div class="menu-item__status menu-item__status--warn"></div>
+						</div>
+
+						<div class="menu-item" data-menu="subtitle-setup">
+							<div class="menu-item__preview">
+								<div class="menu-item__mini-btn" style="left: 10%; top: 40%; width: 80%;"></div>
+								<div class="menu-item__mini-btn" style="left: 10%; top: 55%; width: 80%;"></div>
+							</div>
+							<div class="menu-item__info">
+								<div class="menu-item__name">Subtitle Setup</div>
+								<div class="menu-item__meta">
+									<span>2 buttons</span>
+									<span>&middot;</span>
+									<span>setSub</span>
+									<span>&middot;</span>
+									<div class="menu-item__conns">
+										<span class="conn-indicator conn-indicator--out" title="0 outgoing">&#8594;0</span>
+										<span class="conn-indicator conn-indicator--in" title="1 incoming">&#8592;1</span>
+									</div>
+								</div>
+							</div>
+							<div class="menu-item__status menu-item__status--ok"></div>
+						</div>
+					</div>
+				</div>
+
+				<!-- Template Picker -->
+				<div class="template-section">
+					<div class="template-toggle" id="templateToggle">
+						<span class="template-toggle__label">
+							<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/></svg>
+							Templates
+						</span>
+						<svg class="template-toggle__chevron" id="templateChevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+					</div>
+					<div class="template-list" id="templateList">
+						<div class="template-option" data-template="classic">
+							<div class="template-option__icon"></div>
+							Classic Main Menu
+						</div>
+						<div class="template-option" data-template="chapter-grid">
+							<div class="template-option__icon"></div>
+							Chapter Grid
+						</div>
+						<div class="template-option" data-template="audio-setup">
+							<div class="template-option__icon"></div>
+							Audio / Subtitle Setup
+						</div>
+						<div class="template-option" data-template="poster-shelf">
+							<div class="template-option__icon"></div>
+							Poster Shelf
+						</div>
+						<div class="template-option" data-template="blank">
+							<div class="template-option__icon" style="display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.15); font-size: 10px;">+</div>
+							Blank Canvas
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<!-- ═══ RIGHT: Editor Area ═══ -->
+			<div class="editor-area">
+				<!-- ── Editor View (Design) ──────────────────────── -->
+				<div id="editorView">
+					<div class="editor-toolbar">
+						<input class="editor-toolbar__name" value="Main Menu" id="menuNameInput" />
+
+						<div class="toolbar-spacer"></div>
+
+						<div class="toolbar-info">
+							<span id="toolbarStatus">4 buttons</span>
+							<span>|</span>
+							<span>VMGM</span>
+							<span>|</span>
+							<span>720 x 480 NTSC</span>
+						</div>
+
+						<button class="preview-toggle" id="previewToggle" title="Toggle compile preview">
+							<div class="preview-dot"></div>
+							Preview
+						</button>
+
+						<button class="btn btn--ghost btn--sm" id="toggleInspectorBtn" title="Toggle Inspector">
+							<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
+						</button>
+					</div>
+
+					<div class="editor-body" id="editorBody">
+						<!-- Canvas -->
+						<div class="canvas-viewport" id="canvasViewport">
+							<div class="canvas-tools-floating" id="canvasTools">
+								<button class="canvas-tool-btn canvas-tool-btn--active" data-tool="select" title="Select (V)">
+									<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/></svg>
+								</button>
+								<button class="canvas-tool-btn" data-tool="text" title="Text (T)">
+									<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>
+								</button>
+								<button class="canvas-tool-btn" data-tool="button" title="Button (B)">
+									<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="8" width="18" height="8" rx="2"/></svg>
+								</button>
+								<button class="canvas-tool-btn" data-tool="image" title="Image (I)">
+									<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+								</button>
+								<div class="tool-sep"></div>
+								<button class="canvas-tool-btn" id="toggleSafeBtn" title="Toggle Safe Areas (S)">
+									<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><rect x="7" y="7" width="10" height="10" rx="1" opacity="0.4"/></svg>
+								</button>
+								<button class="canvas-tool-btn" id="toggleNavArrows" title="Show Navigation Arrows (N)">
+									<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
+								</button>
+							</div>
+
+							<!-- Menu Canvas -->
+							<div class="menu-canvas" id="menuCanvas">
+								<div class="canvas-bg-layer" style="background: radial-gradient(ellipse at 30% 20%, rgba(167,139,250,0.06) 0%, transparent 50%);"></div>
+
+								<!-- Safe area guides -->
+								<div class="safe-guide safe-guide--action" id="safeAction"></div>
+								<div class="safe-guide safe-guide--title" id="safeTitle"></div>
+
+								<!-- Text nodes -->
+								<div class="scene-text scene-text--title" style="left: 72px; top: 50px;" id="titleText">Wedding Highlights</div>
+								<div class="scene-text scene-text--subtitle" style="left: 74px; top: 90px;">Emily &amp; James — June 2025</div>
+
+								<!-- Button nodes (action badges inline) -->
+								<div class="scene-btn scene-btn--selected scene-btn--default" data-btn="btn-1" data-action="playTitle" data-target="Ceremony" style="left: 72px; top: 160px; width: 280px; height: 44px;">
+									<div class="scene-btn__default-marker"></div>
+									<div class="resize-handle resize-handle--tl"></div>
+									<div class="resize-handle resize-handle--tr"></div>
+									<div class="resize-handle resize-handle--bl"></div>
+									<div class="resize-handle resize-handle--br"></div>
+									<span>&#9654; Play Ceremony</span>
+									<div class="scene-btn__action-badge action-badge--play">playTitle</div>
+								</div>
+
+								<div class="scene-btn" data-btn="btn-2" data-action="playTitle" data-target="Reception" style="left: 72px; top: 218px; width: 280px; height: 44px;">
+									<div class="resize-handle resize-handle--tl"></div>
+									<div class="resize-handle resize-handle--tr"></div>
+									<div class="resize-handle resize-handle--bl"></div>
+									<div class="resize-handle resize-handle--br"></div>
+									<span>&#9654; Play Reception</span>
+									<div class="scene-btn__action-badge action-badge--play">playTitle</div>
+								</div>
+
+								<div class="scene-btn" data-btn="btn-3" data-action="showMenu" data-target="Chapter Select" style="left: 72px; top: 276px; width: 280px; height: 44px;">
+									<div class="resize-handle resize-handle--tl"></div>
+									<div class="resize-handle resize-handle--tr"></div>
+									<div class="resize-handle resize-handle--bl"></div>
+									<div class="resize-handle resize-handle--br"></div>
+									<span>&#9670; Chapter Select</span>
+									<div class="scene-btn__action-badge action-badge--menu">showMenu</div>
+								</div>
+
+								<div class="scene-btn" data-btn="btn-4" data-action="showMenu" data-target="Audio Setup" style="left: 72px; top: 334px; width: 280px; height: 44px;">
+									<div class="resize-handle resize-handle--tl"></div>
+									<div class="resize-handle resize-handle--tr"></div>
+									<div class="resize-handle resize-handle--bl"></div>
+									<div class="resize-handle resize-handle--br"></div>
+									<span>&#9835; Audio Setup</span>
+									<div class="scene-btn__action-badge action-badge--menu">showMenu</div>
+								</div>
+
+								<!-- Navigation arrows overlay (toggle) -->
+								<svg class="nav-arrows-overlay" id="navArrowsOverlay" viewBox="0 0 720 480">
+									<defs>
+										<marker id="arrow-nav" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+											<path d="M0,1 L0,7 L7,4 z" fill="var(--brand-blue)" opacity="0.6" />
+										</marker>
+									</defs>
+									<!-- Down arrows between buttons -->
+									<path d="M 212 204 L 212 216" stroke="var(--brand-blue)" stroke-width="1.5" fill="none" opacity="0.4" marker-end="url(#arrow-nav)" />
+									<path d="M 212 262 L 212 274" stroke="var(--brand-blue)" stroke-width="1.5" fill="none" opacity="0.4" marker-end="url(#arrow-nav)" />
+									<path d="M 212 320 L 212 332" stroke="var(--brand-blue)" stroke-width="1.5" fill="none" opacity="0.4" marker-end="url(#arrow-nav)" />
+									<!-- Up arrows -->
+									<path d="M 228 218 L 228 206" stroke="var(--brand-blue)" stroke-width="1.5" fill="none" opacity="0.25" marker-end="url(#arrow-nav)" />
+									<path d="M 228 276 L 228 264" stroke="var(--brand-blue)" stroke-width="1.5" fill="none" opacity="0.25" marker-end="url(#arrow-nav)" />
+									<path d="M 228 334 L 228 322" stroke="var(--brand-blue)" stroke-width="1.5" fill="none" opacity="0.25" marker-end="url(#arrow-nav)" />
+								</svg>
+
+								<!-- Compile preview overlay -->
+								<div class="compile-overlay" id="compileOverlay">
+									<div class="compile-banner">
+										<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg>
+										Compile Preview — DVD output simulation
+									</div>
+									<div class="compile-info">
+										<div class="compile-stat">
+											<span class="compile-stat__label">Buttons</span>
+											<span class="compile-stat__value compile-stat__value--ok">4 / 36</span>
+										</div>
+										<div class="compile-stat">
+											<span class="compile-stat__label">Colours</span>
+											<span class="compile-stat__value compile-stat__value--ok">3 / 4 CLUT</span>
+										</div>
+										<div class="compile-stat">
+											<span class="compile-stat__label">Actions</span>
+											<span class="compile-stat__value compile-stat__value--ok">4 resolved</span>
+										</div>
+										<div class="compile-stat">
+											<span class="compile-stat__label">Nav</span>
+											<span class="compile-stat__value compile-stat__value--ok">Complete</span>
+										</div>
+										<div class="compile-stat">
+											<span class="compile-stat__label">Safe areas</span>
+											<span class="compile-stat__value compile-stat__value--ok">All clear</span>
+										</div>
+									</div>
+								</div>
+							</div>
+
+							<div class="zoom-info">100%</div>
+						</div>
+
+						<!-- Inspector -->
+						<div class="inspector" id="inspector">
+							<div class="inspector__header">
+								<span class="inspector__selected-name" id="inspectorName">Play Ceremony</span>
+								<button class="inspector__close" id="closeInspectorBtn">
+									<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+								</button>
+							</div>
+
+							<div class="inspector__body" id="inspectorBody">
+								<!-- Transform -->
+								<div class="insp-section">
+									<div class="insp-section__header">Transform</div>
+									<div class="insp-section__body">
+										<div class="insp-row">
+											<span class="insp-label">X</span>
+											<input class="insp-input insp-input--sm" value="72" id="insp-x" />
+											<span class="insp-label">Y</span>
+											<input class="insp-input insp-input--sm" value="160" id="insp-y" />
+										</div>
+										<div class="insp-row">
+											<span class="insp-label">W</span>
+											<input class="insp-input insp-input--sm" value="280" id="insp-w" />
+											<span class="insp-label">H</span>
+											<input class="insp-input insp-input--sm" value="44" id="insp-h" />
+										</div>
+									</div>
+								</div>
+
+								<!-- Visual States -->
+								<div class="insp-section">
+									<div class="insp-section__header">Visual States</div>
+									<div class="insp-section__body">
+										<div class="state-row">
+											<div class="state-chip state-chip--normal" data-state="normal">Normal</div>
+											<div class="state-chip state-chip--focus state-chip--active" data-state="focus">Focus</div>
+											<div class="state-chip state-chip--activate" data-state="activate">Activate</div>
+										</div>
+									</div>
+								</div>
+
+								<!-- Action (inline, not a mode) -->
+								<div class="insp-section">
+									<div class="insp-section__header">
+										Action
+										<span class="badge badge--neutral" style="font-size: 8px;" id="actionBadge">playTitle</span>
+									</div>
+									<div class="insp-section__body">
+										<div class="insp-row">
+											<span class="insp-label">Type</span>
+											<select class="insp-select" id="insp-action-type">
+												<option selected>playTitle</option>
+												<option>playChapter</option>
+												<option>showMenu</option>
+												<option>setAudioStream</option>
+												<option>setSubtitleStream</option>
+												<option>sequence</option>
+												<option>stop</option>
+											</select>
+										</div>
+										<div class="insp-row">
+											<span class="insp-label">Target</span>
+											<select class="insp-select" id="insp-action-target">
+												<option selected>Ceremony</option>
+												<option>Reception</option>
+												<option>Chapter Select</option>
+												<option>Audio Setup</option>
+												<option>Subtitle Setup</option>
+											</select>
+										</div>
+										<div class="action-row">
+											<svg class="action-row__icon" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21"/></svg>
+											<span class="action-row__text" id="actionSummary">playTitle: "Ceremony"</span>
+										</div>
+									</div>
+								</div>
+
+								<!-- Navigation -->
+								<div class="insp-section">
+									<div class="insp-section__header">
+										Navigation
+										<span class="badge badge--neutral" style="font-size: 8px;">Auto</span>
+									</div>
+									<div class="insp-section__body">
+										<div class="nav-grid">
+											<div class="nav-grid__cell"></div>
+											<div class="nav-grid__cell"><button class="nav-grid__btn" data-dir="up">(none)</button></div>
+											<div class="nav-grid__cell"></div>
+											<div class="nav-grid__cell"><button class="nav-grid__btn" data-dir="left">(none)</button></div>
+											<div class="nav-grid__cell"><div class="nav-grid__center">btn-1</div></div>
+											<div class="nav-grid__cell"><button class="nav-grid__btn" data-dir="right">(none)</button></div>
+											<div class="nav-grid__cell"></div>
+											<div class="nav-grid__cell"><button class="nav-grid__btn" data-dir="down">Play Recep...</button></div>
+											<div class="nav-grid__cell"></div>
+										</div>
+									</div>
+								</div>
+
+								<!-- Connections (from this menu) -->
+								<div class="insp-section">
+									<div class="insp-section__header">
+										Connections
+										<span class="badge badge--neutral" style="font-size: 8px;">Menu</span>
+									</div>
+									<div class="insp-section__body">
+										<div class="conn-list" id="connList">
+											<div class="conn-entry" data-target-menu="chapter-select">
+												<span class="conn-entry__dir conn-entry__dir--out">OUT</span>
+												<span class="conn-entry__target">Chapter Select</span>
+												<span class="conn-entry__type">showMenu</span>
+											</div>
+											<div class="conn-entry" data-target-menu="audio-setup">
+												<span class="conn-entry__dir conn-entry__dir--out">OUT</span>
+												<span class="conn-entry__target">Audio Setup</span>
+												<span class="conn-entry__type">showMenu</span>
+											</div>
+											<div class="conn-entry" data-target-menu="chapter-select">
+												<span class="conn-entry__dir conn-entry__dir--in">IN</span>
+												<span class="conn-entry__target">Chapter Select</span>
+												<span class="conn-entry__type">return</span>
+											</div>
+										</div>
+									</div>
+								</div>
+
+								<!-- Diagnostics -->
+								<div class="diag-chip diag-chip--ok">
+									<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--colour-success)" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+									<span>Navigation valid. All actions resolved. Within button limits.</span>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+
+				<!-- ── Navigation Map View ───────────────────────── -->
+				<div class="nav-map-view" id="navMapView">
+					<div class="map-toolbar">
+						<span class="map-toolbar__title">Navigation Map</span>
+						<div class="map-legend">
+							<div class="legend-item"><div class="legend-line legend-line--show"></div>showMenu</div>
+							<div class="legend-item"><div class="legend-line legend-line--play"></div>playTitle</div>
+							<div class="legend-item"><div class="legend-line legend-line--return"></div>return</div>
+							<div class="legend-item"><div class="legend-line legend-line--audio"></div>setAudio</div>
+						</div>
+					</div>
+
+					<div class="editor-body" id="mapEditorBody">
+						<div class="map-canvas-wrap" id="mapCanvasWrap">
+							<!-- Connection lines -->
+							<svg class="map-connections" id="mapConnSvg" viewBox="0 0 800 500">
+								<defs>
+									<marker id="arrow-show" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+										<path d="M0,1 L0,7 L7,4 z" fill="var(--brand-cyan)" class="map-conn-arrow" />
+									</marker>
+									<marker id="arrow-play" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+										<path d="M0,1 L0,7 L7,4 z" fill="var(--brand-green)" class="map-conn-arrow" />
+									</marker>
+									<marker id="arrow-return" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+										<path d="M0,1 L0,7 L7,4 z" fill="var(--brand-purple)" class="map-conn-arrow" />
+									</marker>
+								</defs>
+								<!-- Main Menu -> Chapter Select (showMenu) -->
+								<path class="map-conn-line map-conn-line--show" d="M 230 130 C 330 130, 350 100, 450 100" marker-end="url(#arrow-show)" />
+								<!-- Main Menu -> Audio Setup (showMenu) -->
+								<path class="map-conn-line map-conn-line--show" d="M 230 150 C 330 170, 350 240, 450 240" marker-end="url(#arrow-show)" />
+								<!-- Main Menu -> Title 1 (playTitle) -->
+								<path class="map-conn-line map-conn-line--play" d="M 230 160 C 300 200, 300 350, 380 370" marker-end="url(#arrow-play)" />
+								<!-- Chapter Select -> Main Menu (return) -->
+								<path class="map-conn-line map-conn-line--return" d="M 450 115 C 350 140, 280 155, 230 140" marker-end="url(#arrow-return)" />
+								<!-- Chapter Select -> Title 1 chapters (playChapter) -->
+								<path class="map-conn-line map-conn-line--play" d="M 530 120 C 560 180, 480 330, 440 370" marker-end="url(#arrow-play)" />
+								<!-- Audio Setup -> Subtitle Setup (showMenu) -->
+								<path class="map-conn-line map-conn-line--show" d="M 530 260 C 580 280, 580 340, 530 360" marker-end="url(#arrow-show)" />
+							</svg>
+
+							<!-- Menu cards -->
+							<div class="map-menu-card map-menu-card--selected" data-map-menu="main-menu" style="left: 80px; top: 95px;">
+								<div class="map-card__scope scope-badge scope-badge--vmgm">VMGM</div>
+								<div class="map-card__name">Main Menu</div>
+								<div class="map-card__preview">
+									<div class="map-card__preview-btn" style="left: 10%; top: 50%; width: 80%; height: 8%;"></div>
+									<div class="map-card__preview-btn" style="left: 10%; top: 62%; width: 80%; height: 8%;"></div>
+									<div class="map-card__preview-btn" style="left: 10%; top: 74%; width: 80%; height: 8%;"></div>
+								</div>
+								<div class="map-card__btns">4 buttons &middot; Still</div>
+							</div>
+
+							<div class="map-menu-card" data-map-menu="chapter-select" style="left: 420px; top: 60px;">
+								<div class="map-card__scope scope-badge scope-badge--vts">VTS 1</div>
+								<div class="map-card__name">Chapter Select</div>
+								<div class="map-card__preview">
+									<div class="map-card__preview-btn" style="left: 5%; top: 30%; width: 28%; height: 35%;"></div>
+									<div class="map-card__preview-btn" style="left: 36%; top: 30%; width: 28%; height: 35%;"></div>
+									<div class="map-card__preview-btn" style="left: 67%; top: 30%; width: 28%; height: 35%;"></div>
+								</div>
+								<div class="map-card__btns">6 + nav &middot; Motion</div>
+							</div>
+
+							<div class="map-menu-card" data-map-menu="audio-setup" style="left: 420px; top: 210px;">
+								<div class="map-card__scope scope-badge scope-badge--vts">VTS 1</div>
+								<div class="map-card__name">Audio Setup</div>
+								<div class="map-card__preview">
+									<div class="map-card__preview-btn" style="left: 10%; top: 40%; width: 80%; height: 10%;"></div>
+									<div class="map-card__preview-btn" style="left: 10%; top: 55%; width: 80%; height: 10%;"></div>
+								</div>
+								<div class="map-card__btns">3 buttons &middot; setAudio</div>
+							</div>
+
+							<div class="map-menu-card" data-map-menu="subtitle-setup" style="left: 420px; top: 330px;">
+								<div class="map-card__scope scope-badge scope-badge--vts">VTS 1</div>
+								<div class="map-card__name">Subtitle Setup</div>
+								<div class="map-card__preview">
+									<div class="map-card__preview-btn" style="left: 10%; top: 40%; width: 80%; height: 10%;"></div>
+									<div class="map-card__preview-btn" style="left: 10%; top: 55%; width: 80%; height: 10%;"></div>
+								</div>
+								<div class="map-card__btns">2 buttons &middot; setSub</div>
+							</div>
+
+							<!-- Title targets (non-menu) -->
+							<div class="map-menu-card map-menu-card--target" data-map-menu="title-1" style="left: 300px; top: 350px;">
+								<div class="map-card__name" style="font-size: 11px; color: var(--text-muted);">Title 1: Feature Film</div>
+								<div class="map-card__btns">12 chapters</div>
+							</div>
+						</div>
+
+						<!-- Map Inspector -->
+						<div class="inspector" id="mapInspector">
+							<div class="inspector__header">
+								<span class="inspector__selected-name">Main Menu</span>
+								<button class="inspector__close" id="closeMapInspectorBtn">
+									<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+								</button>
+							</div>
+							<div class="inspector__body" id="mapInspectorBody">
+								<div class="map-inspector__header">
+									<span class="map-inspector__name">Main Menu</span>
+									<span class="map-inspector__scope scope-badge scope-badge--vmgm">VMGM</span>
+								</div>
+
+								<div class="map-inspector__stat-row">
+									<div class="map-inspector__stat"><strong>4</strong> buttons</div>
+									<div class="map-inspector__stat"><strong>Still</strong> menu</div>
+									<div class="map-inspector__stat"><strong>720x480</strong> NTSC</div>
+								</div>
+
+								<!-- Outgoing connections -->
+								<div class="insp-section">
+									<div class="insp-section__header">
+										Outgoing
+										<span class="badge badge--neutral" style="font-size: 8px;">2</span>
+									</div>
+									<div class="insp-section__body">
+										<div class="conn-list">
+											<div class="conn-entry" data-target-menu="chapter-select">
+												<span class="conn-entry__dir conn-entry__dir--out">&#8594;</span>
+												<span class="conn-entry__target">Chapter Select</span>
+												<span class="conn-entry__type">showMenu</span>
+											</div>
+											<div class="conn-entry" data-target-menu="audio-setup">
+												<span class="conn-entry__dir conn-entry__dir--out">&#8594;</span>
+												<span class="conn-entry__target">Audio Setup</span>
+												<span class="conn-entry__type">showMenu</span>
+											</div>
+										</div>
+									</div>
+								</div>
+
+								<!-- Incoming connections -->
+								<div class="insp-section">
+									<div class="insp-section__header">
+										Incoming
+										<span class="badge badge--neutral" style="font-size: 8px;">1</span>
+									</div>
+									<div class="insp-section__body">
+										<div class="conn-list">
+											<div class="conn-entry">
+												<span class="conn-entry__dir conn-entry__dir--in">&#8592;</span>
+												<span class="conn-entry__target">Chapter Select</span>
+												<span class="conn-entry__type">return</span>
+											</div>
+										</div>
+									</div>
+								</div>
+
+								<!-- Titles played -->
+								<div class="insp-section">
+									<div class="insp-section__header">
+										Titles Played
+										<span class="badge badge--neutral" style="font-size: 8px;">2</span>
+									</div>
+									<div class="insp-section__body">
+										<div class="conn-list">
+											<div class="conn-entry">
+												<span class="conn-entry__dir conn-entry__dir--out" style="background: rgba(46,198,106,0.1); color: var(--brand-green);">&#9654;</span>
+												<span class="conn-entry__target">Ceremony</span>
+												<span class="conn-entry__type">playTitle</span>
+											</div>
+											<div class="conn-entry">
+												<span class="conn-entry__dir conn-entry__dir--out" style="background: rgba(46,198,106,0.1); color: var(--brand-green);">&#9654;</span>
+												<span class="conn-entry__target">Reception</span>
+												<span class="conn-entry__type">playTitle</span>
+											</div>
+										</div>
+									</div>
+								</div>
+
+								<!-- Diagnostics for this menu -->
+								<div class="diag-chip diag-chip--ok">
+									<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--colour-success)" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+									<span>All connections resolved. Navigation complete.</span>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<script>
+			(function() {
+				'use strict';
+
+				// ── State ───────────────────────────────────────────
+				let currentView = 'editor'; // 'editor' | 'map'
+				let selectedBtn = 'btn-1';
+				let inspectorVisible = true;
+				let safeAreasVisible = false;
+				let navArrowsVisible = false;
+				let previewMode = false;
+				let templateOpen = false;
+				let activeTool = 'select';
+
+				// ── Element refs ────────────────────────────────────
+				const editorView = document.getElementById('editorView');
+				const navMapView = document.getElementById('navMapView');
+				const canvas = document.getElementById('menuCanvas');
+				const inspector = document.getElementById('inspector');
+				const editorBody = document.getElementById('editorBody');
+				const mapEditorBody = document.getElementById('mapEditorBody');
+				const mapInspector = document.getElementById('mapInspector');
+				const navArrowsOverlay = document.getElementById('navArrowsOverlay');
+				const compileOverlay = document.getElementById('compileOverlay');
+				const safeAction = document.getElementById('safeAction');
+				const safeTitle = document.getElementById('safeTitle');
+				const canvasTools = document.getElementById('canvasTools');
+
+				// ── View switching (Editor / Map) ───────────────────
+				document.querySelectorAll('[data-nav-view]').forEach(btn => {
+					btn.addEventListener('click', () => {
+						document.querySelectorAll('[data-nav-view]').forEach(b => b.classList.remove('nav-view-btn--active'));
+						btn.classList.add('nav-view-btn--active');
+						currentView = btn.dataset.navView;
+
+						if (currentView === 'editor') {
+							editorView.style.display = '';
+							navMapView.classList.remove('nav-map-view--visible');
+						} else {
+							editorView.style.display = 'none';
+							navMapView.classList.add('nav-map-view--visible');
+						}
+					});
+				});
+
+				// ── Menu item selection in left nav ─────────────────
+				document.querySelectorAll('.menu-item').forEach(item => {
+					item.addEventListener('click', () => {
+						document.querySelectorAll('.menu-item').forEach(i => i.classList.remove('menu-item--selected'));
+						item.classList.add('menu-item--selected');
+
+						const menuId = item.dataset.menu;
+						const name = item.querySelector('.menu-item__name').textContent;
+						document.getElementById('menuNameInput').value = name;
+
+						// Sync map cards
+						document.querySelectorAll('.map-menu-card').forEach(c => c.classList.remove('map-menu-card--selected'));
+						const mapCard = document.querySelector(`.map-menu-card[data-map-menu="${menuId}"]`);
+						if (mapCard) mapCard.classList.add('map-menu-card--selected');
+
+						// Update map inspector
+						document.querySelector('#mapInspector .inspector__selected-name').textContent = name;
+						document.querySelector('.map-inspector__name').textContent = name;
+
+						// Switch to editor view if in map and double-click
+						// (single click just selects in map)
+					});
+				});
+
+				// Map card clicks -> select menu + update both views
+				document.querySelectorAll('.map-menu-card').forEach(card => {
+					card.addEventListener('click', () => {
+						const menuId = card.dataset.mapMenu;
+						const menuItem = document.querySelector(`.menu-item[data-menu="${menuId}"]`);
+						if (menuItem) menuItem.click();
+					});
+
+					// Double-click -> switch to editor for that menu
+					card.addEventListener('dblclick', () => {
+						document.querySelector('[data-nav-view="editor"]').click();
+					});
+				});
+
+				// ── Canvas button selection ─────────────────────────
+				const btnData = {
+					'btn-1': { name: 'Play Ceremony', action: 'playTitle', target: 'Ceremony' },
+					'btn-2': { name: 'Play Reception', action: 'playTitle', target: 'Reception' },
+					'btn-3': { name: 'Chapter Select', action: 'showMenu', target: 'Chapter Select' },
+					'btn-4': { name: 'Audio Setup', action: 'showMenu', target: 'Audio Setup' }
+				};
+
+				document.querySelectorAll('.scene-btn').forEach(btn => {
+					btn.addEventListener('click', (e) => {
+						e.stopPropagation();
+						document.querySelectorAll('.scene-btn').forEach(b => b.classList.remove('scene-btn--selected'));
+						btn.classList.add('scene-btn--selected');
+						selectedBtn = btn.dataset.btn;
+
+						const data = btnData[selectedBtn];
+						document.getElementById('inspectorName').textContent = data.name;
+						document.getElementById('insp-x').value = parseInt(btn.style.left);
+						document.getElementById('insp-y').value = parseInt(btn.style.top);
+						document.getElementById('insp-w').value = parseInt(btn.style.width);
+						document.getElementById('insp-h').value = parseInt(btn.style.height);
+						document.getElementById('insp-action-type').value = data.action;
+						document.getElementById('insp-action-target').value = data.target;
+						document.getElementById('actionSummary').textContent = data.action + ': "' + data.target + '"';
+						document.getElementById('actionBadge').textContent = data.action;
+
+						// Update nav grid center label
+						document.querySelector('.nav-grid__center').textContent = selectedBtn;
+					});
+
+					// Drag to move
+					let dragging = false, startX, startY, origLeft, origTop;
+
+					btn.addEventListener('mousedown', (e) => {
+						if (e.target.classList.contains('resize-handle')) return;
+						if (activeTool !== 'select') return;
+						dragging = true;
+						startX = e.clientX;
+						startY = e.clientY;
+						origLeft = parseInt(btn.style.left);
+						origTop = parseInt(btn.style.top);
+						btn.style.cursor = 'grabbing';
+						e.preventDefault();
+					});
+
+					document.addEventListener('mousemove', (e) => {
+						if (!dragging) return;
+						const dx = e.clientX - startX;
+						const dy = e.clientY - startY;
+						btn.style.left = (origLeft + dx) + 'px';
+						btn.style.top = (origTop + dy) + 'px';
+
+						if (btn.classList.contains('scene-btn--selected')) {
+							document.getElementById('insp-x').value = parseInt(btn.style.left);
+							document.getElementById('insp-y').value = parseInt(btn.style.top);
+						}
+					});
+
+					document.addEventListener('mouseup', () => {
+						if (dragging) {
+							dragging = false;
+							btn.style.cursor = 'move';
+						}
+					});
+				});
+
+				// Deselect on canvas background click
+				canvas.addEventListener('click', (e) => {
+					if (e.target === canvas || e.target.classList.contains('canvas-bg-layer')) {
+						document.querySelectorAll('.scene-btn').forEach(b => b.classList.remove('scene-btn--selected'));
+						document.getElementById('inspectorName').textContent = '(No selection)';
+					}
+				});
+
+				// ── Preview toggle (compile) ────────────────────────
+				document.getElementById('previewToggle').addEventListener('click', () => {
+					previewMode = !previewMode;
+					document.getElementById('previewToggle').classList.toggle('preview-toggle--active', previewMode);
+					canvas.classList.toggle('menu-canvas--preview', previewMode);
+					compileOverlay.classList.toggle('compile-overlay--visible', previewMode);
+
+					// Dim tools in preview
+					canvasTools.style.opacity = previewMode ? '0.3' : '';
+					canvasTools.style.pointerEvents = previewMode ? 'none' : '';
+				});
+
+				// ── Tool switching ──────────────────────────────────
+				document.querySelectorAll('.canvas-tool-btn[data-tool]').forEach(btn => {
+					btn.addEventListener('click', () => {
+						document.querySelectorAll('.canvas-tool-btn[data-tool]').forEach(b => b.classList.remove('canvas-tool-btn--active'));
+						btn.classList.add('canvas-tool-btn--active');
+						activeTool = btn.dataset.tool;
+					});
+				});
+
+				// ── Safe area toggle ────────────────────────────────
+				document.getElementById('toggleSafeBtn').addEventListener('click', () => {
+					safeAreasVisible = !safeAreasVisible;
+					safeAction.classList.toggle('safe-guide--visible', safeAreasVisible);
+					safeTitle.classList.toggle('safe-guide--visible', safeAreasVisible);
+					document.getElementById('toggleSafeBtn').classList.toggle('canvas-tool-btn--active', safeAreasVisible);
+				});
+
+				// ── Navigation arrows toggle ────────────────────────
+				document.getElementById('toggleNavArrows').addEventListener('click', () => {
+					navArrowsVisible = !navArrowsVisible;
+					navArrowsOverlay.classList.toggle('nav-arrows-overlay--visible', navArrowsVisible);
+					document.getElementById('toggleNavArrows').classList.toggle('canvas-tool-btn--active', navArrowsVisible);
+				});
+
+				// ── Inspector toggle ────────────────────────────────
+				function toggleInspector() {
+					inspectorVisible = !inspectorVisible;
+					inspector.classList.toggle('inspector--hidden', !inspectorVisible);
+					editorBody.classList.toggle('editor-body--no-inspector', !inspectorVisible);
+				}
+
+				document.getElementById('toggleInspectorBtn').addEventListener('click', toggleInspector);
+				document.getElementById('closeInspectorBtn').addEventListener('click', toggleInspector);
+
+				// Map inspector close
+				document.getElementById('closeMapInspectorBtn').addEventListener('click', () => {
+					mapInspector.classList.toggle('inspector--hidden');
+					mapEditorBody.classList.toggle('editor-body--no-inspector');
+				});
+
+				// ── Template picker toggle ──────────────────────────
+				document.getElementById('templateToggle').addEventListener('click', () => {
+					templateOpen = !templateOpen;
+					document.getElementById('templateList').classList.toggle('template-list--open', templateOpen);
+					document.getElementById('templateChevron').classList.toggle('template-toggle__chevron--open', templateOpen);
+				});
+
+				document.querySelectorAll('.template-option').forEach(opt => {
+					opt.addEventListener('click', () => {
+						opt.style.background = 'rgba(46,198,106,0.1)';
+						opt.style.color = 'var(--brand-green)';
+						setTimeout(() => { opt.style.background = ''; opt.style.color = ''; }, 600);
+					});
+				});
+
+				// ── State chip interaction ───────────────────────────
+				document.querySelectorAll('.state-chip').forEach(chip => {
+					chip.addEventListener('click', () => {
+						document.querySelectorAll('.state-chip').forEach(c => c.classList.remove('state-chip--active'));
+						chip.classList.add('state-chip--active');
+
+						const state = chip.dataset.state;
+						const selected = document.querySelector('.scene-btn--selected');
+						if (!selected) return;
+
+						if (state === 'normal') {
+							selected.style.borderColor = 'rgba(255,255,255,0.2)';
+							selected.style.background = 'rgba(255,255,255,0.06)';
+							selected.style.boxShadow = 'none';
+						} else if (state === 'focus') {
+							selected.style.borderColor = 'var(--brand-orange)';
+							selected.style.background = 'rgba(255,170,64,0.08)';
+							selected.style.boxShadow = '0 0 0 1px var(--brand-orange), 0 0 16px rgba(255,170,64,0.12)';
+						} else if (state === 'activate') {
+							selected.style.borderColor = 'var(--brand-green)';
+							selected.style.background = 'rgba(46,198,106,0.1)';
+							selected.style.boxShadow = '0 0 0 1px var(--brand-green), 0 0 16px rgba(46,198,106,0.12)';
+						}
+					});
+				});
+
+				// ── Inspector position live update ───────────────────
+				['insp-x', 'insp-y', 'insp-w', 'insp-h'].forEach(id => {
+					const input = document.getElementById(id);
+					if (!input) return;
+					input.addEventListener('input', () => {
+						const selected = document.querySelector('.scene-btn--selected');
+						if (!selected) return;
+						const prop = { 'insp-x': 'left', 'insp-y': 'top', 'insp-w': 'width', 'insp-h': 'height' }[id];
+						selected.style[prop] = input.value + 'px';
+					});
+				});
+
+				// ── Action type/target change updates summary ────────
+				document.getElementById('insp-action-type').addEventListener('change', updateActionSummary);
+				document.getElementById('insp-action-target').addEventListener('change', updateActionSummary);
+
+				function updateActionSummary() {
+					const type = document.getElementById('insp-action-type').value;
+					const target = document.getElementById('insp-action-target').value;
+					document.getElementById('actionSummary').textContent = type + ': "' + target + '"';
+					document.getElementById('actionBadge').textContent = type;
+
+					// Update canvas badge
+					const selected = document.querySelector('.scene-btn--selected');
+					if (selected) {
+						const badge = selected.querySelector('.scene-btn__action-badge');
+						if (badge) {
+							badge.textContent = type;
+							badge.className = 'scene-btn__action-badge';
+							if (type.startsWith('play')) badge.classList.add('action-badge--play');
+							else if (type === 'showMenu') badge.classList.add('action-badge--menu');
+							else badge.classList.add('action-badge--audio');
+						}
+					}
+				}
+
+				// ── Connection entries -> jump to menu ───────────────
+				document.querySelectorAll('.conn-entry[data-target-menu]').forEach(entry => {
+					entry.addEventListener('click', () => {
+						const targetMenu = entry.dataset.targetMenu;
+						const menuItem = document.querySelector(`.menu-item[data-menu="${targetMenu}"]`);
+						if (menuItem) {
+							menuItem.click();
+							// Brief highlight flash
+							entry.style.background = 'rgba(34,211,238,0.1)';
+							setTimeout(() => { entry.style.background = ''; }, 400);
+						}
+					});
+				});
+
+				// ── Keyboard shortcuts ───────────────────────────────
+				document.addEventListener('keydown', (e) => {
+					if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+
+					switch(e.key.toLowerCase()) {
+						case 'v': document.querySelector('[data-tool="select"]')?.click(); break;
+						case 't': document.querySelector('[data-tool="text"]')?.click(); break;
+						case 'b': document.querySelector('[data-tool="button"]')?.click(); break;
+						case 'i': document.querySelector('[data-tool="image"]')?.click(); break;
+						case 's': document.getElementById('toggleSafeBtn')?.click(); break;
+						case 'n': document.getElementById('toggleNavArrows')?.click(); break;
+						case 'p': document.getElementById('previewToggle')?.click(); break;
+						case 'm':
+							// Toggle between editor and map
+							const target = currentView === 'editor' ? 'map' : 'editor';
+							document.querySelector(`[data-nav-view="${target}"]`)?.click();
+							break;
+						case 'escape':
+							if (previewMode) {
+								document.getElementById('previewToggle')?.click();
+							} else {
+								document.querySelectorAll('.scene-btn').forEach(b => b.classList.remove('scene-btn--selected'));
+								document.getElementById('inspectorName').textContent = '(No selection)';
+							}
+							break;
+					}
+				});
+			})();
+		</script>
+	</body>
+</html>
