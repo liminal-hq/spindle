@@ -172,6 +172,11 @@
 					<li><strong>Connections restored.</strong> Each menu item in the left nav shows incoming/outgoing connection counts. The inspector has a dedicated Connections section listing all linked menus with click-to-jump. Action badges appear on hover/select on canvas buttons.</li>
 					<li><strong>Auto Navigation.</strong> Toolbar "Auto Nav" button (<kbd>A</kbd>) calculates geometric Up/Down/Left/Right navigation for all buttons, mirroring the current Spindle autoNav feature. Inspector Navigation section has an Auto/Manual toggle and a "Recalculate from positions" button.</li>
 					<li><strong>Navigation map is a full view.</strong> Editor/Map toggle switches to a bird's-eye map with clean bezier-routed connection lines between card edges — showMenu (cyan), playTitle (green dashed), return (purple dotted). Double-click a card to jump to that menu's editor.</li>
+					<li><strong>Background editing.</strong> New inspector section for menu background: Solid colour (with colour picker), Image (from project assets with fit mode), or Video (for motion menus — duration, audio source, loop count). Solid/Image/Video mode chips switch the controls shown.</li>
+					<li><strong>Auto-generate menus (issue #20).</strong> "Generate Menus" section in the left nav creates data-driven menus from project metadata: Chapter Grid (auto-paginated, 12-18 buttons per page), Audio Setup (from title audio streams), Subtitle Setup (from subtitle streams). Pre-wires navigation and actions.</li>
+					<li><strong>Map SVG connections now dynamic.</strong> Connection lines are computed from actual card DOM positions via JavaScript, so they connect to card edges correctly at any viewport size. Redraws on view switch, resize, and inspector toggle.</li>
+					<li><strong>Map view inspector toggle.</strong> The map toolbar now has the same inspector toggle button as the editor toolbar.</li>
+					<li><strong>Canvas re-centres properly</strong> when inspector is toggled (removed CSS transition that blocked grid reflow).</li>
 					<li><strong>Well-commented HTML.</strong> Architecture overview, section markers, data model notes, and implementation hints throughout the source for planning.</li>
 				</ul>
 			</div>
@@ -195,6 +200,10 @@
 					<span class="feature-tag feature-tag--scene">Action Badges on Canvas</span>
 					<span class="feature-tag feature-tag--compile">Connection Indicators</span>
 					<span class="feature-tag feature-tag--interact">Click-to-Jump Connections</span>
+					<span class="feature-tag feature-tag--scene">Background Editing</span>
+					<span class="feature-tag feature-tag--motion">Motion Video Backgrounds</span>
+					<span class="feature-tag feature-tag--gen">Auto-Generate Menus</span>
+					<span class="feature-tag feature-tag--compile">Auto-Pagination</span>
 				</div>
 				<a href="menu-editor.html" class="btn btn--primary" target="_blank">Open Menu Editor</a>
 

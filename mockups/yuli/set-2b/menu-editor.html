@@ -31,8 +31,12 @@
 	- Compile is a "Preview" overlay on the same canvas
 	- Mini navigation map persists in the left nav for orientation
 	- Full navigation map is a switchable view (Editor ↔ Map)
+	- Map SVG connections drawn dynamically from card DOM positions
 	- Auto-navigation calculates geometric Up/Down/Left/Right routing
 	- Connection indicators show incoming/outgoing links per menu
+	- Background editing: solid colour, image, or video (motion menus)
+	- Auto-generate menus from project data (issue #20):
+	  Chapter Grid, Audio Setup, Subtitle Setup with pagination
 
 	IMPLEMENTATION NOTES
 	────────────────────
@@ -580,10 +584,14 @@
 				grid-template-columns: 1fr 300px;
 				flex: 1;
 				overflow: hidden;
-				transition: grid-template-columns 0.2s ease;
 			}
 
-			.editor-body--no-inspector { grid-template-columns: 1fr; }
+			.editor-body--no-inspector {
+				grid-template-columns: 1fr;
+			}
+
+			/* Ensure hidden inspector doesn't occupy grid space */
+			.editor-body--no-inspector .inspector { display: none; }
 
 
 			/* ═══════════════════════════════════════════════════════
@@ -1366,8 +1374,11 @@
 			.map-connections {
 				position: absolute;
 				inset: 0;
+				width: 100%;
+				height: 100%;
 				pointer-events: none;
 				z-index: 2;
+				overflow: visible;
 			}
 
 			.map-conn-line {
@@ -1379,6 +1390,118 @@
 			.map-conn-line--show { stroke: var(--brand-cyan); }
 			.map-conn-line--play { stroke: var(--brand-green); stroke-dasharray: 6 3; }
 			.map-conn-line--return { stroke: var(--brand-purple); stroke-dasharray: 3 3; }
+
+			/* ── Background section (inspector) ───────────────── */
+			.bg-mode-row {
+				display: flex;
+				gap: var(--space-1);
+				padding: 4px 0;
+			}
+
+			.bg-mode-chip {
+				flex: 1;
+				padding: 5px 0;
+				text-align: center;
+				font-size: 9px;
+				font-weight: 600;
+				border-radius: var(--radius-sm);
+				cursor: pointer;
+				border: 1.5px solid var(--border-subtle);
+				background: rgba(255,255,255,0.02);
+				color: var(--text-muted);
+				transition: all var(--transition-fast);
+			}
+
+			.bg-mode-chip:hover { color: var(--text-primary); }
+
+			.bg-mode-chip--active {
+				border-color: rgba(255,170,64,0.3);
+				background: rgba(255,170,64,0.06);
+				color: var(--brand-orange);
+			}
+
+			.bg-colour-row {
+				display: flex;
+				align-items: center;
+				gap: var(--space-2);
+				padding: 4px 0;
+			}
+
+			.bg-colour-swatch {
+				width: 24px;
+				height: 24px;
+				border-radius: var(--radius-sm);
+				border: 1.5px solid var(--border-default);
+				cursor: pointer;
+				flex-shrink: 0;
+			}
+
+			/* ── Generate menus section ───────────────────────── */
+			.generate-section {
+				border-top: 1px solid var(--border-subtle);
+				padding: var(--space-2) var(--space-3);
+				flex-shrink: 0;
+			}
+
+			.generate-section__header {
+				font-size: 10px;
+				font-weight: 600;
+				color: var(--text-muted);
+				letter-spacing: 0.06em;
+				margin-bottom: var(--space-2);
+				display: flex;
+				align-items: center;
+				gap: var(--space-2);
+			}
+
+			.generate-btn {
+				display: flex;
+				align-items: center;
+				gap: 6px;
+				width: 100%;
+				padding: 7px 10px;
+				border-radius: var(--radius-sm);
+				border: 1px dashed var(--border-subtle);
+				background: rgba(255,255,255,0.01);
+				color: var(--text-secondary);
+				font-size: var(--text-xs);
+				cursor: pointer;
+				transition: all var(--transition-fast);
+				margin-bottom: 4px;
+			}
+
+			.generate-btn:hover {
+				border-color: var(--border-default);
+				background: rgba(255,255,255,0.03);
+				color: var(--text-primary);
+			}
+
+			.generate-btn__icon {
+				width: 16px;
+				height: 16px;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				border-radius: 4px;
+				font-size: 10px;
+				flex-shrink: 0;
+			}
+
+			.generate-btn__icon--chapter { background: rgba(46,198,106,0.1); color: var(--brand-green); }
+			.generate-btn__icon--audio { background: rgba(167,139,250,0.1); color: var(--brand-purple); }
+			.generate-btn__icon--subtitle { background: rgba(34,211,238,0.1); color: var(--brand-cyan); }
+
+			.generate-btn__detail {
+				font-size: 9px;
+				color: var(--text-muted);
+				margin-left: auto;
+			}
+
+			.generate-flash {
+				background: rgba(46,198,106,0.08) !important;
+				border-color: rgba(46,198,106,0.3) !important;
+				color: var(--brand-green) !important;
+			}
 
 			/* ── Map inspector ──────────────────────────────────── */
 			.map-inspector__header {
@@ -1650,6 +1773,42 @@
 						</div>
 					</div>
 				</div>
+
+				<!-- ── Generate Menus ─────────────────────────────
+				     Auto-generate data-driven menus from project
+				     metadata (GitHub issue #20). Creates complete
+				     MenuDocument scenes with buttons, actions, and
+				     navigation pre-wired. Supports auto-pagination
+				     for large collections (12-18 buttons per page,
+				     Next/Back wired automatically).
+				     ────────────────────────────────────────────── -->
+				<div class="generate-section" id="generateSection">
+					<div class="generate-section__header">
+						<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4m0 12v4m-6-10H2m20 0h-4m-1.343-5.657l-2.828-2.828m9.9 9.9l-2.83-2.83M4.93 4.93l2.83 2.83m-5.66 5.66l2.83-2.83"/></svg>
+						Generate Menus
+					</div>
+
+					<!-- Chapter Grid: auto-paginated from title chapters -->
+					<button class="generate-btn" data-generate="chapter-grid">
+						<span class="generate-btn__icon generate-btn__icon--chapter">&#9638;</span>
+						Chapter Grid
+						<span class="generate-btn__detail">12 ch &rarr; 2 pages</span>
+					</button>
+
+					<!-- Audio Setup: from title audio streams -->
+					<button class="generate-btn" data-generate="audio-setup">
+						<span class="generate-btn__icon generate-btn__icon--audio">&#9835;</span>
+						Audio Setup
+						<span class="generate-btn__detail">3 streams</span>
+					</button>
+
+					<!-- Subtitle Setup: from title subtitle streams -->
+					<button class="generate-btn" data-generate="subtitle-setup">
+						<span class="generate-btn__icon generate-btn__icon--subtitle">S</span>
+						Subtitle Setup
+						<span class="generate-btn__detail">2 streams</span>
+					</button>
+				</div>
 			</div><!-- /menu-nav -->
 
 
@@ -1907,6 +2066,88 @@
 
 							<div class="inspector__body" id="inspectorBody">
 
+								<!-- 0. Background — menu-level property
+								     ─────────────────────────────────────
+								     Controls the menu canvas background:
+								     - Solid: flat colour fill
+								     - Image: static image from project assets
+								     - Video: looping video for motion menus
+								       (ties into motionDurationSecs,
+								       motionAudioAssetId, motionLoopCount
+								       from the motion menu spec)
+								     ─────────────────────────────────────  -->
+								<div class="insp-section" id="bgSection">
+									<div class="insp-section__header">
+										Background
+										<span class="badge badge--neutral" style="font-size: 8px;" id="bgModeBadge">Solid</span>
+									</div>
+									<div class="insp-section__body">
+										<div class="bg-mode-row">
+											<div class="bg-mode-chip bg-mode-chip--active" data-bg-mode="solid">Solid</div>
+											<div class="bg-mode-chip" data-bg-mode="image">Image</div>
+											<div class="bg-mode-chip" data-bg-mode="video">Video</div>
+										</div>
+										<!-- Solid colour controls -->
+										<div id="bgSolidControls">
+											<div class="bg-colour-row">
+												<div class="bg-colour-swatch" id="bgColourSwatch" style="background: linear-gradient(160deg, #1a1828, #0f0e1a);" title="Click to change"></div>
+												<input class="insp-input" value="#0f0e1a" id="bgColourInput" style="flex: 1;" />
+											</div>
+										</div>
+										<!-- Image controls (hidden by default) -->
+										<div id="bgImageControls" style="display: none;">
+											<div class="insp-row">
+												<span class="insp-label">Asset</span>
+												<select class="insp-select" id="bgImageSelect">
+													<option>(none)</option>
+													<option>wedding-bg.jpg</option>
+													<option>chapter-bg.png</option>
+												</select>
+											</div>
+											<div class="insp-row">
+												<span class="insp-label">Fit</span>
+												<select class="insp-select">
+													<option>Cover</option>
+													<option>Contain</option>
+													<option>Stretch</option>
+												</select>
+											</div>
+										</div>
+										<!-- Video controls (hidden by default) -->
+										<div id="bgVideoControls" style="display: none;">
+											<div class="insp-row">
+												<span class="insp-label">Asset</span>
+												<select class="insp-select" id="bgVideoSelect">
+													<option>(none)</option>
+													<option>intro-loop.mp4</option>
+													<option>ambient-bg.mp4</option>
+												</select>
+											</div>
+											<div class="insp-row">
+												<span class="insp-label">Duration</span>
+												<input class="insp-input insp-input--sm" value="30" id="bgDuration" />
+												<span style="font-size: 9px; color: var(--text-muted);">sec</span>
+											</div>
+											<div class="insp-row">
+												<span class="insp-label">Audio</span>
+												<select class="insp-select">
+													<option>From video</option>
+													<option>Separate asset</option>
+													<option>None</option>
+												</select>
+											</div>
+											<div class="insp-row">
+												<span class="insp-label">Loop</span>
+												<select class="insp-select">
+													<option>Infinite</option>
+													<option>1x then timeout</option>
+													<option>2x then timeout</option>
+												</select>
+											</div>
+										</div>
+									</div>
+								</div>
+
 								<!-- 1. Transform — position and dimensions -->
 								<div class="insp-section">
 									<div class="insp-section__header">Transform</div>
@@ -2083,6 +2324,10 @@
 							<div class="legend-item"><div class="legend-line legend-line--play"></div>playTitle</div>
 							<div class="legend-item"><div class="legend-line legend-line--return"></div>return</div>
 						</div>
+						<!-- Inspector toggle (matches editor toolbar) -->
+						<button class="btn btn--ghost btn--sm" id="toggleMapInspectorBtn" title="Toggle Inspector">
+							<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
+						</button>
 					</div>
 
 					<div class="editor-body" id="mapEditorBody">
@@ -2116,48 +2361,25 @@
 							  │   top-center:   (265, 420)                │
 							  └────────────────────────────────────────────┘
 							-->
-							<svg class="map-connections" id="mapConnSvg" viewBox="0 0 750 520" preserveAspectRatio="xMinYMin meet">
+							<!--
+							  SVG connection lines — drawn dynamically by JS
+							  to match actual card positions at any viewport
+							  size. Uses no viewBox so SVG coordinates = pixel
+							  coordinates within the container.
+							-->
+							<svg class="map-connections" id="mapConnSvg">
 								<defs>
 									<marker id="arrow-show" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
-										<path d="M0,0 L0,6 L8,3 z" fill="var(--brand-cyan)" opacity="0.6" />
+										<path d="M0,0 L0,6 L8,3 z" fill="var(--brand-cyan)" opacity="0.7" />
 									</marker>
 									<marker id="arrow-play" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
-										<path d="M0,0 L0,6 L8,3 z" fill="var(--brand-green)" opacity="0.6" />
+										<path d="M0,0 L0,6 L8,3 z" fill="var(--brand-green)" opacity="0.7" />
 									</marker>
 									<marker id="arrow-return" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
-										<path d="M0,0 L0,6 L8,3 z" fill="var(--brand-purple)" opacity="0.6" />
+										<path d="M0,0 L0,6 L8,3 z" fill="var(--brand-purple)" opacity="0.7" />
 									</marker>
 								</defs>
-
-								<!-- Main Menu → Chapter Select (showMenu, cyan solid) -->
-								<path class="map-conn-line map-conn-line--show"
-									d="M 220 145 C 320 145, 320 95, 420 95"
-									marker-end="url(#arrow-show)" />
-
-								<!-- Main Menu → Audio Setup (showMenu, cyan solid) -->
-								<path class="map-conn-line map-conn-line--show"
-									d="M 220 168 C 320 168, 320 260, 420 260"
-									marker-end="url(#arrow-show)" />
-
-								<!-- Main Menu → Title 1 (playTitle, green dashed) -->
-								<path class="map-conn-line map-conn-line--play"
-									d="M 135 226 C 135 330, 265 330, 265 420"
-									marker-end="url(#arrow-play)" />
-
-								<!-- Chapter Select → Main Menu (return, purple dotted) -->
-								<path class="map-conn-line map-conn-line--return"
-									d="M 420 112 C 350 82, 290 120, 220 158"
-									marker-end="url(#arrow-return)" />
-
-								<!-- Chapter Select → Title 1 (playChapter, green dashed) -->
-								<path class="map-conn-line map-conn-line--play"
-									d="M 505 170 C 505 290, 310 350, 290 420"
-									marker-end="url(#arrow-play)" />
-
-								<!-- Audio Setup → Subtitle Setup (showMenu, cyan solid) -->
-								<path class="map-conn-line map-conn-line--show"
-									d="M 505 326 C 505 343, 505 343, 505 360"
-									marker-end="url(#arrow-show)" />
+								<!-- Paths are generated by drawMapConnections() -->
 							</svg>
 
 							<!-- ── Menu cards ─────────────────────
@@ -2337,7 +2559,10 @@
 		     12. Action editor sync
 		     13. Connection click-to-jump
 		     14. Auto-navigation calculation
-		     15. Keyboard shortcuts
+		     15. Dynamic map SVG connections
+		     16. Background editing
+		     17. Generate menus
+		     18. Keyboard shortcuts
 		     ═══════════════════════════════════════════════════════ -->
 		<script>
 			(function() {
@@ -2397,6 +2622,14 @@
 				// Mini-map "Expand" button → switch to full Map view
 				document.getElementById('expandMapBtn').addEventListener('click', () => {
 					document.querySelector('[data-nav-view="map"]').click();
+				});
+
+				// Map inspector toggle (matches editor inspector toggle)
+				document.getElementById('toggleMapInspectorBtn').addEventListener('click', () => {
+					mapInspector.classList.toggle('inspector--hidden');
+					mapEditorBody.classList.toggle('editor-body--no-inspector');
+					// Redraw connections after layout change
+					setTimeout(drawMapConnections, 50);
 				});
 
 
@@ -2730,9 +2963,155 @@
 				});
 
 
-				// ── 15. Keyboard shortcuts ──────────────────────────
+				// ── 15. Dynamic map SVG connections ─────────────────
+				// Computes edge midpoints of actual card DOM elements
+				// and draws bezier curves between them. Called when
+				// map view is shown or layout changes.
+
+				const mapConnections = [
+					{ from: 'main-menu',      to: 'chapter-select',  type: 'show',   fromEdge: 'right',  toEdge: 'left' },
+					{ from: 'main-menu',      to: 'audio-setup',     type: 'show',   fromEdge: 'right',  toEdge: 'left' },
+					{ from: 'main-menu',      to: 'title-1',         type: 'play',   fromEdge: 'bottom', toEdge: 'top' },
+					{ from: 'chapter-select',  to: 'main-menu',      type: 'return', fromEdge: 'left',   toEdge: 'right' },
+					{ from: 'chapter-select',  to: 'title-1',        type: 'play',   fromEdge: 'bottom', toEdge: 'top' },
+					{ from: 'audio-setup',     to: 'subtitle-setup', type: 'show',   fromEdge: 'bottom', toEdge: 'top' },
+				];
+
+				function getCardEdge(menuId, edge) {
+					const card = document.querySelector(`.map-menu-card[data-map-menu="${menuId}"]`);
+					const wrap = document.getElementById('mapCanvasWrap');
+					if (!card || !wrap) return { x: 0, y: 0 };
+
+					const cardRect = card.getBoundingClientRect();
+					const wrapRect = wrap.getBoundingClientRect();
+
+					// Positions relative to the map container
+					const left   = cardRect.left - wrapRect.left;
+					const top    = cardRect.top - wrapRect.top;
+					const right  = left + cardRect.width;
+					const bottom = top + cardRect.height;
+					const midX   = left + cardRect.width / 2;
+					const midY   = top + cardRect.height / 2;
+
+					switch (edge) {
+						case 'left':   return { x: left,  y: midY };
+						case 'right':  return { x: right, y: midY };
+						case 'top':    return { x: midX,  y: top };
+						case 'bottom': return { x: midX,  y: bottom };
+						default:       return { x: midX,  y: midY };
+					}
+				}
+
+				function drawMapConnections() {
+					const svg = document.getElementById('mapConnSvg');
+					// Clear existing paths (keep defs)
+					svg.querySelectorAll('path.map-conn-line').forEach(p => p.remove());
+
+					// For each connection, compute a bezier curve
+					mapConnections.forEach(conn => {
+						const from = getCardEdge(conn.from, conn.fromEdge);
+						const to   = getCardEdge(conn.to,   conn.toEdge);
+
+						// Control point offset (determines curve shape)
+						const dx = Math.abs(to.x - from.x);
+						const dy = Math.abs(to.y - from.y);
+						const offset = Math.max(dx, dy) * 0.4;
+
+						let cp1x, cp1y, cp2x, cp2y;
+
+						if (conn.fromEdge === 'right' && conn.toEdge === 'left') {
+							cp1x = from.x + offset; cp1y = from.y;
+							cp2x = to.x - offset;   cp2y = to.y;
+						} else if (conn.fromEdge === 'left' && conn.toEdge === 'right') {
+							// Return connections: curve upward to avoid overlap
+							cp1x = from.x - offset; cp1y = from.y - offset * 0.5;
+							cp2x = to.x + offset;   cp2y = to.y - offset * 0.3;
+						} else if (conn.fromEdge === 'bottom' && conn.toEdge === 'top') {
+							cp1x = from.x; cp1y = from.y + offset;
+							cp2x = to.x;   cp2y = to.y - offset;
+						} else {
+							cp1x = from.x + offset; cp1y = from.y;
+							cp2x = to.x - offset;   cp2y = to.y;
+						}
+
+						const d = `M ${from.x} ${from.y} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${to.x} ${to.y}`;
+
+						const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+						path.setAttribute('d', d);
+						path.setAttribute('class', `map-conn-line map-conn-line--${conn.type}`);
+						path.setAttribute('marker-end', `url(#arrow-${conn.type})`);
+						svg.appendChild(path);
+					});
+				}
+
+				// Redraw connections when map view becomes visible
+				const origMapClick = document.querySelector('[data-nav-view="map"]');
+				origMapClick.addEventListener('click', () => {
+					// Wait for layout to settle
+					requestAnimationFrame(() => requestAnimationFrame(drawMapConnections));
+				});
+
+				// Redraw on window resize
+				window.addEventListener('resize', () => {
+					if (currentView === 'map') drawMapConnections();
+				});
+
+
+				// ── 16. Background editing ──────────────────────────
+				document.querySelectorAll('[data-bg-mode]').forEach(chip => {
+					chip.addEventListener('click', () => {
+						document.querySelectorAll('[data-bg-mode]').forEach(c => c.classList.remove('bg-mode-chip--active'));
+						chip.classList.add('bg-mode-chip--active');
+
+						const mode = chip.dataset.bgMode;
+						document.getElementById('bgModeBadge').textContent = mode.charAt(0).toUpperCase() + mode.slice(1);
+
+						// Show/hide appropriate controls
+						document.getElementById('bgSolidControls').style.display = mode === 'solid' ? '' : 'none';
+						document.getElementById('bgImageControls').style.display = mode === 'image' ? '' : 'none';
+						document.getElementById('bgVideoControls').style.display = mode === 'video' ? '' : 'none';
+
+						// Update canvas background hint
+						if (mode === 'video') {
+							canvas.style.background = 'linear-gradient(160deg, #1a1828 0%, #0f0e1a 50%, #181520 100%)';
+							canvas.style.boxShadow = '0 8px 40px rgba(0,0,0,0.5), inset 0 0 60px rgba(167,139,250,0.04)';
+						} else {
+							canvas.style.boxShadow = '';
+						}
+					});
+				});
+
+				// Colour input sync
+				document.getElementById('bgColourInput')?.addEventListener('input', (e) => {
+					document.getElementById('bgColourSwatch').style.background = e.target.value;
+				});
+
+
+				// ── 17. Generate menus ───────────────────────────────
+				// Simulates auto-generation (GitHub issue #20).
+				// In production: calls Rust backend to slice project
+				// entities into paginated groups, then spawns
+				// MenuDocument scenes with pre-wired navigation.
+
+				document.querySelectorAll('[data-generate]').forEach(btn => {
+					btn.addEventListener('click', () => {
+						const type = btn.dataset.generate;
+						btn.classList.add('generate-flash');
+						setTimeout(() => btn.classList.remove('generate-flash'), 800);
+
+						// Simulate adding a menu to the list (visual feedback)
+						const detail = btn.querySelector('.generate-btn__detail');
+						if (detail) {
+							const origText = detail.textContent;
+							detail.textContent = 'Generated!';
+							setTimeout(() => { detail.textContent = origText; }, 1200);
+						}
+					});
+				});
+
+
+				// ── 18. Keyboard shortcuts ──────────────────────────
 				document.addEventListener('keydown', (e) => {
-					// Don't capture when typing in inputs
 					if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
 
 					switch(e.key.toLowerCase()) {
