@@ -178,7 +178,20 @@
 					<li><strong>Map view inspector toggle.</strong> The map toolbar now has the same inspector toggle button as the editor toolbar.</li>
 					<li><strong>Canvas re-centres properly</strong> when inspector is toggled (removed CSS transition that blocked grid reflow).</li>
 					<li><strong>Well-commented HTML.</strong> Architecture overview, section markers, data model notes, and implementation hints throughout the source for planning.</li>
-					<li><strong>Split into three files.</strong> CSS extracted to <code>menu-editor.css</code> (1476 lines), JS extracted to <code>menu-editor.js</code> (601 lines), leaving <code>menu-editor.html</code> as a clean structural shell (1064 lines). Each concern is independently editable.</li>
+					<li><strong>Split into three files.</strong> CSS extracted to <code>menu-editor.css</code>, JS to <code>menu-editor.js</code>, leaving <code>menu-editor.html</code> as a clean structural shell. Each concern is independently editable.</li>
+					<li><strong>Collapsible inspector sections.</strong> Every section independently collapsible with chevron toggle. Expand All / Collapse All buttons in the inspector header. Inspector body scrolls when content exceeds viewport.</li>
+					<li><strong>Button style controls.</strong> New section with per-state styling (Normal/Focus/Activate tabs). Background fill, border colour/width/radius, horizontal/vertical padding, shadow/glow type with colour and blur controls.</li>
+					<li><strong>Text style controls.</strong> New section with font family, size, line height, bold/italic/underline toggles, text colour, alignment buttons (left/centre/right), letter spacing, and text shadow presets. Applies to both standalone text nodes and button label text.</li>
+					<li><strong>Video segment markers.</strong> Intro and loop regions shown as a visual timeline bar with purple (intro) and green (loop) segments. Timecode inputs for intro start/duration and loop start/duration.</li>
+					<li><strong>Audio background mode.</strong> New "Audio" chip in the background section for still-image menus with background audio. Creates a motion menu with static frame + AC3 audio track.</li>
+					<li><strong>Audio track on image backgrounds.</strong> Image background mode now also offers an optional audio track sub-section for menus that need background music over a still image.</li>
+					<li><strong>CLUT palette editor.</strong> DVD 4-colour subpicture palette (BG, E1, E2, Anti-alias) with colour swatches. Maps authored styles to DVD overlay constraints.</li>
+					<li><strong>Highlight mode.</strong> Static or Animated toggle. Animated mode reveals keyframe count and easing controls for motion menu highlight transitions.</li>
+					<li><strong>Layer order panel.</strong> Lists all scene nodes in z-order with type icons (button/text), names, and per-layer visibility toggles. Supports drag-to-reorder.</li>
+					<li><strong>Shape tool.</strong> New shape tool (<kbd>R</kbd>) in the floating canvas palette for decorative rectangles.</li>
+					<li><strong>8-directional resize handles.</strong> Buttons now have edge handles (N/S/E/W strips) in addition to corner handles, matching the production <code>SceneCanvas.tsx</code> pattern.</li>
+					<li><strong>Alignment and snap notes.</strong> Transform section includes implementation comments for snap-to-grid (8px threshold, red guide lines) and alignment toolbar (align/distribute) from the current codebase.</li>
+					<li><strong>Shared minimap renderer.</strong> Architecture comment notes that the mini-map and full Navigation Map should share the same React component, with the mini-map being a scaled-down target view.</li>
 				</ul>
 			</div>
 
@@ -205,6 +218,16 @@
 					<span class="feature-tag feature-tag--motion">Motion Video Backgrounds</span>
 					<span class="feature-tag feature-tag--gen">Auto-Generate Menus</span>
 					<span class="feature-tag feature-tag--compile">Auto-Pagination</span>
+					<span class="feature-tag feature-tag--scene">Button Style (per-state)</span>
+					<span class="feature-tag feature-tag--interact">Text Style Controls</span>
+					<span class="feature-tag feature-tag--motion">Video Segment Markers</span>
+					<span class="feature-tag feature-tag--theme">Audio Background Mode</span>
+					<span class="feature-tag feature-tag--compile">CLUT Palette Editor</span>
+					<span class="feature-tag feature-tag--gen">Highlight Mode</span>
+					<span class="feature-tag feature-tag--scene">Layer Order Panel</span>
+					<span class="feature-tag feature-tag--interact">Collapsible Inspector</span>
+					<span class="feature-tag feature-tag--compile">8-Direction Resize</span>
+					<span class="feature-tag feature-tag--theme">Shape Tool</span>
 				</div>
 				<a href="menu-editor.html" class="btn btn--primary" target="_blank">Open Menu Editor</a>
 
@@ -214,6 +237,7 @@
 					<tr><td><kbd>T</kbd></td><td>Text tool</td></tr>
 					<tr><td><kbd>B</kbd></td><td>Button tool</td></tr>
 					<tr><td><kbd>I</kbd></td><td>Image tool</td></tr>
+					<tr><td><kbd>R</kbd></td><td>Shape tool</td></tr>
 					<tr><td><kbd>S</kbd></td><td>Toggle safe area guides</td></tr>
 					<tr><td><kbd>N</kbd></td><td>Toggle navigation arrows</td></tr>
 					<tr><td><kbd>P</kbd></td><td>Toggle compile preview</td></tr>

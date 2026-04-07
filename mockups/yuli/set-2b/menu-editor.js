@@ -23,7 +23,11 @@
      15. Dynamic map SVG connections
      16. Background editing
      17. Generate menus
-     18. Keyboard shortcuts
+     18. Collapsible inspector sections
+     19. Button style state tabs
+     20. Text style alignment + toggles
+     21. Highlight mode toggle
+     22. Keyboard shortcuts
      ═══════════════════════════════════════════════════════ */
 (function() {
 	'use strict';
@@ -530,6 +534,7 @@
 			document.getElementById('bgSolidControls').style.display = mode === 'solid' ? '' : 'none';
 			document.getElementById('bgImageControls').style.display = mode === 'image' ? '' : 'none';
 			document.getElementById('bgVideoControls').style.display = mode === 'video' ? '' : 'none';
+			document.getElementById('bgAudioControls').style.display = mode === 'audio' ? '' : 'none';
 
 			// Update canvas background hint
 			if (mode === 'video') {
@@ -570,7 +575,65 @@
 	});
 
 
-	// ── 18. Keyboard shortcuts ──────────────────────────
+	// ── 18. Collapsible inspector sections ──────────────
+	// Each section toggles independently via its header.
+	// Expand All / Collapse All buttons affect all sections
+	// in the currently visible inspector.
+
+	document.querySelectorAll('.insp-section__header').forEach(header => {
+		header.addEventListener('click', (e) => {
+			// Don't toggle when clicking interactive children (badges, auto-nav toggle)
+			if (e.target.closest('.auto-badge') || e.target.closest('.badge')) return;
+			const section = header.closest('.insp-section');
+			section.classList.toggle('insp-section--open');
+		});
+	});
+
+	document.getElementById('expandAllBtn')?.addEventListener('click', () => {
+		document.querySelectorAll('#inspectorBody .insp-section').forEach(s => s.classList.add('insp-section--open'));
+	});
+
+	document.getElementById('collapseAllBtn')?.addEventListener('click', () => {
+		document.querySelectorAll('#inspectorBody .insp-section').forEach(s => s.classList.remove('insp-section--open'));
+	});
+
+
+	// ── 19. Button style state tabs ─────────────────────
+	document.querySelectorAll('.style-state-tab').forEach(tab => {
+		tab.addEventListener('click', () => {
+			document.querySelectorAll('.style-state-tab').forEach(t => t.classList.remove('style-state-tab--active'));
+			tab.classList.add('style-state-tab--active');
+			// In production: switch which state's styles are shown in the controls below
+		});
+	});
+
+
+	// ── 20. Text style alignment buttons ────────────────
+	document.querySelectorAll('.align-btn').forEach(btn => {
+		btn.addEventListener('click', () => {
+			document.querySelectorAll('.align-btn').forEach(b => b.classList.remove('align-btn--active'));
+			btn.classList.add('align-btn--active');
+		});
+	});
+
+	// Text style toggle pills (bold, italic, underline)
+	document.querySelectorAll('.style-pill').forEach(pill => {
+		pill.addEventListener('click', () => {
+			pill.classList.toggle('style-pill--active');
+		});
+	});
+
+
+	// ── 21. Highlight mode toggle ───────────────────────
+	document.getElementById('highlightModeSelect')?.addEventListener('change', (e) => {
+		const animControls = document.getElementById('highlightAnimControls');
+		if (animControls) {
+			animControls.style.display = e.target.value === 'Animated' ? '' : 'none';
+		}
+	});
+
+
+	// ── 22. Keyboard shortcuts ──────────────────────────
 	document.addEventListener('keydown', (e) => {
 		if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
 
@@ -579,6 +642,7 @@
 			case 't': document.querySelector('[data-tool="text"]')?.click(); break;
 			case 'b': document.querySelector('[data-tool="button"]')?.click(); break;
 			case 'i': document.querySelector('[data-tool="image"]')?.click(); break;
+			case 'r': document.querySelector('[data-tool="shape"]')?.click(); break;
 			case 's': document.getElementById('toggleSafeBtn')?.click(); break;
 			case 'n': document.getElementById('toggleNavArrows')?.click(); break;
 			case 'p': document.getElementById('previewToggle')?.click(); break;

@@ -735,11 +735,18 @@ body {
 .action-badge--menu { background: rgba(34,211,238,0.15); color: var(--brand-cyan); }
 .action-badge--audio { background: rgba(167,139,250,0.15); color: var(--brand-purple); }
 
-/* ── Resize handles (visible when button selected) ──── */
+/* ── Resize handles (visible when button selected) ────
+   8 directional handles: 4 corners (8×8 squares) and
+   4 edge midpoints (strips). Matches the production
+   implementation in MenusPage.css:
+   - Corners: nw/ne/sw/se as 8px squares
+   - Edges: n/s as full-width 4px strips, e/w as
+     full-height 4px strips
+   See SceneCanvas.tsx for the resize handler that
+   constrains to MIN_BUTTON_SIZE=30 and canvas bounds.
+   ──────────────────────────────────────────────────── */
 .resize-handle {
 	position: absolute;
-	width: 8px;
-	height: 8px;
 	background: var(--brand-orange);
 	border: 1.5px solid #08080c;
 	border-radius: 2px;
@@ -748,10 +755,22 @@ body {
 }
 
 .scene-btn--selected .resize-handle { display: block; }
+
+/* Corner handles (8×8 squares) */
+.resize-handle--tl, .resize-handle--tr,
+.resize-handle--bl, .resize-handle--br { width: 8px; height: 8px; }
 .resize-handle--tl { top: -4px; left: -4px; cursor: nw-resize; }
 .resize-handle--tr { top: -4px; right: -4px; cursor: ne-resize; }
 .resize-handle--bl { bottom: -4px; left: -4px; cursor: sw-resize; }
 .resize-handle--br { bottom: -4px; right: -4px; cursor: se-resize; }
+
+/* Edge handles (full-width/height strips) */
+.resize-handle--n, .resize-handle--s { left: 0; right: 0; height: 4px; cursor: ns-resize; }
+.resize-handle--n { top: -2px; }
+.resize-handle--s { bottom: -2px; }
+.resize-handle--e, .resize-handle--w { top: 0; bottom: 0; width: 4px; cursor: ew-resize; }
+.resize-handle--e { right: -2px; }
+.resize-handle--w { left: -2px; }
 
 /* ── Navigation arrows overlay ─────────────────────────
    Shows Up/Down/Left/Right navigation arrows between
@@ -910,13 +929,62 @@ body {
 	color: var(--text-muted);
 	display: flex;
 	align-items: center;
-	justify-content: space-between;
+	gap: var(--space-2);
 	cursor: pointer;
+	user-select: none;
 }
 
 .insp-section__header:hover { color: var(--text-primary); }
 
-.insp-section__body { padding: var(--space-2) var(--space-3); }
+/* Section title text takes available space, badges pushed right */
+.insp-section__title { flex: 1; }
+
+/* Collapse chevron — rotates when section is open */
+.insp-section__chevron {
+	width: 12px;
+	height: 12px;
+	color: var(--text-muted);
+	transition: transform var(--transition-fast);
+	flex-shrink: 0;
+}
+
+.insp-section--open .insp-section__chevron { transform: rotate(180deg); }
+
+/* Body hidden when section is collapsed */
+.insp-section__body {
+	padding: var(--space-2) var(--space-3);
+}
+
+.insp-section:not(.insp-section--open) .insp-section__body {
+	display: none;
+}
+
+/* ── Inspector expand/collapse all toolbar ──────────── */
+.inspector__actions {
+	display: flex;
+	gap: 2px;
+	padding: 0 var(--space-4) var(--space-1);
+	flex-shrink: 0;
+}
+
+.inspector__action-btn {
+	flex: 1;
+	padding: 3px 0;
+	font-size: 9px;
+	font-weight: 600;
+	text-align: center;
+	color: var(--text-muted);
+	background: none;
+	border: 1px solid var(--border-subtle);
+	border-radius: var(--radius-sm);
+	cursor: pointer;
+	transition: all var(--transition-fast);
+}
+
+.inspector__action-btn:hover {
+	color: var(--text-primary);
+	background: rgba(255,255,255,0.03);
+}
 
 .insp-row {
 	display: flex;
@@ -1473,4 +1541,262 @@ body {
 .map-inspector__stat strong {
 	color: var(--text-primary);
 	font-weight: 600;
+}
+
+
+/* ═══════════════════════════════════════════════════════
+   BUTTON STYLE CONTROLS
+   ─────────────────────────────────────────────────────
+   Per-state styling for button nodes. Users can
+   customise background, border, padding, and effects
+   independently for Normal, Focus, and Activate states.
+   ═══════════════════════════════════════════════════════ */
+
+/* Style sub-tab row (Normal / Focus / Activate) */
+.style-state-tabs {
+	display: flex;
+	gap: var(--space-1);
+	padding: 4px 0;
+	margin-bottom: 4px;
+}
+
+.style-state-tab {
+	flex: 1;
+	padding: 4px 0;
+	text-align: center;
+	font-size: 9px;
+	font-weight: 600;
+	border-radius: var(--radius-sm);
+	cursor: pointer;
+	border: 1px solid var(--border-subtle);
+	background: rgba(255,255,255,0.02);
+	color: var(--text-muted);
+	transition: all var(--transition-fast);
+}
+
+.style-state-tab:hover { color: var(--text-primary); }
+
+.style-state-tab--active {
+	border-color: rgba(255,170,64,0.3);
+	background: rgba(255,170,64,0.06);
+	color: var(--brand-orange);
+}
+
+/* Colour picker + hex input pair (used in multiple sections) */
+.colour-pair {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+}
+
+.colour-swatch {
+	width: 22px;
+	height: 22px;
+	border-radius: var(--radius-sm);
+	border: 1.5px solid var(--border-default);
+	cursor: pointer;
+	flex-shrink: 0;
+}
+
+.colour-swatch input[type="color"] {
+	opacity: 0;
+	width: 100%;
+	height: 100%;
+	cursor: pointer;
+}
+
+/* Inline sub-label for grouped controls */
+.insp-sub-label {
+	font-size: 9px;
+	color: var(--text-muted);
+	padding: 6px 0 2px;
+	font-weight: 600;
+	letter-spacing: 0.03em;
+}
+
+/* Compact two-column property grid */
+.insp-grid-2 {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 4px;
+}
+
+
+/* ═══════════════════════════════════════════════════════
+   TEXT STYLE CONTROLS
+   ─────────────────────────────────────────────────────
+   Typography controls for standalone text nodes and
+   button label text. Font family, size, weight, style,
+   colour, alignment, letter-spacing, text-shadow.
+   ═══════════════════════════════════════════════════════ */
+
+/* Alignment button row */
+.align-row {
+	display: flex;
+	gap: 2px;
+}
+
+.align-btn {
+	flex: 1;
+	padding: 4px 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: rgba(255,255,255,0.02);
+	border: 1px solid var(--border-subtle);
+	border-radius: var(--radius-sm);
+	color: var(--text-muted);
+	cursor: pointer;
+	transition: all var(--transition-fast);
+}
+
+.align-btn:hover { color: var(--text-primary); }
+.align-btn--active { background: rgba(255,170,64,0.06); border-color: rgba(255,170,64,0.3); color: var(--brand-orange); }
+
+/* Font weight / style toggle pills */
+.style-pill-row {
+	display: flex;
+	gap: 2px;
+}
+
+.style-pill {
+	padding: 3px 8px;
+	font-size: 9px;
+	font-weight: 600;
+	border-radius: var(--radius-sm);
+	border: 1px solid var(--border-subtle);
+	background: rgba(255,255,255,0.02);
+	color: var(--text-muted);
+	cursor: pointer;
+	transition: all var(--transition-fast);
+}
+
+.style-pill:hover { color: var(--text-primary); }
+.style-pill--active { background: rgba(255,170,64,0.06); border-color: rgba(255,170,64,0.3); color: var(--brand-orange); }
+.style-pill--bold { font-weight: 800; }
+.style-pill--italic { font-style: italic; }
+
+
+/* ═══════════════════════════════════════════════════════
+   CLUT PALETTE EDITOR
+   ─────────────────────────────────────────────────────
+   DVD subpicture 4-colour CLUT. Maps authored styles
+   to the 4 overlay colours available for highlights.
+   ═══════════════════════════════════════════════════════ */
+.clut-grid {
+	display: grid;
+	grid-template-columns: repeat(4, 1fr);
+	gap: 4px;
+}
+
+.clut-cell {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 2px;
+}
+
+.clut-swatch {
+	width: 100%;
+	aspect-ratio: 1;
+	border-radius: var(--radius-sm);
+	border: 1.5px solid var(--border-default);
+	cursor: pointer;
+	transition: border-color var(--transition-fast);
+}
+
+.clut-swatch:hover { border-color: var(--border-strong); }
+
+.clut-label {
+	font-size: 8px;
+	color: var(--text-muted);
+	text-align: center;
+}
+
+
+/* ═══════════════════════════════════════════════════════
+   LAYER ORDER
+   ─────────────────────────────────────────────────────
+   Z-index list of all scene nodes. Drag to reorder.
+   ═══════════════════════════════════════════════════════ */
+.layer-list {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.layer-item {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	padding: 4px 6px;
+	border-radius: var(--radius-sm);
+	font-size: 10px;
+	color: var(--text-secondary);
+	cursor: grab;
+	transition: background var(--transition-fast);
+}
+
+.layer-item:hover { background: rgba(255,255,255,0.03); }
+.layer-item--selected { background: rgba(255,170,64,0.06); color: var(--brand-orange); }
+
+.layer-item__icon {
+	width: 14px;
+	text-align: center;
+	font-size: 9px;
+	color: var(--text-muted);
+	flex-shrink: 0;
+}
+
+.layer-item__name { flex: 1; }
+
+.layer-item__visibility {
+	color: var(--text-muted);
+	cursor: pointer;
+	flex-shrink: 0;
+}
+
+.layer-item__visibility:hover { color: var(--text-primary); }
+
+
+/* ═══════════════════════════════════════════════════════
+   VIDEO MARKER TIMELINE
+   ─────────────────────────────────────────────────────
+   Visual segment bar showing intro/loop regions for
+   motion menu background video.
+   ═══════════════════════════════════════════════════════ */
+.marker-bar {
+	height: 20px;
+	background: rgba(255,255,255,0.04);
+	border: 1px solid var(--border-subtle);
+	border-radius: var(--radius-sm);
+	position: relative;
+	overflow: hidden;
+	margin: 4px 0;
+}
+
+.marker-segment {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	border-radius: var(--radius-sm);
+	opacity: 0.6;
+}
+
+.marker-segment--intro {
+	background: rgba(167,139,250,0.3);
+	border-right: 2px solid var(--brand-purple);
+}
+
+.marker-segment--loop {
+	background: rgba(46,198,106,0.2);
+	border-left: 2px solid var(--brand-green);
+}
+
+.marker-labels {
+	display: flex;
+	justify-content: space-between;
+	font-size: 8px;
+	color: var(--text-muted);
+	padding: 0 2px;
 }

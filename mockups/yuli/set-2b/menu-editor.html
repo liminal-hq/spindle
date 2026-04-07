@@ -34,18 +34,39 @@
 	- Map SVG connections drawn dynamically from card DOM positions
 	- Auto-navigation calculates geometric Up/Down/Left/Right routing
 	- Connection indicators show incoming/outgoing links per menu
-	- Background editing: solid colour, image, or video (motion menus)
+	- Background editing: solid colour, image, video, or audio-only
+	- Video menu segment markers: intro start + duration, loop region
+	- Audio track option for still menus (AC3 with static frame)
 	- Auto-generate menus from project data (issue #20):
 	  Chapter Grid, Audio Setup, Subtitle Setup with pagination
+	- Button style controls: bg, border, radius, padding, shadow/glow
+	  with per-state overrides (Normal/Focus/Activate)
+	- Text style controls: font, size, weight, italic, colour,
+	  alignment, letter-spacing, text-shadow — for text and button labels
+	- CLUT palette editor for DVD 4-colour subpicture overlay
+	- Highlight mode: static or animated (for motion menus)
+	- Layer order panel with z-index and visibility toggles
+	- Shape tool for decorative rectangles on canvas
+	- 8-directional resize handles (4 corners + 4 edges)
 
 	IMPLEMENTATION NOTES
 	────────────────────
 	- Left nav menu list mirrors MenusPage.tsx layout (260px, scope groups)
 	- Canvas matches DVD NTSC dimensions (720×480)
-	- Inspector sections are collapsible for space efficiency
+	- Inspector sections independently collapsible with Expand/Collapse All
 	- Map view SVG connections are drawn between card edge midpoints
+	- Mini-map and full map share same renderer (minimap target pattern)
 	- Auto-nav uses Y-centre comparison for up/down, X-centre for left/right
+	- Snap guides (8px threshold, red lines) noted in Transform section
+	- Resize handles: 8 directions matching SceneCanvas.tsx pattern
 	- All interactive JS is vanilla for prototyping; would be React in prod
+
+	FILE STRUCTURE
+	──────────────
+	- menu-editor.html: structural HTML (this file)
+	- menu-editor.css: all styles
+	- menu-editor.js: all interaction logic
+	- design-system.css: shared brand tokens and component classes
 -->
 	<head>
 		<meta charset="UTF-8" />
@@ -230,6 +251,18 @@
 				     interaction graph. Nodes positioned via a
 				     simple force-directed or layered layout.
 				     Connection lines match the full map's colours.
+
+				     SHARED RENDERER NOTE: The mini-map and the
+				     full Navigation Map view should share the same
+				     rendering component, with the mini-map being a
+				     scaled-down "target" view of the full map.
+				     This means one source of truth for card layout,
+				     connection routing, and colour-coding. The mini-
+				     map simply applies a CSS transform: scale() and
+				     disables interaction beyond click-to-select.
+				     In React, this would be a <NavigationMap /> component
+				     rendered twice: once at full size in the map view,
+				     once at minimap scale in the left nav.
 				     ────────────────────────────────────────────── -->
 				<div class="map-mini" id="mapMini">
 					<div class="map-mini__header">
@@ -420,6 +453,9 @@
 								<button class="canvas-tool-btn" data-tool="image" title="Image (I)">
 									<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
 								</button>
+								<button class="canvas-tool-btn" data-tool="shape" title="Shape (R)">
+									<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+								</button>
 								<div class="tool-sep"></div>
 								<button class="canvas-tool-btn" id="toggleSafeBtn" title="Toggle Safe Areas (S)">
 									<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><rect x="7" y="7" width="10" height="10" rx="1" opacity="0.4"/></svg>
@@ -463,6 +499,10 @@
 									<div class="resize-handle resize-handle--tr"></div>
 									<div class="resize-handle resize-handle--bl"></div>
 									<div class="resize-handle resize-handle--br"></div>
+									<div class="resize-handle resize-handle--n"></div>
+									<div class="resize-handle resize-handle--s"></div>
+									<div class="resize-handle resize-handle--e"></div>
+									<div class="resize-handle resize-handle--w"></div>
 									<span>&#9654; Play Ceremony</span>
 									<div class="scene-btn__action-badge action-badge--play">playTitle</div>
 								</div>
@@ -477,6 +517,10 @@
 									<div class="resize-handle resize-handle--tr"></div>
 									<div class="resize-handle resize-handle--bl"></div>
 									<div class="resize-handle resize-handle--br"></div>
+									<div class="resize-handle resize-handle--n"></div>
+									<div class="resize-handle resize-handle--s"></div>
+									<div class="resize-handle resize-handle--e"></div>
+									<div class="resize-handle resize-handle--w"></div>
 									<span>&#9654; Play Reception</span>
 									<div class="scene-btn__action-badge action-badge--play">playTitle</div>
 								</div>
@@ -491,6 +535,10 @@
 									<div class="resize-handle resize-handle--tr"></div>
 									<div class="resize-handle resize-handle--bl"></div>
 									<div class="resize-handle resize-handle--br"></div>
+									<div class="resize-handle resize-handle--n"></div>
+									<div class="resize-handle resize-handle--s"></div>
+									<div class="resize-handle resize-handle--e"></div>
+									<div class="resize-handle resize-handle--w"></div>
 									<span>&#9670; Chapter Select</span>
 									<div class="scene-btn__action-badge action-badge--menu">showMenu</div>
 								</div>
@@ -505,6 +553,10 @@
 									<div class="resize-handle resize-handle--tr"></div>
 									<div class="resize-handle resize-handle--bl"></div>
 									<div class="resize-handle resize-handle--br"></div>
+									<div class="resize-handle resize-handle--n"></div>
+									<div class="resize-handle resize-handle--s"></div>
+									<div class="resize-handle resize-handle--e"></div>
+									<div class="resize-handle resize-handle--w"></div>
 									<span>&#9835; Audio Setup</span>
 									<div class="scene-btn__action-badge action-badge--menu">showMenu</div>
 								</div>
@@ -571,13 +623,24 @@
 						<!-- ═══════════════════════════════════════
 						     INSPECTOR PANEL
 						     ─────────────────────────────────────
-						     Sections (all visible, scrollable):
-						     1. Transform: position and size
-						     2. Visual States: Normal/Focus/Activate
-						     3. Action: type + target (inline binding)
-						     4. Navigation: directional pad + auto-nav
-						     5. Connections: menu-level in/out links
-						     6. Diagnostics: compile readiness
+						     All sections independently collapsible
+						     with Expand All / Collapse All toolbar.
+						     Inspector body scrolls when content
+						     exceeds viewport height.
+
+						     Sections:
+						     0. Background (menu-level: solid/image/video/audio)
+						     1. Transform (X/Y/W/H + snap/alignment notes)
+						     2. Visual States (Normal/Focus/Activate preview)
+						     3. Button Style (bg/border/padding/shadow, per-state)
+						     4. Text Style (font/size/weight/colour/align/shadow)
+						     5. Action (type + target, inline binding)
+						     6. Navigation (directional pad + auto-nav)
+						     7. Connections (menu-level in/out links)
+						     8. CLUT Palette (DVD 4-colour subpicture)
+						     9. Highlight Mode (static/animated)
+						     10. Layers (z-order with visibility toggles)
+						     11. Diagnostics (compile readiness)
 						     ═══════════════════════════════════════ -->
 						<div class="inspector" id="inspector">
 							<div class="inspector__header">
@@ -585,6 +648,12 @@
 								<button class="inspector__close" id="closeInspectorBtn">
 									<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
 								</button>
+							</div>
+
+							<!-- Expand/Collapse all sections -->
+							<div class="inspector__actions">
+								<button class="inspector__action-btn" id="expandAllBtn" title="Expand all sections">Expand All</button>
+								<button class="inspector__action-btn" id="collapseAllBtn" title="Collapse all sections">Collapse All</button>
 							</div>
 
 							<div class="inspector__body" id="inspectorBody">
@@ -599,9 +668,10 @@
 								       motionAudioAssetId, motionLoopCount
 								       from the motion menu spec)
 								     ─────────────────────────────────────  -->
-								<div class="insp-section" id="bgSection">
+								<div class="insp-section insp-section--open" id="bgSection">
 									<div class="insp-section__header">
-										Background
+										<svg class="insp-section__chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+										<span class="insp-section__title">Background</span>
 										<span class="badge badge--neutral" style="font-size: 8px;" id="bgModeBadge">Solid</span>
 									</div>
 									<div class="insp-section__body">
@@ -609,6 +679,7 @@
 											<div class="bg-mode-chip bg-mode-chip--active" data-bg-mode="solid">Solid</div>
 											<div class="bg-mode-chip" data-bg-mode="image">Image</div>
 											<div class="bg-mode-chip" data-bg-mode="video">Video</div>
+											<div class="bg-mode-chip" data-bg-mode="audio">Audio</div>
 										</div>
 										<!-- Solid colour controls -->
 										<div id="bgSolidControls">
@@ -635,8 +706,31 @@
 													<option>Stretch</option>
 												</select>
 											</div>
+											<!-- Audio track for still-image menus -->
+											<div class="insp-sub-label">Audio Track</div>
+											<div class="insp-row">
+												<span class="insp-label">Asset</span>
+												<select class="insp-select">
+													<option>None</option>
+													<option>menu-music.ac3</option>
+													<option>ambient-loop.ac3</option>
+												</select>
+											</div>
+											<div class="insp-row">
+												<span class="insp-label">Loop</span>
+												<select class="insp-select">
+													<option>Infinite</option>
+													<option>1x then silence</option>
+												</select>
+											</div>
 										</div>
-										<!-- Video controls (hidden by default) -->
+										<!-- Video controls (hidden by default)
+										     ─────────────────────────────────────
+										     Motion menu video background with
+										     intro/loop segment markers. Maps to
+										     `motionDurationSecs`, `motionAudioAssetId`,
+										     and `motionLoopCount` in the spec.
+										     ─────────────────────────────────────  -->
 										<div id="bgVideoControls" style="display: none;">
 											<div class="insp-row">
 												<span class="insp-label">Asset</span>
@@ -650,6 +744,40 @@
 												<span class="insp-label">Duration</span>
 												<input class="insp-input insp-input--sm" value="30" id="bgDuration" />
 												<span style="font-size: 9px; color: var(--text-muted);">sec</span>
+											</div>
+											<!-- Intro/Loop segment markers -->
+											<div class="insp-sub-label">Segments</div>
+											<div class="marker-bar" title="Purple = intro, Green = loop">
+												<div class="marker-segment marker-segment--intro" style="left: 0; width: 20%;"></div>
+												<div class="marker-segment marker-segment--loop" style="left: 20%; right: 0;"></div>
+											</div>
+											<div class="marker-labels">
+												<span>0:00</span>
+												<span>intro end</span>
+												<span>0:30</span>
+											</div>
+											<div class="insp-grid-2">
+												<div class="insp-row">
+													<span class="insp-label">Intro</span>
+													<input class="insp-input insp-input--sm" value="0:00" title="Intro start timecode" />
+												</div>
+												<div class="insp-row">
+													<span class="insp-label">Dur</span>
+													<input class="insp-input insp-input--sm" value="6.0" title="Intro duration (seconds)" />
+													<span style="font-size:9px;color:var(--text-muted);">s</span>
+												</div>
+											</div>
+											<div class="insp-grid-2">
+												<div class="insp-row">
+													<span class="insp-label">Loop</span>
+													<input class="insp-input insp-input--sm" value="6.0" title="Loop start (seconds from beginning)" />
+													<span style="font-size:9px;color:var(--text-muted);">s</span>
+												</div>
+												<div class="insp-row">
+													<span class="insp-label">Dur</span>
+													<input class="insp-input insp-input--sm" value="24.0" title="Loop duration (seconds)" />
+													<span style="font-size:9px;color:var(--text-muted);">s</span>
+												</div>
 											</div>
 											<div class="insp-row">
 												<span class="insp-label">Audio</span>
@@ -668,12 +796,65 @@
 												</select>
 											</div>
 										</div>
+										<!-- Audio-only controls (for static menus with background audio)
+										     ─────────────────────────────────────
+										     Turns a still-image or solid-colour menu
+										     into a motion menu by adding an audio track
+										     without a video background. The menu becomes
+										     an MPEG-2 stream with still frame + AC3 audio.
+										     ─────────────────────────────────────  -->
+										<div id="bgAudioControls" style="display: none;">
+											<div class="insp-row">
+												<span class="insp-label">Asset</span>
+												<select class="insp-select" id="bgAudioSelect">
+													<option>(none)</option>
+													<option>menu-music.ac3</option>
+													<option>ambient-loop.ac3</option>
+													<option>Import audio...</option>
+												</select>
+											</div>
+											<div class="insp-row">
+												<span class="insp-label">Duration</span>
+												<input class="insp-input insp-input--sm" value="30" />
+												<span style="font-size:9px;color:var(--text-muted);">sec</span>
+											</div>
+											<div class="insp-row">
+												<span class="insp-label">Loop</span>
+												<select class="insp-select">
+													<option>Infinite</option>
+													<option>1x then silence</option>
+													<option>2x then silence</option>
+												</select>
+											</div>
+											<div class="insp-row">
+												<span class="insp-label">Bg</span>
+												<select class="insp-select">
+													<option>Use current (solid/image)</option>
+													<option>Solid colour</option>
+												</select>
+											</div>
+										</div>
 									</div>
 								</div>
 
-								<!-- 1. Transform — position and dimensions -->
-								<div class="insp-section">
-									<div class="insp-section__header">Transform</div>
+								<!-- 1. Transform — position and dimensions
+								     ─────────────────────────────────────
+								     IMPLEMENTATION NOTE: In production, this
+								     section should include snap-to-grid controls
+								     (SNAP_THRESHOLD=8px, toggle on/off) and an
+								     alignment toolbar (align left/center/right/
+								     top/middle/bottom, distribute evenly).
+								     See SceneCanvas.tsx `getSnapTargets()` and
+								     `snapValue()` for the snap implementation.
+								     Red guide lines appear during drag when a
+								     snap fires (see .menus__snap-line in
+								     MenusPage.css).
+								     ─────────────────────────────────────  -->
+								<div class="insp-section insp-section--open">
+									<div class="insp-section__header">
+										<svg class="insp-section__chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+										<span class="insp-section__title">Transform</span>
+									</div>
 									<div class="insp-section__body">
 										<div class="insp-row">
 											<span class="insp-label">X</span>
@@ -691,8 +872,11 @@
 								</div>
 
 								<!-- 2. Visual States — DVD highlight states -->
-								<div class="insp-section">
-									<div class="insp-section__header">Visual States</div>
+								<div class="insp-section insp-section--open">
+									<div class="insp-section__header">
+										<svg class="insp-section__chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+										<span class="insp-section__title">Visual States</span>
+									</div>
 									<div class="insp-section__body">
 										<div class="state-row">
 											<div class="state-chip state-chip--normal" data-state="normal">Normal</div>
@@ -702,10 +886,196 @@
 									</div>
 								</div>
 
-								<!-- 3. Action — inline binding (no separate mode) -->
-								<div class="insp-section">
+								<!-- 3. Button Style — per-state visual customisation
+								     ─────────────────────────────────────
+								     Controls the visual appearance of the
+								     selected button. Users pick a state tab
+								     (Normal/Focus/Activate) and edit that
+								     state's background, border, padding,
+								     and shadow/glow independently.
+
+								     In production: maps to button.states[state]
+								     in the scene document. Focus/Activate styles
+								     compile to DVD subpicture overlay colours.
+								     ─────────────────────────────────────  -->
+								<div class="insp-section insp-section--open">
 									<div class="insp-section__header">
-										Action
+										<svg class="insp-section__chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+										<span class="insp-section__title">Button Style</span>
+									</div>
+									<div class="insp-section__body">
+										<!-- State sub-tabs (edit one state at a time) -->
+										<div class="style-state-tabs">
+											<div class="style-state-tab style-state-tab--active" data-style-state="normal">Normal</div>
+											<div class="style-state-tab" data-style-state="focus">Focus</div>
+											<div class="style-state-tab" data-style-state="activate">Activate</div>
+										</div>
+
+										<!-- Background -->
+										<div class="insp-sub-label">Background</div>
+										<div class="insp-row">
+											<span class="insp-label">Fill</span>
+											<div class="colour-pair" style="flex:1;">
+												<div class="colour-swatch" style="background: rgba(255,255,255,0.04);"></div>
+												<input class="insp-input" value="rgba(255,255,255,0.04)" style="flex:1;" />
+											</div>
+										</div>
+
+										<!-- Border -->
+										<div class="insp-sub-label">Border</div>
+										<div class="insp-grid-2">
+											<div class="insp-row">
+												<span class="insp-label">Color</span>
+												<div class="colour-pair" style="flex:1;">
+													<div class="colour-swatch" style="background: rgba(255,255,255,0.12);"></div>
+													<input class="insp-input insp-input--sm" value="#ffffff1f" />
+												</div>
+											</div>
+											<div class="insp-row">
+												<span class="insp-label">Width</span>
+												<input class="insp-input insp-input--sm" value="1.5" />
+												<span style="font-size:9px;color:var(--text-muted);">px</span>
+											</div>
+										</div>
+										<div class="insp-row">
+											<span class="insp-label">Radius</span>
+											<input class="insp-input insp-input--sm" value="6" />
+											<span style="font-size:9px;color:var(--text-muted);">px</span>
+										</div>
+
+										<!-- Padding -->
+										<div class="insp-sub-label">Padding</div>
+										<div class="insp-row">
+											<span class="insp-label">H</span>
+											<input class="insp-input insp-input--sm" value="16" />
+											<span class="insp-label">V</span>
+											<input class="insp-input insp-input--sm" value="0" />
+											<span style="font-size:9px;color:var(--text-muted);">px</span>
+										</div>
+
+										<!-- Shadow / Glow -->
+										<div class="insp-sub-label">Shadow / Glow</div>
+										<div class="insp-row">
+											<span class="insp-label">Type</span>
+											<select class="insp-select">
+												<option>None</option>
+												<option selected>Box shadow</option>
+												<option>Outer glow</option>
+												<option>Inner glow</option>
+											</select>
+										</div>
+										<div class="insp-row">
+											<span class="insp-label">Color</span>
+											<div class="colour-pair" style="flex:1;">
+												<div class="colour-swatch" style="background: rgba(255,170,64,0.12);"></div>
+												<input class="insp-input insp-input--sm" value="#ffa84020" />
+											</div>
+										</div>
+										<div class="insp-grid-2">
+											<div class="insp-row">
+												<span class="insp-label">Blur</span>
+												<input class="insp-input insp-input--sm" value="16" />
+											</div>
+											<div class="insp-row">
+												<span class="insp-label">Spread</span>
+												<input class="insp-input insp-input--sm" value="0" />
+											</div>
+										</div>
+									</div>
+								</div>
+
+								<!-- 4. Text Style — typography for labels and text nodes
+								     ─────────────────────────────────────
+								     Applies to the currently selected node:
+								     - If a button: edits the button's label text
+								     - If a text node: edits the text styling
+								     Font family, size, weight, italic, colour,
+								     alignment, letter-spacing, and text-shadow.
+								     ─────────────────────────────────────  -->
+								<div class="insp-section insp-section--open">
+									<div class="insp-section__header">
+										<svg class="insp-section__chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+										<span class="insp-section__title">Text Style</span>
+									</div>
+									<div class="insp-section__body">
+										<div class="insp-row">
+											<span class="insp-label">Font</span>
+											<select class="insp-select" id="inspFontFamily">
+												<option selected>Inter</option>
+												<option>Space Grotesk</option>
+												<option>System UI</option>
+												<option>Georgia</option>
+												<option>Courier New</option>
+											</select>
+										</div>
+										<div class="insp-grid-2">
+											<div class="insp-row">
+												<span class="insp-label">Size</span>
+												<input class="insp-input insp-input--sm" value="14" id="inspFontSize" />
+												<span style="font-size:9px;color:var(--text-muted);">px</span>
+											</div>
+											<div class="insp-row">
+												<span class="insp-label">Height</span>
+												<input class="insp-input insp-input--sm" value="1.4" id="inspLineHeight" />
+											</div>
+										</div>
+										<!-- Weight + Italic toggles -->
+										<div class="insp-row">
+											<span class="insp-label">Style</span>
+											<div class="style-pill-row" style="flex:1;">
+												<div class="style-pill style-pill--bold" data-style-toggle="bold">B</div>
+												<div class="style-pill style-pill--italic" data-style-toggle="italic">I</div>
+												<div class="style-pill" data-style-toggle="underline" style="text-decoration:underline;">U</div>
+											</div>
+										</div>
+										<!-- Colour -->
+										<div class="insp-row">
+											<span class="insp-label">Colour</span>
+											<div class="colour-pair" style="flex:1;">
+												<div class="colour-swatch" style="background: #ffffff;" id="inspTextColourSwatch"></div>
+												<input class="insp-input" value="#ffffff" id="inspTextColour" style="flex:1;" />
+											</div>
+										</div>
+										<!-- Alignment -->
+										<div class="insp-row">
+											<span class="insp-label">Align</span>
+											<div class="align-row" style="flex:1;">
+												<button class="align-btn align-btn--active" data-align="left" title="Left">
+													<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="15" y2="12"/><line x1="3" y1="18" x2="18" y2="18"/></svg>
+												</button>
+												<button class="align-btn" data-align="center" title="Centre">
+													<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
+												</button>
+												<button class="align-btn" data-align="right" title="Right">
+													<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="9" y1="12" x2="21" y2="12"/><line x1="6" y1="18" x2="21" y2="18"/></svg>
+												</button>
+											</div>
+										</div>
+										<!-- Letter spacing -->
+										<div class="insp-row">
+											<span class="insp-label">Spacing</span>
+											<input class="insp-input insp-input--sm" value="0" id="inspLetterSpacing" />
+											<span style="font-size:9px;color:var(--text-muted);">em</span>
+										</div>
+										<!-- Text shadow -->
+										<div class="insp-row">
+											<span class="insp-label">Shadow</span>
+											<select class="insp-select" id="inspTextShadow">
+												<option selected>None</option>
+												<option>Subtle drop</option>
+												<option>Hard drop</option>
+												<option>Glow</option>
+												<option>Custom...</option>
+											</select>
+										</div>
+									</div>
+								</div>
+
+								<!-- 5. Action — inline binding (no separate mode) -->
+								<div class="insp-section insp-section--open">
+									<div class="insp-section__header">
+										<svg class="insp-section__chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+										<span class="insp-section__title">Action</span>
 										<span class="badge badge--neutral" style="font-size: 8px;" id="actionBadge">playTitle</span>
 									</div>
 									<div class="insp-section__body">
@@ -749,9 +1119,10 @@
 								     Manual mode: user overrides individual
 								     directions via the dropdown buttons.
 								     ─────────────────────────────────────  -->
-								<div class="insp-section">
+								<div class="insp-section insp-section--open">
 									<div class="insp-section__header">
-										Navigation
+										<svg class="insp-section__chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+										<span class="insp-section__title">Navigation</span>
 										<span class="auto-badge auto-badge--on" id="autoNavBadge" title="Click to toggle Auto/Manual navigation">Auto</span>
 									</div>
 									<div class="insp-section__body">
@@ -781,9 +1152,10 @@
 								     current menu. Click an entry to jump to
 								     that menu (replaces "Route" mode).
 								     ─────────────────────────────────────  -->
-								<div class="insp-section">
+								<div class="insp-section insp-section--open">
 									<div class="insp-section__header">
-										Connections
+										<svg class="insp-section__chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+										<span class="insp-section__title">Connections</span>
 										<span class="badge badge--neutral" style="font-size: 8px;">Menu</span>
 									</div>
 									<div class="insp-section__body">
@@ -810,7 +1182,149 @@
 									</div>
 								</div>
 
-								<!-- 6. Diagnostics -->
+								<!-- 9. CLUT Palette — DVD subpicture overlay colours
+								     ─────────────────────────────────────
+								     DVD buttons use a 4-colour CLUT (Colour
+								     Look-Up Table) for highlight overlays.
+								     Maps to the 4 overlay colour slots in
+								     the DVD subpicture specification.
+								     See InspectorPanel.tsx HighlightColourEditor
+								     for the current implementation pattern.
+								     ─────────────────────────────────────  -->
+								<div class="insp-section insp-section--open">
+									<div class="insp-section__header">
+										<svg class="insp-section__chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+										<span class="insp-section__title">CLUT Palette</span>
+										<span class="badge badge--neutral" style="font-size: 8px;">DVD</span>
+									</div>
+									<div class="insp-section__body">
+										<div class="clut-grid">
+											<div class="clut-cell">
+												<div class="clut-swatch" style="background: transparent; border-style: dashed;"></div>
+												<span class="clut-label">BG</span>
+											</div>
+											<div class="clut-cell">
+												<div class="clut-swatch" style="background: #ffa840;"></div>
+												<span class="clut-label">E1</span>
+											</div>
+											<div class="clut-cell">
+												<div class="clut-swatch" style="background: #ffffff;"></div>
+												<span class="clut-label">E2</span>
+											</div>
+											<div class="clut-cell">
+												<div class="clut-swatch" style="background: #2ec66a;"></div>
+												<span class="clut-label">Anti</span>
+											</div>
+										</div>
+										<div style="font-size:9px;color:var(--text-muted);margin-top:4px;">
+											BG = transparent background, E1/E2 = emphasis, Anti = anti-alias. DVD allows 4 colours per subpicture.
+										</div>
+									</div>
+								</div>
+
+								<!-- 10. Highlight Mode — static vs animated highlights
+								     ─────────────────────────────────────
+								     Controls whether button highlights are
+								     static overlays or animated (for motion
+								     menus). Animated mode enables keyframe
+								     editing for highlight transitions.
+								     Maps to `highlightMode` and
+								     `highlightKeyframes` in the spec.
+								     ─────────────────────────────────────  -->
+								<div class="insp-section insp-section--open">
+									<div class="insp-section__header">
+										<svg class="insp-section__chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+										<span class="insp-section__title">Highlight Mode</span>
+									</div>
+									<div class="insp-section__body">
+										<div class="insp-row">
+											<span class="insp-label">Mode</span>
+											<select class="insp-select" id="highlightModeSelect">
+												<option selected>Static</option>
+												<option>Animated</option>
+											</select>
+										</div>
+										<div id="highlightAnimControls" style="display:none;">
+											<div class="insp-row">
+												<span class="insp-label">Frames</span>
+												<input class="insp-input insp-input--sm" value="15" />
+											</div>
+											<div class="insp-row">
+												<span class="insp-label">Ease</span>
+												<select class="insp-select">
+													<option>Linear</option>
+													<option selected>Ease in-out</option>
+													<option>Step</option>
+												</select>
+											</div>
+											<div style="font-size:9px;color:var(--text-muted);margin-top:4px;">
+												Animated highlights require a motion menu background. Keyframes control how the highlight overlay transitions between states.
+											</div>
+										</div>
+									</div>
+								</div>
+
+								<!-- 11. Layer Order — z-index of scene nodes
+								     ─────────────────────────────────────
+								     Lists all nodes on the current menu's
+								     canvas in z-order. Drag to reorder.
+								     Supports visibility toggling per layer.
+								     ─────────────────────────────────────  -->
+								<div class="insp-section insp-section--open">
+									<div class="insp-section__header">
+										<svg class="insp-section__chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+										<span class="insp-section__title">Layers</span>
+										<span class="badge badge--neutral" style="font-size: 8px;">6</span>
+									</div>
+									<div class="insp-section__body">
+										<div class="layer-list">
+											<div class="layer-item layer-item--selected">
+												<span class="layer-item__icon">&#9632;</span>
+												<span class="layer-item__name">Play Ceremony</span>
+												<span class="layer-item__visibility" title="Toggle visibility">
+													<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+												</span>
+											</div>
+											<div class="layer-item">
+												<span class="layer-item__icon">&#9632;</span>
+												<span class="layer-item__name">Play Reception</span>
+												<span class="layer-item__visibility">
+													<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+												</span>
+											</div>
+											<div class="layer-item">
+												<span class="layer-item__icon">&#9632;</span>
+												<span class="layer-item__name">Chapter Select</span>
+												<span class="layer-item__visibility">
+													<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+												</span>
+											</div>
+											<div class="layer-item">
+												<span class="layer-item__icon">&#9632;</span>
+												<span class="layer-item__name">Audio Setup</span>
+												<span class="layer-item__visibility">
+													<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+												</span>
+											</div>
+											<div class="layer-item">
+												<span class="layer-item__icon">T</span>
+												<span class="layer-item__name">Wedding Highlights</span>
+												<span class="layer-item__visibility">
+													<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+												</span>
+											</div>
+											<div class="layer-item">
+												<span class="layer-item__icon">T</span>
+												<span class="layer-item__name">Emily &amp; James</span>
+												<span class="layer-item__visibility">
+													<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+												</span>
+											</div>
+										</div>
+									</div>
+								</div>
+
+								<!-- 12. Diagnostics -->
 								<div class="diag-chip diag-chip--ok">
 									<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--colour-success)" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
 									<span>Navigation valid. All actions resolved. Within button limits.</span>
@@ -986,9 +1500,10 @@
 								</div>
 
 								<!-- Outgoing connections from this menu -->
-								<div class="insp-section">
+								<div class="insp-section insp-section--open">
 									<div class="insp-section__header">
-										Outgoing
+										<svg class="insp-section__chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+										<span class="insp-section__title">Outgoing</span>
 										<span class="badge badge--neutral" style="font-size: 8px;">2</span>
 									</div>
 									<div class="insp-section__body">
@@ -1008,9 +1523,10 @@
 								</div>
 
 								<!-- Incoming connections to this menu -->
-								<div class="insp-section">
+								<div class="insp-section insp-section--open">
 									<div class="insp-section__header">
-										Incoming
+										<svg class="insp-section__chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+										<span class="insp-section__title">Incoming</span>
 										<span class="badge badge--neutral" style="font-size: 8px;">1</span>
 									</div>
 									<div class="insp-section__body">
@@ -1025,9 +1541,10 @@
 								</div>
 
 								<!-- Titles played from this menu -->
-								<div class="insp-section">
+								<div class="insp-section insp-section--open">
 									<div class="insp-section__header">
-										Titles Played
+										<svg class="insp-section__chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+										<span class="insp-section__title">Titles Played</span>
 										<span class="badge badge--neutral" style="font-size: 8px;">2</span>
 									</div>
 									<div class="insp-section__body">
