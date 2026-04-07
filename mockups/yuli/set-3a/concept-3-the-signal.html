@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en-CA">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Spindle — The Signal</title>
+		<link rel="stylesheet" href="design-system.css" />
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;600;700&display=swap"
+			rel="stylesheet"
+		/>
+	</head>
+	<body>
+		<div class="page-shell">
+			<div class="page-frame">
+				<header class="page-header">
+					<div>
+						<div class="eyebrow">Concept 3 / The Signal</div>
+						<h1 class="page-title">A navigation-aware version of the current canvas where remote behaviour is visible enough to trust, but not so loud that it stops feeling like design work.</h1>
+						<p class="page-copy">
+							The Signal is for the current app if remote simulation becomes a more central promise. It overlays focus connections, default entry, and route summaries directly onto the canvas, then uses the right panel for detailed neighbour editing and action checks.
+						</p>
+						<div class="page-nav">
+							<a class="cta" href="index.html">Back to set index</a>
+							<div class="badge badge--accent">Best route-debugging option</div>
+						</div>
+					</div>
+				</header>
+
+				<section class="surface">
+					<div class="workspace workspace--three">
+						<aside class="panel">
+							<div class="panel-header">
+								<div>
+									<div class="panel-kicker">Remote preview</div>
+									<h3>Control pad</h3>
+								</div>
+								<div class="badge badge--info">Live mode</div>
+							</div>
+							<div class="remote" style="margin-bottom: var(--space-4)">
+								<div></div>
+								<button class="is-active">▲</button>
+								<div></div>
+								<button>◀</button>
+								<button>OK</button>
+								<button>▶</button>
+								<div></div>
+								<button>▼</button>
+								<div></div>
+							</div>
+							<div class="stack">
+								<div class="mini-card mini-card--selected">
+									<strong>Focused button</strong>
+									<div class="meta">Scenes · default entry node</div>
+								</div>
+								<div class="mini-card">
+									<strong>Enter action</strong>
+									<div class="meta">Show Menu → Chapter Set A</div>
+								</div>
+								<div class="mini-card">
+									<strong>Timeout path</strong>
+									<div class="meta">After 2 loops, return to Main Menu</div>
+								</div>
+							</div>
+						</aside>
+
+						<div class="artboard-wrap">
+							<div class="artboard-toolbar">
+								<div class="badge badge--info">Remote</div>
+								<div class="tiny-pill">Links visible</div>
+								<div class="tiny-pill">Default focus visible</div>
+								<div class="tiny-pill">Broken routes highlighted</div>
+							</div>
+							<div class="artboard">
+								<div class="safe-area safe-area--action"></div>
+								<div class="safe-area safe-area--title"></div>
+								<div class="node node--soft" style="top: 12%; left: 12%; width: 36%; height: 12%">Wedding Highlights</div>
+								<div class="node" style="top: 36%; left: 14%; width: 22%; height: 12%">Play ceremony</div>
+								<div class="node node--focus node--blue" style="top: 36%; left: 39%; width: 22%; height: 12%">Scenes</div>
+								<div class="node node--green" style="top: 36%; left: 64%; width: 22%; height: 12%">Set-up</div>
+								<div class="node" style="top: 58%; left: 26%; width: 22%; height: 12%">Back</div>
+								<div class="node node--pink" style="top: 58%; left: 52%; width: 22%; height: 12%">Next page</div>
+
+								<div class="connector" style="top: 42%; left: 36%; width: 4%"></div>
+								<div class="connector connector--blue" style="top: 42%; left: 61%; width: 4%"></div>
+								<div class="connector" style="top: 55%; left: 49%; width: 2%; transform: rotate(90deg)"></div>
+								<div class="floating" style="left: 8%; bottom: 8%">
+									<div class="panel-kicker">Route hint</div>
+									<div class="meta" style="margin-top: 6px">Down from “Scenes” lands on “Next page”, not “Back”, because the authored geometry favours the right column.</div>
+								</div>
+							</div>
+						</div>
+
+						<aside class="panel">
+							<div class="panel-header">
+								<div>
+									<div class="panel-kicker">Route editor</div>
+									<h3>Scenes</h3>
+								</div>
+								<div class="badge badge--accent">No errors</div>
+							</div>
+							<div class="route-grid">
+								<div class="route-card route-card--selected">
+									<strong>Up</strong>
+									<div class="meta">No target</div>
+								</div>
+								<div class="route-card">
+									<strong>Right</strong>
+									<div class="meta">Set-up</div>
+								</div>
+								<div class="route-card">
+									<strong>Down</strong>
+									<div class="meta">Next page</div>
+								</div>
+								<div class="route-card">
+									<strong>Left</strong>
+									<div class="meta">Play ceremony</div>
+								</div>
+							</div>
+							<div class="subpanel" style="margin-top: var(--space-4)">
+								<div class="panel-kicker">Audit</div>
+								<div class="diag-grid" style="margin-top: var(--space-3)">
+									<div class="diag diag--info">
+										<div class="diag-badge">INFO</div>
+										<div class="meta">All buttons reachable from default focus.</div>
+									</div>
+									<div class="diag diag--warning">
+										<div class="diag-badge">WARN</div>
+										<div class="meta">Dense chapter pages should cap at 12 to 18 buttons for comfort.</div>
+									</div>
+								</div>
+							</div>
+						</aside>
+					</div>
+				</section>
+			</div>
+		</div>
+	</body>
+</html>

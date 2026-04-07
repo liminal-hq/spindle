@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en-CA">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Spindle — The Dockyard</title>
+		<link rel="stylesheet" href="design-system.css" />
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;600;700&display=swap"
+			rel="stylesheet"
+		/>
+	</head>
+	<body>
+		<div class="page-shell">
+			<div class="page-frame">
+				<header class="page-header">
+					<div>
+						<div class="eyebrow">Concept 1 / The Dockyard</div>
+						<h1 class="page-title">A heavier-duty version of today’s scene editor that feels ready for real work without losing Spindle’s calm dark workstation tone.</h1>
+						<p class="page-copy">
+							The Dockyard keeps the familiar left menu list, central canvas, and right inspector, but gives each zone more operational clarity. It makes generated menu families, scope, and compile state easier to scan while staying visually close to the live app.
+						</p>
+						<div class="page-nav">
+							<a class="cta" href="index.html">Back to set index</a>
+							<div class="badge badge--accent">Closest to today’s Menus page</div>
+						</div>
+					</div>
+				</header>
+
+				<section class="surface">
+					<div class="workspace workspace--three">
+						<aside class="panel">
+							<div class="panel-header">
+								<div>
+									<div class="panel-kicker">Menus</div>
+									<h3>Scope and sets</h3>
+								</div>
+								<div class="badge">4 menus</div>
+							</div>
+							<div class="stack">
+								<div class="list-item list-item--selected">
+									<strong>Global / Main Menu</strong>
+									<div class="meta">6 buttons · still background · compile clean</div>
+								</div>
+								<div class="list-item">
+									<strong>Titleset 1 / Chapter Set A</strong>
+									<div class="meta">12 chapter tiles · generated · page 1 of 2</div>
+								</div>
+								<div class="list-item">
+									<strong>Titleset 1 / Chapter Set B</strong>
+									<div class="meta">12 chapter tiles · page 2 of 2</div>
+								</div>
+								<div class="list-item">
+									<strong>Setup / Audio and Subtitle</strong>
+									<div class="meta">Semantic stream actions · shared theme</div>
+								</div>
+							</div>
+							<div class="subpanel" style="margin-top: var(--space-4)">
+								<div class="panel-kicker">Quick actions</div>
+								<div class="button-row" style="margin-top: var(--space-3)">
+									<div class="chip">Add menu</div>
+									<div class="chip">Generate chapter set</div>
+									<div class="chip">Auto-route focus</div>
+								</div>
+							</div>
+						</aside>
+
+						<div class="artboard-wrap">
+							<div class="artboard-toolbar">
+								<div class="badge badge--accent">Design</div>
+								<div class="tiny-pill">Bind</div>
+								<div class="tiny-pill">Remote</div>
+								<div class="tiny-pill">Compile</div>
+								<div class="tiny-pill">NTSC 720 × 480</div>
+								<div class="tiny-pill">Safe area visible</div>
+							</div>
+
+							<div class="artboard">
+								<div class="grid-overlay"></div>
+								<div class="safe-area safe-area--action"></div>
+								<div class="safe-area safe-area--title"></div>
+								<div class="canvas-label canvas-label--action">Action-safe</div>
+								<div class="canvas-label canvas-label--title">Title-safe</div>
+
+								<div class="node node--soft" style="top: 10%; left: 10%; width: 32%; height: 14%">Wedding Highlights</div>
+								<div class="node node--focus" style="top: 34%; left: 14%; width: 23%; height: 12%">Play feature</div>
+								<div class="node node--blue" style="top: 49%; left: 14%; width: 23%; height: 12%">Scenes</div>
+								<div class="node" style="top: 64%; left: 14%; width: 23%; height: 12%">Set-up</div>
+								<div class="node node--green" style="top: 42%; right: 14%; width: 25%; height: 12%">Audio tracks</div>
+								<div class="node node--pink" style="top: 58%; right: 14%; width: 25%; height: 12%">Subtitle menu</div>
+								<div class="connector" style="top: 55%; left: 37%; width: 14%; transform: rotate(-4deg)"></div>
+								<div class="connector connector--blue" style="top: 47%; left: 39%; width: 22%; transform: rotate(2deg)"></div>
+								<div class="floating" style="right: 6%; bottom: 8%">
+									<div class="panel-kicker">Hover summary</div>
+									<div class="meta" style="margin-top: 6px">“Scenes” opens generated Chapter Set A. Default focus is valid. No broken neighbours.</div>
+								</div>
+							</div>
+
+							<div class="status-strip status-row">
+								<div class="badge badge--success">Navigation valid</div>
+								<div class="badge badge--info">1 generated menu family attached</div>
+								<div class="badge">Theme: Warm glass</div>
+								<div class="badge">Background mode: still</div>
+							</div>
+						</div>
+
+						<aside class="panel">
+							<div class="panel-header">
+								<div>
+									<div class="panel-kicker">Inspector</div>
+									<h3>Scenes button</h3>
+								</div>
+								<div class="badge badge--info">Button node</div>
+							</div>
+							<div class="stats-grid">
+								<div class="stat-card">
+									<span>Action</span>
+									<strong>Show menu → Chapter Set A</strong>
+								</div>
+								<div class="stat-card">
+									<span>Default focus</span>
+									<strong>No</strong>
+								</div>
+								<div class="stat-card">
+									<span>Highlight</span>
+									<strong>Static overlay slot 2</strong>
+								</div>
+								<div class="stat-card">
+									<span>Neighbours</span>
+									<strong>Up / Down / Right</strong>
+								</div>
+							</div>
+							<div class="subpanel" style="margin-top: var(--space-4)">
+								<div class="panel-kicker">Compile note</div>
+								<div class="meta" style="margin-top: var(--space-2)">
+									DVD-safe today. If the chapter family grows beyond 18 tiles per page, suggest another generated page before the hard 36-button limit is approached.
+								</div>
+							</div>
+						</aside>
+					</div>
+				</section>
+			</div>
+		</div>
+	</body>
+</html>
