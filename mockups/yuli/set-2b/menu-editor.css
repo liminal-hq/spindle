@@ -1,0 +1,1476 @@
+/* ═══════════════════════════════════════════════════════
+   BASE & LAYOUT
+   ═══════════════════════════════════════════════════════ */
+html, body { overflow: hidden; height: 100%; margin: 0; }
+body {
+	background: var(--bg-app);
+	display: flex;
+	flex-direction: column;
+	font-family: var(--font-body);
+	font-size: 13px;
+	color: var(--text-primary);
+}
+
+/*
+ * Root grid: 260px left nav + fluid editor area.
+ * Mirrors the current MenusPage.tsx `.menus__layout` grid.
+ */
+.menus-content {
+	display: grid;
+	grid-template-columns: 260px 1fr;
+	gap: 0;
+	flex: 1;
+	overflow: hidden;
+}
+
+
+/* ═══════════════════════════════════════════════════════
+   LEFT NAV — Menu Navigator
+   ─────────────────────────────────────────────────────
+   Three stacked sections:
+   1. Menu list (scrollable, grouped by VMGM/VTS scope)
+   2. Mini navigation map (collapsible, shows connections)
+   3. Template picker (collapsible accordion)
+   ═══════════════════════════════════════════════════════ */
+.menu-nav {
+	background: var(--bg-panel);
+	border-right: 1px solid var(--border-subtle);
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+}
+
+/* Nav header with view toggle (Editor ↔ Map) */
+.menu-nav__header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: var(--space-3) var(--space-4);
+	border-bottom: 1px solid var(--border-subtle);
+	flex-shrink: 0;
+}
+
+.menu-nav__title {
+	font-family: var(--font-heading);
+	font-size: var(--text-md);
+	font-weight: 700;
+}
+
+/* Pill toggle for switching right-pane view */
+.menu-nav__view-toggle {
+	display: flex;
+	background: rgba(0,0,0,0.25);
+	border: 1px solid var(--border-subtle);
+	border-radius: 12px;
+	padding: 2px;
+	gap: 2px;
+}
+
+.nav-view-btn {
+	padding: 3px 8px;
+	border-radius: 10px;
+	font-size: 10px;
+	font-weight: 600;
+	cursor: pointer;
+	color: var(--text-muted);
+	transition: all var(--transition-fast);
+	border: none;
+	background: none;
+}
+
+.nav-view-btn:hover { color: var(--text-primary); }
+.nav-view-btn--active { background: rgba(255,255,255,0.1); color: var(--text-primary); }
+
+/* ── Menu list (scrollable body) ───────────────────── */
+.menu-nav__body {
+	flex: 1;
+	overflow-y: auto;
+	padding: var(--space-2);
+}
+
+/* Scope group: VMGM (global) or VTS (titleset) */
+.scope-group { margin-bottom: var(--space-3); }
+
+.scope-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: var(--space-1) var(--space-2);
+	margin-bottom: var(--space-1);
+}
+
+.scope-label {
+	font-size: var(--text-xs);
+	font-weight: 600;
+	letter-spacing: 0.06em;
+	color: var(--text-muted);
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+}
+
+.scope-badge {
+	font-size: 9px;
+	padding: 1px 5px;
+	border-radius: 6px;
+	font-weight: 600;
+}
+
+.scope-badge--vmgm { background: rgba(34,211,238,0.12); color: var(--brand-cyan); }
+.scope-badge--vts { background: rgba(167,139,250,0.12); color: var(--brand-purple); }
+
+.scope-add-btn {
+	background: none;
+	border: none;
+	color: var(--text-muted);
+	cursor: pointer;
+	font-size: 14px;
+	padding: 2px 6px;
+	border-radius: var(--radius-sm);
+	transition: all var(--transition-fast);
+}
+
+.scope-add-btn:hover { background: rgba(255,255,255,0.06); color: var(--text-primary); }
+
+/*
+ * Menu item card — each menu in the list.
+ * Shows: thumbnail preview | name + meta + connection counts | status dot.
+ * Implementation: renders from project.menus array, grouped by scope.
+ */
+.menu-item {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	padding: 8px var(--space-3);
+	border-radius: var(--radius-md);
+	cursor: pointer;
+	transition: all var(--transition-fast);
+	margin-bottom: 2px;
+	border: 1px solid transparent;
+	position: relative;
+}
+
+.menu-item:hover { background: rgba(255,255,255,0.03); }
+.menu-item--selected {
+	background: rgba(255,170,64,0.06);
+	border-color: rgba(255,170,64,0.2);
+}
+
+/* Thumbnail preview of the menu canvas */
+.menu-item__preview {
+	width: 48px;
+	height: 32px;
+	border-radius: 3px;
+	background: linear-gradient(135deg, #1a1828, #0f0e1a);
+	flex-shrink: 0;
+	position: relative;
+	overflow: hidden;
+	border: 1px solid var(--border-subtle);
+}
+
+.menu-item--selected .menu-item__preview { border-color: rgba(255,170,64,0.3); }
+
+/* Mini rectangles representing buttons in the thumbnail */
+.menu-item__mini-btn {
+	position: absolute;
+	background: rgba(255,255,255,0.15);
+	border-radius: 1px;
+	height: 3px;
+}
+
+.menu-item__info { flex: 1; min-width: 0; }
+
+.menu-item__name {
+	font-size: var(--text-sm);
+	font-weight: 500;
+	color: var(--text-secondary);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.menu-item--selected .menu-item__name { color: var(--brand-orange); font-weight: 600; }
+
+.menu-item__meta {
+	font-size: 10px;
+	color: var(--text-muted);
+	display: flex;
+	gap: var(--space-2);
+	align-items: center;
+}
+
+/*
+ * Connection indicators — show how many outgoing/incoming
+ * connections each menu has. Helps users spot orphaned or
+ * heavily-connected menus at a glance.
+ */
+.menu-item__conns {
+	display: flex;
+	gap: 3px;
+	align-items: center;
+}
+
+.conn-indicator {
+	display: flex;
+	align-items: center;
+	gap: 1px;
+	font-size: 8px;
+	font-weight: 600;
+	padding: 0 3px;
+	border-radius: 4px;
+	height: 14px;
+	line-height: 14px;
+}
+
+.conn-indicator--out { background: rgba(34,211,238,0.1); color: var(--brand-cyan); }
+.conn-indicator--in { background: rgba(167,139,250,0.1); color: var(--brand-purple); }
+
+/* Diagnostic status dot (green=ok, amber=warning) */
+.menu-item__status {
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	flex-shrink: 0;
+	align-self: center;
+}
+
+.menu-item__status--ok { background: var(--colour-success); }
+.menu-item__status--warn { background: var(--colour-warning); }
+
+/* ── Mini navigation map ──────────────────────────────
+   Persistent overview of menu-to-menu connections.
+   Shows between the menu list and template picker.
+   "Expand" button switches to the full Map view.
+   Implementation: renders from project interaction graph.
+   ──────────────────────────────────────────────────── */
+.map-mini {
+	padding: var(--space-3);
+	border-top: 1px solid var(--border-subtle);
+	background: rgba(0,0,0,0.15);
+	flex-shrink: 0;
+}
+
+.map-mini__header {
+	font-size: 10px;
+	font-weight: 600;
+	color: var(--text-muted);
+	letter-spacing: 0.06em;
+	margin-bottom: var(--space-2);
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+}
+
+.map-mini__expand-btn {
+	font-size: 9px;
+	font-weight: 600;
+	padding: 1px 6px;
+	border-radius: 8px;
+	background: none;
+	border: 1px solid var(--border-subtle);
+	color: var(--text-muted);
+	cursor: pointer;
+	transition: all var(--transition-fast);
+}
+
+.map-mini__expand-btn:hover { color: var(--text-primary); border-color: var(--border-default); }
+
+.map-mini__canvas {
+	width: 100%;
+	height: 120px;
+	background: rgba(0,0,0,0.3);
+	border-radius: var(--radius-md);
+	border: 1px solid var(--border-subtle);
+	position: relative;
+	overflow: hidden;
+}
+
+/* Nodes in the mini-map */
+.map-node {
+	position: absolute;
+	background: rgba(16,16,22,0.9);
+	border: 1px solid var(--border-default);
+	border-radius: 4px;
+	padding: 3px 6px;
+	font-size: 8px;
+	color: var(--text-secondary);
+	cursor: pointer;
+	transition: all var(--transition-fast);
+	white-space: nowrap;
+}
+
+.map-node:hover { border-color: var(--border-strong); }
+.map-node--selected { border-color: var(--brand-orange); color: var(--brand-orange); }
+
+/* Mini-map SVG connection lines */
+.map-mini__svg {
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+}
+
+.map-line {
+	fill: none;
+	stroke-width: 1;
+	opacity: 0.4;
+}
+
+.map-line--show { stroke: var(--brand-cyan); }
+.map-line--play { stroke: var(--brand-green); stroke-dasharray: 3 2; }
+.map-line--return { stroke: var(--brand-purple); stroke-dasharray: 2 2; }
+
+/* ── Template picker (collapsible accordion) ──────────
+   Lists starter templates the user can apply to the
+   currently selected menu. Collapsed by default so it
+   doesn't dominate the nav when not needed.
+   ──────────────────────────────────────────────────── */
+.template-section {
+	border-top: 1px solid var(--border-subtle);
+	overflow: hidden;
+	flex-shrink: 0;
+}
+
+.template-toggle {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: var(--space-2) var(--space-3);
+	cursor: pointer;
+	transition: background var(--transition-fast);
+}
+
+.template-toggle:hover { background: rgba(255,255,255,0.02); }
+
+.template-toggle__label {
+	font-size: 10px;
+	font-weight: 600;
+	color: var(--text-muted);
+	letter-spacing: 0.06em;
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+}
+
+.template-toggle__chevron {
+	transition: transform var(--transition-fast);
+	color: var(--text-muted);
+}
+
+.template-toggle__chevron--open { transform: rotate(180deg); }
+
+.template-list {
+	padding: 0 var(--space-2) var(--space-3);
+	display: none;
+}
+
+.template-list--open { display: flex; flex-direction: column; gap: var(--space-1); }
+
+.template-option {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	padding: 6px var(--space-2);
+	border-radius: var(--radius-sm);
+	cursor: pointer;
+	font-size: var(--text-xs);
+	color: var(--text-secondary);
+	transition: all var(--transition-fast);
+}
+
+.template-option:hover { background: rgba(255,255,255,0.04); color: var(--text-primary); }
+
+.template-option__icon {
+	width: 24px;
+	height: 16px;
+	background: linear-gradient(135deg, #1a1828, #0f0e1a);
+	border-radius: 2px;
+	border: 1px solid var(--border-subtle);
+	flex-shrink: 0;
+}
+
+
+/* ═══════════════════════════════════════════════════════
+   EDITOR AREA — Right side of the grid
+   ─────────────────────────────────────────────────────
+   Contains two mutually exclusive views:
+   1. Editor View: toolbar + (canvas + inspector)
+   2. Map View: toolbar + (map canvas + map inspector)
+   Switched via the Editor/Map toggle in the left nav header.
+   ═══════════════════════════════════════════════════════ */
+.editor-area {
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+}
+
+/* ── Editor toolbar ────────────────────────────────────
+   Shows: menu name (editable) | spacer | status info |
+   preview toggle | auto-nav button | inspector toggle
+   ──────────────────────────────────────────────────── */
+.editor-toolbar {
+	display: flex;
+	align-items: center;
+	padding: var(--space-2) var(--space-4);
+	border-bottom: 1px solid var(--border-subtle);
+	background: var(--bg-panel);
+	gap: var(--space-3);
+	flex-shrink: 0;
+}
+
+.editor-toolbar__name {
+	font-family: var(--font-heading);
+	font-size: var(--text-md);
+	font-weight: 600;
+	color: var(--text-primary);
+	background: none;
+	border: none;
+	border-bottom: 1px solid transparent;
+	padding: 2px 0;
+	min-width: 120px;
+}
+
+.editor-toolbar__name:focus {
+	outline: none;
+	border-bottom-color: var(--brand-orange);
+	color: var(--brand-orange);
+}
+
+.toolbar-spacer { flex: 1; }
+
+.toolbar-info {
+	font-size: var(--text-xs);
+	color: var(--text-muted);
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+}
+
+/*
+ * Preview toggle — replaces the old "Compile" mode.
+ * Single button that overlays DVD output simulation
+ * (button count, CLUT usage, safe areas, etc.) on the canvas.
+ */
+.preview-toggle {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 4px 12px;
+	border-radius: 14px;
+	font-size: var(--text-xs);
+	font-weight: 600;
+	cursor: pointer;
+	border: 1px solid var(--border-subtle);
+	background: rgba(0,0,0,0.2);
+	color: var(--text-muted);
+	transition: all var(--transition-fast);
+}
+
+.preview-toggle:hover { color: var(--text-primary); border-color: var(--border-default); }
+.preview-toggle--active {
+	background: rgba(244,63,94,0.1);
+	border-color: rgba(244,63,94,0.3);
+	color: var(--brand-pink);
+}
+
+.preview-dot {
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	background: currentColor;
+	transition: all var(--transition-fast);
+}
+
+.preview-toggle--active .preview-dot {
+	box-shadow: 0 0 6px var(--brand-pink);
+	animation: preview-pulse 2s ease-in-out infinite;
+}
+
+@keyframes preview-pulse {
+	0%, 100% { opacity: 1; }
+	50% { opacity: 0.4; }
+}
+
+/*
+ * Auto-nav toolbar button — runs geometric navigation
+ * calculation for ALL buttons on the current menu.
+ * Implementation: calls autoCalculateNavigation() on the
+ * current menu's interaction graph.
+ */
+.auto-nav-btn {
+	display: flex;
+	align-items: center;
+	gap: 5px;
+	padding: 4px 10px;
+	border-radius: 14px;
+	font-size: var(--text-xs);
+	font-weight: 600;
+	cursor: pointer;
+	border: 1px solid var(--border-subtle);
+	background: rgba(0,0,0,0.2);
+	color: var(--text-muted);
+	transition: all var(--transition-fast);
+}
+
+.auto-nav-btn:hover { color: var(--text-primary); border-color: var(--border-default); }
+
+.auto-nav-btn--flash {
+	background: rgba(46,198,106,0.12);
+	border-color: rgba(46,198,106,0.3);
+	color: var(--brand-green);
+}
+
+/* Editor body: canvas + inspector side by side */
+.editor-body {
+	display: grid;
+	grid-template-columns: 1fr 300px;
+	flex: 1;
+	overflow: hidden;
+}
+
+.editor-body--no-inspector {
+	grid-template-columns: 1fr;
+}
+
+/* Ensure hidden inspector doesn't occupy grid space */
+.editor-body--no-inspector .inspector { display: none; }
+
+
+/* ═══════════════════════════════════════════════════════
+   CANVAS VIEWPORT
+   ─────────────────────────────────────────────────────
+   Centres a 720×480 canvas (DVD NTSC) in available space.
+   Contains: floating tool palette, safe area guides,
+   scene nodes (text + buttons), nav arrow overlay,
+   and compile preview overlay.
+   ═══════════════════════════════════════════════════════ */
+.canvas-viewport {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: #08080c;
+	background-image: radial-gradient(circle at 50% 50%, rgba(255,170,64,0.015) 0%, transparent 60%);
+	position: relative;
+	overflow: hidden;
+}
+
+/* ── Floating tool palette (left edge of canvas) ────── */
+.canvas-tools-floating {
+	position: absolute;
+	top: var(--space-3);
+	left: var(--space-3);
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	z-index: 10;
+}
+
+.canvas-tool-btn {
+	width: 30px;
+	height: 30px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: rgba(16,16,22,0.85);
+	backdrop-filter: blur(8px);
+	border: 1px solid var(--border-subtle);
+	border-radius: var(--radius-sm);
+	color: var(--text-muted);
+	cursor: pointer;
+	transition: all var(--transition-fast);
+}
+
+.canvas-tool-btn:hover { background: rgba(30,30,40,0.9); color: var(--text-primary); }
+.canvas-tool-btn--active { background: rgba(255,170,64,0.15); color: var(--brand-orange); border-color: rgba(255,170,64,0.3); }
+
+.tool-sep {
+	width: 24px;
+	height: 1px;
+	background: var(--border-subtle);
+	margin: 2px 3px;
+}
+
+/* ── Menu canvas (720×480) ────────────────────────────
+   The actual DVD menu canvas. Fixed size matching NTSC
+   resolution. In production, would scale to fit viewport
+   while preserving aspect ratio.
+   ──────────────────────────────────────────────────── */
+.menu-canvas {
+	width: 720px;
+	height: 480px;
+	position: relative;
+	border-radius: 4px;
+	overflow: hidden;
+	box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+	background: linear-gradient(160deg, #1a1828 0%, #0f0e1a 50%, #181520 100%);
+	transform-origin: center center;
+	transition: filter 0.3s ease, box-shadow 0.3s ease;
+}
+
+.menu-canvas--preview {
+	filter: saturate(0.75) contrast(1.05);
+	box-shadow: 0 8px 40px rgba(0,0,0,0.5), 0 0 0 2px rgba(244,63,94,0.25);
+}
+
+.canvas-bg-layer {
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+}
+
+/* ── Safe-area guides ──────────────────────────────────
+   DVD safe areas: action-safe (5% inset) and title-safe
+   (10% inset). Toggle with S key or toolbar button.
+   ──────────────────────────────────────────────────── */
+.safe-guide {
+	position: absolute;
+	border: 1px dashed;
+	pointer-events: none;
+	z-index: 1;
+	display: none;
+}
+
+.safe-guide--visible { display: block; }
+.safe-guide--action { inset: 5% 5%; border-color: rgba(255,255,0,0.2); }
+.safe-guide--title { inset: 10% 10%; border-color: rgba(0,200,255,0.2); }
+
+/* ── Scene text nodes ──────────────────────────────────
+   Static text elements on the menu canvas.
+   Implementation: SceneTextNode in the scene document.
+   ──────────────────────────────────────────────────── */
+.scene-text {
+	position: absolute;
+	z-index: 2;
+	cursor: move;
+	user-select: none;
+}
+
+.scene-text--title {
+	font-family: var(--font-heading);
+	font-size: 32px;
+	font-weight: 700;
+	color: #fff;
+	letter-spacing: -0.02em;
+}
+
+.scene-text--subtitle {
+	font-size: 13px;
+	color: rgba(255,255,255,0.45);
+}
+
+/* ── Scene button nodes ────────────────────────────────
+   Interactive button regions on the canvas. Each button
+   has: visual content, action badge, resize handles,
+   and a default-button marker.
+
+   Button data model (from MenuDocument):
+   - position: { x, y, width, height }
+   - action: PlaybackAction (playTitle, showMenu, etc.)
+   - states: { normal, focus, activate } visual styles
+   - navigation: { up, down, left, right } button refs
+   ──────────────────────────────────────────────────── */
+.scene-btn {
+	position: absolute;
+	background: rgba(255,255,255,0.04);
+	border: 1.5px solid rgba(255,255,255,0.12);
+	border-radius: 6px;
+	display: flex;
+	align-items: center;
+	padding: 0 16px;
+	font-size: 14px;
+	color: var(--text-primary);
+	z-index: 3;
+	cursor: move;
+	user-select: none;
+	transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+	gap: 8px;
+}
+
+.scene-btn:hover { border-color: rgba(255,255,255,0.25); }
+
+.scene-btn--selected {
+	border-color: var(--brand-orange);
+	box-shadow: 0 0 0 1px var(--brand-orange), 0 0 16px rgba(255,170,64,0.12);
+	background: rgba(255,170,64,0.06);
+}
+
+/* Default button marker (orange dot, top-right corner) */
+.scene-btn--default .scene-btn__default-marker { display: block; }
+
+.scene-btn__default-marker {
+	display: none;
+	position: absolute;
+	top: -8px;
+	right: -8px;
+	width: 16px;
+	height: 16px;
+	background: var(--brand-orange);
+	border-radius: 50%;
+	border: 2px solid #08080c;
+	z-index: 10;
+}
+
+/*
+ * Action badge — appears on hover/select to show what
+ * the button does without opening the inspector.
+ * Colour-coded by action type.
+ */
+.scene-btn__action-badge {
+	position: absolute;
+	right: 8px;
+	top: 50%;
+	transform: translateY(-50%);
+	font-size: 9px;
+	font-weight: 600;
+	padding: 1px 6px;
+	border-radius: 8px;
+	opacity: 0;
+	transition: opacity 0.15s;
+	pointer-events: none;
+}
+
+.scene-btn:hover .scene-btn__action-badge,
+.scene-btn--selected .scene-btn__action-badge { opacity: 1; }
+
+.action-badge--play { background: rgba(46,198,106,0.15); color: var(--brand-green); }
+.action-badge--menu { background: rgba(34,211,238,0.15); color: var(--brand-cyan); }
+.action-badge--audio { background: rgba(167,139,250,0.15); color: var(--brand-purple); }
+
+/* ── Resize handles (visible when button selected) ──── */
+.resize-handle {
+	position: absolute;
+	width: 8px;
+	height: 8px;
+	background: var(--brand-orange);
+	border: 1.5px solid #08080c;
+	border-radius: 2px;
+	display: none;
+	z-index: 10;
+}
+
+.scene-btn--selected .resize-handle { display: block; }
+.resize-handle--tl { top: -4px; left: -4px; cursor: nw-resize; }
+.resize-handle--tr { top: -4px; right: -4px; cursor: ne-resize; }
+.resize-handle--bl { bottom: -4px; left: -4px; cursor: sw-resize; }
+.resize-handle--br { bottom: -4px; right: -4px; cursor: se-resize; }
+
+/* ── Navigation arrows overlay ─────────────────────────
+   Shows Up/Down/Left/Right navigation arrows between
+   buttons. Toggled with N key or toolbar button.
+   Replaces the old "Route" mode — now it's just a
+   visual aid layered on the design canvas.
+   ──────────────────────────────────────────────────── */
+.nav-arrows-overlay {
+	position: absolute;
+	inset: 0;
+	z-index: 4;
+	pointer-events: none;
+	opacity: 0;
+	transition: opacity 0.2s;
+}
+
+.nav-arrows-overlay--visible { opacity: 1; }
+
+/* ── Compile preview overlay ───────────────────────────
+   Shows DVD output simulation on the canvas.
+   Replaces the old "Compile" mode — now it's a toggle.
+   Shows: button count, CLUT colours used, action
+   resolution status, navigation completeness, safe areas.
+   ──────────────────────────────────────────────────── */
+.compile-overlay {
+	position: absolute;
+	inset: 0;
+	z-index: 20;
+	pointer-events: none;
+	display: none;
+}
+
+.compile-overlay--visible { display: flex; flex-direction: column; }
+
+.compile-banner {
+	background: rgba(244,63,94,0.9);
+	color: #fff;
+	font-size: 10px;
+	font-weight: 600;
+	padding: 4px 12px;
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	letter-spacing: 0.04em;
+}
+
+.compile-info {
+	position: absolute;
+	bottom: 8px;
+	left: 8px;
+	right: 8px;
+	background: rgba(0,0,0,0.85);
+	backdrop-filter: blur(8px);
+	border: 1px solid rgba(244,63,94,0.2);
+	border-radius: var(--radius-md);
+	padding: 8px 12px;
+	font-size: 10px;
+	color: var(--text-secondary);
+	display: flex;
+	gap: 16px;
+}
+
+.compile-stat {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.compile-stat__label { color: var(--text-muted); font-size: 9px; }
+.compile-stat__value { font-family: var(--font-mono); font-weight: 500; }
+.compile-stat__value--ok { color: var(--colour-success); }
+.compile-stat__value--warn { color: var(--colour-warning); }
+
+/* Zoom indicator (bottom-right of canvas viewport) */
+.zoom-info {
+	position: absolute;
+	bottom: var(--space-2);
+	right: var(--space-2);
+	font-family: var(--font-mono);
+	font-size: 10px;
+	color: var(--text-muted);
+	background: rgba(0,0,0,0.5);
+	padding: 2px 6px;
+	border-radius: 8px;
+	z-index: 10;
+}
+
+
+/* ═══════════════════════════════════════════════════════
+   INSPECTOR PANEL (300px, right side)
+   ─────────────────────────────────────────────────────
+   Context-sensitive panel showing properties of the
+   selected button or menu. Sections:
+   1. Transform (X, Y, W, H)
+   2. Visual States (Normal, Focus, Activate)
+   3. Action (type + target — was "Bind" mode)
+   4. Navigation (Up/Down/Left/Right + auto-nav)
+   5. Connections (incoming/outgoing menu links)
+   6. Diagnostics (compile readiness)
+   ═══════════════════════════════════════════════════════ */
+.inspector {
+	background: var(--bg-panel);
+	border-left: 1px solid var(--border-subtle);
+	overflow-y: auto;
+	display: flex;
+	flex-direction: column;
+}
+
+.inspector--hidden { display: none; }
+
+.inspector__header {
+	padding: var(--space-3) var(--space-4);
+	border-bottom: 1px solid var(--border-subtle);
+	background: rgba(0,0,0,0.1);
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	flex-shrink: 0;
+}
+
+.inspector__selected-name {
+	font-size: var(--text-sm);
+	font-weight: 600;
+	color: var(--brand-orange);
+}
+
+.inspector__close {
+	background: none;
+	border: none;
+	color: var(--text-muted);
+	cursor: pointer;
+	padding: 2px;
+}
+
+.inspector__close:hover { color: var(--text-primary); }
+
+.inspector__body {
+	padding: var(--space-3);
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-3);
+}
+
+/* ── Inspector section (collapsible card) ──────────── */
+.insp-section {
+	border: 1px solid var(--border-subtle);
+	border-radius: var(--radius-md);
+	overflow: hidden;
+}
+
+.insp-section__header {
+	padding: var(--space-2) var(--space-3);
+	background: rgba(0,0,0,0.12);
+	font-size: var(--text-xs);
+	font-weight: 600;
+	color: var(--text-muted);
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	cursor: pointer;
+}
+
+.insp-section__header:hover { color: var(--text-primary); }
+
+.insp-section__body { padding: var(--space-2) var(--space-3); }
+
+.insp-row {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	padding: 4px 0;
+}
+
+.insp-label {
+	font-size: 10px;
+	color: var(--text-muted);
+	width: 50px;
+	flex-shrink: 0;
+}
+
+.insp-input {
+	flex: 1;
+	padding: 3px 6px;
+	background: var(--bg-input);
+	border: 1px solid var(--border-subtle);
+	border-radius: var(--radius-sm);
+	color: var(--text-primary);
+	font-family: var(--font-mono);
+	font-size: 10px;
+}
+
+.insp-input:focus { outline: none; border-color: var(--border-focus); }
+.insp-input--sm { width: 48px; flex: none; }
+
+.insp-select {
+	flex: 1;
+	padding: 3px 6px;
+	background: var(--bg-input);
+	border: 1px solid var(--border-subtle);
+	border-radius: var(--radius-sm);
+	color: var(--text-primary);
+	font-size: 10px;
+}
+
+/* ── Visual state chips ────────────────────────────────
+   Three states matching DVD subpicture highlight system:
+   Normal (default), Focus (selected), Activate (pressed).
+   Clicking a chip previews that state on the canvas.
+   ──────────────────────────────────────────────────── */
+.state-row {
+	display: flex;
+	gap: var(--space-1);
+	padding: 4px 0;
+}
+
+.state-chip {
+	flex: 1;
+	padding: 6px 0;
+	text-align: center;
+	font-size: 9px;
+	font-weight: 600;
+	border-radius: var(--radius-sm);
+	cursor: pointer;
+	border: 1.5px solid transparent;
+	transition: all var(--transition-fast);
+}
+
+.state-chip--normal { background: rgba(255,255,255,0.04); color: var(--text-muted); border-color: var(--border-subtle); }
+.state-chip--focus { background: rgba(255,170,64,0.1); color: var(--brand-orange); border-color: rgba(255,170,64,0.3); }
+.state-chip--activate { background: rgba(46,198,106,0.1); color: var(--brand-green); border-color: rgba(46,198,106,0.3); }
+.state-chip--active { box-shadow: 0 0 6px currentColor; }
+
+/* ── Action summary (inline, replaces "Bind" mode) ──── */
+.action-row {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	padding: 4px 8px;
+	background: rgba(167,139,250,0.06);
+	border: 1px solid rgba(167,139,250,0.15);
+	border-radius: 8px;
+	font-size: 10px;
+	color: var(--brand-purple);
+	margin-top: 4px;
+}
+
+.action-row__icon { flex-shrink: 0; opacity: 0.7; }
+.action-row__text { flex: 1; }
+
+/* ── Navigation grid ───────────────────────────────────
+   Visual directional pad showing Up/Down/Left/Right
+   navigation targets. Matches DVD remote button layout.
+   "Auto" mode computes these geometrically from button
+   positions; users can override to "Manual".
+   ──────────────────────────────────────────────────── */
+.nav-grid {
+	display: grid;
+	grid-template-columns: 1fr 1fr 1fr;
+	grid-template-rows: auto auto auto;
+	gap: 4px;
+	padding: 4px 0;
+}
+
+.nav-grid__cell {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.nav-grid__btn {
+	padding: 4px 8px;
+	background: var(--bg-input);
+	border: 1px solid var(--border-subtle);
+	border-radius: var(--radius-sm);
+	font-size: 9px;
+	color: var(--text-secondary);
+	cursor: pointer;
+	transition: all var(--transition-fast);
+	text-align: center;
+	min-width: 60px;
+}
+
+.nav-grid__btn:hover { border-color: var(--border-default); color: var(--text-primary); }
+
+.nav-grid__center {
+	font-size: 10px;
+	color: var(--text-muted);
+	text-align: center;
+}
+
+/*
+ * Auto-nav toggle — sits in the Navigation section header.
+ * When active (default), navigation is computed from button
+ * geometry whenever positions change. Users can switch to
+ * Manual to override individual directions.
+ */
+.auto-badge {
+	font-size: 8px;
+	font-weight: 700;
+	padding: 1px 6px;
+	border-radius: 6px;
+	cursor: pointer;
+	transition: all var(--transition-fast);
+	border: 1px solid transparent;
+}
+
+.auto-badge--on {
+	background: rgba(46,198,106,0.12);
+	color: var(--brand-green);
+	border-color: rgba(46,198,106,0.2);
+}
+
+.auto-badge--off {
+	background: rgba(255,255,255,0.04);
+	color: var(--text-muted);
+	border-color: var(--border-subtle);
+}
+
+/* Recalculate button inside the nav section */
+.recalc-btn {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 4px;
+	width: 100%;
+	padding: 5px 0;
+	margin-top: 4px;
+	font-size: 10px;
+	font-weight: 600;
+	color: var(--text-muted);
+	background: rgba(255,255,255,0.02);
+	border: 1px dashed var(--border-subtle);
+	border-radius: var(--radius-sm);
+	cursor: pointer;
+	transition: all var(--transition-fast);
+}
+
+.recalc-btn:hover { color: var(--text-primary); border-color: var(--border-default); background: rgba(255,255,255,0.04); }
+
+.recalc-btn--flash {
+	background: rgba(46,198,106,0.08);
+	border-color: rgba(46,198,106,0.3);
+	border-style: solid;
+	color: var(--brand-green);
+}
+
+/* ── Connection list ───────────────────────────────────
+   Shows all incoming/outgoing connections for the
+   currently selected menu. Clicking an entry jumps to
+   that menu (selects it in the list + loads it).
+   Replaces the need for a separate "Route" mode.
+   ──────────────────────────────────────────────────── */
+.conn-list { display: flex; flex-direction: column; gap: 4px; }
+
+.conn-entry {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 4px 8px;
+	border-radius: 6px;
+	font-size: 10px;
+	cursor: pointer;
+	transition: background var(--transition-fast);
+}
+
+.conn-entry:hover { background: rgba(255,255,255,0.03); }
+
+.conn-entry__dir {
+	font-size: 8px;
+	font-weight: 700;
+	width: 24px;
+	text-align: center;
+	padding: 1px 0;
+	border-radius: 4px;
+	flex-shrink: 0;
+}
+
+.conn-entry__dir--out { background: rgba(34,211,238,0.1); color: var(--brand-cyan); }
+.conn-entry__dir--in { background: rgba(167,139,250,0.1); color: var(--brand-purple); }
+.conn-entry__dir--play { background: rgba(46,198,106,0.1); color: var(--brand-green); }
+
+.conn-entry__target { color: var(--text-secondary); flex: 1; }
+.conn-entry__type { color: var(--text-muted); font-style: italic; }
+
+/* ── Diagnostics chip ──────────────────────────────── */
+.diag-chip {
+	display: flex;
+	align-items: flex-start;
+	gap: var(--space-2);
+	padding: var(--space-2) var(--space-3);
+	border-radius: var(--radius-md);
+	font-size: 10px;
+	line-height: 1.4;
+}
+
+.diag-chip--ok { background: rgba(46,198,106,0.06); border: 1px solid rgba(46,198,106,0.12); color: var(--text-secondary); }
+.diag-chip--warn { background: rgba(251,191,36,0.06); border: 1px solid rgba(251,191,36,0.12); color: var(--text-secondary); }
+
+
+/* ═══════════════════════════════════════════════════════
+   NAVIGATION MAP VIEW
+   ─────────────────────────────────────────────────────
+   Full bird's-eye view of the disc's menu system.
+   Shows all menus as cards, all connections as
+   colour-coded SVG curves. Switchable via the
+   Editor/Map toggle or M key.
+
+   Connection colours:
+   - Cyan solid: showMenu
+   - Green dashed: playTitle / playChapter
+   - Purple dotted: return (back navigation)
+   - Amber dashed: setAudioStream / setSubtitleStream
+
+   Implementation: would render from the project's full
+   interaction graph, with force-directed or layered
+   layout algorithm for card positioning.
+   ═══════════════════════════════════════════════════════ */
+.nav-map-view {
+	display: none;
+	flex: 1;
+	overflow: hidden;
+	flex-direction: column;
+}
+
+.nav-map-view--visible { display: flex; }
+
+/* Map toolbar with legend */
+.map-toolbar {
+	display: flex;
+	align-items: center;
+	padding: var(--space-2) var(--space-4);
+	border-bottom: 1px solid var(--border-subtle);
+	background: var(--bg-panel);
+	gap: var(--space-3);
+	flex-shrink: 0;
+}
+
+.map-toolbar__title {
+	font-family: var(--font-heading);
+	font-size: var(--text-md);
+	font-weight: 600;
+	color: var(--text-primary);
+}
+
+.map-legend {
+	display: flex;
+	gap: var(--space-3);
+	margin-left: auto;
+}
+
+.legend-item {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	font-size: 10px;
+	color: var(--text-muted);
+}
+
+.legend-line {
+	width: 16px;
+	height: 2px;
+	border-radius: 1px;
+}
+
+.legend-line--show { background: var(--brand-cyan); }
+.legend-line--play { background: var(--brand-green); }
+.legend-line--return { background: var(--brand-purple); }
+
+/* Map canvas container */
+.map-canvas-wrap {
+	flex: 1;
+	background: #08080c;
+	background-image:
+		radial-gradient(circle at 25% 35%, rgba(34,211,238,0.015) 0%, transparent 40%),
+		radial-gradient(circle at 75% 65%, rgba(167,139,250,0.015) 0%, transparent 40%);
+	position: relative;
+	overflow: hidden;
+}
+
+/* ── Map menu cards ────────────────────────────────────
+   Each menu is a card on the map showing: scope badge,
+   name, thumbnail preview, and button count.
+   Clicking selects, double-clicking jumps to editor.
+   ──────────────────────────────────────────────────── */
+.map-menu-card {
+	position: absolute;
+	background: rgba(16,16,22,0.95);
+	border: 1.5px solid var(--border-default);
+	border-radius: var(--radius-md);
+	padding: 10px 14px;
+	width: 160px;
+	cursor: pointer;
+	transition: all var(--transition-fast);
+	z-index: 5;
+}
+
+.map-menu-card:hover {
+	border-color: var(--border-strong);
+	box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+	transform: translateY(-1px);
+}
+
+.map-menu-card--selected {
+	border-color: var(--brand-orange);
+	box-shadow: 0 0 0 1px var(--brand-orange), 0 4px 20px rgba(255,170,64,0.1);
+}
+
+/* Non-menu targets (titles) shown with dashed border */
+.map-menu-card--target {
+	border-style: dashed;
+	background: rgba(16,16,22,0.7);
+	width: 140px;
+}
+
+.map-card__scope {
+	display: inline-block;
+	margin-bottom: 4px;
+}
+
+.map-card__name {
+	font-size: var(--text-sm);
+	font-weight: 600;
+	margin-bottom: 6px;
+}
+
+.map-menu-card--selected .map-card__name { color: var(--brand-orange); }
+
+.map-card__preview {
+	width: 100%;
+	height: 56px;
+	background: linear-gradient(135deg, #1a1828, #0f0e1a);
+	border-radius: 3px;
+	margin-bottom: 6px;
+	position: relative;
+	overflow: hidden;
+	border: 1px solid var(--border-subtle);
+}
+
+.map-card__preview-btn {
+	position: absolute;
+	background: rgba(255,255,255,0.12);
+	border-radius: 2px;
+}
+
+.map-card__btns {
+	font-size: 9px;
+	color: var(--text-muted);
+}
+
+/* ── Map SVG connection lines ──────────────────────────
+   Drawn between card edge midpoints using bezier curves.
+   Positioned absolutely to fill the map canvas.
+
+   Card layout (pixel positions within map-canvas-wrap):
+   - Main Menu:      left:50,  top:90  (right edge: 210)
+   - Chapter Select: left:400, top:30  (left edge: 400)
+   - Audio Setup:    left:400, top:200 (left edge: 400)
+   - Subtitle Setup: left:400, top:360 (left edge: 400)
+   - Title 1:        left:190, top:420 (non-menu target)
+   ──────────────────────────────────────────────────── */
+.map-connections {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	pointer-events: none;
+	z-index: 2;
+	overflow: visible;
+}
+
+.map-conn-line {
+	fill: none;
+	stroke-width: 2;
+	opacity: 0.5;
+}
+
+.map-conn-line--show { stroke: var(--brand-cyan); }
+.map-conn-line--play { stroke: var(--brand-green); stroke-dasharray: 6 3; }
+.map-conn-line--return { stroke: var(--brand-purple); stroke-dasharray: 3 3; }
+
+/* ── Background section (inspector) ───────────────── */
+.bg-mode-row {
+	display: flex;
+	gap: var(--space-1);
+	padding: 4px 0;
+}
+
+.bg-mode-chip {
+	flex: 1;
+	padding: 5px 0;
+	text-align: center;
+	font-size: 9px;
+	font-weight: 600;
+	border-radius: var(--radius-sm);
+	cursor: pointer;
+	border: 1.5px solid var(--border-subtle);
+	background: rgba(255,255,255,0.02);
+	color: var(--text-muted);
+	transition: all var(--transition-fast);
+}
+
+.bg-mode-chip:hover { color: var(--text-primary); }
+
+.bg-mode-chip--active {
+	border-color: rgba(255,170,64,0.3);
+	background: rgba(255,170,64,0.06);
+	color: var(--brand-orange);
+}
+
+.bg-colour-row {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	padding: 4px 0;
+}
+
+.bg-colour-swatch {
+	width: 24px;
+	height: 24px;
+	border-radius: var(--radius-sm);
+	border: 1.5px solid var(--border-default);
+	cursor: pointer;
+	flex-shrink: 0;
+}
+
+/* ── Generate menus section ───────────────────────── */
+.generate-section {
+	border-top: 1px solid var(--border-subtle);
+	padding: var(--space-2) var(--space-3);
+	flex-shrink: 0;
+}
+
+.generate-section__header {
+	font-size: 10px;
+	font-weight: 600;
+	color: var(--text-muted);
+	letter-spacing: 0.06em;
+	margin-bottom: var(--space-2);
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+}
+
+.generate-btn {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	width: 100%;
+	padding: 7px 10px;
+	border-radius: var(--radius-sm);
+	border: 1px dashed var(--border-subtle);
+	background: rgba(255,255,255,0.01);
+	color: var(--text-secondary);
+	font-size: var(--text-xs);
+	cursor: pointer;
+	transition: all var(--transition-fast);
+	margin-bottom: 4px;
+}
+
+.generate-btn:hover {
+	border-color: var(--border-default);
+	background: rgba(255,255,255,0.03);
+	color: var(--text-primary);
+}
+
+.generate-btn__icon {
+	width: 16px;
+	height: 16px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 4px;
+	font-size: 10px;
+	flex-shrink: 0;
+}
+
+.generate-btn__icon--chapter { background: rgba(46,198,106,0.1); color: var(--brand-green); }
+.generate-btn__icon--audio { background: rgba(167,139,250,0.1); color: var(--brand-purple); }
+.generate-btn__icon--subtitle { background: rgba(34,211,238,0.1); color: var(--brand-cyan); }
+
+.generate-btn__detail {
+	font-size: 9px;
+	color: var(--text-muted);
+	margin-left: auto;
+}
+
+.generate-flash {
+	background: rgba(46,198,106,0.08) !important;
+	border-color: rgba(46,198,106,0.3) !important;
+	color: var(--brand-green) !important;
+}
+
+/* ── Map inspector ──────────────────────────────────── */
+.map-inspector__header {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	margin-bottom: var(--space-2);
+}
+
+.map-inspector__name {
+	font-size: var(--text-md);
+	font-weight: 600;
+}
+
+.map-inspector__stat-row {
+	display: flex;
+	gap: var(--space-4);
+	padding: var(--space-2) 0;
+	border-bottom: 1px solid var(--border-subtle);
+	margin-bottom: var(--space-2);
+}
+
+.map-inspector__stat {
+	font-size: 10px;
+	color: var(--text-muted);
+}
+
+.map-inspector__stat strong {
+	color: var(--text-primary);
+	font-weight: 600;
+}
