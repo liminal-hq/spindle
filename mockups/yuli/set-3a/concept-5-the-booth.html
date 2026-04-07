@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en-CA">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Spindle — The Booth</title>
+		<link rel="stylesheet" href="design-system.css" />
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;600;700&display=swap"
+			rel="stylesheet"
+		/>
+	</head>
+	<body>
+		<div class="page-shell">
+			<div class="page-frame">
+				<header class="page-header">
+					<div>
+						<div class="eyebrow">Concept 5 / The Booth</div>
+						<h1 class="page-title">A compile-review booth that feels native to today’s app and explains how authored menus become real DVD output before the user hits Build.</h1>
+						<p class="page-copy">
+							The Booth is the most practical extension of Spindle’s current Build and Menus surfaces. It puts authored preview, compiled preview, motion timing, and actionable diagnostics in one place, but keeps the same cards, small type, and operational tone the app already uses.
+						</p>
+						<div class="page-nav">
+							<a class="cta" href="index.html">Back to set index</a>
+							<div class="badge badge--accent">Best compile-trust option</div>
+						</div>
+					</div>
+				</header>
+
+				<section class="surface">
+					<div class="workspace workspace--review">
+						<div class="artboard-wrap">
+							<div class="artboard-toolbar">
+								<div class="badge badge--accent">Compile</div>
+								<div class="tiny-pill">Authored vs DVD</div>
+								<div class="tiny-pill">Motion loop review</div>
+								<div class="tiny-pill">Remote-safe focus graph</div>
+							</div>
+							<div class="preview-grid">
+								<div class="preview-card">
+									<div class="panel-kicker">Authored scene</div>
+									<h3>Creative intent</h3>
+									<div class="preview-window">
+										<div class="preview-node" style="left: 12%; top: 16%; width: 30%; height: 18%; background: rgba(255,255,255,0.05)"></div>
+										<div class="preview-node" style="left: 15%; top: 48%; width: 20%; height: 18%; background: rgba(255,255,255,0.05)"></div>
+										<div class="preview-node" style="left: 40%; top: 48%; width: 20%; height: 18%; background: rgba(255,170,64,0.18); border-color: rgba(255,170,64,0.5)"></div>
+										<div class="preview-node" style="right: 15%; top: 48%; width: 20%; height: 18%; background: rgba(96,165,250,0.12); border-color: rgba(96,165,250,0.3)"></div>
+									</div>
+									<p class="quiet-copy" style="margin-top: var(--space-3)">
+										Shows the scene as designed, including richer background tone, component styling, and motion-aware composition.
+									</p>
+								</div>
+
+								<div class="preview-card">
+									<div class="panel-kicker">DVD-safe output</div>
+									<h3>What the player gets</h3>
+									<div class="preview-window preview-window--compiled">
+										<div class="preview-node" style="left: 12%; top: 16%; width: 30%; height: 18%; background: rgba(255,255,255,0.03)"></div>
+										<div class="preview-node" style="left: 15%; top: 48%; width: 20%; height: 18%; background: rgba(255,255,255,0.04)"></div>
+										<div class="preview-node" style="left: 40%; top: 48%; width: 20%; height: 18%; background: rgba(255,170,64,0.26); border-color: rgba(255,170,64,0.72)"></div>
+										<div class="preview-node" style="right: 15%; top: 48%; width: 20%; height: 18%; background: rgba(255,255,255,0.04)"></div>
+									</div>
+									<p class="quiet-copy" style="margin-top: var(--space-3)">
+										Shows palette reduction and flatter highlight extraction so the user can judge whether the authored design still reads well after compilation.
+									</p>
+								</div>
+							</div>
+
+							<div class="panel">
+								<div class="panel-header">
+									<div>
+										<div class="panel-kicker">Motion timing</div>
+										<h3>Loop review</h3>
+									</div>
+									<div class="badge badge--info">Motion menu</div>
+								</div>
+								<div class="timeline">
+									<div class="timeline-row">
+										<div class="meta">Intro</div>
+										<div class="timeline-bar"><div class="timeline-fill timeline-fill--orange" style="width: 22%"></div></div>
+										<div class="meta">2.2 s</div>
+									</div>
+									<div class="timeline-row">
+										<div class="meta">Loop</div>
+										<div class="timeline-bar"><div class="timeline-fill timeline-fill--blue" style="width: 78%"></div></div>
+										<div class="meta">10 s</div>
+									</div>
+									<div class="timeline-row">
+										<div class="meta">Audio</div>
+										<div class="timeline-bar"><div class="timeline-fill timeline-fill--green" style="width: 56%"></div></div>
+										<div class="meta">AC-3</div>
+									</div>
+								</div>
+							</div>
+						</div>
+
+						<aside class="panel">
+							<div class="panel-header">
+								<div>
+									<div class="panel-kicker">Diagnostics</div>
+									<h3>Downgrade report</h3>
+								</div>
+								<div class="badge badge--warning">1 repair needed</div>
+							</div>
+							<div class="diag-grid">
+								<div class="diag diag--info">
+									<div class="diag-badge">INFO</div>
+									<div class="meta">11 buttons total. Menu stays well within DVD hardware limits.</div>
+								</div>
+								<div class="diag diag--warning">
+									<div class="diag-badge">WARN</div>
+									<div class="meta">Glow styling compresses into a simpler focus wash after overlay extraction.</div>
+								</div>
+								<div class="diag diag--warning">
+									<div class="diag-badge">WARN</div>
+									<div class="meta">Motion tile remains decorative only. Highlight state will still be static on DVD.</div>
+								</div>
+								<div class="diag diag--error">
+									<div class="diag-badge">ERR</div>
+									<div class="meta">Subtitle menu target points to an outdated generated page ID after regeneration.</div>
+								</div>
+							</div>
+
+							<div class="subpanel" style="margin-top: var(--space-4)">
+								<div class="panel-kicker">Repair actions</div>
+								<div class="stack" style="margin-top: var(--space-3)">
+									<div class="mini-card mini-card--selected">
+										<strong>Fix target</strong>
+										<div class="meta">Rebind subtitle button to the current generated menu page.</div>
+									</div>
+									<div class="mini-card">
+										<strong>Simplify highlight</strong>
+										<div class="meta">Swap glow-heavy styling for a cleaner border and fill pair.</div>
+									</div>
+									<div class="mini-card">
+										<strong>Open remote preview</strong>
+										<div class="meta">Step through the focus graph before authoring output.</div>
+									</div>
+								</div>
+							</div>
+						</aside>
+					</div>
+				</section>
+			</div>
+		</div>
+	</body>
+</html>
