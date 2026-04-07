@@ -166,10 +166,13 @@
 			<div class="changes-callout">
 				<strong>Changes from Set 2a:</strong>
 				<ul>
-					<li><strong>Removed Bind and Route modes.</strong> Action binding is now an always-available inspector section — select a button, edit its action type and target inline. Navigation arrows are a canvas toggle (N key), not a separate mode.</li>
-					<li><strong>Compile is now Preview.</strong> A single toggle in the toolbar overlays DVD output simulation stats on the canvas — button count, CLUT usage, action resolution, safe area compliance.</li>
+					<li><strong>Removed Bind and Route modes.</strong> Action binding is now an always-available inspector section — select a button, edit its action type and target inline. Navigation arrows are a canvas toggle (<kbd>N</kbd>), not a separate mode.</li>
+					<li><strong>Compile is now Preview.</strong> A single toggle (<kbd>P</kbd>) overlays DVD output simulation stats on the canvas — button count, CLUT usage, action resolution, safe area compliance.</li>
+					<li><strong>Mini navigation map restored.</strong> Persistent mini-map in the left nav between the menu list and template picker. Shows all menu connections at a glance. Click nodes to jump, "Expand" to switch to the full Map view.</li>
 					<li><strong>Connections restored.</strong> Each menu item in the left nav shows incoming/outgoing connection counts. The inspector has a dedicated Connections section listing all linked menus with click-to-jump. Action badges appear on hover/select on canvas buttons.</li>
-					<li><strong>Navigation map is a full view.</strong> The Editor/Map toggle in the left panel header switches between the canvas editor and a full bird's-eye map showing all menus as cards with colour-coded connection lines and a dedicated inspector for connection details. Double-click a map card to jump to that menu's editor.</li>
+					<li><strong>Auto Navigation.</strong> Toolbar "Auto Nav" button (<kbd>A</kbd>) calculates geometric Up/Down/Left/Right navigation for all buttons, mirroring the current Spindle autoNav feature. Inspector Navigation section has an Auto/Manual toggle and a "Recalculate from positions" button.</li>
+					<li><strong>Navigation map is a full view.</strong> Editor/Map toggle switches to a bird's-eye map with clean bezier-routed connection lines between card edges — showMenu (cyan), playTitle (green dashed), return (purple dotted). Double-click a card to jump to that menu's editor.</li>
+					<li><strong>Well-commented HTML.</strong> Architecture overview, section markers, data model notes, and implementation hints throughout the source for planning.</li>
 				</ul>
 			</div>
 
@@ -186,10 +189,12 @@
 					<span class="feature-tag feature-tag--interact">Inline Action Binding</span>
 					<span class="feature-tag feature-tag--motion">Navigation Arrow Toggle</span>
 					<span class="feature-tag feature-tag--compile">Preview Overlay</span>
+					<span class="feature-tag feature-tag--theme">Mini Navigation Map</span>
 					<span class="feature-tag feature-tag--theme">Full Navigation Map</span>
-					<span class="feature-tag feature-tag--gen">Connection Inspector</span>
+					<span class="feature-tag feature-tag--gen">Auto Navigation</span>
 					<span class="feature-tag feature-tag--scene">Action Badges on Canvas</span>
-					<span class="feature-tag feature-tag--compile">Click-to-Jump Connections</span>
+					<span class="feature-tag feature-tag--compile">Connection Indicators</span>
+					<span class="feature-tag feature-tag--interact">Click-to-Jump Connections</span>
 				</div>
 				<a href="menu-editor.html" class="btn btn--primary" target="_blank">Open Menu Editor</a>
 
@@ -202,6 +207,7 @@
 					<tr><td><kbd>S</kbd></td><td>Toggle safe area guides</td></tr>
 					<tr><td><kbd>N</kbd></td><td>Toggle navigation arrows</td></tr>
 					<tr><td><kbd>P</kbd></td><td>Toggle compile preview</td></tr>
+					<tr><td><kbd>A</kbd></td><td>Run auto-navigation for all buttons</td></tr>
 					<tr><td><kbd>M</kbd></td><td>Switch between Editor and Map views</td></tr>
 					<tr><td><kbd>Esc</kbd></td><td>Deselect / exit preview</td></tr>
 				</table>
