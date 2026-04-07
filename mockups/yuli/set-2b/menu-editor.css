@@ -401,6 +401,22 @@ body {
 	display: flex;
 	flex-direction: column;
 	overflow: hidden;
+	min-height: 0;
+}
+
+/*
+ * #editorView and #navMapView are flex children of editor-area.
+ * They need flex: 1 to fill the available height and must be flex
+ * containers themselves so editor-body's flex: 1 has a flex parent
+ * to grow into. Without this, the grid row height is determined by
+ * content (inspector sections), which pushes the canvas off-screen.
+ */
+#editorView {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+	min-height: 0;
 }
 
 /* ── Editor toolbar ────────────────────────────────────
@@ -523,8 +539,10 @@ body {
 .editor-body {
 	display: grid;
 	grid-template-columns: 1fr 300px;
+	grid-template-rows: 1fr;  /* single row that fills flex: 1 height */
 	flex: 1;
 	overflow: hidden;
+	min-height: 0;
 }
 
 .editor-body--no-inspector {
@@ -551,6 +569,7 @@ body {
 	background-image: radial-gradient(circle at 50% 50%, rgba(255,170,64,0.015) 0%, transparent 60%);
 	position: relative;
 	overflow: hidden;
+	min-height: 0;  /* allow shrink within grid row */
 }
 
 /* ── Floating tool palette (left edge of canvas) ────── */
@@ -877,6 +896,7 @@ body {
 	overflow-y: auto;
 	display: flex;
 	flex-direction: column;
+	min-height: 0;  /* allow scroll within grid cell, not grow unbounded */
 }
 
 .inspector--hidden { display: none; }
@@ -1242,6 +1262,7 @@ body {
 	flex: 1;
 	overflow: hidden;
 	flex-direction: column;
+	min-height: 0;
 }
 
 .nav-map-view--visible { display: flex; }
