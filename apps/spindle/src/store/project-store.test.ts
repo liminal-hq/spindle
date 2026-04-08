@@ -332,7 +332,7 @@ describe('ProjectStore: updateMenuDocument', () => {
 		project.disc.globalMenus.push(menu);
 		useProjectStore.setState({ project, filePath: null });
 
-		// Mock the save dialog and invoke
+		// Mock the save dialogue and invoke
 		const { save } = await import('@tauri-apps/plugin-dialog');
 		vi.mocked(save).mockResolvedValue('/path/to/project.spindle');
 		vi.mocked(invoke).mockResolvedValue(undefined);
