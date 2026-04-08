@@ -769,6 +769,12 @@ function NavLines({
 
 const MAX_DVD_BUTTONS = 36;
 
+interface CompileOverlayCheck {
+	label: string;
+	value: string;
+	ok: boolean;
+}
+
 function CompileOverlay({
 	buttons,
 	canvasHeight,
@@ -813,6 +819,34 @@ function CompileOverlay({
 	).length;
 	const safeOk = outsideCount === 0;
 
+	const checks: CompileOverlayCheck[] = [
+		{
+			label: 'Buttons',
+			value: `${btnCount} / ${MAX_DVD_BUTTONS}`,
+			ok: btnOk,
+		},
+		{
+			label: 'Actions',
+			value:
+				actionsTotal === 0
+					? '—'
+					: actionsOk
+						? `${actionsResolved} resolved`
+						: `${actionsResolved}/${actionsTotal}`,
+			ok: actionsOk,
+		},
+		{
+			label: 'Nav',
+			value: navLabel,
+			ok: navOk,
+		},
+		{
+			label: 'Safe areas',
+			value: safeOk ? 'All clear' : `${outsideCount} outside`,
+			ok: safeOk,
+		},
+	];
+
 	return (
 		<div className="compile-overlay">
 			<div className="compile-overlay__banner">
@@ -831,41 +865,55 @@ function CompileOverlay({
 				Compile Preview — DVD output simulation
 			</div>
 			<div className="compile-overlay__info">
-				<div className="compile-overlay__stat">
-					<span className="compile-overlay__stat-label">Buttons</span>
-					<span
-						className={`compile-overlay__stat-value ${btnOk ? 'compile-overlay__stat-value--ok' : 'compile-overlay__stat-value--warn'}`}
-					>
-						{btnCount} / {MAX_DVD_BUTTONS}
-					</span>
+				<div className="compile-overlay__summary">
+					<span className="compile-overlay__eyebrow">Preview compass</span>
+					<p className="compile-overlay__headline">
+						DVD fallback strips rich menu styling down to fewer colours and firmer edges.
+					</p>
+					<p className="compile-overlay__body">
+						Use this pass to judge what the viewer actually loses before compile: gentle
+						blends collapse, translucent overlays harden, and highlight states read more
+						like blunt subpictures than polished UI.
+					</p>
 				</div>
-				<div className="compile-overlay__stat">
-					<span className="compile-overlay__stat-label">Actions</span>
-					<span
-						className={`compile-overlay__stat-value ${actionsOk ? 'compile-overlay__stat-value--ok' : 'compile-overlay__stat-value--warn'}`}
-					>
-						{actionsTotal === 0
-							? '—'
-							: actionsOk
-								? `${actionsResolved} resolved`
-								: `${actionsResolved}/${actionsTotal}`}
-					</span>
+				<div className="compile-overlay__compass">
+					<div className="compile-overlay__card">
+						<span className="compile-overlay__card-label">Palette collapse</span>
+						<p className="compile-overlay__card-body">
+							Close hues and soft gradients compress into a 4-colour CLUT, so accents can
+							merge or posterise.
+						</p>
+					</div>
+					<div className="compile-overlay__card">
+						<span className="compile-overlay__card-label">Alpha flattening</span>
+						<p className="compile-overlay__card-body">
+							Soft glows, shadows, and translucent fills lose their softness and often land
+							as harder mats.
+						</p>
+					</div>
+					<div className="compile-overlay__card">
+						<span className="compile-overlay__card-label">State simplification</span>
+						<p className="compile-overlay__card-body">
+							Focus and activate cues survive as simpler highlight planes, not layered,
+							high-fidelity states.
+						</p>
+					</div>
 				</div>
-				<div className="compile-overlay__stat">
-					<span className="compile-overlay__stat-label">Nav</span>
-					<span
-						className={`compile-overlay__stat-value ${navOk ? 'compile-overlay__stat-value--ok' : 'compile-overlay__stat-value--warn'}`}
-					>
-						{navLabel}
-					</span>
-				</div>
-				<div className="compile-overlay__stat">
-					<span className="compile-overlay__stat-label">Safe areas</span>
-					<span
-						className={`compile-overlay__stat-value ${safeOk ? 'compile-overlay__stat-value--ok' : 'compile-overlay__stat-value--warn'}`}
-					>
-						{safeOk ? 'All clear' : `${outsideCount} outside`}
-					</span>
+				<div className="compile-overlay__checks">
+					{checks.map((check) => (
+						<div key={check.label} className="compile-overlay__stat">
+							<span className="compile-overlay__stat-label">{check.label}</span>
+							<span
+								className={`compile-overlay__stat-value ${
+									check.ok
+										? 'compile-overlay__stat-value--ok'
+										: 'compile-overlay__stat-value--warn'
+								}`}
+							>
+								{check.value}
+							</span>
+						</div>
+					))}
 				</div>
 			</div>
 		</div>

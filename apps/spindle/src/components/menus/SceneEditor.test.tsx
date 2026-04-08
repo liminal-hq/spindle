@@ -303,7 +303,7 @@ describe('SceneCanvas', () => {
 		expect(viewport).toBeTruthy();
 	});
 
-	it('shows compile preview badge when honest preview is on', () => {
+	it('shows compile preview compass when honest preview is on', () => {
 		render(
 			<SceneCanvas
 				buttons={buttons}
@@ -325,6 +325,13 @@ describe('SceneCanvas', () => {
 		);
 
 		expect(screen.getByText('Compile Preview — DVD output simulation')).toBeTruthy();
+		expect(
+			screen.getByText(
+				'DVD fallback strips rich menu styling down to fewer colours and firmer edges.',
+			),
+		).toBeTruthy();
+		expect(screen.getByText('Palette collapse')).toBeTruthy();
+		expect(screen.getByText('Alpha flattening')).toBeTruthy();
 	});
 
 	it('renders safe-area guides when enabled', () => {
