@@ -26,8 +26,17 @@ Prefer durable design guidance over narrative notes.
 - Nicholas works best in productive tension with Tristan's structural rigour and Edward's constraint-minded product review.
 - A recurring trap to watch for is styling that implies freedom or interactivity the underlying system does not really offer.
 
+## Set 2b Visual Decisions
+
+- **Compile Preview overlay** uses a rose-tinted top banner (rgba 244,63,94) and a frosted dark bottom stats bar — this colour was chosen to clearly distinguish "simulation mode" from normal editing without being alarming. The CSS filter (saturate 0.7, contrast 1.05) simulates DVD colour reduction.
+- **Navigation map scope tinting** follows Yuli's scope-badge palette: VMGM nodes are cyan-tinted (34,211,238), titleset nodes are purple-tinted (167,139,250). This matches the badge colours in the left-rail menu list.
+- **Return action** renders as a pink loopback badge on map nodes rather than a conventional edge, because return resumes playback without a fixed target.
+- **Inspector collapsible sections** use a chevron-toggle wrapper. Primary sections (Button identity, Position/Size, Action, Navigation) stay flat and always visible. Secondary sections (Highlight Mode, Overlay Colours, Button Style, Text Style) collapse to keep the panel scannable.
+- **Button Style panel** uses per-state sub-tabs (Normal/Focus/Activate) inside a collapsible section — this pattern came from Yuli's mockup and scales well for the three DVD button states.
+
 ## Open Questions
 
 - Which shared visual primitives should become the default foundation for new Spindle surfaces.
 - How the app should balance premium atmosphere with the clarity needed for dense authoring workflows.
 - Which visual constraints need to be documented explicitly so future polish passes do not re-litigate them.
+- The Button Style and Text Style panels need data model support in `MenuDocument` — Tristan should add per-state style fields on button nodes and typography fields on text nodes.
