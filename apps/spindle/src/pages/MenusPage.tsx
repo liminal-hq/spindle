@@ -123,6 +123,8 @@ export function MenusPage() {
 		: { chapterCount: 0, pageCount: 0 };
 	const audioSetupCount = selectedTitleset ? getMaxAudioTrackCount(selectedTitleset) : 0;
 	const subtitleSetupCount = selectedTitleset ? getMaxSubtitleTrackCount(selectedTitleset) : 0;
+	const [templatesOpen, setTemplatesOpen] = useState(false);
+	const [generatorsOpen, setGeneratorsOpen] = useState(true);
 
 	useEffect(() => {
 		if (!firstMenuId) {
@@ -385,18 +387,32 @@ export function MenusPage() {
 									onExpand={() => setMenuEditorMode('map')}
 								/>
 								<div className="menu-nav__panel">
-									<button className="menu-nav__panel-header" type="button">
+									<button
+										className="menu-nav__panel-header"
+										type="button"
+										onClick={() => setTemplatesOpen((open) => !open)}
+										aria-expanded={templatesOpen}
+									>
 										<span>Templates</span>
 										<span className="menu-nav__panel-chevron" aria-hidden="true">
 											⌄
 										</span>
 									</button>
+									{templatesOpen ? <div className="menu-nav__panel-body" /> : null}
 								</div>
 								<div className="menu-nav__panel">
-									<div className="menu-nav__panel-header menu-nav__panel-header--static">
+									<button
+										className="menu-nav__panel-header"
+										type="button"
+										onClick={() => setGeneratorsOpen((open) => !open)}
+										aria-expanded={generatorsOpen}
+									>
 										<span>Generate Menus</span>
-									</div>
-									<div className="menu-nav__generator-list">
+										<span className="menu-nav__panel-chevron" aria-hidden="true">
+											⌄
+										</span>
+									</button>
+									{generatorsOpen ? <div className="menu-nav__generator-list">
 										<button
 											className="menu-nav__generator-item"
 											type="button"
@@ -449,7 +465,7 @@ export function MenusPage() {
 												</span>
 											</span>
 										</button>
-									</div>
+									</div> : null}
 								</div>
 							</div>
 						)}

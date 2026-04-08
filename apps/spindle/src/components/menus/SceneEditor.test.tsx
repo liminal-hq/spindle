@@ -227,35 +227,6 @@ describe('SceneCanvas', () => {
 		expect(screen.getByText('Chapters')).toBeTruthy();
 	});
 
-	it('shows action chips for button actions on the design canvas', () => {
-		render(
-			<SceneCanvas
-				buttons={[
-					{
-						...buttons[0],
-						action: { type: 'playTitle', titleId: 'title-1' },
-					},
-				]}
-				canvasHeight={480}
-				sceneNodes={[]}
-				onUpdateButton={vi.fn()}
-				onUpdateSceneNode={vi.fn()}
-				showSafeArea={false}
-				backgroundLabel={null}
-				backgroundColour={null}
-				defaultButtonId={null}
-				previewMode={false}
-				highlightColours={DEFAULT_HIGHLIGHT_COLOURS}
-				honestPreview={false}
-				showNavLines={false}
-				selectedNodeId={null}
-				onSelectNode={vi.fn()}
-			/>,
-		);
-
-		expect(screen.getByText('playTitle')).toBeTruthy();
-	});
-
 	it('applies selection class when a node is selected', () => {
 		render(
 			<SceneCanvas

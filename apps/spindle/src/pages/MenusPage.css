@@ -134,13 +134,19 @@
 	cursor: pointer;
 }
 
-.menu-nav__panel-header--static {
-	cursor: default;
+.menu-nav__panel-header[aria-expanded='true'] .menu-nav__panel-chevron {
+	transform: rotate(0deg);
 }
 
 .menu-nav__panel-chevron {
 	color: var(--text-muted);
 	font-size: var(--text-xs);
+	transition: transform var(--transition-fast);
+	transform: rotate(-90deg);
+}
+
+.menu-nav__panel-body {
+	padding: 0 var(--space-3) var(--space-3);
 }
 
 .menu-nav__generator-list {

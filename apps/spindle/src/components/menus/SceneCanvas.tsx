@@ -11,7 +11,6 @@ import type {
 	SceneNode,
 	ButtonStateStyle,
 	AspectMode,
-	PlaybackAction,
 } from '../../types/project';
 
 // DVD menu canvas dimensions
@@ -589,8 +588,6 @@ function DesignCanvas({
 					selectedNodeId === btn.id ? buttonPreviewState : ('normal' as const);
 				const buttonStyle = buttonNode?.buttonStyle?.[renderedState];
 				const labelStyle = buttonNode?.labelStyle;
-				const actionChip = getActionChipLabel(btn.action);
-
 				return (
 					<div
 						key={btn.id}
@@ -635,7 +632,6 @@ function DesignCanvas({
 					>
 						<div className="scene-canvas__node-body">
 							<span className="scene-canvas__node-label">{btn.label}</span>
-							{actionChip && <span className="scene-canvas__node-chip">{actionChip}</span>}
 						</div>
 						{(['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'] as ResizeEdge[]).map((edge) => (
 							<div
@@ -788,7 +784,6 @@ function NavigationPreview({
 				const visualState = isActivated ? 'activate' : isFocused ? 'focus' : 'normal';
 				const buttonStyle = buttonNode?.buttonStyle?.[visualState];
 				const labelStyle = buttonNode?.labelStyle;
-				const actionChip = getActionChipLabel(btn.action);
 				return (
 					<div
 						key={btn.id}
@@ -844,7 +839,6 @@ function NavigationPreview({
 					>
 						<div className="scene-canvas__node-body">
 							<span className="scene-canvas__node-label">{btn.label}</span>
-							{actionChip && <span className="scene-canvas__node-chip">{actionChip}</span>}
 						</div>
 					</div>
 				);
@@ -863,28 +857,6 @@ function buttonShadowCss(style: ButtonStateStyle): string {
 
 function aspectRatioForDisplay(displayAspect: AspectMode): string {
 	return displayAspect === 'sixteen-by-nine' ? '16 / 9' : '4 / 3';
-}
-
-function getActionChipLabel(action: PlaybackAction | null): string | null {
-	if (!action) return null;
-	switch (action.type) {
-		case 'playTitle':
-			return 'playTitle';
-		case 'playChapter':
-			return 'playChapter';
-		case 'showMenu':
-			return 'showMenu';
-		case 'setAudioStream':
-			return `setAudio ${action.streamIndex + 1}`;
-		case 'setSubtitleStream':
-			return action.streamIndex === null ? 'setSub Off' : `setSub ${action.streamIndex + 1}`;
-		case 'return':
-			return 'return';
-		case 'stop':
-			return 'stop';
-		case 'sequence':
-			return action.actions.length > 0 ? getActionChipLabel(action.actions[0]) : 'sequence';
-	}
 }
 
 // ── Nav Lines SVG ──────────────────────────────────────────────────────────

@@ -539,9 +539,8 @@
 
 .scene-canvas__node-body {
 	display: flex;
-	flex-direction: column;
-	align-items: flex-start;
-	gap: 4px;
+	align-items: center;
+	justify-content: center;
 	width: 100%;
 	min-width: 0;
 	padding: 6px 10px;
@@ -550,22 +549,6 @@
 .scene-canvas__node-label {
 	display: block;
 	max-width: 100%;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-}
-
-.scene-canvas__node-chip {
-	display: inline-flex;
-	align-items: center;
-	max-width: 100%;
-	padding: 1px 6px;
-	border-radius: 999px;
-	background: rgba(24, 190, 154, 0.18);
-	color: #57d8bd;
-	font-size: 9px;
-	font-weight: 700;
-	letter-spacing: 0.04em;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
@@ -756,14 +739,24 @@
 	top: 0;
 	bottom: 0;
 	width: 1px;
-	background: rgba(255, 100, 100, 0.6);
+	background-image: repeating-linear-gradient(
+		to bottom,
+		rgba(34, 211, 238, 0.95) 0 3px,
+		transparent 3px 8px
+	);
+	box-shadow: 0 0 10px rgba(34, 211, 238, 0.18);
 }
 
 .scene-canvas__snap-line--h {
 	left: 0;
 	right: 0;
 	height: 1px;
-	background: rgba(255, 100, 100, 0.6);
+	background-image: repeating-linear-gradient(
+		to right,
+		rgba(255, 170, 64, 0.95) 0 3px,
+		transparent 3px 8px
+	);
+	box-shadow: 0 0 10px rgba(255, 170, 64, 0.16);
 }
 
 /* ── Safe-area guides ───────────────────────────────────────── */
