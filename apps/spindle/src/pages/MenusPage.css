@@ -369,6 +369,10 @@
 	color: var(--text-muted);
 }
 
+.menus__item-bullet {
+	color: rgba(255, 255, 255, 0.28);
+}
+
 .menus__item-conns {
 	display: flex;
 	gap: 3px;

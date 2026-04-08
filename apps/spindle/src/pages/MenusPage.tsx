@@ -7,11 +7,13 @@ import { useState, useEffect, useMemo } from 'react';
 import { useProjectStore } from '../store/project-store';
 import { useNavigation } from '../App';
 import type {
+	ButtonStyleMap,
 	Menu,
 	MenuButton,
 	MenuHighlightColours,
 	PlaybackAction,
 	SpindleProjectFile,
+	TextStyle,
 	VideoStandard,
 	SceneNode,
 } from '../types/project';
@@ -25,6 +27,57 @@ import './MenusPage.css';
 
 // DVD menu canvas dimensions vary by video standard
 const MENU_HEIGHT: Record<VideoStandard, number> = { NTSC: 480, PAL: 576 };
+
+const DEFAULT_BUTTON_STYLE_MAP: ButtonStyleMap = {
+	normal: {
+		bgFill: 'rgba(255,255,255,0.04)',
+		borderColour: '#ffffff1f',
+		borderWidth: 1.5,
+		borderRadius: 6,
+		paddingH: 16,
+		paddingV: 0,
+		shadowType: 'none',
+		shadowColour: '#ffa84020',
+		shadowBlur: 16,
+		shadowSpread: 0,
+	},
+	focus: {
+		bgFill: 'rgba(255,170,64,0.15)',
+		borderColour: '#ffaa40',
+		borderWidth: 1.5,
+		borderRadius: 6,
+		paddingH: 16,
+		paddingV: 0,
+		shadowType: 'box-shadow',
+		shadowColour: '#ffa84040',
+		shadowBlur: 16,
+		shadowSpread: 0,
+	},
+	activate: {
+		bgFill: 'rgba(255,209,102,0.2)',
+		borderColour: '#ffd166',
+		borderWidth: 2,
+		borderRadius: 6,
+		paddingH: 16,
+		paddingV: 0,
+		shadowType: 'outer-glow',
+		shadowColour: '#ffd16660',
+		shadowBlur: 24,
+		shadowSpread: 4,
+	},
+};
+
+const DEFAULT_TEXT_STYLE: TextStyle = {
+	fontFamily: 'Space Grotesk',
+	fontSize: 14,
+	fontWeight: 'normal',
+	fontItalic: false,
+	textDecoration: 'none',
+	textAlign: 'left',
+	colour: '#ffffff',
+	lineHeight: 1.4,
+	letterSpacing: 0,
+};
 
 export function MenusPage() {
 	const project = useProjectStore((s) => s.project);
@@ -436,6 +489,7 @@ function MenuListItem({
 	const previewBackground = getMenuPreviewBackground(menu);
 	const hasWarning =
 		buttonCount === 0 || (connectionCounts.incoming === 0 && connectionCounts.outgoing === 0);
+	const modeLabel = menu.backgroundMode === 'motion' ? 'Motion' : 'Still';
 
 	return (
 		<div
@@ -471,6 +525,8 @@ function MenuListItem({
 					<span>
 						{buttonCount} button{buttonCount === 1 ? '' : 's'}
 					</span>
+					<span className="menus__item-bullet">•</span>
+					<span>{modeLabel}</span>
 					<div className="menus__item-conns">
 						<span
 							className="conn-indicator conn-indicator--out"
@@ -669,6 +725,8 @@ function MenuEditor({
 									highlightMode: 'static' as const,
 									highlightKeyframes: [],
 									videoAssetId: null,
+									buttonStyle: { ...DEFAULT_BUTTON_STYLE_MAP },
+									labelStyle: { ...DEFAULT_TEXT_STYLE },
 								},
 							],
 						},
@@ -730,7 +788,10 @@ function MenuEditor({
 						width: 200,
 						height: 40,
 						fontSize: 24,
+						fontFamily: 'Space Grotesk',
+						fontWeight: 'bold',
 						colour: '#ffffff',
+						textAlign: 'center',
 					}
 				: nodeType === 'image'
 					? { type: 'image', id, assetId: '', x, y, width: 200, height: 150 }
@@ -1543,8 +1604,8 @@ function createGeneratedMenuFromButtons(
 					highlightMode: button.highlightMode,
 					highlightKeyframes: button.highlightKeyframes,
 					videoAssetId: button.videoAssetId,
-					buttonStyle: undefined,
-					labelStyle: undefined,
+					buttonStyle: { ...DEFAULT_BUTTON_STYLE_MAP },
+					labelStyle: { ...DEFAULT_TEXT_STYLE },
 				})),
 				guides: [],
 			},
