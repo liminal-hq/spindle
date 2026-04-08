@@ -34,6 +34,11 @@ Prefer structural review guidance over narration.
     - **Sync Layer Verified**: `project-store.ts` correctly handles initialization and sync-back from `authoredDocument` to legacy fields, verified by Tristan's TS unit tests.
     - **Compiler Bridge Verified**: `AuthorableMenuRef` in `menu.rs` now properly prioritises `authoredDocument` data. Added a targeted Rust unit test to confirm this contract.
     - **Air Gap Closed**: Refactored `menu_button_overlay_filter` to use user-authored `highlight_colours` instead of hardcoded hex values.
+  - **Set 2b Workspace Upgrades (2026-04-07)**:
+    - **Contract Drift**: Jullian's proposed `SetAudioStream`/`SetSubtitleStream` expansion with `id: u16` conflicts with the already existing `streamIndex: u32` (and `Option<u32>` for subtitles) in `models.rs` and `project.ts`.
+    - **Timecode Accuracy**: BOV multiplexing cannot rely on precise sector-aligned I-frames until `MenuDocument` stores explicit `intro_start_secs` and `loop_start_secs` instead of just durations.
+    - **SPRM Validation**: Stream ID validation must happen against the `Titleset` streams during a pre-build diagnostic phase, not just silently failing at VM opcode emission.
+    - **UI State Binding**: The `MenuDocument` schema needs a way to map SPRM register values back to button "Active/Selected" visual states so setup menus reflect actual player state.
 
 ## Open Questions
 
