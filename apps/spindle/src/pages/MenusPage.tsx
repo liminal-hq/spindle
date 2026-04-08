@@ -551,8 +551,30 @@ function MenuEditor({
 					return node;
 				});
 
+				// Mirror button changes back to the legacy buttons array so that
+				// validation, planning, and compiler fallbacks see current state.
+				const syncedButtons = nodes
+					.filter((n): n is Extract<SceneNode, { type: 'button' }> => n.type === 'button')
+					.map((node) => {
+						const inode = interactionNodes.find((i) => i.nodeId === node.id);
+						return {
+							id: node.id,
+							label: node.label,
+							bounds: { x: node.x, y: node.y, width: node.width, height: node.height },
+							action: inode?.action ?? null,
+							navUp: inode?.navUp ?? null,
+							navDown: inode?.navDown ?? null,
+							navLeft: inode?.navLeft ?? null,
+							navRight: inode?.navRight ?? null,
+							highlightMode: node.highlightMode ?? 'static' as const,
+							highlightKeyframes: node.highlightKeyframes ?? [],
+							videoAssetId: node.videoAssetId ?? null,
+						};
+					});
+
 				return {
 					...m,
+					buttons: syncedButtons,
 					authoredDocument: {
 						...m.authoredDocument,
 						scene: { ...m.authoredDocument.scene, nodes },
