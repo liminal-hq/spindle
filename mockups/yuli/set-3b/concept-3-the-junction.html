@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en-CA">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Spindle — The Junction</title>
+		<link rel="stylesheet" href="design-system.css" />
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;600;700&display=swap"
+			rel="stylesheet"
+		/>
+	</head>
+	<body>
+		<div class="page-shell">
+			<div class="page-frame">
+				<header class="page-header">
+					<div>
+						<div class="eyebrow">Concept 3 / The Junction</div>
+						<h1 class="page-title">
+							A more power-user integrated editor with a permanent interaction rail inside the main
+							view: actions, focus paths, generator lineage, and compile risk all visible at once.
+						</h1>
+						<p class="page-copy">
+							The Junction assumes some users would rather keep everything exposed if it means fewer
+							mode switches. It integrates the binding table, remote summary, and compile audit into
+							one operational rail that sits below the artboard and updates live as the selection
+							changes.
+						</p>
+						<div class="page-nav">
+							<a class="cta" href="index.html">Back to set index</a>
+							<div class="badge badge--accent">Best for dense or advanced projects</div>
+						</div>
+					</div>
+				</header>
+
+				<section class="surface">
+					<div class="workspace workspace--wide">
+						<aside class="panel">
+							<div class="panel-header">
+								<div>
+									<div class="panel-kicker">Project map</div>
+									<h3>Current menu family</h3>
+								</div>
+								<div class="badge badge--info">Page 1 of 2</div>
+							</div>
+							<div class="stack">
+								<div class="list-item list-item--selected">
+									<strong>Chapter Set A</strong>
+									<div class="meta">Generated from Title 1 chapters · 14 tiles</div>
+								</div>
+								<div class="list-item">
+									<strong>Chapter Set B</strong>
+									<div class="meta">Generated page 2 · Next and Back authored</div>
+								</div>
+								<div class="list-item">
+									<strong>Main Menu</strong>
+									<div class="meta">Return target after timeout</div>
+								</div>
+							</div>
+						</aside>
+
+						<div class="artboard-wrap">
+							<div class="artboard-toolbar">
+								<div class="badge badge--accent">Integrated scene</div>
+								<div class="tiny-pill">Routing always visible</div>
+								<div class="tiny-pill">Action stack always visible</div>
+								<div class="tiny-pill">Compile risk strip always visible</div>
+							</div>
+
+							<div class="artboard artboard--blue">
+								<div class="grid-overlay"></div>
+								<div class="safe-area safe-area--action"></div>
+								<div class="safe-area safe-area--title"></div>
+
+								<div class="node node--soft" style="top: 12%; left: 10%; width: 30%; height: 12%">
+									Chapter Select
+								</div>
+								<div class="node node--focus" style="top: 32%; left: 12%; width: 18%; height: 14%">
+									01 Opening
+								</div>
+								<div class="node node--blue" style="top: 32%; left: 34%; width: 18%; height: 14%">
+									02 Vows
+								</div>
+								<div class="node" style="top: 32%; left: 56%; width: 18%; height: 14%">03 Kiss</div>
+								<div class="node node--green" style="top: 32%; left: 78%; width: 10%; height: 14%">
+									04
+								</div>
+								<div class="node" style="top: 54%; left: 12%; width: 18%; height: 14%">
+									05 Toasts
+								</div>
+								<div class="node" style="top: 54%; left: 34%; width: 18%; height: 14%">
+									06 Dance
+								</div>
+								<div class="node" style="top: 54%; left: 56%; width: 18%; height: 14%">07 Exit</div>
+								<div
+									class="node node--pink"
+									style="bottom: 10%; left: 12%; width: 18%; height: 10%"
+								>
+									Back
+								</div>
+								<div
+									class="node node--purple"
+									style="bottom: 10%; right: 12%; width: 18%; height: 10%"
+								>
+									Next
+								</div>
+
+								<div class="connector" style="top: 39%; left: 30%; width: 4%"></div>
+								<div class="connector connector--blue" style="top: 39%; left: 52%; width: 4%"></div>
+								<div
+									class="connector connector--green"
+									style="top: 39%; left: 74%; width: 4%"
+								></div>
+							</div>
+
+							<div class="inline-strip">
+								<div class="panel-header" style="margin-bottom: var(--space-3)">
+									<div>
+										<div class="panel-kicker">Interaction rail</div>
+										<h3>Selected tile: 01 Opening</h3>
+									</div>
+									<div class="badge badge--success">Everything in one place</div>
+								</div>
+								<div class="slot-grid">
+									<div class="slot-card slot-card--selected">
+										<strong>Action stack</strong>
+										<div class="slot-row">
+											<div class="action-chip action-chip--accent">Play chapter</div>
+											<div class="action-chip">Title 1 / Chapter 01</div>
+										</div>
+									</div>
+									<div class="slot-card">
+										<strong>Focus path</strong>
+										<div class="slot-row">
+											<div class="action-chip action-chip--info">Right → 02 Vows</div>
+											<div class="action-chip">Down → 05 Toasts</div>
+										</div>
+									</div>
+									<div class="slot-card">
+										<strong>Generator lineage</strong>
+										<div class="slot-row">
+											<div class="action-chip">Chapter grid preset</div>
+											<div class="action-chip">Page 1 of 2</div>
+											<div class="action-chip">Custom label preserved</div>
+										</div>
+									</div>
+									<div class="slot-card">
+										<strong>Compile risk</strong>
+										<div class="slot-row">
+											<div class="action-chip action-chip--success">Button count safe</div>
+											<div class="action-chip">No unreachable nodes</div>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+
+						<aside class="panel">
+							<div class="panel-header">
+								<div>
+									<div class="panel-kicker">Audit</div>
+									<h3>Project health</h3>
+								</div>
+								<div class="badge badge--success">Mostly clean</div>
+							</div>
+							<div class="diag-grid">
+								<div class="diag diag--info">
+									<div class="diag-badge">INFO</div>
+									<div class="meta">
+										Page stays under the recommended comfort threshold and far under the hardware
+										cap.
+									</div>
+								</div>
+								<div class="diag diag--warning">
+									<div class="diag-badge">WARN</div>
+									<div class="meta">
+										If page 2 gains more chapters, regenerate before manually adding more tiles to
+										page 1.
+									</div>
+								</div>
+								<div class="diag diag--info">
+									<div class="diag-badge">INFO</div>
+									<div class="meta">
+										Back and Next are ordinary authored nodes, so their labels and routes remain
+										editable.
+									</div>
+								</div>
+							</div>
+						</aside>
+					</div>
+				</section>
+			</div>
+		</div>
+	</body>
+</html>

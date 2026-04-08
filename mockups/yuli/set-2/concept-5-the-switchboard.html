@@ -1,0 +1,1191 @@
+<!doctype html>
+<html lang="en-CA">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=1280" />
+		<title>Spindle — Concept 5: The Switchboard</title>
+		<link rel="stylesheet" href="design-system.css" />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap"
+			rel="stylesheet"
+		/>
+		<style>
+			body {
+				background: var(--bg-app);
+				overflow: hidden;
+				display: flex;
+				flex-direction: column;
+				height: 100vh;
+			}
+
+			.editor-shell {
+				display: grid;
+				grid-template-columns: 280px 1fr 320px;
+				flex: 1;
+				overflow: hidden;
+			}
+
+			/* ── Left: Source Panel (Buttons) ─────────────────────── */
+			.source-panel {
+				background: var(--bg-sidebar);
+				border-right: 1px solid var(--border-subtle);
+				display: flex;
+				flex-direction: column;
+				overflow: hidden;
+			}
+
+			.sp-header {
+				padding: var(--space-3) var(--space-4);
+				border-bottom: 1px solid var(--border-subtle);
+				background: rgba(0, 0, 0, 0.15);
+			}
+
+			.sp-header__title {
+				font-family: var(--font-heading);
+				font-size: var(--text-md);
+				font-weight: 600;
+				color: var(--text-primary);
+			}
+
+			.sp-header__subtitle {
+				font-size: var(--text-xs);
+				color: var(--text-muted);
+			}
+
+			.sp-tabs {
+				display: flex;
+				border-bottom: 1px solid var(--border-subtle);
+			}
+
+			.sp-tab {
+				flex: 1;
+				padding: 8px 0;
+				text-align: center;
+				font-size: var(--text-xs);
+				font-weight: 600;
+				color: var(--text-muted);
+				cursor: pointer;
+				border-bottom: 2px solid transparent;
+			}
+
+			.sp-tab:hover {
+				color: var(--text-primary);
+			}
+			.sp-tab--active {
+				color: var(--brand-purple);
+				border-bottom-color: var(--brand-purple);
+			}
+
+			.sp-body {
+				flex: 1;
+				overflow-y: auto;
+				padding: var(--space-3);
+			}
+
+			.sp-menu-group {
+				margin-bottom: var(--space-4);
+			}
+
+			.sp-menu-label {
+				font-size: var(--text-xs);
+				font-weight: 600;
+				color: var(--text-muted);
+				letter-spacing: 0.06em;
+				padding: var(--space-1) var(--space-2);
+				margin-bottom: var(--space-1);
+				display: flex;
+				align-items: center;
+				gap: var(--space-2);
+			}
+
+			.sp-menu-badge {
+				font-size: 9px;
+				padding: 1px 5px;
+				border-radius: 6px;
+				font-weight: 600;
+			}
+
+			.sp-menu-badge--vmgm {
+				background: rgba(34, 211, 238, 0.15);
+				color: var(--brand-cyan);
+			}
+			.sp-menu-badge--vts {
+				background: rgba(167, 139, 250, 0.15);
+				color: var(--brand-purple);
+			}
+
+			/* Source button card */
+			.source-card {
+				background: rgba(255, 255, 255, 0.02);
+				border: 1px solid var(--border-subtle);
+				border-radius: var(--radius-md);
+				padding: var(--space-2) var(--space-3);
+				margin-bottom: var(--space-2);
+				cursor: pointer;
+				transition: all var(--transition-fast);
+				display: flex;
+				align-items: center;
+				gap: var(--space-2);
+			}
+
+			.source-card:hover {
+				background: rgba(255, 255, 255, 0.04);
+				border-color: var(--border-default);
+			}
+
+			.source-card--selected {
+				background: rgba(167, 139, 250, 0.08);
+				border-color: rgba(167, 139, 250, 0.3);
+			}
+
+			.source-card__plug {
+				width: 14px;
+				height: 14px;
+				border-radius: 50%;
+				border: 2px solid var(--border-default);
+				flex-shrink: 0;
+				position: relative;
+			}
+
+			.source-card--selected .source-card__plug {
+				border-color: var(--brand-purple);
+				background: var(--brand-purple);
+			}
+
+			.source-card--connected .source-card__plug::after {
+				content: '';
+				position: absolute;
+				top: 50%;
+				left: 100%;
+				width: 12px;
+				height: 2px;
+				background: var(--brand-purple);
+				transform: translateY(-50%);
+			}
+
+			.source-card__info {
+				flex: 1;
+				min-width: 0;
+			}
+
+			.source-card__name {
+				font-size: var(--text-sm);
+				font-weight: 500;
+				color: var(--text-primary);
+			}
+
+			.source-card__action {
+				font-size: 10px;
+				font-family: var(--font-mono);
+				color: var(--text-muted);
+			}
+
+			.source-card--selected .source-card__name {
+				color: var(--brand-purple);
+			}
+
+			.source-card__status {
+				width: 8px;
+				height: 8px;
+				border-radius: 50%;
+				flex-shrink: 0;
+			}
+
+			.source-card__status--ok {
+				background: var(--brand-green);
+			}
+			.source-card__status--warn {
+				background: var(--colour-warning);
+			}
+			.source-card__status--empty {
+				background: var(--colour-error);
+				opacity: 0.6;
+			}
+
+			/* ── Central: Wiring Board ────────────────────────────── */
+			.wiring-area {
+				display: flex;
+				flex-direction: column;
+				background: #06060a;
+				position: relative;
+			}
+
+			.wiring-toolbar {
+				display: flex;
+				align-items: center;
+				padding: var(--space-2) var(--space-4);
+				background: var(--bg-panel);
+				border-bottom: 1px solid var(--border-subtle);
+				gap: var(--space-3);
+			}
+
+			.wiring-toolbar__title {
+				font-family: var(--font-heading);
+				font-size: var(--text-md);
+				font-weight: 600;
+				color: var(--text-primary);
+			}
+
+			.wiring-viewport {
+				flex: 1;
+				position: relative;
+				overflow: hidden;
+				padding: var(--space-6);
+			}
+
+			/* Wiring grid background */
+			.wiring-grid {
+				position: absolute;
+				inset: 0;
+				background-image: radial-gradient(circle, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+				background-size: 20px 20px;
+			}
+
+			/* Connection SVG */
+			.wiring-svg {
+				position: absolute;
+				inset: 0;
+				z-index: 2;
+				pointer-events: none;
+			}
+
+			.wire {
+				fill: none;
+				stroke-width: 2.5;
+				opacity: 0.7;
+			}
+
+			.wire--play {
+				stroke: var(--brand-green);
+			}
+			.wire--menu {
+				stroke: var(--brand-cyan);
+			}
+			.wire--audio {
+				stroke: var(--brand-amber);
+			}
+			.wire--subtitle {
+				stroke: var(--brand-blue);
+			}
+			.wire--sequence {
+				stroke: var(--brand-pink);
+			}
+			.wire--selected {
+				stroke-width: 3.5;
+				opacity: 1;
+				filter: drop-shadow(0 0 4px currentColor);
+			}
+
+			/* Source nodes (left side) */
+			.wire-node {
+				position: absolute;
+				background: rgba(16, 16, 22, 0.9);
+				border: 1.5px solid var(--border-default);
+				border-radius: var(--radius-md);
+				padding: 8px 14px;
+				z-index: 5;
+				display: flex;
+				align-items: center;
+				gap: var(--space-2);
+				font-size: var(--text-sm);
+				color: var(--text-primary);
+				transition: all var(--transition-fast);
+				cursor: pointer;
+			}
+
+			.wire-node:hover {
+				border-color: var(--border-strong);
+			}
+
+			.wire-node--selected {
+				border-color: var(--brand-purple);
+				box-shadow: 0 0 12px rgba(167, 139, 250, 0.2);
+			}
+
+			.wire-node__port {
+				width: 10px;
+				height: 10px;
+				border-radius: 50%;
+				border: 2px solid var(--border-default);
+				background: var(--bg-app);
+				flex-shrink: 0;
+			}
+
+			.wire-node__port--out {
+				margin-left: auto;
+			}
+			.wire-node__port--in {
+				margin-right: 4px;
+			}
+
+			.wire-node__port--connected {
+				border-color: var(--brand-purple);
+				background: var(--brand-purple);
+			}
+
+			/* Target nodes (right side) */
+			.target-node {
+				position: absolute;
+				background: rgba(16, 16, 22, 0.9);
+				border: 1.5px solid var(--border-default);
+				border-radius: var(--radius-md);
+				padding: 8px 14px;
+				z-index: 5;
+				display: flex;
+				align-items: center;
+				gap: var(--space-2);
+				font-size: var(--text-sm);
+				color: var(--text-secondary);
+				transition: all var(--transition-fast);
+			}
+
+			.target-node__type {
+				font-size: 9px;
+				padding: 1px 5px;
+				border-radius: 6px;
+				font-weight: 600;
+				margin-right: 4px;
+			}
+
+			.target-node__type--title {
+				background: rgba(46, 198, 106, 0.15);
+				color: var(--brand-green);
+			}
+			.target-node__type--menu {
+				background: rgba(34, 211, 238, 0.15);
+				color: var(--brand-cyan);
+			}
+			.target-node__type--audio {
+				background: rgba(251, 191, 36, 0.15);
+				color: var(--brand-amber);
+			}
+			.target-node__type--sub {
+				background: rgba(96, 165, 250, 0.15);
+				color: var(--brand-blue);
+			}
+			.target-node__type--stop {
+				background: rgba(244, 63, 94, 0.15);
+				color: var(--brand-pink);
+			}
+
+			/* Central divider label */
+			.wire-divider {
+				position: absolute;
+				top: 50%;
+				left: 50%;
+				transform: translate(-50%, -50%);
+				z-index: 8;
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				gap: 4px;
+			}
+
+			.wire-divider__label {
+				font-family: var(--font-mono);
+				font-size: 10px;
+				color: var(--text-muted);
+				background: rgba(16, 16, 22, 0.9);
+				padding: 3px 10px;
+				border-radius: 10px;
+				border: 1px solid var(--border-subtle);
+			}
+
+			/* ── Right: Binding Inspector ─────────────────────────── */
+			.binding-panel {
+				background: var(--bg-sidebar);
+				border-left: 1px solid var(--border-subtle);
+				display: flex;
+				flex-direction: column;
+				overflow-y: auto;
+			}
+
+			.bp-header {
+				padding: var(--space-3) var(--space-4);
+				border-bottom: 1px solid var(--border-subtle);
+				background: rgba(0, 0, 0, 0.15);
+			}
+
+			.bp-header__name {
+				font-size: var(--text-sm);
+				font-weight: 600;
+				color: var(--brand-purple);
+			}
+
+			.bp-header__type {
+				font-size: var(--text-xs);
+				color: var(--text-muted);
+			}
+
+			.bp-section {
+				padding: var(--space-3) var(--space-4);
+				border-bottom: 1px solid var(--border-subtle);
+			}
+
+			.bp-section__title {
+				font-size: var(--text-xs);
+				font-weight: 600;
+				color: var(--text-muted);
+				letter-spacing: 0.06em;
+				margin-bottom: var(--space-3);
+			}
+
+			/* Action builder */
+			.action-builder {
+				display: flex;
+				flex-direction: column;
+				gap: var(--space-2);
+			}
+
+			.action-row {
+				background: rgba(255, 255, 255, 0.02);
+				border: 1px solid var(--border-subtle);
+				border-radius: var(--radius-md);
+				padding: var(--space-2) var(--space-3);
+				display: flex;
+				align-items: center;
+				gap: var(--space-2);
+			}
+
+			.action-row__type-select {
+				padding: 4px 8px;
+				background: var(--bg-input);
+				border: 1px solid var(--border-subtle);
+				border-radius: var(--radius-sm);
+				color: var(--text-primary);
+				font-size: var(--text-xs);
+				cursor: pointer;
+			}
+
+			.action-row__target-select {
+				flex: 1;
+				padding: 4px 8px;
+				background: var(--bg-input);
+				border: 1px solid var(--border-subtle);
+				border-radius: var(--radius-sm);
+				color: var(--text-primary);
+				font-size: var(--text-xs);
+			}
+
+			.action-row__remove {
+				color: var(--text-muted);
+				cursor: pointer;
+				opacity: 0.5;
+			}
+
+			.action-row__remove:hover {
+				opacity: 1;
+				color: var(--colour-error);
+			}
+
+			/* Sequence builder */
+			.sequence-builder {
+				background: rgba(244, 63, 94, 0.04);
+				border: 1px solid rgba(244, 63, 94, 0.12);
+				border-radius: var(--radius-md);
+				padding: var(--space-3);
+			}
+
+			.sequence-builder__title {
+				font-size: var(--text-xs);
+				font-weight: 600;
+				color: var(--brand-pink);
+				margin-bottom: var(--space-2);
+				display: flex;
+				align-items: center;
+				gap: var(--space-2);
+			}
+
+			.sequence-step {
+				display: flex;
+				align-items: center;
+				gap: var(--space-2);
+				padding: var(--space-2) 0;
+				font-size: var(--text-xs);
+				color: var(--text-secondary);
+			}
+
+			.sequence-step__num {
+				width: 18px;
+				height: 18px;
+				border-radius: 50%;
+				background: rgba(244, 63, 94, 0.15);
+				color: var(--brand-pink);
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				font-size: 9px;
+				font-weight: 700;
+				flex-shrink: 0;
+			}
+
+			.sequence-step__action {
+				font-family: var(--font-mono);
+				color: var(--text-primary);
+			}
+
+			.sequence-connector {
+				width: 1px;
+				height: 8px;
+				background: rgba(244, 63, 94, 0.2);
+				margin-left: 9px;
+			}
+
+			/* Navigation grid */
+			.nav-grid {
+				display: grid;
+				grid-template-columns: 1fr 1fr 1fr;
+				grid-template-rows: auto auto auto;
+				gap: 4px;
+				width: 160px;
+				margin: 0 auto;
+			}
+
+			.nav-cell {
+				height: 28px;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				font-size: 9px;
+				border-radius: var(--radius-sm);
+				font-weight: 500;
+			}
+
+			.nav-cell--empty {
+				background: transparent;
+			}
+			.nav-cell--dir {
+				background: rgba(255, 255, 255, 0.04);
+				border: 1px solid var(--border-subtle);
+				color: var(--text-muted);
+				cursor: pointer;
+			}
+
+			.nav-cell--dir:hover {
+				border-color: var(--border-default);
+			}
+
+			.nav-cell--center {
+				background: rgba(167, 139, 250, 0.1);
+				border: 1px solid rgba(167, 139, 250, 0.25);
+				color: var(--brand-purple);
+				font-weight: 600;
+			}
+
+			.nav-cell--filled {
+				background: rgba(96, 165, 250, 0.08);
+				border-color: rgba(96, 165, 250, 0.2);
+				color: var(--brand-blue);
+			}
+
+			/* DVD command preview */
+			.dvd-cmd-preview {
+				background: rgba(0, 0, 0, 0.3);
+				border: 1px solid var(--border-subtle);
+				border-radius: var(--radius-md);
+				padding: var(--space-3);
+				font-family: var(--font-mono);
+				font-size: 10px;
+				color: var(--text-secondary);
+				line-height: 1.6;
+			}
+
+			.dvd-cmd-preview code {
+				color: var(--brand-cyan);
+			}
+
+			/* Diagnostics */
+			.bp-diag {
+				display: flex;
+				align-items: flex-start;
+				gap: var(--space-2);
+				padding: var(--space-2) var(--space-3);
+				border-radius: var(--radius-md);
+				font-size: 10px;
+				line-height: 1.4;
+			}
+
+			.bp-diag--ok {
+				background: rgba(46, 198, 106, 0.06);
+				border: 1px solid rgba(46, 198, 106, 0.12);
+				color: var(--text-secondary);
+			}
+			.bp-diag--warn {
+				background: rgba(251, 191, 36, 0.06);
+				border: 1px solid rgba(251, 191, 36, 0.12);
+				color: var(--text-secondary);
+			}
+			.bp-diag--error {
+				background: rgba(244, 63, 94, 0.06);
+				border: 1px solid rgba(244, 63, 94, 0.12);
+				color: var(--text-secondary);
+			}
+
+			/* Status bar */
+			.status-bar {
+				display: flex;
+				align-items: center;
+				padding: 0 var(--space-4);
+				height: var(--statusbar-height);
+				background: var(--bg-sidebar);
+				border-top: 1px solid var(--border-subtle);
+				font-size: var(--text-xs);
+				color: var(--text-muted);
+				gap: var(--space-4);
+			}
+		</style>
+	</head>
+	<body>
+		<!-- Top Bar -->
+		<div class="topbar">
+			<div class="topbar__logo">Spindle</div>
+			<div class="text-sm text-muted" style="margin-left: var(--space-4)">
+				/ Documentary Collection / Bind Mode
+			</div>
+			<div class="topbar__actions">
+				<button class="btn btn--ghost btn--sm">Auto-Wire Navigation</button>
+				<button class="btn btn--ghost btn--sm">Validate All</button>
+				<button class="btn btn--sm btn--primary">Build ISO</button>
+			</div>
+		</div>
+
+		<div class="editor-shell">
+			<!-- ═══ LEFT: Source Panel ═══ -->
+			<div class="source-panel">
+				<div class="sp-header">
+					<div class="sp-header__title">Buttons</div>
+					<div class="sp-header__subtitle">All interactive nodes across menus</div>
+				</div>
+
+				<div class="sp-tabs">
+					<div class="sp-tab sp-tab--active">By Menu</div>
+					<div class="sp-tab">By Action</div>
+					<div class="sp-tab">Unbound</div>
+				</div>
+
+				<div class="sp-body">
+					<!-- Main Menu group -->
+					<div class="sp-menu-group">
+						<div class="sp-menu-label">
+							Main Menu
+							<span class="sp-menu-badge sp-menu-badge--vmgm">VMGM</span>
+						</div>
+
+						<div class="source-card source-card--selected source-card--connected">
+							<div class="source-card__plug"></div>
+							<div class="source-card__info">
+								<div class="source-card__name">Play Documentary</div>
+								<div class="source-card__action">playTitle 1</div>
+							</div>
+							<div class="source-card__status source-card__status--ok"></div>
+						</div>
+
+						<div class="source-card source-card--connected">
+							<div class="source-card__plug"></div>
+							<div class="source-card__info">
+								<div class="source-card__name">Chapter Select</div>
+								<div class="source-card__action">showMenu "Chapters"</div>
+							</div>
+							<div class="source-card__status source-card__status--ok"></div>
+						</div>
+
+						<div class="source-card source-card--connected">
+							<div class="source-card__plug"></div>
+							<div class="source-card__info">
+								<div class="source-card__name">Audio & Subtitles</div>
+								<div class="source-card__action">showMenu "Audio Setup"</div>
+							</div>
+							<div class="source-card__status source-card__status--ok"></div>
+						</div>
+					</div>
+
+					<!-- Audio Setup group -->
+					<div class="sp-menu-group">
+						<div class="sp-menu-label">
+							Audio Setup
+							<span class="sp-menu-badge sp-menu-badge--vts">VTS 1</span>
+						</div>
+
+						<div class="source-card source-card--connected">
+							<div class="source-card__plug"></div>
+							<div class="source-card__info">
+								<div class="source-card__name">English 5.1</div>
+								<div class="source-card__action">setAudio 0</div>
+							</div>
+							<div class="source-card__status source-card__status--ok"></div>
+						</div>
+
+						<div class="source-card source-card--connected">
+							<div class="source-card__plug"></div>
+							<div class="source-card__info">
+								<div class="source-card__name">Commentary</div>
+								<div class="source-card__action">setAudio 1</div>
+							</div>
+							<div class="source-card__status source-card__status--ok"></div>
+						</div>
+
+						<div class="source-card">
+							<div class="source-card__plug"></div>
+							<div class="source-card__info">
+								<div class="source-card__name">English Subs</div>
+								<div class="source-card__action" style="color: var(--colour-error)">No action</div>
+							</div>
+							<div class="source-card__status source-card__status--empty"></div>
+						</div>
+
+						<div class="source-card source-card--connected">
+							<div class="source-card__plug"></div>
+							<div class="source-card__info">
+								<div class="source-card__name">Back</div>
+								<div class="source-card__action">showMenu "Main Menu"</div>
+							</div>
+							<div class="source-card__status source-card__status--ok"></div>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<!-- ═══ CENTRAL: Wiring Board ═══ -->
+			<div class="wiring-area">
+				<div class="wiring-toolbar">
+					<div class="wiring-toolbar__title">Wiring Board</div>
+					<span class="text-xs text-muted">Drag to connect buttons to targets</span>
+					<span style="flex: 1"></span>
+					<span class="badge badge--remux">7 of 8 bound</span>
+				</div>
+
+				<div class="wiring-viewport">
+					<div class="wiring-grid"></div>
+
+					<!-- SVG Wires -->
+					<svg class="wiring-svg" viewBox="0 0 600 500">
+						<defs>
+							<marker
+								id="wire-end-green"
+								markerWidth="6"
+								markerHeight="6"
+								refX="5"
+								refY="3"
+								orient="auto"
+							>
+								<circle cx="3" cy="3" r="3" fill="var(--brand-green)" />
+							</marker>
+							<marker
+								id="wire-end-cyan"
+								markerWidth="6"
+								markerHeight="6"
+								refX="5"
+								refY="3"
+								orient="auto"
+							>
+								<circle cx="3" cy="3" r="3" fill="var(--brand-cyan)" />
+							</marker>
+							<marker
+								id="wire-end-amber"
+								markerWidth="6"
+								markerHeight="6"
+								refX="5"
+								refY="3"
+								orient="auto"
+							>
+								<circle cx="3" cy="3" r="3" fill="var(--brand-amber)" />
+							</marker>
+							<marker
+								id="wire-end-pink"
+								markerWidth="6"
+								markerHeight="6"
+								refX="5"
+								refY="3"
+								orient="auto"
+							>
+								<circle cx="3" cy="3" r="3" fill="var(--brand-pink)" />
+							</marker>
+						</defs>
+
+						<!-- Play Documentary -> Title 1 -->
+						<path
+							class="wire wire--play wire--selected"
+							d="M 165 60 C 260 60, 300 45, 405 45"
+							marker-end="url(#wire-end-green)"
+						/>
+						<!-- Chapter Select -> Chapter Menu -->
+						<path
+							class="wire wire--menu"
+							d="M 165 120 C 260 120, 300 105, 405 105"
+							marker-end="url(#wire-end-cyan)"
+						/>
+						<!-- Audio & Subs -> Audio Setup Menu -->
+						<path
+							class="wire wire--menu"
+							d="M 165 180 C 260 180, 300 165, 405 165"
+							marker-end="url(#wire-end-cyan)"
+						/>
+						<!-- English 5.1 -> sequence: setAudio + showMenu -->
+						<path
+							class="wire wire--sequence"
+							d="M 165 270 C 260 270, 300 255, 405 255"
+							marker-end="url(#wire-end-pink)"
+						/>
+						<!-- Commentary -> setAudio 1 -->
+						<path
+							class="wire wire--audio"
+							d="M 165 330 C 260 330, 300 315, 405 315"
+							marker-end="url(#wire-end-amber)"
+						/>
+						<!-- Back -> Main Menu -->
+						<path
+							class="wire wire--menu"
+							d="M 165 440 C 260 440, 300 425, 405 425"
+							marker-end="url(#wire-end-cyan)"
+						/>
+					</svg>
+
+					<!-- Source Nodes (Left) -->
+					<div class="wire-node wire-node--selected" style="left: 20px; top: 40px">
+						<div class="wire-node__port wire-node__port--connected"></div>
+						Play Documentary
+						<div class="wire-node__port wire-node__port--out wire-node__port--connected"></div>
+					</div>
+
+					<div class="wire-node" style="left: 20px; top: 100px">
+						<div class="wire-node__port wire-node__port--connected"></div>
+						Chapter Select
+						<div class="wire-node__port wire-node__port--out wire-node__port--connected"></div>
+					</div>
+
+					<div class="wire-node" style="left: 20px; top: 160px">
+						<div class="wire-node__port wire-node__port--connected"></div>
+						Audio & Subtitles
+						<div class="wire-node__port wire-node__port--out wire-node__port--connected"></div>
+					</div>
+
+					<div
+						class="wire-node"
+						style="left: 20px; top: 250px; border-color: rgba(251, 191, 36, 0.3)"
+					>
+						<div
+							class="wire-node__port wire-node__port--connected"
+							style="border-color: var(--brand-amber); background: var(--brand-amber)"
+						></div>
+						English 5.1
+						<div
+							class="wire-node__port wire-node__port--out wire-node__port--connected"
+							style="border-color: var(--brand-pink); background: var(--brand-pink)"
+						></div>
+					</div>
+
+					<div
+						class="wire-node"
+						style="left: 20px; top: 310px; border-color: rgba(251, 191, 36, 0.3)"
+					>
+						<div
+							class="wire-node__port wire-node__port--connected"
+							style="border-color: var(--brand-amber); background: var(--brand-amber)"
+						></div>
+						Commentary
+						<div
+							class="wire-node__port wire-node__port--out wire-node__port--connected"
+							style="border-color: var(--brand-amber); background: var(--brand-amber)"
+						></div>
+					</div>
+
+					<div
+						class="wire-node"
+						style="left: 20px; top: 370px; border-color: rgba(244, 63, 94, 0.3)"
+					>
+						<div class="wire-node__port"></div>
+						English Subs
+						<div
+							class="wire-node__port wire-node__port--out"
+							style="border-color: var(--colour-error)"
+						></div>
+					</div>
+
+					<div class="wire-node" style="left: 20px; top: 420px">
+						<div class="wire-node__port wire-node__port--connected"></div>
+						Back
+						<div class="wire-node__port wire-node__port--out wire-node__port--connected"></div>
+					</div>
+
+					<!-- Target Nodes (Right) -->
+					<div class="target-node" style="right: 20px; top: 25px">
+						<div
+							class="wire-node__port wire-node__port--in wire-node__port--connected"
+							style="border-color: var(--brand-green); background: var(--brand-green)"
+						></div>
+						<span class="target-node__type target-node__type--title">Title</span>
+						Main Documentary (8 chapters)
+					</div>
+
+					<div class="target-node" style="right: 20px; top: 85px">
+						<div class="wire-node__port wire-node__port--in wire-node__port--connected"></div>
+						<span class="target-node__type target-node__type--menu">Menu</span>
+						Chapter Select
+					</div>
+
+					<div class="target-node" style="right: 20px; top: 145px">
+						<div class="wire-node__port wire-node__port--in wire-node__port--connected"></div>
+						<span class="target-node__type target-node__type--menu">Menu</span>
+						Audio Setup
+					</div>
+
+					<div class="target-node" style="right: 20px; top: 235px">
+						<div
+							class="wire-node__port wire-node__port--in wire-node__port--connected"
+							style="border-color: var(--brand-pink); background: var(--brand-pink)"
+						></div>
+						<span
+							class="target-node__type"
+							style="background: rgba(244, 63, 94, 0.15); color: var(--brand-pink)"
+							>Seq</span
+						>
+						setAudio 0 + showMenu "Main"
+					</div>
+
+					<div class="target-node" style="right: 20px; top: 295px">
+						<div
+							class="wire-node__port wire-node__port--in wire-node__port--connected"
+							style="border-color: var(--brand-amber); background: var(--brand-amber)"
+						></div>
+						<span class="target-node__type target-node__type--audio">Audio</span>
+						Set Audio Stream 1
+					</div>
+
+					<div class="target-node" style="right: 20px; top: 355px">
+						<div
+							class="wire-node__port wire-node__port--in"
+							style="border-color: rgba(96, 165, 250, 0.3)"
+						></div>
+						<span class="target-node__type target-node__type--sub">Sub</span>
+						Set Subtitle Stream 0
+					</div>
+
+					<div class="target-node" style="right: 20px; top: 405px">
+						<div class="wire-node__port wire-node__port--in wire-node__port--connected"></div>
+						<span class="target-node__type target-node__type--menu">Menu</span>
+						Main Menu
+					</div>
+
+					<!-- Divider label -->
+					<div class="wire-divider">
+						<div class="wire-divider__label">Action Bindings</div>
+					</div>
+				</div>
+			</div>
+
+			<!-- ═══ RIGHT: Binding Inspector ═══ -->
+			<div class="binding-panel">
+				<div class="bp-header">
+					<div class="bp-header__name">Play Documentary</div>
+					<div class="bp-header__type">Main Menu / VMGM / Default Focus</div>
+				</div>
+
+				<!-- Action Builder -->
+				<div class="bp-section">
+					<div class="bp-section__title">Action Binding</div>
+					<div class="action-builder">
+						<div class="action-row">
+							<select class="action-row__type-select">
+								<option selected>playTitle</option>
+								<option>playChapter</option>
+								<option>showMenu</option>
+								<option>setAudioStream</option>
+								<option>setSubtitleStream</option>
+								<option>sequence</option>
+								<option>stop</option>
+							</select>
+							<select class="action-row__target-select">
+								<option selected>Title 1: Main Documentary</option>
+								<option>Title 2: Behind the Scenes</option>
+								<option>Title 3: Deleted Scenes</option>
+							</select>
+							<svg
+								class="action-row__remove"
+								width="12"
+								height="12"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+							>
+								<line x1="18" y1="6" x2="6" y2="18" />
+								<line x1="6" y1="6" x2="18" y2="18" />
+							</svg>
+						</div>
+					</div>
+				</div>
+
+				<!-- Sequence Example -->
+				<div class="bp-section">
+					<div class="sequence-builder">
+						<div class="sequence-builder__title">
+							<svg
+								width="12"
+								height="12"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+							>
+								<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+								<polyline points="14 2 14 8 20 8" />
+							</svg>
+							Sequence Actions
+							<span class="badge badge--neutral" style="margin-left: auto; font-size: 8px"
+								>For Setup Menus</span
+							>
+						</div>
+						<div
+							style="font-size: 10px; color: var(--text-secondary); margin-bottom: var(--space-2)"
+						>
+							Chain multiple actions on a single button press. Used for Audio/Subtitle setup menus.
+						</div>
+						<div class="sequence-step">
+							<div class="sequence-step__num">1</div>
+							<span class="sequence-step__action">setAudioStream(0)</span>
+							<span style="font-size: 9px; color: var(--text-muted)">English 5.1</span>
+						</div>
+						<div class="sequence-connector"></div>
+						<div class="sequence-step">
+							<div class="sequence-step__num">2</div>
+							<span class="sequence-step__action">showMenu("Main Menu")</span>
+							<span style="font-size: 9px; color: var(--text-muted)">Return to main</span>
+						</div>
+						<button
+							class="btn btn--ghost btn--sm"
+							style="
+								margin-top: var(--space-2);
+								font-size: 10px;
+								width: 100%;
+								justify-content: center;
+							"
+						>
+							<svg
+								width="10"
+								height="10"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+							>
+								<path d="M12 5v14M5 12h14" />
+							</svg>
+							Add Step
+						</button>
+					</div>
+				</div>
+
+				<!-- Navigation -->
+				<div class="bp-section">
+					<div class="bp-section__title">Remote Navigation</div>
+					<div class="nav-grid">
+						<div class="nav-cell nav-cell--empty"></div>
+						<div class="nav-cell nav-cell--dir">
+							<svg
+								width="10"
+								height="10"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+							>
+								<polyline points="18 15 12 9 6 15" />
+							</svg>
+						</div>
+						<div class="nav-cell nav-cell--empty"></div>
+						<div class="nav-cell nav-cell--dir">
+							<svg
+								width="10"
+								height="10"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+							>
+								<polyline points="15 18 9 12 15 6" />
+							</svg>
+						</div>
+						<div class="nav-cell nav-cell--center">Play Doc</div>
+						<div class="nav-cell nav-cell--dir">
+							<svg
+								width="10"
+								height="10"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+							>
+								<polyline points="9 18 15 12 9 6" />
+							</svg>
+						</div>
+						<div class="nav-cell nav-cell--empty"></div>
+						<div class="nav-cell nav-cell--dir nav-cell--filled">Ch. Sel</div>
+						<div class="nav-cell nav-cell--empty"></div>
+					</div>
+					<div style="text-align: center; margin-top: var(--space-2)">
+						<span class="badge badge--neutral">Auto-Generated</span>
+					</div>
+				</div>
+
+				<!-- DVD Command Preview -->
+				<div class="bp-section">
+					<div class="bp-section__title">DVD Command Preview</div>
+					<div class="dvd-cmd-preview">
+						<div style="color: var(--text-muted)">// VMGM Menu PGC, button 1</div>
+						<div><code>jump title 1;</code></div>
+						<div style="margin-top: 8px; color: var(--text-muted)">// Compiled from:</div>
+						<div style="color: var(--text-secondary)">playTitle("Main Documentary")</div>
+					</div>
+				</div>
+
+				<!-- Diagnostics -->
+				<div class="bp-section">
+					<div class="bp-section__title">Diagnostics</div>
+					<div class="bp-diag bp-diag--ok">
+						<svg
+							width="12"
+							height="12"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="var(--colour-success)"
+							stroke-width="2"
+						>
+							<path d="M22 11.08V12a10 10 0 11-5.93-9.14" />
+							<polyline points="22 4 12 14.01 9 11.01" />
+						</svg>
+						<span>Action target resolves to a valid title in the VMGM domain.</span>
+					</div>
+					<div class="bp-diag bp-diag--error" style="margin-top: var(--space-2)">
+						<svg
+							width="12"
+							height="12"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="var(--colour-error)"
+							stroke-width="2"
+						>
+							<circle cx="12" cy="12" r="10" />
+							<line x1="15" y1="9" x2="9" y2="15" />
+							<line x1="9" y1="9" x2="15" y2="15" />
+						</svg>
+						<span
+							><strong>"English Subs"</strong> button has no action binding. It will be
+							non-functional on the disc.</span
+						>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<div class="status-bar">
+			<span style="color: var(--brand-purple)">&#9679;</span>
+			<span>Switchboard / Bind Mode</span>
+			<span>|</span>
+			<span>8 buttons across 2 menus</span>
+			<span>|</span>
+			<span style="color: var(--colour-error)">1 unbound</span>
+			<span style="flex: 1"></span>
+			<span>DVD 4:3 NTSC</span>
+		</div>
+	</body>
+</html>

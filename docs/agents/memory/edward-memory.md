@@ -31,6 +31,8 @@ Prefer structural facts over narration.
 - **Technical Trap**: Placeholder-based development can lead to 'Glossy but Broken' UI releases. All authored modes (Bind, Compile, Design, Remote) must be functional before a UI milestone is marked as 'Verified.'
 - **Validation Oracle**: The `execute_build_plan_smoke_authors_titleset_menu_return_path` test in the Rust plugin is the primary proof of a working end-to-end authoring loop.
 - **Architectural Boundary**: The project model and state are intentionally "format-agnostic" to support future Blu-ray, but implementation logic must remain strictly DVD-Video compliant for now.
+- **Product Strategy**: Blu-ray (HDMV/IG) is the primary authoring ceiling. DVD and VCD are targets for graceful degradation. The UI should hide complexity but honestly expose downsampling constraints via the Compile Preview.
+- **Technical Trap**: Fluid UI transitions simulated via seamless branching (timecode jumping) require absolute precision with I-frame alignment on sector boundaries to avoid laser seek "clunks".
 
 ## Open Questions
 

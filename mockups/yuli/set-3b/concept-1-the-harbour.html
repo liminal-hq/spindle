@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en-CA">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Spindle — The Harbour</title>
+		<link rel="stylesheet" href="design-system.css" />
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;600;700&display=swap"
+			rel="stylesheet"
+		/>
+	</head>
+	<body>
+		<div class="page-shell">
+			<div class="page-frame">
+				<header class="page-header">
+					<div>
+						<div class="eyebrow">Concept 1 / The Harbour</div>
+						<h1 class="page-title">
+							A calm main editor where selecting a button opens a docked behaviour tray directly
+							under the canvas instead of sending the user into Bind or Remote mode.
+						</h1>
+						<p class="page-copy">
+							The Harbour keeps the current Spindle layout, but the selected node becomes the centre
+							of gravity. Action binding, route targets, stream actions, and immediate compile
+							implications all appear in a tray that belongs to the active selection, not to a
+							separate tab.
+						</p>
+						<div class="page-nav">
+							<a class="cta" href="index.html">Back to set index</a>
+							<div class="badge badge--accent">Best balanced integrated option</div>
+						</div>
+					</div>
+				</header>
+
+				<section class="surface">
+					<div class="workspace workspace--three">
+						<aside class="panel">
+							<div class="panel-header">
+								<div>
+									<div class="panel-kicker">Menus</div>
+									<h3>Current scope</h3>
+								</div>
+								<div class="badge">4 menus</div>
+							</div>
+							<div class="stack">
+								<div class="list-item list-item--selected">
+									<strong>Global / Main Menu</strong>
+									<div class="meta">Selected · 6 buttons · still background</div>
+								</div>
+								<div class="list-item">
+									<strong>Titleset 1 / Chapter Set A</strong>
+									<div class="meta">Generated · page 1 of 2</div>
+								</div>
+								<div class="list-item">
+									<strong>Titleset 1 / Chapter Set B</strong>
+									<div class="meta">Generated · page 2 of 2</div>
+								</div>
+								<div class="list-item">
+									<strong>Setup / Audio and Subtitle</strong>
+									<div class="meta">Semantic stream-selection actions</div>
+								</div>
+							</div>
+						</aside>
+
+						<div class="artboard-wrap">
+							<div class="artboard-toolbar">
+								<div class="badge badge--accent">Scene editor</div>
+								<div class="tiny-pill">Actions inline</div>
+								<div class="tiny-pill">Route hints inline</div>
+								<div class="tiny-pill">Compile notes inline</div>
+							</div>
+
+							<div class="artboard">
+								<div class="grid-overlay"></div>
+								<div class="safe-area safe-area--action"></div>
+								<div class="safe-area safe-area--title"></div>
+								<div class="canvas-label canvas-label--action">Action-safe</div>
+								<div class="canvas-label canvas-label--title">Title-safe</div>
+
+								<div class="node node--soft" style="top: 11%; left: 10%; width: 32%; height: 13%">
+									Wedding Highlights
+								</div>
+								<div class="node" style="top: 34%; left: 14%; width: 22%; height: 12%">
+									Play feature
+								</div>
+								<div
+									class="node node--focus node--blue"
+									style="top: 50%; left: 14%; width: 22%; height: 12%"
+								>
+									Scenes
+								</div>
+								<div class="node" style="top: 66%; left: 14%; width: 22%; height: 12%">Set-up</div>
+								<div class="node node--green" style="top: 42%; right: 14%; width: 24%; height: 12%">
+									Audio menu
+								</div>
+								<div class="node node--pink" style="top: 58%; right: 14%; width: 24%; height: 12%">
+									Subtitle menu
+								</div>
+
+								<div
+									class="connector"
+									style="top: 56%; left: 36%; width: 16%; transform: rotate(-2deg)"
+								></div>
+								<div
+									class="connector connector--blue"
+									style="top: 48%; left: 38%; width: 24%; transform: rotate(2deg)"
+								></div>
+
+								<div class="floating-tray" style="right: 7%; bottom: 8%">
+									<div class="panel-kicker">Selection peek</div>
+									<div class="meta" style="margin-top: 6px">
+										This button opens a generated chapter family and is reachable from default focus
+										in one move.
+									</div>
+								</div>
+							</div>
+
+							<div class="inline-strip">
+								<div class="panel-header" style="margin-bottom: var(--space-3)">
+									<div>
+										<div class="panel-kicker">Scenes button tray</div>
+										<h3>Everything needed for this node, without changing views</h3>
+									</div>
+									<div class="badge badge--info">Selected node</div>
+								</div>
+								<div class="slot-grid">
+									<div class="slot-card slot-card--selected">
+										<strong>Action</strong>
+										<div class="slot-row">
+											<div class="action-chip action-chip--accent">Show menu</div>
+											<div class="action-chip">Chapter Set A</div>
+										</div>
+									</div>
+									<div class="slot-card">
+										<strong>Default focus</strong>
+										<div class="slot-row">
+											<div class="action-chip action-chip--info">Not default</div>
+											<div class="action-chip">Reachable from Play feature</div>
+										</div>
+									</div>
+									<div class="slot-card">
+										<strong>Neighbours</strong>
+										<div class="slot-row">
+											<div class="action-chip">Up: Play feature</div>
+											<div class="action-chip">Down: Set-up</div>
+											<div class="action-chip action-chip--success">Right: Audio menu</div>
+										</div>
+									</div>
+									<div class="slot-card">
+										<strong>Compile note</strong>
+										<div class="slot-row">
+											<div class="action-chip action-chip--success">DVD-safe</div>
+											<div class="action-chip">Generated family under 18 buttons per page</div>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+
+						<aside class="panel">
+							<div class="panel-header">
+								<div>
+									<div class="panel-kicker">Inspector</div>
+									<h3>Visual properties only</h3>
+								</div>
+								<div class="badge badge--success">Simplified</div>
+							</div>
+							<div class="stack">
+								<div class="peek-card">
+									<strong>Geometry</strong>
+									<div class="meta">
+										X, Y, width, height remain here so the right panel can stay focused on design
+										properties.
+									</div>
+								</div>
+								<div class="peek-card">
+									<strong>States</strong>
+									<div class="meta">
+										Highlight style, label, and component styling stay in the inspector, while
+										interaction behaviour lives in the tray below the canvas.
+									</div>
+								</div>
+							</div>
+						</aside>
+					</div>
+				</section>
+			</div>
+		</div>
+	</body>
+</html>

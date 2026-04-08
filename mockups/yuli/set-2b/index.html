@@ -1,0 +1,437 @@
+<!doctype html>
+<html lang="en-CA">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=1280" />
+		<title>Spindle — Menu Editor Concepts (Set 2b)</title>
+		<link rel="stylesheet" href="design-system.css" />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap"
+			rel="stylesheet"
+		/>
+		<style>
+			body {
+				background: var(--bg-app);
+				color: var(--text-primary);
+				padding: var(--space-8);
+				overflow-y: auto;
+			}
+			.container {
+				max-width: 920px;
+				margin: 0 auto;
+			}
+			.header {
+				margin-bottom: var(--space-10);
+				text-align: center;
+			}
+			.header h1 {
+				font-size: var(--text-3xl);
+				background: var(--brand-gradient);
+				-webkit-background-clip: text;
+				-webkit-text-fill-color: transparent;
+				margin-bottom: var(--space-2);
+			}
+			.header p {
+				color: var(--text-muted);
+				font-size: var(--text-lg);
+				max-width: 640px;
+				margin: 0 auto;
+				line-height: 1.6;
+			}
+			.header .set-note {
+				font-size: var(--text-sm);
+				color: var(--text-secondary);
+				margin-top: var(--space-4);
+				padding: var(--space-3) var(--space-4);
+				background: rgba(255, 255, 255, 0.02);
+				border: 1px solid var(--border-subtle);
+				border-radius: var(--radius-md);
+				display: inline-block;
+				line-height: 1.6;
+			}
+			.concept-card {
+				background: var(--bg-card);
+				border: 1px solid var(--border-subtle);
+				border-radius: var(--radius-lg);
+				padding: var(--space-6);
+				margin-bottom: var(--space-6);
+				transition: all var(--transition-base);
+			}
+			.concept-card:hover {
+				background: var(--bg-card-hover);
+				border-color: var(--border-default);
+				box-shadow: var(--shadow-card);
+			}
+			.concept-title {
+				font-family: var(--font-heading);
+				font-size: var(--text-xl);
+				font-weight: 700;
+				margin-bottom: var(--space-2);
+				display: flex;
+				align-items: center;
+				gap: var(--space-3);
+			}
+			.concept-desc {
+				color: var(--text-secondary);
+				font-size: var(--text-md);
+				line-height: 1.6;
+				margin-bottom: var(--space-4);
+			}
+			.concept-features {
+				display: flex;
+				flex-wrap: wrap;
+				gap: var(--space-2);
+				margin-bottom: var(--space-4);
+			}
+			.feature-tag {
+				font-size: var(--text-xs);
+				padding: 3px 10px;
+				border-radius: 12px;
+				background: rgba(255, 255, 255, 0.04);
+				border: 1px solid var(--border-subtle);
+				color: var(--text-secondary);
+			}
+			.feature-tag--scene {
+				background: rgba(255, 170, 64, 0.08);
+				border-color: rgba(255, 170, 64, 0.2);
+				color: var(--brand-orange);
+			}
+			.feature-tag--interact {
+				background: rgba(167, 139, 250, 0.08);
+				border-color: rgba(167, 139, 250, 0.2);
+				color: var(--brand-purple);
+			}
+			.feature-tag--theme {
+				background: rgba(34, 211, 238, 0.08);
+				border-color: rgba(34, 211, 238, 0.2);
+				color: var(--brand-cyan);
+			}
+			.feature-tag--compile {
+				background: rgba(244, 63, 94, 0.08);
+				border-color: rgba(244, 63, 94, 0.2);
+				color: var(--brand-pink);
+			}
+			.feature-tag--motion {
+				background: rgba(96, 165, 250, 0.08);
+				border-color: rgba(96, 165, 250, 0.2);
+				color: var(--brand-blue);
+			}
+			.feature-tag--gen {
+				background: rgba(46, 198, 106, 0.08);
+				border-color: rgba(46, 198, 106, 0.2);
+				color: var(--brand-green);
+			}
+			.changes-callout {
+				background: linear-gradient(135deg, rgba(255, 170, 64, 0.04), rgba(244, 63, 94, 0.04));
+				border: 1px solid rgba(255, 170, 64, 0.12);
+				border-radius: var(--radius-md);
+				padding: var(--space-4);
+				margin-bottom: var(--space-6);
+				font-size: var(--text-sm);
+				color: var(--text-secondary);
+				line-height: 1.7;
+			}
+			.changes-callout strong {
+				color: var(--text-primary);
+			}
+			.changes-callout ul {
+				margin: var(--space-2) 0 0;
+				padding-left: var(--space-4);
+			}
+			.changes-callout li {
+				margin-bottom: 4px;
+			}
+			.shortcut-table {
+				margin-top: var(--space-4);
+				width: 100%;
+				font-size: var(--text-xs);
+			}
+			.shortcut-table th {
+				text-align: left;
+				padding: 4px 8px;
+				color: var(--text-muted);
+				font-weight: 600;
+				border-bottom: 1px solid var(--border-subtle);
+			}
+			.shortcut-table td {
+				padding: 4px 8px;
+				color: var(--text-secondary);
+			}
+			.shortcut-table kbd {
+				font-family: var(--font-mono);
+				background: rgba(255, 255, 255, 0.06);
+				border: 1px solid var(--border-subtle);
+				border-radius: 3px;
+				padding: 1px 5px;
+				font-size: 10px;
+			}
+			.back-link {
+				display: inline-flex;
+				align-items: center;
+				gap: var(--space-2);
+				color: var(--text-muted);
+				font-size: var(--text-sm);
+				margin-bottom: var(--space-6);
+			}
+			.back-link:hover {
+				color: var(--text-primary);
+			}
+		</style>
+	</head>
+	<body>
+		<div class="container">
+			<a href="../set-2a/index.html" class="back-link">
+				<svg
+					width="14"
+					height="14"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+				>
+					<polyline points="15 18 9 12 15 6" />
+				</svg>
+				Back to Set 2a
+			</a>
+
+			<div class="header">
+				<h1>Spindle Menu Editor — Set 2b</h1>
+				<p>
+					Refining 2a into a single unified design view. Bind and Route are no longer separate modes
+					— their features live inline in the editor. Compile becomes a preview overlay. The
+					navigation map is a full switchable view.
+				</p>
+				<div class="set-note">
+					Content-area mockup. Fits inside <code>&lt;main class="main-content"&gt;</code>. No app
+					chrome.
+				</div>
+			</div>
+
+			<div class="changes-callout">
+				<strong>Changes from Set 2a:</strong>
+				<ul>
+					<li>
+						<strong>Removed Bind and Route modes.</strong> Action binding is now an always-available
+						inspector section — select a button, edit its action type and target inline. Navigation
+						arrows are a canvas toggle (<kbd>N</kbd>), not a separate mode.
+					</li>
+					<li>
+						<strong>Compile is now Preview.</strong> A single toggle (<kbd>P</kbd>) overlays DVD
+						output simulation stats on the canvas — button count, CLUT usage, action resolution,
+						safe area compliance.
+					</li>
+					<li>
+						<strong>Mini navigation map restored.</strong> Persistent mini-map in the left nav
+						between the menu list and template picker. Shows all menu connections at a glance. Click
+						nodes to jump, "Expand" to switch to the full Map view.
+					</li>
+					<li>
+						<strong>Connections restored.</strong> Each menu item in the left nav shows
+						incoming/outgoing connection counts. The inspector has a dedicated Connections section
+						listing all linked menus with click-to-jump. Action badges appear on hover/select on
+						canvas buttons.
+					</li>
+					<li>
+						<strong>Auto Navigation.</strong> Toolbar "Auto Nav" button (<kbd>A</kbd>) calculates
+						geometric Up/Down/Left/Right navigation for all buttons, mirroring the current Spindle
+						autoNav feature. Inspector Navigation section has an Auto/Manual toggle and a
+						"Recalculate from positions" button.
+					</li>
+					<li>
+						<strong>Navigation map is a full view.</strong> Editor/Map toggle switches to a
+						bird's-eye map with clean bezier-routed connection lines between card edges — showMenu
+						(cyan), playTitle (green dashed), return (purple dotted). Double-click a card to jump to
+						that menu's editor.
+					</li>
+					<li>
+						<strong>Background editing.</strong> New inspector section for menu background: Solid
+						colour (with colour picker), Image (from project assets with fit mode), or Video (for
+						motion menus — duration, audio source, loop count). Solid/Image/Video mode chips switch
+						the controls shown.
+					</li>
+					<li>
+						<strong>Auto-generate menus (issue #20).</strong> "Generate Menus" section in the left
+						nav creates data-driven menus from project metadata: Chapter Grid (auto-paginated, 12-18
+						buttons per page), Audio Setup (from title audio streams), Subtitle Setup (from subtitle
+						streams). Pre-wires navigation and actions.
+					</li>
+					<li>
+						<strong>Map SVG connections now dynamic.</strong> Connection lines are computed from
+						actual card DOM positions via JavaScript, so they connect to card edges correctly at any
+						viewport size. Redraws on view switch, resize, and inspector toggle.
+					</li>
+					<li>
+						<strong>Map view inspector toggle.</strong> The map toolbar now has the same inspector
+						toggle button as the editor toolbar.
+					</li>
+					<li>
+						<strong>Canvas re-centres properly</strong> when inspector is toggled (removed CSS
+						transition that blocked grid reflow).
+					</li>
+					<li>
+						<strong>Well-commented HTML.</strong> Architecture overview, section markers, data model
+						notes, and implementation hints throughout the source for planning.
+					</li>
+					<li>
+						<strong>Split into three files.</strong> CSS extracted to <code>menu-editor.css</code>,
+						JS to <code>menu-editor.js</code>, leaving <code>menu-editor.html</code> as a clean
+						structural shell. Each concern is independently editable.
+					</li>
+					<li>
+						<strong>Collapsible inspector sections.</strong> Every section independently collapsible
+						with chevron toggle. Expand All / Collapse All buttons in the inspector header.
+						Inspector body scrolls when content exceeds viewport.
+					</li>
+					<li>
+						<strong>Button style controls.</strong> New section with per-state styling
+						(Normal/Focus/Activate tabs). Background fill, border colour/width/radius,
+						horizontal/vertical padding, shadow/glow type with colour and blur controls.
+					</li>
+					<li>
+						<strong>Text style controls.</strong> New section with font family, size, line height,
+						bold/italic/underline toggles, text colour, alignment buttons (left/centre/right),
+						letter spacing, and text shadow presets. Applies to both standalone text nodes and
+						button label text.
+					</li>
+					<li>
+						<strong>Video segment markers.</strong> Intro and loop regions shown as a visual
+						timeline bar with purple (intro) and green (loop) segments. Timecode inputs for intro
+						start/duration and loop start/duration.
+					</li>
+					<li>
+						<strong>Audio background mode.</strong> New "Audio" chip in the background section for
+						still-image menus with background audio. Creates a motion menu with static frame + AC3
+						audio track.
+					</li>
+					<li>
+						<strong>Audio track on image backgrounds.</strong> Image background mode now also offers
+						an optional audio track sub-section for menus that need background music over a still
+						image.
+					</li>
+					<li>
+						<strong>CLUT palette editor.</strong> DVD 4-colour subpicture palette (BG, E1, E2,
+						Anti-alias) with colour swatches. Maps authored styles to DVD overlay constraints.
+					</li>
+					<li>
+						<strong>Highlight mode.</strong> Static or Animated toggle. Animated mode reveals
+						keyframe count and easing controls for motion menu highlight transitions.
+					</li>
+					<li>
+						<strong>Layer order panel.</strong> Lists all scene nodes in z-order with type icons
+						(button/text), names, and per-layer visibility toggles. Supports drag-to-reorder.
+					</li>
+					<li>
+						<strong>Shape tool.</strong> New shape tool (<kbd>R</kbd>) in the floating canvas
+						palette for decorative rectangles.
+					</li>
+					<li>
+						<strong>8-directional resize handles.</strong> Buttons now have edge handles (N/S/E/W
+						strips) in addition to corner handles, matching the production
+						<code>SceneCanvas.tsx</code> pattern.
+					</li>
+					<li>
+						<strong>Alignment and snap notes.</strong> Transform section includes implementation
+						comments for snap-to-grid (8px threshold, red guide lines) and alignment toolbar
+						(align/distribute) from the current codebase.
+					</li>
+					<li>
+						<strong>Shared minimap renderer.</strong> Architecture comment notes that the mini-map
+						and full Navigation Map should share the same React component, with the mini-map being a
+						scaled-down target view.
+					</li>
+				</ul>
+			</div>
+
+			<div class="concept-card">
+				<div class="concept-title">
+					<span>Menu Editor</span>
+					<div class="badge badge--neutral">Unified Design + Map</div>
+				</div>
+				<div class="concept-desc">
+					A single design surface with inline action binding, navigation arrow overlay, and compile
+					preview toggle. The left panel lists all menus with connection indicators, and the
+					Editor/Map toggle switches to a full navigation map view with colour-coded connection
+					lines and a connection-focused inspector.
+				</div>
+				<div class="concept-features">
+					<span class="feature-tag feature-tag--scene">Unified Design View</span>
+					<span class="feature-tag feature-tag--interact">Inline Action Binding</span>
+					<span class="feature-tag feature-tag--motion">Navigation Arrow Toggle</span>
+					<span class="feature-tag feature-tag--compile">Preview Overlay</span>
+					<span class="feature-tag feature-tag--theme">Mini Navigation Map</span>
+					<span class="feature-tag feature-tag--theme">Full Navigation Map</span>
+					<span class="feature-tag feature-tag--gen">Auto Navigation</span>
+					<span class="feature-tag feature-tag--scene">Action Badges on Canvas</span>
+					<span class="feature-tag feature-tag--compile">Connection Indicators</span>
+					<span class="feature-tag feature-tag--interact">Click-to-Jump Connections</span>
+					<span class="feature-tag feature-tag--scene">Background Editing</span>
+					<span class="feature-tag feature-tag--motion">Motion Video Backgrounds</span>
+					<span class="feature-tag feature-tag--gen">Auto-Generate Menus</span>
+					<span class="feature-tag feature-tag--compile">Auto-Pagination</span>
+					<span class="feature-tag feature-tag--scene">Button Style (per-state)</span>
+					<span class="feature-tag feature-tag--interact">Text Style Controls</span>
+					<span class="feature-tag feature-tag--motion">Video Segment Markers</span>
+					<span class="feature-tag feature-tag--theme">Audio Background Mode</span>
+					<span class="feature-tag feature-tag--compile">CLUT Palette Editor</span>
+					<span class="feature-tag feature-tag--gen">Highlight Mode</span>
+					<span class="feature-tag feature-tag--scene">Layer Order Panel</span>
+					<span class="feature-tag feature-tag--interact">Collapsible Inspector</span>
+					<span class="feature-tag feature-tag--compile">8-Direction Resize</span>
+					<span class="feature-tag feature-tag--theme">Shape Tool</span>
+				</div>
+				<a href="menu-editor.html" class="btn btn--primary" target="_blank">Open Menu Editor</a>
+
+				<table class="shortcut-table">
+					<tr>
+						<th>Key</th>
+						<th>Action</th>
+					</tr>
+					<tr>
+						<td><kbd>V</kbd></td>
+						<td>Select tool</td>
+					</tr>
+					<tr>
+						<td><kbd>T</kbd></td>
+						<td>Text tool</td>
+					</tr>
+					<tr>
+						<td><kbd>B</kbd></td>
+						<td>Button tool</td>
+					</tr>
+					<tr>
+						<td><kbd>I</kbd></td>
+						<td>Image tool</td>
+					</tr>
+					<tr>
+						<td><kbd>R</kbd></td>
+						<td>Shape tool</td>
+					</tr>
+					<tr>
+						<td><kbd>S</kbd></td>
+						<td>Toggle safe area guides</td>
+					</tr>
+					<tr>
+						<td><kbd>N</kbd></td>
+						<td>Toggle navigation arrows</td>
+					</tr>
+					<tr>
+						<td><kbd>P</kbd></td>
+						<td>Toggle compile preview</td>
+					</tr>
+					<tr>
+						<td><kbd>A</kbd></td>
+						<td>Run auto-navigation for all buttons</td>
+					</tr>
+					<tr>
+						<td><kbd>M</kbd></td>
+						<td>Switch between Editor and Map views</td>
+					</tr>
+					<tr>
+						<td><kbd>Esc</kbd></td>
+						<td>Deselect / exit preview</td>
+					</tr>
+				</table>
+			</div>
+		</div>
+	</body>
+</html>

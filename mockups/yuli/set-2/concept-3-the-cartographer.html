@@ -1,0 +1,1057 @@
+<!doctype html>
+<html lang="en-CA">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=1280" />
+		<title>Spindle — Concept 3: The Cartographer</title>
+		<link rel="stylesheet" href="design-system.css" />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap"
+			rel="stylesheet"
+		/>
+		<style>
+			body {
+				background: var(--bg-app);
+				overflow: hidden;
+				display: flex;
+				flex-direction: column;
+				height: 100vh;
+			}
+
+			/* ── Two-Column: Map + Detail ─────────────────────────── */
+			.editor-shell {
+				display: grid;
+				grid-template-columns: 1fr 380px;
+				flex: 1;
+				overflow: hidden;
+			}
+
+			/* ── Left: The Navigation Map ─────────────────────────── */
+			.map-area {
+				display: flex;
+				flex-direction: column;
+				background: #06060a;
+				position: relative;
+			}
+
+			.map-toolbar {
+				display: flex;
+				align-items: center;
+				padding: var(--space-2) var(--space-4);
+				background: var(--bg-panel);
+				border-bottom: 1px solid var(--border-subtle);
+				gap: var(--space-3);
+				z-index: 10;
+			}
+
+			.map-toolbar__title {
+				font-family: var(--font-heading);
+				font-size: var(--text-md);
+				font-weight: 600;
+				color: var(--text-primary);
+				display: flex;
+				align-items: center;
+				gap: var(--space-2);
+			}
+
+			.view-toggle {
+				display: flex;
+				background: rgba(0, 0, 0, 0.3);
+				border: 1px solid var(--border-subtle);
+				border-radius: 16px;
+				padding: 2px;
+				gap: 2px;
+				margin-left: auto;
+			}
+
+			.vt-btn {
+				padding: 4px 12px;
+				border-radius: 14px;
+				font-size: var(--text-xs);
+				font-weight: 600;
+				cursor: pointer;
+				color: var(--text-muted);
+				transition: all var(--transition-fast);
+				border: none;
+				background: none;
+			}
+
+			.vt-btn:hover {
+				color: var(--text-primary);
+			}
+			.vt-btn--active {
+				background: var(--brand-cyan);
+				color: var(--text-inverse);
+			}
+
+			.map-viewport {
+				flex: 1;
+				position: relative;
+				overflow: hidden;
+				background:
+					radial-gradient(circle at 30% 40%, rgba(34, 211, 238, 0.03) 0%, transparent 40%),
+					radial-gradient(circle at 70% 60%, rgba(167, 139, 250, 0.03) 0%, transparent 40%);
+			}
+
+			/* Grid background */
+			.map-grid {
+				position: absolute;
+				inset: 0;
+				background-image:
+					linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+					linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+				background-size: 40px 40px;
+			}
+
+			/* SVG connection layer */
+			.connection-svg {
+				position: absolute;
+				inset: 0;
+				z-index: 1;
+				pointer-events: none;
+			}
+
+			.conn-line {
+				fill: none;
+				stroke-width: 2;
+				opacity: 0.6;
+			}
+
+			.conn-line--menu {
+				stroke: var(--brand-cyan);
+			}
+			.conn-line--play {
+				stroke: var(--brand-green);
+				stroke-dasharray: 6 4;
+			}
+			.conn-line--return {
+				stroke: var(--brand-purple);
+				stroke-dasharray: 3 3;
+				opacity: 0.4;
+			}
+
+			.conn-arrow {
+				fill: var(--brand-cyan);
+			}
+
+			.conn-label {
+				font-family: var(--font-mono);
+				font-size: 9px;
+				fill: var(--text-muted);
+			}
+
+			/* Menu map cards */
+			.map-card {
+				position: absolute;
+				width: 200px;
+				background: rgba(16, 16, 22, 0.9);
+				border: 1.5px solid var(--border-default);
+				border-radius: var(--radius-lg);
+				overflow: hidden;
+				z-index: 5;
+				cursor: pointer;
+				transition: all var(--transition-fast);
+				box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+			}
+
+			.map-card:hover {
+				border-color: var(--border-strong);
+				box-shadow:
+					0 4px 24px rgba(0, 0, 0, 0.5),
+					0 0 12px rgba(34, 211, 238, 0.08);
+				transform: translateY(-2px);
+			}
+
+			.map-card--selected {
+				border-color: var(--brand-cyan);
+				box-shadow:
+					0 0 0 1px var(--brand-cyan),
+					0 4px 24px rgba(34, 211, 238, 0.15);
+			}
+
+			.map-card__preview {
+				height: 100px;
+				background: linear-gradient(135deg, #1a1828 0%, #0f0e1a 100%);
+				position: relative;
+				overflow: hidden;
+			}
+
+			.map-card__mini-title {
+				position: absolute;
+				top: 12px;
+				left: 12px;
+				font-family: var(--font-heading);
+				font-size: 10px;
+				font-weight: 700;
+				color: rgba(255, 255, 255, 0.8);
+			}
+
+			.map-card__mini-btn {
+				position: absolute;
+				background: rgba(255, 255, 255, 0.12);
+				border-radius: 2px;
+				height: 8px;
+			}
+
+			.map-card__info {
+				padding: var(--space-2) var(--space-3);
+			}
+
+			.map-card__name {
+				font-size: var(--text-sm);
+				font-weight: 600;
+				color: var(--text-primary);
+				margin-bottom: 2px;
+			}
+
+			.map-card__meta {
+				display: flex;
+				align-items: center;
+				gap: var(--space-2);
+				font-size: 10px;
+				color: var(--text-muted);
+			}
+
+			.map-card__domain {
+				padding: 1px 5px;
+				border-radius: 6px;
+				font-size: 9px;
+				font-weight: 600;
+			}
+
+			.domain--vmgm {
+				background: rgba(34, 211, 238, 0.15);
+				color: var(--brand-cyan);
+			}
+			.domain--vts {
+				background: rgba(167, 139, 250, 0.15);
+				color: var(--brand-purple);
+			}
+
+			/* First-play indicator */
+			.first-play-node {
+				position: absolute;
+				z-index: 5;
+				display: flex;
+				align-items: center;
+				gap: 8px;
+				background: rgba(46, 198, 106, 0.1);
+				border: 1.5px solid rgba(46, 198, 106, 0.3);
+				border-radius: 20px;
+				padding: 6px 14px;
+				font-size: var(--text-xs);
+				font-weight: 600;
+				color: var(--brand-green);
+				cursor: pointer;
+			}
+
+			/* Title nodes */
+			.title-node {
+				position: absolute;
+				z-index: 5;
+				background: rgba(255, 255, 255, 0.03);
+				border: 1.5px dashed rgba(255, 255, 255, 0.12);
+				border-radius: var(--radius-md);
+				padding: var(--space-2) var(--space-3);
+				font-size: var(--text-xs);
+				color: var(--text-secondary);
+				display: flex;
+				align-items: center;
+				gap: 6px;
+			}
+
+			.title-node__icon {
+				opacity: 0.5;
+			}
+
+			/* Map legend */
+			.map-legend {
+				position: absolute;
+				bottom: var(--space-4);
+				left: var(--space-4);
+				background: rgba(16, 16, 22, 0.85);
+				backdrop-filter: blur(12px);
+				border: 1px solid var(--border-subtle);
+				border-radius: var(--radius-md);
+				padding: var(--space-3);
+				z-index: 10;
+				display: flex;
+				flex-direction: column;
+				gap: 6px;
+			}
+
+			.legend-row {
+				display: flex;
+				align-items: center;
+				gap: var(--space-2);
+				font-size: 10px;
+				color: var(--text-secondary);
+			}
+
+			.legend-line {
+				width: 20px;
+				height: 2px;
+				border-radius: 1px;
+			}
+
+			/* Zoom controls */
+			.map-zoom {
+				position: absolute;
+				bottom: var(--space-4);
+				right: var(--space-4);
+				display: flex;
+				flex-direction: column;
+				gap: 2px;
+				z-index: 10;
+			}
+
+			.zoom-btn {
+				width: 32px;
+				height: 32px;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				background: rgba(16, 16, 22, 0.85);
+				backdrop-filter: blur(12px);
+				border: 1px solid var(--border-subtle);
+				border-radius: var(--radius-sm);
+				color: var(--text-secondary);
+				cursor: pointer;
+				font-size: 16px;
+				transition: all var(--transition-fast);
+			}
+
+			.zoom-btn:hover {
+				background: rgba(30, 30, 40, 0.9);
+				color: var(--text-primary);
+			}
+
+			/* ── Right: Detail Panel ──────────────────────────────── */
+			.detail-panel {
+				background: var(--bg-sidebar);
+				border-left: 1px solid var(--border-subtle);
+				display: flex;
+				flex-direction: column;
+				overflow-y: auto;
+			}
+
+			.dp-header {
+				padding: var(--space-4);
+				border-bottom: 1px solid var(--border-subtle);
+				background: rgba(0, 0, 0, 0.15);
+			}
+
+			.dp-header__name {
+				font-family: var(--font-heading);
+				font-size: var(--text-lg);
+				font-weight: 700;
+				color: var(--text-primary);
+				display: flex;
+				align-items: center;
+				gap: var(--space-2);
+			}
+
+			.dp-header__meta {
+				font-size: var(--text-xs);
+				color: var(--text-muted);
+				margin-top: 4px;
+				display: flex;
+				gap: var(--space-3);
+			}
+
+			.dp-section {
+				padding: var(--space-4);
+				border-bottom: 1px solid var(--border-subtle);
+			}
+
+			.dp-section__title {
+				font-size: var(--text-xs);
+				font-weight: 600;
+				letter-spacing: 0.06em;
+				color: var(--text-muted);
+				margin-bottom: var(--space-3);
+			}
+
+			/* Mini canvas preview */
+			.dp-preview {
+				width: 100%;
+				aspect-ratio: 3/2;
+				background: linear-gradient(135deg, #1a1828, #0f0e1a);
+				border-radius: var(--radius-md);
+				border: 1px solid var(--border-subtle);
+				position: relative;
+				overflow: hidden;
+				margin-bottom: var(--space-3);
+			}
+
+			.dp-preview__title {
+				position: absolute;
+				top: 15%;
+				width: 100%;
+				text-align: center;
+				font-family: var(--font-heading);
+				font-size: 14px;
+				font-weight: 700;
+				color: rgba(255, 255, 255, 0.8);
+			}
+
+			.dp-preview__btn {
+				position: absolute;
+				background: rgba(255, 255, 255, 0.06);
+				border: 1px solid rgba(255, 255, 255, 0.12);
+				border-radius: 3px;
+				display: flex;
+				align-items: center;
+				padding: 0 8px;
+				font-size: 9px;
+				color: rgba(255, 255, 255, 0.7);
+			}
+
+			.dp-preview__btn--focused {
+				border-color: var(--brand-orange);
+				background: rgba(255, 170, 64, 0.1);
+			}
+
+			.dp-btn-actions {
+				display: flex;
+				gap: var(--space-2);
+			}
+
+			/* Button list */
+			.dp-button-list {
+				display: flex;
+				flex-direction: column;
+				gap: var(--space-2);
+			}
+
+			.dp-button-row {
+				display: flex;
+				align-items: center;
+				gap: var(--space-2);
+				padding: var(--space-2) var(--space-3);
+				background: rgba(255, 255, 255, 0.02);
+				border: 1px solid var(--border-subtle);
+				border-radius: var(--radius-sm);
+				font-size: var(--text-xs);
+			}
+
+			.dp-button-row__focus {
+				width: 6px;
+				height: 6px;
+				border-radius: 50%;
+				background: var(--brand-orange);
+				flex-shrink: 0;
+			}
+
+			.dp-button-row__name {
+				color: var(--text-primary);
+				font-weight: 500;
+				flex: 1;
+			}
+
+			.dp-button-row__action {
+				color: var(--brand-purple);
+				font-family: var(--font-mono);
+				font-size: 10px;
+			}
+
+			/* Connection list */
+			.dp-conn-list {
+				display: flex;
+				flex-direction: column;
+				gap: var(--space-2);
+			}
+
+			.dp-conn-row {
+				display: flex;
+				align-items: center;
+				gap: var(--space-2);
+				padding: var(--space-2) var(--space-3);
+				background: rgba(255, 255, 255, 0.02);
+				border: 1px solid var(--border-subtle);
+				border-radius: var(--radius-sm);
+				font-size: var(--text-xs);
+			}
+
+			.dp-conn-row__dir {
+				font-weight: 600;
+				color: var(--text-muted);
+				width: 50px;
+				flex-shrink: 0;
+			}
+
+			.dp-conn-row__target {
+				color: var(--brand-cyan);
+				font-weight: 500;
+			}
+
+			.dp-conn-row__action {
+				margin-left: auto;
+				font-family: var(--font-mono);
+				font-size: 10px;
+				color: var(--text-muted);
+			}
+
+			/* Diagnostics */
+			.dp-diag {
+				display: flex;
+				align-items: flex-start;
+				gap: var(--space-2);
+				padding: var(--space-3);
+				border-radius: var(--radius-md);
+				font-size: var(--text-xs);
+				line-height: 1.4;
+			}
+
+			.dp-diag--ok {
+				background: rgba(46, 198, 106, 0.06);
+				border: 1px solid rgba(46, 198, 106, 0.15);
+				color: var(--text-secondary);
+			}
+
+			.dp-diag--warn {
+				background: rgba(251, 191, 36, 0.06);
+				border: 1px solid rgba(251, 191, 36, 0.15);
+				color: var(--text-secondary);
+			}
+
+			.dp-diag--error {
+				background: rgba(244, 63, 94, 0.06);
+				border: 1px solid rgba(244, 63, 94, 0.15);
+				color: var(--text-secondary);
+			}
+
+			/* Status bar */
+			.status-bar {
+				display: flex;
+				align-items: center;
+				padding: 0 var(--space-4);
+				height: var(--statusbar-height);
+				background: var(--bg-sidebar);
+				border-top: 1px solid var(--border-subtle);
+				font-size: var(--text-xs);
+				color: var(--text-muted);
+				gap: var(--space-4);
+			}
+
+			.status-dot {
+				width: 6px;
+				height: 6px;
+				border-radius: 50%;
+				background: var(--colour-success);
+			}
+		</style>
+	</head>
+	<body>
+		<!-- Top Bar -->
+		<div class="topbar">
+			<div class="topbar__logo">Spindle</div>
+			<div class="text-sm text-muted" style="margin-left: var(--space-4)">
+				/ Concert Archive / Menu System Map
+			</div>
+			<div class="topbar__actions">
+				<button class="btn btn--ghost btn--sm">
+					<svg
+						width="12"
+						height="12"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+					>
+						<path d="M12 5v14M5 12h14" />
+					</svg>
+					Add Menu
+				</button>
+				<button class="btn btn--ghost btn--sm">Auto-Generate All</button>
+				<button class="btn btn--sm btn--primary">Build ISO</button>
+			</div>
+		</div>
+
+		<div class="editor-shell">
+			<!-- ═══ LEFT: Navigation Map ═══ -->
+			<div class="map-area">
+				<div class="map-toolbar">
+					<div class="map-toolbar__title">
+						<svg
+							width="16"
+							height="16"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="var(--brand-cyan)"
+							stroke-width="2"
+						>
+							<circle cx="12" cy="12" r="10" />
+							<path d="M2 12h20" />
+							<path
+								d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"
+							/>
+						</svg>
+						Disc Navigation Map
+					</div>
+					<span class="text-xs text-muted">5 menus, 3 titles</span>
+					<div class="view-toggle">
+						<button class="vt-btn vt-btn--active">Map</button>
+						<button class="vt-btn">List</button>
+						<button class="vt-btn">Flow</button>
+					</div>
+				</div>
+
+				<div class="map-viewport">
+					<div class="map-grid"></div>
+
+					<!-- SVG Connections -->
+					<svg class="connection-svg" viewBox="0 0 900 600">
+						<defs>
+							<marker
+								id="arrow-cyan"
+								markerWidth="8"
+								markerHeight="8"
+								refX="7"
+								refY="4"
+								orient="auto"
+							>
+								<path d="M0,0 L0,8 L8,4 z" class="conn-arrow" fill="var(--brand-cyan)" />
+							</marker>
+							<marker
+								id="arrow-green"
+								markerWidth="8"
+								markerHeight="8"
+								refX="7"
+								refY="4"
+								orient="auto"
+							>
+								<path d="M0,0 L0,8 L8,4 z" fill="var(--brand-green)" />
+							</marker>
+							<marker
+								id="arrow-purple"
+								markerWidth="8"
+								markerHeight="8"
+								refX="7"
+								refY="4"
+								orient="auto"
+							>
+								<path d="M0,0 L0,8 L8,4 z" fill="var(--brand-purple)" />
+							</marker>
+						</defs>
+
+						<!-- First Play -> Main Menu -->
+						<path
+							class="conn-line conn-line--menu"
+							d="M 150 80 C 150 120, 200 140, 200 160"
+							marker-end="url(#arrow-cyan)"
+						/>
+
+						<!-- Main Menu -> Chapter Select -->
+						<path
+							class="conn-line conn-line--menu"
+							d="M 300 230 C 380 230, 380 180, 440 180"
+							marker-end="url(#arrow-cyan)"
+						/>
+						<text class="conn-label" x="360" y="218">showMenu</text>
+
+						<!-- Main Menu -> Audio Setup -->
+						<path
+							class="conn-line conn-line--menu"
+							d="M 300 260 C 380 260, 380 340, 440 340"
+							marker-end="url(#arrow-cyan)"
+						/>
+						<text class="conn-label" x="360" y="310">showMenu</text>
+
+						<!-- Main Menu -> Title 1 -->
+						<path
+							class="conn-line conn-line--play"
+							d="M 200 290 C 200 370, 160 380, 160 400"
+							marker-end="url(#arrow-green)"
+						/>
+						<text class="conn-label" x="145" y="360">playTitle</text>
+
+						<!-- Chapter Select -> Chapters (Page 2) -->
+						<path
+							class="conn-line conn-line--menu"
+							d="M 640 200 C 680 200, 700 220, 720 220"
+							marker-end="url(#arrow-cyan)"
+						/>
+						<text class="conn-label" x="665" y="195">Next Page</text>
+
+						<!-- Title 1 -> return to Main Menu -->
+						<path
+							class="conn-line conn-line--return"
+							d="M 230 400 C 280 400, 300 320, 270 290"
+							marker-end="url(#arrow-purple)"
+						/>
+
+						<!-- Audio Setup -> Main Menu (back) -->
+						<path
+							class="conn-line conn-line--return"
+							d="M 440 370 C 380 380, 320 310, 300 280"
+							marker-end="url(#arrow-purple)"
+						/>
+					</svg>
+
+					<!-- First Play Node -->
+					<div class="first-play-node" style="left: 100px; top: 50px">
+						<svg
+							width="14"
+							height="14"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+						>
+							<polygon points="5 3 19 12 5 21" />
+						</svg>
+						First Play
+					</div>
+
+					<!-- Menu Cards -->
+					<div class="map-card map-card--selected" style="left: 100px; top: 160px">
+						<div class="map-card__preview">
+							<div class="map-card__mini-title">Concert Archive</div>
+							<div class="map-card__mini-btn" style="left: 15%; top: 50%; width: 70%"></div>
+							<div class="map-card__mini-btn" style="left: 15%; top: 64%; width: 70%"></div>
+							<div class="map-card__mini-btn" style="left: 15%; top: 78%; width: 70%"></div>
+						</div>
+						<div class="map-card__info">
+							<div class="map-card__name">Main Menu</div>
+							<div class="map-card__meta">
+								<span class="map-card__domain domain--vmgm">VMGM</span>
+								<span>3 buttons</span>
+								<span>Default focus</span>
+							</div>
+						</div>
+					</div>
+
+					<div class="map-card" style="left: 440px; top: 120px">
+						<div class="map-card__preview">
+							<div class="map-card__mini-title">Chapters</div>
+							<div
+								class="map-card__mini-btn"
+								style="left: 5%; top: 35%; width: 28%; height: 30%"
+							></div>
+							<div
+								class="map-card__mini-btn"
+								style="left: 36%; top: 35%; width: 28%; height: 30%"
+							></div>
+							<div
+								class="map-card__mini-btn"
+								style="left: 67%; top: 35%; width: 28%; height: 30%"
+							></div>
+							<div
+								class="map-card__mini-btn"
+								style="left: 5%; top: 70%; width: 28%; height: 30%"
+							></div>
+							<div
+								class="map-card__mini-btn"
+								style="left: 36%; top: 70%; width: 28%; height: 30%"
+							></div>
+							<div
+								class="map-card__mini-btn"
+								style="left: 67%; top: 70%; width: 28%; height: 30%"
+							></div>
+						</div>
+						<div class="map-card__info">
+							<div class="map-card__name">Chapter Select (Page 1)</div>
+							<div class="map-card__meta">
+								<span class="map-card__domain domain--vts">VTS 1</span>
+								<span>6 buttons</span>
+								<span>+2 nav</span>
+							</div>
+						</div>
+					</div>
+
+					<div class="map-card" style="left: 720px; top: 160px; width: 160px">
+						<div class="map-card__preview" style="height: 70px">
+							<div class="map-card__mini-title" style="font-size: 8px">Chapters p2</div>
+							<div
+								class="map-card__mini-btn"
+								style="left: 8%; top: 45%; width: 28%; height: 30%"
+							></div>
+							<div
+								class="map-card__mini-btn"
+								style="left: 38%; top: 45%; width: 28%; height: 30%"
+							></div>
+							<div
+								class="map-card__mini-btn"
+								style="left: 68%; top: 45%; width: 28%; height: 30%"
+							></div>
+						</div>
+						<div class="map-card__info">
+							<div class="map-card__name" style="font-size: 11px">Chapter Select (Page 2)</div>
+							<div class="map-card__meta">
+								<span class="map-card__domain domain--vts">VTS 1</span>
+								<span>3 + nav</span>
+							</div>
+						</div>
+					</div>
+
+					<div class="map-card" style="left: 440px; top: 300px">
+						<div class="map-card__preview">
+							<div class="map-card__mini-title">Audio & Subs</div>
+							<div class="map-card__mini-btn" style="left: 10%; top: 40%; width: 80%"></div>
+							<div class="map-card__mini-btn" style="left: 10%; top: 56%; width: 80%"></div>
+							<div class="map-card__mini-btn" style="left: 10%; top: 72%; width: 80%"></div>
+						</div>
+						<div class="map-card__info">
+							<div class="map-card__name">Audio Setup</div>
+							<div class="map-card__meta">
+								<span class="map-card__domain domain--vts">VTS 1</span>
+								<span>3 buttons</span>
+								<span>setAudio</span>
+							</div>
+						</div>
+					</div>
+
+					<!-- Title nodes -->
+					<div class="title-node" style="left: 100px; top: 400px">
+						<svg
+							class="title-node__icon"
+							width="14"
+							height="14"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+						>
+							<rect x="2" y="2" width="20" height="20" rx="2" />
+							<line x1="7" y1="2" x2="7" y2="22" />
+						</svg>
+						Title 1: Full Concert (12 chapters)
+					</div>
+
+					<div class="title-node" style="left: 100px; top: 445px">
+						<svg
+							class="title-node__icon"
+							width="14"
+							height="14"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+						>
+							<rect x="2" y="2" width="20" height="20" rx="2" />
+							<line x1="7" y1="2" x2="7" y2="22" />
+						</svg>
+						Title 2: Backstage Documentary
+					</div>
+
+					<div class="title-node" style="left: 100px; top: 490px">
+						<svg
+							class="title-node__icon"
+							width="14"
+							height="14"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+						>
+							<rect x="2" y="2" width="20" height="20" rx="2" />
+							<line x1="7" y1="2" x2="7" y2="22" />
+						</svg>
+						Title 3: Photo Slideshow
+					</div>
+
+					<!-- Legend -->
+					<div class="map-legend">
+						<div
+							style="
+								font-size: 10px;
+								font-weight: 600;
+								color: var(--text-muted);
+								margin-bottom: 2px;
+							"
+						>
+							Legend
+						</div>
+						<div class="legend-row">
+							<div class="legend-line" style="background: var(--brand-cyan)"></div>
+							showMenu link
+						</div>
+						<div class="legend-row">
+							<div
+								class="legend-line"
+								style="
+									background: var(--brand-green);
+									background-image: repeating-linear-gradient(
+										90deg,
+										transparent,
+										transparent 3px,
+										#06060a 3px,
+										#06060a 5px
+									);
+								"
+							></div>
+							playTitle action
+						</div>
+						<div class="legend-row">
+							<div class="legend-line" style="background: var(--brand-purple); opacity: 0.5"></div>
+							Return / post-action
+						</div>
+						<div class="legend-row">
+							<span class="map-card__domain domain--vmgm" style="font-size: 8px">VMGM</span>
+							Global menu domain
+						</div>
+						<div class="legend-row">
+							<span class="map-card__domain domain--vts" style="font-size: 8px">VTS</span>
+							Titleset menu domain
+						</div>
+					</div>
+
+					<!-- Zoom controls -->
+					<div class="map-zoom">
+						<div class="zoom-btn">+</div>
+						<div class="zoom-btn">-</div>
+						<div class="zoom-btn" style="font-size: 10px">Fit</div>
+					</div>
+				</div>
+			</div>
+
+			<!-- ═══ RIGHT: Detail Panel ═══ -->
+			<div class="detail-panel">
+				<div class="dp-header">
+					<div class="dp-header__name">
+						<span class="map-card__domain domain--vmgm">VMGM</span>
+						Main Menu
+					</div>
+					<div class="dp-header__meta">
+						<span>3 buttons</span>
+						<span>Still menu</span>
+						<span>720 x 480</span>
+					</div>
+				</div>
+
+				<!-- Preview -->
+				<div class="dp-section">
+					<div class="dp-section__title">Preview</div>
+					<div class="dp-preview">
+						<div class="dp-preview__title">Concert Archive</div>
+						<div
+							class="dp-preview__btn dp-preview__btn--focused"
+							style="left: 15%; top: 45%; width: 70%; height: 13%"
+						>
+							&#9654; Play Concert
+						</div>
+						<div class="dp-preview__btn" style="left: 15%; top: 62%; width: 70%; height: 13%">
+							&#9670; Chapter Select
+						</div>
+						<div class="dp-preview__btn" style="left: 15%; top: 79%; width: 70%; height: 13%">
+							&#9835; Audio & Subtitles
+						</div>
+					</div>
+					<div class="dp-btn-actions">
+						<button class="btn btn--sm btn--primary" style="flex: 1">Open in Editor</button>
+						<button class="btn btn--sm btn--ghost">Remote Sim</button>
+					</div>
+				</div>
+
+				<!-- Buttons -->
+				<div class="dp-section">
+					<div class="dp-section__title">Buttons & Actions</div>
+					<div class="dp-button-list">
+						<div class="dp-button-row">
+							<div class="dp-button-row__focus"></div>
+							<div class="dp-button-row__name">Play Concert</div>
+							<div class="dp-button-row__action">playTitle 1</div>
+						</div>
+						<div class="dp-button-row">
+							<div
+								class="dp-button-row__focus"
+								style="background: transparent; border: 1px solid var(--border-subtle)"
+							></div>
+							<div class="dp-button-row__name">Chapter Select</div>
+							<div class="dp-button-row__action">showMenu "Ch. Select"</div>
+						</div>
+						<div class="dp-button-row">
+							<div
+								class="dp-button-row__focus"
+								style="background: transparent; border: 1px solid var(--border-subtle)"
+							></div>
+							<div class="dp-button-row__name">Audio & Subtitles</div>
+							<div class="dp-button-row__action">showMenu "Audio Setup"</div>
+						</div>
+					</div>
+				</div>
+
+				<!-- Connections -->
+				<div class="dp-section">
+					<div class="dp-section__title">Navigation Connections</div>
+					<div class="dp-conn-list">
+						<div class="dp-conn-row">
+							<span class="dp-conn-row__dir">Outgoing</span>
+							<span class="dp-conn-row__target">Chapter Select</span>
+							<span class="dp-conn-row__action">showMenu</span>
+						</div>
+						<div class="dp-conn-row">
+							<span class="dp-conn-row__dir">Outgoing</span>
+							<span class="dp-conn-row__target">Audio Setup</span>
+							<span class="dp-conn-row__action">showMenu</span>
+						</div>
+						<div class="dp-conn-row">
+							<span class="dp-conn-row__dir">Outgoing</span>
+							<span class="dp-conn-row__target">Title 1: Full Concert</span>
+							<span class="dp-conn-row__action">playTitle</span>
+						</div>
+						<div class="dp-conn-row">
+							<span class="dp-conn-row__dir" style="color: var(--brand-purple)">Incoming</span>
+							<span class="dp-conn-row__target">First Play</span>
+							<span class="dp-conn-row__action">entry</span>
+						</div>
+						<div class="dp-conn-row">
+							<span class="dp-conn-row__dir" style="color: var(--brand-purple)">Incoming</span>
+							<span class="dp-conn-row__target">Title 1 (post)</span>
+							<span class="dp-conn-row__action">return</span>
+						</div>
+					</div>
+				</div>
+
+				<!-- Diagnostics -->
+				<div class="dp-section">
+					<div class="dp-section__title">Diagnostics</div>
+					<div class="dp-diag dp-diag--ok">
+						<svg
+							width="14"
+							height="14"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="var(--colour-success)"
+							stroke-width="2"
+						>
+							<path d="M22 11.08V12a10 10 0 11-5.93-9.14" />
+							<polyline points="22 4 12 14.01 9 11.01" />
+						</svg>
+						<span>All action targets valid. Navigation fully connected. No unreachable menus.</span>
+					</div>
+					<div class="dp-diag dp-diag--warn" style="margin-top: var(--space-2)">
+						<svg
+							width="14"
+							height="14"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="var(--colour-warning)"
+							stroke-width="2"
+						>
+							<circle cx="12" cy="12" r="10" />
+							<line x1="12" y1="8" x2="12" y2="12" />
+							<line x1="12" y1="16" x2="12.01" y2="16" />
+						</svg>
+						<span
+							>Chapter Select uses 2 pages. Verify Next/Back navigation works correctly with the
+							remote simulator.</span
+						>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<div class="status-bar">
+			<div class="status-dot"></div>
+			<span>Map View</span>
+			<span>|</span>
+			<span>5 menus, 3 titles, 1 titleset</span>
+			<span>|</span>
+			<span>All routes verified</span>
+			<span style="flex: 1"></span>
+			<span>DVD 4:3 NTSC</span>
+		</div>
+	</body>
+</html>

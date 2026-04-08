@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="en-CA">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Spindle — The Atelier</title>
+		<link rel="stylesheet" href="design-system.css" />
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=IBM+Plex+Mono:wght@400;500&family=Sora:wght@400;500;600;700&display=swap"
+			rel="stylesheet"
+		/>
+	</head>
+	<body>
+		<div class="page-shell">
+			<div class="page-frame">
+				<header class="page-header">
+					<div>
+						<div class="eyebrow">Concept 2 / The Atelier</div>
+						<h1 class="page-title">
+							A craft studio where themes, reusable button families, and motion styling feel like
+							material choices instead of hidden configuration.
+						</h1>
+						<p class="page-copy">
+							The Atelier leans into the authored-scene future. It makes components, theme tokens,
+							generated layouts, and stateful button treatments feel tactile. The user is still
+							designing real DVD navigation, but the surface invites them to think in systems and
+							moods rather than one-off rectangles.
+						</p>
+						<div class="page-subnav">
+							<a class="cta cta--secondary" href="index.html">Back to set index</a>
+							<div class="pill pill--mint">Reusable components</div>
+							<div class="pill pill--warm">Motion and audio styled as part of the composition</div>
+							<div class="pill pill--sky">Great for theme-driven menu sets</div>
+						</div>
+					</div>
+				</header>
+
+				<section class="menu-shell">
+					<div class="workspace workspace--wide-right">
+						<aside class="panel panel--solid">
+							<div class="panel-header">
+								<div>
+									<div class="panel-kicker">Materials library</div>
+									<h3 class="panel-title">Components and recipes</h3>
+								</div>
+								<div class="badge badge--mint">Shared theme</div>
+							</div>
+							<div class="list">
+								<div class="generator-card generator-card--selected">
+									<strong>Chapter tile / Coastal card</strong>
+									<div class="meta">Thumbnail, index, duration, focused glow, activate flash</div>
+								</div>
+								<div class="generator-card">
+									<strong>Text button / Quiet tab</strong>
+									<div class="meta">Ideal for setup actions and return routes</div>
+								</div>
+								<div class="generator-card">
+									<strong>Audio selector / Toggle stack</strong>
+									<div class="meta">Sequence action: set audio, then stay on menu</div>
+								</div>
+								<div class="generator-card">
+									<strong>Subtitle selector / Status row</strong>
+									<div class="meta">Supports off, default, forced, and explicit tracks</div>
+								</div>
+							</div>
+							<div class="panel" style="margin-top: 16px">
+								<div class="panel-kicker">Theme tokens</div>
+								<div class="chip-row" style="margin-top: 12px">
+									<div class="pill pill--warm">Highlight gold</div>
+									<div class="pill pill--mint">Sea glass</div>
+									<div class="pill pill--sky">Horizon blue</div>
+									<div class="pill">Font pairing locked</div>
+									<div class="pill">Spacing scale synced</div>
+								</div>
+							</div>
+						</aside>
+
+						<div class="artboard-wrap">
+							<div class="artboard-toolbar">
+								<div class="badge badge--warm">Theme edit</div>
+								<div class="tiny-pill">Scene</div>
+								<div class="tiny-pill">States</div>
+								<div class="tiny-pill">Routing</div>
+								<div class="tiny-pill">Audio menu preset</div>
+								<div class="tiny-pill">Subtitle menu preset</div>
+							</div>
+
+							<div class="artboard artboard--warm">
+								<div class="grid-overlay"></div>
+								<div class="safe-zone safe-zone--action"></div>
+								<div class="safe-zone safe-zone--title"></div>
+
+								<div class="text-node" style="top: 10%; left: 11%; width: 34%; height: 12%">
+									<div style="font-size: 2rem">Language Studio</div>
+								</div>
+
+								<div
+									class="button-node button-node--focus button-node--mint"
+									style="top: 28%; left: 12%; width: 21%; height: 18%"
+								>
+									English 5.1
+								</div>
+								<div
+									class="button-node button-node--sky"
+									style="top: 28%; left: 38%; width: 21%; height: 18%"
+								>
+									Commentary
+								</div>
+								<div
+									class="button-node button-node--coral"
+									style="top: 28%; right: 12%; width: 21%; height: 18%"
+								>
+									French stereo
+								</div>
+
+								<div class="button-node" style="top: 54%; left: 12%; width: 21%; height: 14%">
+									Subtitles off
+								</div>
+								<div class="button-node" style="top: 54%; left: 38%; width: 21%; height: 14%">
+									English CC
+								</div>
+								<div class="button-node" style="top: 54%; right: 12%; width: 21%; height: 14%">
+									Forced only
+								</div>
+
+								<div
+									class="button-node button-node--sky"
+									style="bottom: 10%; left: 38%; width: 21%; height: 10%"
+								>
+									Return to main menu
+								</div>
+
+								<div class="floating-card" style="top: 14%; right: 6%; width: 24%">
+									<div class="panel-kicker">State recipe</div>
+									<div class="meta" style="margin-top: 8px">
+										Focus = sea-glass wash. Activate = amber flash. Shared across all toggle rows to
+										reduce styling drift.
+									</div>
+								</div>
+							</div>
+
+							<div class="panel">
+								<div class="panel-header">
+									<div>
+										<div class="panel-kicker">Motion lane</div>
+										<h3 class="panel-title">Intro, loop, and background audio</h3>
+									</div>
+									<div class="badge badge--sky">Optional</div>
+								</div>
+								<div class="timeline">
+									<div class="timeline-row">
+										<div class="meta">Intro animation</div>
+										<div class="timeline-bar">
+											<div class="timeline-fill timeline-fill--sun" style="width: 24%"></div>
+										</div>
+										<div class="meta">2.4 s</div>
+									</div>
+									<div class="timeline-row">
+										<div class="meta">Loop video</div>
+										<div class="timeline-bar">
+											<div class="timeline-fill timeline-fill--sky" style="width: 82%"></div>
+										</div>
+										<div class="meta">8 s</div>
+									</div>
+									<div class="timeline-row">
+										<div class="meta">Background audio</div>
+										<div class="timeline-bar">
+											<div class="timeline-fill timeline-fill--mint" style="width: 61%"></div>
+										</div>
+										<div class="meta">AC-3</div>
+									</div>
+								</div>
+							</div>
+						</div>
+
+						<aside class="panel">
+							<div class="panel-header">
+								<div>
+									<div class="panel-kicker">Craft table</div>
+									<h3 class="panel-title">Focused recipe card</h3>
+								</div>
+								<div class="badge badge--warm">Sequence action</div>
+							</div>
+
+							<div class="property-grid">
+								<div class="property-card">
+									<span>Action stack</span>
+									<strong>Set audio stream 2 → show current menu</strong>
+								</div>
+								<div class="property-card">
+									<span>Role</span>
+									<strong>Generated setup node, now editable</strong>
+								</div>
+								<div class="property-card">
+									<span>Remote path</span>
+									<strong>Grid with left-right rows and return below</strong>
+								</div>
+								<div class="property-card">
+									<span>Compile note</span>
+									<strong>DVD-safe if palette stays within 4 overlay colours</strong>
+								</div>
+							</div>
+
+							<div class="panel" style="margin-top: 16px">
+								<div class="panel-kicker">Menu-set lineage</div>
+								<div class="route-grid" style="margin-top: 12px">
+									<div class="route-card route-card--selected">
+										<strong>Main menu</strong>
+										<div class="meta">Leads here via “Set-up”</div>
+									</div>
+									<div class="route-card">
+										<strong>Subtitle page</strong>
+										<div class="meta">Sibling page using same theme tokens</div>
+									</div>
+									<div class="route-card">
+										<strong>Audio page</strong>
+										<div class="meta">Current authored document</div>
+									</div>
+									<div class="route-card">
+										<strong>Chapter sets</strong>
+										<div class="meta">Shared bottom navigation strip</div>
+									</div>
+								</div>
+							</div>
+
+							<div class="panel" style="margin-top: 16px">
+								<div class="panel-kicker">Gentle warnings</div>
+								<div class="diag-grid" style="margin-top: 12px">
+									<div class="diagnostic diagnostic--warning">
+										<div class="badge">WARN</div>
+										<div class="meta">
+											Animated focus pulses should be previewed against interlaced DVD output before
+											shipping.
+										</div>
+									</div>
+									<div class="diagnostic diagnostic--info">
+										<div class="badge">INFO</div>
+										<div class="meta">
+											Generator metadata preserved, so the setup menu can be refreshed without
+											overwriting custom labels.
+										</div>
+									</div>
+								</div>
+							</div>
+						</aside>
+					</div>
+				</section>
+
+				<p class="footer-note">
+					The Atelier is the most design-system-minded option in the set. It is especially strong if
+					Spindle wants menu authoring to feel cohesive across themes, presets, and generated menu
+					families.
+				</p>
+			</div>
+		</div>
+	</body>
+</html>

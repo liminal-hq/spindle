@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en-CA">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Spindle — The Lantern</title>
+		<link rel="stylesheet" href="design-system.css" />
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;600;700&display=swap"
+			rel="stylesheet"
+		/>
+	</head>
+	<body>
+		<div class="page-shell">
+			<div class="page-frame">
+				<header class="page-header">
+					<div>
+						<div class="eyebrow">Concept 2 / The Lantern</div>
+						<h1 class="page-title">
+							A quieter editor where advanced behaviour remains mostly hidden until the user needs
+							it, then appears beside the selected node as small contextual lantern cards.
+						</h1>
+						<p class="page-copy">
+							The Lantern aims for lower stress. Remote logic and semantic actions are still
+							explicit, but they reveal themselves locally through anchored mini-cards around the
+							selection. It feels less like switching tools and more like the canvas illuminating
+							its own meaning.
+						</p>
+						<div class="page-nav">
+							<a class="cta" href="index.html">Back to set index</a>
+							<div class="badge badge--accent">Best progressive-disclosure option</div>
+						</div>
+					</div>
+				</header>
+
+				<section class="surface">
+					<div class="workspace workspace--focus">
+						<div class="artboard-wrap">
+							<div class="artboard-toolbar">
+								<div class="badge badge--accent">Unified editor</div>
+								<div class="tiny-pill">Behaviour peeks on selection</div>
+								<div class="tiny-pill">Remote path shown only near active node</div>
+								<div class="tiny-pill">Warnings appear in place</div>
+							</div>
+
+							<div class="artboard artboard--purple">
+								<div class="safe-area safe-area--action"></div>
+								<div class="safe-area safe-area--title"></div>
+								<div class="node node--soft" style="top: 10%; left: 10%; width: 28%; height: 12%">
+									Language Set-up
+								</div>
+								<div
+									class="node node--focus node--green"
+									style="top: 34%; left: 14%; width: 20%; height: 12%"
+								>
+									English 5.1
+								</div>
+								<div class="node node--blue" style="top: 34%; left: 40%; width: 20%; height: 12%">
+									Commentary
+								</div>
+								<div class="node node--pink" style="top: 34%; left: 66%; width: 20%; height: 12%">
+									French stereo
+								</div>
+								<div class="node" style="top: 58%; left: 30%; width: 18%; height: 11%">
+									Subtitles
+								</div>
+								<div class="node node--purple" style="top: 58%; left: 52%; width: 18%; height: 11%">
+									Return
+								</div>
+
+								<div class="peek-inline" style="left: 12%; top: 48%">
+									<div class="action-chip action-chip--accent">Set audio stream 1</div>
+									<div class="action-chip">Stay on menu</div>
+								</div>
+
+								<div class="peek-inline" style="left: 36%; top: 26%">
+									<div class="action-chip action-chip--info">Right neighbour</div>
+									<div class="action-chip">Commentary</div>
+								</div>
+
+								<div class="peek-inline" style="left: 8%; top: 30%">
+									<div class="action-chip action-chip--success">Default focus</div>
+								</div>
+
+								<div class="floating-tray" style="right: 6%; bottom: 8%">
+									<div class="panel-kicker">Local warning</div>
+									<div class="meta" style="margin-top: 6px">
+										If this page adds more audio options, switch to a generated setup family instead
+										of hand-placing every button.
+									</div>
+								</div>
+							</div>
+
+							<div class="status-strip">
+								<div class="badge badge--success">Selection reveals active</div>
+								<div class="badge">No separate Bind mode</div>
+								<div class="badge">No separate Remote mode</div>
+								<div class="badge badge--info">Current selection: English 5.1</div>
+							</div>
+						</div>
+
+						<aside class="panel">
+							<div class="panel-header">
+								<div>
+									<div class="panel-kicker">Why it works</div>
+									<h3>Behaviour without mode debt</h3>
+								</div>
+								<div class="badge">Contextual</div>
+							</div>
+							<div class="stack">
+								<div class="mini-card mini-card--selected">
+									<strong>Action peeks</strong>
+									<div class="meta">
+										Selection reveals the semantic action right beside the node, so stream selection
+										feels understandable without a form-heavy binding table.
+									</div>
+								</div>
+								<div class="mini-card">
+									<strong>Route peeks</strong>
+									<div class="meta">
+										Only the active node’s relevant neighbours appear, which keeps the canvas calm
+										unless the user is actively testing navigation.
+									</div>
+								</div>
+								<div class="mini-card">
+									<strong>Compile peeks</strong>
+									<div class="meta">
+										In-place hints warn when the user is drifting toward awkward density or
+										unsupported decoration.
+									</div>
+								</div>
+								<div class="mini-card">
+									<strong>Good fit</strong>
+									<div class="meta">
+										Strong for setup menus, audio and subtitle selectors, and lower-density pages
+										where local clarity matters more than seeing the whole route graph at once.
+									</div>
+								</div>
+							</div>
+						</aside>
+					</div>
+				</section>
+			</div>
+		</div>
+	</body>
+</html>
