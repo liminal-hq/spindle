@@ -135,9 +135,9 @@ export interface InspectorPanelProps {
 	buttonPreviewState?: 'normal' | 'focus' | 'activate';
 	/** Update the canvas preview state for the selected button. */
 	onButtonPreviewStateChange?: (state: 'normal' | 'focus' | 'activate') => void;
-	/** Current display aspect for authoring preview. */
+	/** Current authored DVD display aspect for this menu. */
 	displayAspect?: AspectMode;
-	/** Update the authoring display aspect for the current menu preview. */
+	/** Update the authored DVD display aspect for the current menu. */
 	onDisplayAspectChange?: (aspect: AspectMode) => void;
 }
 
@@ -466,8 +466,8 @@ function MenuLevelInspector({
 					>
 						<div className="inspector-panel__sub-label">Motion Settings</div>
 						<p className="inspector-panel__hint text-muted">
-							These fields reserve space for motion-menu audio and loop behaviour, even when
-							the compile path is still evolving.
+							These controls preserve authored intent, but motion-menu build and runtime
+							support are still blocked until the next backend slice lands.
 						</p>
 						<div className="inspector-panel__grid-2">
 							<label className="inspector-panel__field">
@@ -526,10 +526,11 @@ function MenuLevelInspector({
 
 			<CollapsibleSection title="Display" defaultOpen>
 				<p className="inspector-panel__hint text-muted">
-					Preview the authored 720-line menu as either classic 4:3 or anamorphic 16:9 output.
+					Choose how this 720-line DVD menu should display on the player: classic 4:3 or
+					anamorphic 16:9.
 				</p>
 				<label className="inspector-panel__field">
-					<span className="inspector-panel__field-label">Aspect</span>
+					<span className="inspector-panel__field-label">Display shape</span>
 					<div className="inspector-panel__style-pills">
 						{([
 							['four-by-three', '4:3'],
@@ -547,7 +548,7 @@ function MenuLevelInspector({
 					</div>
 				</label>
 				<p className="inspector-panel__hint text-muted">
-					16:9 preview stretches the same authored raster into its anamorphic display frame.
+					16:9 here is anamorphic DVD output of the same raster, not a larger canvas.
 				</p>
 			</CollapsibleSection>
 
@@ -606,6 +607,14 @@ function MenuLevelInspector({
 			{document && (
 				<CollapsibleSection title="Compile Policy" defaultOpen>
 					<div className="inspector-panel__policy-grid">
+						<div className="inspector-panel__policy-item">
+							<span className="inspector-panel__field-label">Display</span>
+							<span className="inspector-panel__policy-value">
+								{document.compilePolicy.displayAspect === 'sixteen-by-nine'
+									? '16:9 anamorphic DVD'
+									: '4:3 DVD'}
+							</span>
+						</div>
 						<div className="inspector-panel__policy-item">
 							<span className="inspector-panel__field-label">Safe Area</span>
 							<span className="inspector-panel__policy-value">

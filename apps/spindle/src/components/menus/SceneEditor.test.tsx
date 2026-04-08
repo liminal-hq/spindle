@@ -9,7 +9,7 @@ import { LayersPanel } from './LayersPanel';
 import { InspectorPanel } from './InspectorPanel';
 import { SceneCanvas } from './SceneCanvas';
 import type { SceneNode, MenuButton, MenuHighlightColours } from '../../types/project';
-import { DEFAULT_HIGHLIGHT_COLOURS } from '../../types/project';
+import { DEFAULT_HIGHLIGHT_COLOURS, createDefaultMenuCompilePolicy } from '../../types/project';
 
 // ── LayersPanel ────────────────────────────────────────────────────────────
 
@@ -167,6 +167,73 @@ describe('InspectorPanel', () => {
 		const removeBtn = screen.getByText('Remove Button');
 		fireEvent.click(removeBtn);
 		expect(onRemove).toHaveBeenCalledWith('btn-1');
+	});
+
+	it('writes authored display shape from the menu-level inspector', () => {
+		const onDisplayAspectChange = vi.fn();
+
+		render(
+			<InspectorPanel
+				selectedNode={null}
+				selectedButton={null}
+				highlightColours={colours}
+				allTitles={[]}
+				allMenus={[]}
+				currentMenuId="menu-1"
+				onUpdateButton={vi.fn()}
+				onUpdateHighlightColours={vi.fn()}
+				onRemoveButton={vi.fn()}
+				buttons={[button]}
+				interactionNodes={[]}
+				defaultFocusId={null}
+				document={{
+					id: 'menu-1',
+					name: 'Menu',
+					domain: 'vmgm',
+					scene: {
+						designSize: { width: 720, height: 480 },
+						background: { assetId: null, colour: '#000000' },
+						nodes: [],
+						guides: [],
+					},
+					interaction: { defaultFocusId: null, nodes: [], timeoutAction: null },
+					timing: {
+						introStartSecs: 0,
+						introDurationSecs: 0,
+						loopStartSecs: 0,
+						loopDurationSecs: 0,
+						loopCount: 0,
+					},
+					highlightColours: colours,
+					backgroundMode: 'still',
+					themeRef: null,
+					generationMeta: null,
+					compilePolicy: createDefaultMenuCompilePolicy('four-by-three'),
+				}}
+				canvasHeight={480}
+				menu={{
+					id: 'menu-1',
+					name: 'Menu',
+					backgroundAssetId: null,
+					buttons: [button],
+					defaultButtonId: null,
+					highlightColours: colours,
+					backgroundMode: 'still',
+					motionDurationSecs: null,
+					motionAudioAssetId: null,
+					motionLoopCount: 0,
+					timeoutAction: null,
+				}}
+				displayAspect="four-by-three"
+				onDisplayAspectChange={onDisplayAspectChange}
+			/>,
+		);
+
+		fireEvent.click(screen.getByRole('button', { name: '16:9' }));
+		expect(onDisplayAspectChange).toHaveBeenCalledWith('sixteen-by-nine');
+		expect(
+			screen.getByText('16:9 here is anamorphic DVD output of the same raster, not a larger canvas.'),
+		).toBeTruthy();
 	});
 });
 
@@ -482,5 +549,32 @@ describe('SceneCanvas', () => {
 		const viewport = container.querySelector('.scene-canvas__viewport');
 		fireEvent.click(viewport!);
 		expect(onSelect).toHaveBeenCalledWith(null);
+	});
+
+	it('simulates authored anamorphic display on the same raster', () => {
+		const { container } = render(
+			<SceneCanvas
+				buttons={buttons}
+				canvasHeight={480}
+				sceneNodes={[]}
+				onUpdateButton={vi.fn()}
+				onUpdateSceneNode={vi.fn()}
+				showSafeArea={false}
+				backgroundLabel={null}
+				backgroundColour={null}
+				defaultButtonId={null}
+				previewMode={false}
+				highlightColours={DEFAULT_HIGHLIGHT_COLOURS}
+				honestPreview={false}
+				showNavLines={false}
+				selectedNodeId={null}
+				onSelectNode={vi.fn()}
+				displayAspect="sixteen-by-nine"
+			/>,
+		);
+
+		expect(container.querySelector('.scene-canvas__viewport')).toHaveStyle({
+			aspectRatio: '16 / 9',
+		});
 	});
 });

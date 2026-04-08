@@ -22,6 +22,10 @@ import type {
 	SceneNode,
 	ToolchainStatus,
 } from '../types/project';
+import {
+	createDefaultMenuCompilePolicy,
+	inferDefaultMenuDisplayAspect,
+} from '../types/project';
 
 export type BuildStatus = 'idle' | 'planning' | 'building' | 'complete' | 'error';
 
@@ -940,11 +944,18 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 				loopStartSecs: 0,
 				loopDurationSecs: menu.motionDurationSecs ?? 0,
 				loopCount: menu.motionLoopCount,
-			},			highlightColours: { ...menu.highlightColours },
+			},
+			highlightColours: { ...menu.highlightColours },
 			backgroundMode: menu.backgroundMode,
 			themeRef: null,
 			generationMeta: null,
-			compilePolicy: { safeAreaMode: 'title-safe', paletteStrategy: 'auto' },
+			compilePolicy: createDefaultMenuCompilePolicy(
+				inferDefaultMenuDisplayAspect(project, {
+					menuId,
+					titlesetId,
+					domain: scope === 'global' ? 'vmgm' : 'titleset',
+				}),
+			),
 		};
 
 		// 2. Apply the updater

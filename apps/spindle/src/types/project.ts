@@ -334,6 +334,7 @@ export interface MenuGenerationMeta {
 
 /** Format-specific compilation rules and safe-area policies. */
 export interface MenuCompilePolicy {
+	displayAspect: AspectMode;
 	safeAreaMode: 'action-safe' | 'title-safe' | 'none';
 	paletteStrategy: 'auto' | 'manual';
 }
@@ -662,6 +663,55 @@ export const CAPACITY_BYTES: Record<CapacityTarget, number> = {
 	DVD5: 4_700_000_000,
 	DVD9: 8_500_000_000,
 };
+
+export function createDefaultMenuCompilePolicy(
+	displayAspect: AspectMode = 'four-by-three',
+): MenuCompilePolicy {
+	return {
+		displayAspect,
+		safeAreaMode: 'title-safe',
+		paletteStrategy: 'auto',
+	};
+}
+
+export function inferDefaultMenuDisplayAspect(
+	project: SpindleProjectFile,
+	options: {
+		menuId?: string;
+		titlesetId?: string | null;
+		domain?: MenuDomain;
+	} = {},
+): AspectMode {
+	const lookupTitleset =
+		(options.titlesetId
+			? project.disc.titlesets.find((titleset) => titleset.id === options.titlesetId)
+			: undefined) ??
+		(options.menuId
+			? project.disc.titlesets.find((titleset) =>
+					titleset.menus.some((menu) => menu.id === options.menuId),
+				)
+			: undefined);
+
+	const scopedAspect = lookupTitleset?.titles.find((title) => title.videoOutputProfile?.aspect)
+		?.videoOutputProfile?.aspect;
+	if (scopedAspect) return scopedAspect;
+
+	if (options.domain === 'vmgm') {
+		return (
+			project.disc.titlesets
+				.flatMap((titleset) => titleset.titles)
+				.find((title) => title.videoOutputProfile?.aspect)?.videoOutputProfile?.aspect ??
+			'four-by-three'
+		);
+	}
+
+	return (
+		project.disc.titlesets
+			.flatMap((titleset) => titleset.titles)
+			.find((title) => title.videoOutputProfile?.aspect)?.videoOutputProfile?.aspect ??
+		'four-by-three'
+	);
+}
 
 export function createDefaultProject(name = 'Untitled Project'): SpindleProjectFile {
 	const now = new Date().toISOString();

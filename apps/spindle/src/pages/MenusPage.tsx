@@ -19,7 +19,11 @@ import type {
 	VideoStandard,
 	SceneNode,
 } from '../types/project';
-import { DEFAULT_HIGHLIGHT_COLOURS } from '../types/project';
+import {
+	DEFAULT_HIGHLIGHT_COLOURS,
+	createDefaultMenuCompilePolicy,
+	inferDefaultMenuDisplayAspect,
+} from '../types/project';
 import { SceneCanvas } from '../components/menus/SceneCanvas';
 import { InspectorPanel } from '../components/menus/InspectorPanel';
 import { MiniMenuMap, FullMenuMap } from '../components/menus/MenuMap';
@@ -137,8 +141,12 @@ export function MenusPage() {
 		}
 	}, [firstMenuId, selectedEntry, selectedMenuId, setSelectedMenuId]);
 
-	const createMenu = (name: string, domain: 'vmgm' | 'titleset'): Menu => {
+	const createMenu = (name: string, domain: 'vmgm' | 'titleset', titlesetId?: string): Menu => {
 		const id = crypto.randomUUID();
+		const displayAspect = inferDefaultMenuDisplayAspect(project, {
+			titlesetId: titlesetId ?? null,
+			domain,
+		});
 		return {
 			id,
 			name,
@@ -177,7 +185,7 @@ export function MenusPage() {
 				backgroundMode: 'still',
 				themeRef: null,
 				generationMeta: null,
-				compilePolicy: { safeAreaMode: 'title-safe', paletteStrategy: 'auto' },
+				compilePolicy: createDefaultMenuCompilePolicy(displayAspect),
 			},
 		};
 	};
@@ -196,6 +204,7 @@ export function MenusPage() {
 		const newMenu = createMenu(
 			`${ts?.name ?? 'Titleset'} Menu ${(ts?.menus.length ?? 0) + 1}`,
 			'titleset',
+			titlesetId,
 		);
 		updateProject((p) => ({
 			...p,
@@ -630,6 +639,7 @@ function MenuEditor({
 	const menuEditorMode = useProjectStore((s) => s.menuEditorMode);
 	const setMenuEditorMode = useProjectStore((s) => s.setMenuEditorMode);
 	const setSelectedMenuId = useProjectStore((s) => s.setSelectedMenuId);
+	const updateMenuDocument = useProjectStore((s) => s.updateMenuDocument);
 	// Treat any legacy mode value as 'editor'
 	const activeView = menuEditorMode === 'map' ? 'map' : 'editor';
 	const menuDomainLabel = menu.authoredDocument?.domain === 'vmgm' ? 'VMGM' : 'Titleset';
@@ -646,7 +656,6 @@ function MenuEditor({
 		'normal',
 	);
 	const [canvasZoom, setCanvasZoom] = useState(100);
-	const [displayAspectOverride, setDisplayAspectOverride] = useState<AspectMode | null>(null);
 	const [activeTool, setActiveTool] = useState<'select' | 'button' | 'text' | 'image' | 'shape'>(
 		'select',
 	);
@@ -712,7 +721,7 @@ function MenuEditor({
 	const backgroundAssetLabel = backgroundAsset ? backgroundAsset.fileName : null;
 	const highlightColours = menu.authoredDocument?.highlightColours ?? menu.highlightColours;
 	const defaultFocusId = menu.authoredDocument?.interaction.defaultFocusId ?? menu.defaultButtonId;
-	const displayAspect = displayAspectOverride ?? inferMenuDisplayAspect(project, menu.id);
+	const displayAspect = resolveMenuDisplayAspect(project, menu);
 
 	const selectedNode = sceneNodes.find((n) => n.id === selectedNodeId) ?? null;
 	const selectedButton = currentButtons.find((b) => b.id === selectedNodeId) ?? null;
@@ -1136,6 +1145,17 @@ function MenuEditor({
 		}));
 	};
 
+	const handleDisplayAspectChange = (aspect: AspectMode) => {
+		updateMenuDocument(menu.id, (document) => ({
+			...document,
+			compilePolicy: {
+				...createDefaultMenuCompilePolicy(resolveMenuDisplayAspect(project, menu)),
+				...document.compilePolicy,
+				displayAspect: aspect,
+			},
+		}));
+	};
+
 	const zoomOut = () => setCanvasZoom((value) => Math.max(50, value - 10));
 	const zoomIn = () => setCanvasZoom((value) => Math.min(200, value + 10));
 	const resetZoom = () => setCanvasZoom(100);
@@ -1161,7 +1181,11 @@ function MenuEditor({
 								<span className="editor-toolbar__separator">|</span>
 								<span>{menuDomainLabel}</span>
 								<span className="editor-toolbar__separator">|</span>
-								<span>{displayAspect === 'sixteen-by-nine' ? '16:9 anamorphic' : '4:3 standard'}</span>
+								<span>
+									{displayAspect === 'sixteen-by-nine'
+										? '16:9 anamorphic DVD'
+										: '4:3 DVD'}
+								</span>
 								<span className="editor-toolbar__separator">|</span>
 								<span>
 									720 x {canvasHeight} {project.disc.standard}
@@ -1394,7 +1418,7 @@ function MenuEditor({
 							buttonPreviewState={buttonPreviewState}
 							onButtonPreviewStateChange={setButtonPreviewState}
 							displayAspect={displayAspect}
-							onDisplayAspectChange={setDisplayAspectOverride}
+							onDisplayAspectChange={handleDisplayAspectChange}
 						/>
 					</div>
 				</div>
@@ -1531,6 +1555,7 @@ function buildChapterMenusForTitleset(
 			pageIndex === 0 ? 'Chapter Select' : `Chapter Select ${pageIndex + 1}`,
 			[...buttons, ...pageActions],
 			'titleset',
+			resolveTitlesetDisplayAspect(titleset),
 		);
 	});
 }
@@ -1581,7 +1606,13 @@ function buildAudioSetupMenu(
 		});
 	}
 
-	return createGeneratedMenuFromButtons(id, 'Audio Setup', buttons, 'titleset');
+	return createGeneratedMenuFromButtons(
+		id,
+		'Audio Setup',
+		buttons,
+		'titleset',
+		resolveTitlesetDisplayAspect(titleset),
+	);
 }
 
 function buildSubtitleSetupMenu(
@@ -1652,7 +1683,13 @@ function buildSubtitleSetupMenu(
 		});
 	}
 
-	return createGeneratedMenuFromButtons(id, 'Subtitle Setup', buttons, 'titleset');
+	return createGeneratedMenuFromButtons(
+		id,
+		'Subtitle Setup',
+		buttons,
+		'titleset',
+		resolveTitlesetDisplayAspect(titleset),
+	);
 }
 
 function createGeneratedMenuFromButtons(
@@ -1660,6 +1697,7 @@ function createGeneratedMenuFromButtons(
 	name: string,
 	buttons: Menu['buttons'],
 	domain: 'vmgm' | 'titleset',
+	displayAspect: AspectMode,
 ): Menu {
 	return {
 		id,
@@ -1722,7 +1760,7 @@ function createGeneratedMenuFromButtons(
 				generatorId: 'menu-workspace',
 				lastGeneratedAt: new Date().toISOString(),
 			},
-			compilePolicy: { safeAreaMode: 'title-safe', paletteStrategy: 'auto' },
+			compilePolicy: createDefaultMenuCompilePolicy(displayAspect),
 		},
 	};
 }
@@ -1888,19 +1926,21 @@ function getMenuPreviewBlocks(menu: Menu): Array<{ x: number; y: number; width: 
 	}));
 }
 
-function inferMenuDisplayAspect(project: SpindleProjectFile, menuId: string): AspectMode {
-	const titleset = project.disc.titlesets.find((entry) => entry.menus.some((menu) => menu.id === menuId));
-	if (titleset) {
-		return (
-			titleset.titles.find((title) => title.videoOutputProfile?.aspect)?.videoOutputProfile?.aspect ??
-			'four-by-three'
-		);
-	}
-
+function resolveMenuDisplayAspect(project: SpindleProjectFile, menu: Menu): AspectMode {
 	return (
-		project.disc.titlesets
-			.flatMap((entry) => entry.titles)
-			.find((title) => title.videoOutputProfile?.aspect)?.videoOutputProfile?.aspect ??
+		menu.authoredDocument?.compilePolicy.displayAspect ??
+		inferDefaultMenuDisplayAspect(project, {
+			menuId: menu.id,
+			domain: menu.authoredDocument?.domain ?? 'vmgm',
+		})
+	);
+}
+
+function resolveTitlesetDisplayAspect(
+	titleset: SpindleProjectFile['disc']['titlesets'][number],
+): AspectMode {
+	return (
+		titleset.titles.find((title) => title.videoOutputProfile?.aspect)?.videoOutputProfile?.aspect ??
 		'four-by-three'
 	);
 }
