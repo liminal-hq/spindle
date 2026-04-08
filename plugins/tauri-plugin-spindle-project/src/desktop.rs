@@ -327,15 +327,20 @@ impl<R: Runtime> SpindleProject<R> {
 
         // ── Menu checks ─────────────────────────────────────────────────
 
-        let all_menus: Vec<&Menu> = project
+        // Pair each menu with its owning titleset so stream index validation has context.
+        // Global menus carry None — we cannot know which titleset they will target.
+        let all_menus: Vec<(&Menu, Option<&Titleset>)> = project
             .disc
             .global_menus
             .iter()
-            .chain(project.disc.titlesets.iter().flat_map(|ts| ts.menus.iter()))
+            .map(|m| (m, None))
+            .chain(project.disc.titlesets.iter().flat_map(|ts| {
+                ts.menus.iter().map(move |m| (m, Some(ts)))
+            }))
             .collect();
 
         let all_menu_ids: std::collections::HashSet<&str> =
-            all_menus.iter().map(|m| m.id.as_str()).collect();
+            all_menus.iter().map(|(m, _)| m.id.as_str()).collect();
 
         let all_title_ids: std::collections::HashSet<&str> = project
             .disc
@@ -344,7 +349,9 @@ impl<R: Runtime> SpindleProject<R> {
             .flat_map(|ts| ts.titles.iter().map(|t| t.id.as_str()))
             .collect();
 
-        for menu in &all_menus {
+        for (menu, titleset_opt) in &all_menus {
+            let stream_counts = titleset_opt.map(|ts| titleset_stream_counts(ts));
+
             // Hard limit: 36 buttons per menu (DVD spec limit for most players/configurations)
             if menu.buttons.len() > 36 {
                 issues.push(ValidationIssue {
@@ -446,6 +453,7 @@ impl<R: Runtime> SpindleProject<R> {
                         &menu.name,
                         &menu.id,
                         &button.label,
+                        stream_counts,
                         &mut issues,
                     );
                 }
@@ -558,6 +566,7 @@ impl<R: Runtime> SpindleProject<R> {
                             &menu.name,
                             &menu.id,
                             &format!("Interaction: {}", focus_node.node_id),
+                            stream_counts,
                             &mut issues,
                         );
                     }
@@ -729,6 +738,27 @@ fn validate_scene_nodes(
     }
 }
 
+/// Returns `(audio_track_count, subtitle_track_count)` for a titleset.
+///
+/// Counts are derived from the authored output track mappings on each title.
+/// The maximum across all titles is used so that actions targeting the broadest
+/// track layout are caught rather than only the first title's layout.
+fn titleset_stream_counts(titleset: &Titleset) -> (usize, usize) {
+    let max_audio = titleset
+        .titles
+        .iter()
+        .map(|t| t.audio_mappings.len())
+        .max()
+        .unwrap_or(0);
+    let max_subtitle = titleset
+        .titles
+        .iter()
+        .map(|t| t.subtitle_mappings.len())
+        .max()
+        .unwrap_or(0);
+    (max_audio, max_subtitle)
+}
+
 #[allow(clippy::too_many_arguments)]
 fn validate_action(
     action: &PlaybackAction,
@@ -738,6 +768,7 @@ fn validate_action(
     menu_name: &str,
     menu_id: &str,
     button_label: &str,
+    stream_counts: Option<(usize, usize)>,
     issues: &mut Vec<ValidationIssue>,
 ) {
     match action {
@@ -797,6 +828,75 @@ fn validate_action(
                 ));
             }
         }
+        PlaybackAction::SetAudioStream { stream_index } => {
+            if let Some((audio_count, _)) = stream_counts {
+                if audio_count == 0 {
+                    issues.push(ValidationIssue {
+                        severity: IssueSeverity::Error,
+                        code: "menu.action.audio-stream-no-tracks".to_string(),
+                        message: format!(
+                            "Action \"{}\" in menu \"{}\" sets audio stream {}, but this titleset has no audio tracks.",
+                            button_label, menu_name, stream_index
+                        ),
+                        context: Some(menu_id.to_string()),
+                        entity_type: Some("menu".to_string()),
+                        entity_name: Some(menu_name.to_string()),
+                        suggested_fix: Some("Add audio track mappings to the titles in this titleset, or remove this action.".to_string()),
+                    });
+                } else if *stream_index as usize >= audio_count {
+                    issues.push(ValidationIssue {
+                        severity: IssueSeverity::Error,
+                        code: "menu.action.audio-stream-out-of-range".to_string(),
+                        message: format!(
+                            "Action \"{}\" in menu \"{}\" sets audio stream {}, but this titleset only has {} audio track(s) (valid indices: 0–{}).",
+                            button_label, menu_name, stream_index, audio_count, audio_count - 1
+                        ),
+                        context: Some(menu_id.to_string()),
+                        entity_type: Some("menu".to_string()),
+                        entity_name: Some(menu_name.to_string()),
+                        suggested_fix: Some(format!(
+                            "Use a stream index between 0 and {} inclusive, or add more audio track mappings.",
+                            audio_count - 1
+                        )),
+                    });
+                }
+            }
+        }
+        PlaybackAction::SetSubtitleStream { stream_index } => {
+            // stream_index of None means "disable subtitles" — always valid.
+            if let (Some(idx), Some((_, subtitle_count))) = (stream_index, stream_counts) {
+                if subtitle_count == 0 {
+                    issues.push(ValidationIssue {
+                        severity: IssueSeverity::Error,
+                        code: "menu.action.subtitle-stream-no-tracks".to_string(),
+                        message: format!(
+                            "Action \"{}\" in menu \"{}\" sets subtitle stream {}, but this titleset has no subtitle tracks.",
+                            button_label, menu_name, idx
+                        ),
+                        context: Some(menu_id.to_string()),
+                        entity_type: Some("menu".to_string()),
+                        entity_name: Some(menu_name.to_string()),
+                        suggested_fix: Some("Add subtitle track mappings to the titles in this titleset, or use disable-subtitles instead.".to_string()),
+                    });
+                } else if *idx as usize >= subtitle_count {
+                    issues.push(ValidationIssue {
+                        severity: IssueSeverity::Error,
+                        code: "menu.action.subtitle-stream-out-of-range".to_string(),
+                        message: format!(
+                            "Action \"{}\" in menu \"{}\" sets subtitle stream {}, but this titleset only has {} subtitle track(s) (valid indices: 0–{}).",
+                            button_label, menu_name, idx, subtitle_count, subtitle_count - 1
+                        ),
+                        context: Some(menu_id.to_string()),
+                        entity_type: Some("menu".to_string()),
+                        entity_name: Some(menu_name.to_string()),
+                        suggested_fix: Some(format!(
+                            "Use a stream index between 0 and {} inclusive, or add more subtitle track mappings.",
+                            subtitle_count - 1
+                        )),
+                    });
+                }
+            }
+        }
         PlaybackAction::Sequence { actions } => {
             for nested in actions {
                 validate_action(
@@ -807,19 +907,23 @@ fn validate_action(
                     menu_name,
                     menu_id,
                     button_label,
+                    stream_counts,
                     issues,
                 );
             }
         }
-        _ => {}
+        PlaybackAction::Stop => {}
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::models::{ChapterPoint, Disc, IssueSeverity, Title, Titleset, VideoStandard};
+    use crate::models::{
+        AudioOutputTarget, AudioTrackMapping, ChapterPoint, CopyMode, Disc, IssueSeverity,
+        PlaybackAction, SubtitleTrackMapping, Title, Titleset, VideoStandard,
+    };
 
-    use super::{chapter_target_exists, dangling_play_chapter_issue};
+    use super::{chapter_target_exists, dangling_play_chapter_issue, titleset_stream_counts, validate_action};
 
     #[test]
     fn chapter_target_exists_requires_matching_title_and_chapter() {
@@ -870,5 +974,209 @@ mod tests {
         assert!(matches!(issue.severity, IssueSeverity::Error));
         assert_eq!(issue.code, "menu.dangling-chapter-ref");
         assert_eq!(issue.context.as_deref(), Some("menu-1"));
+    }
+
+    fn make_audio_mapping(order_index: u32) -> AudioTrackMapping {
+        AudioTrackMapping {
+            id: format!("audio-{order_index}"),
+            source_stream_index: order_index,
+            output_target: AudioOutputTarget::Ac3,
+            copy_mode: CopyMode::Copy,
+            label: format!("Audio {order_index}"),
+            language: "eng".to_string(),
+            order_index,
+            is_default: order_index == 0,
+        }
+    }
+
+    fn make_subtitle_mapping(order_index: u32) -> SubtitleTrackMapping {
+        SubtitleTrackMapping {
+            id: format!("sub-{order_index}"),
+            source_stream_index: order_index,
+            label: format!("Subtitle {order_index}"),
+            language: "eng".to_string(),
+            order_index,
+            is_default: order_index == 0,
+            is_forced: false,
+        }
+    }
+
+    fn make_titleset_with_streams(audio_count: usize, subtitle_count: usize) -> Titleset {
+        Titleset {
+            id: "ts-1".to_string(),
+            name: "Main".to_string(),
+            titles: vec![Title {
+                id: "title-1".to_string(),
+                name: "Feature".to_string(),
+                source_asset_id: None,
+                video_mapping: None,
+                video_output_profile: None,
+                audio_mappings: (0..audio_count as u32).map(make_audio_mapping).collect(),
+                subtitle_mappings: (0..subtitle_count as u32)
+                    .map(make_subtitle_mapping)
+                    .collect(),
+                chapters: vec![],
+                end_action: None,
+                order_index: 0,
+            }],
+            menus: vec![],
+        }
+    }
+
+    #[test]
+    fn titleset_stream_counts_reflects_title_mappings() {
+        let ts = make_titleset_with_streams(2, 3);
+        assert_eq!(titleset_stream_counts(&ts), (2, 3));
+    }
+
+    #[test]
+    fn titleset_stream_counts_uses_max_across_titles() {
+        let mut ts = make_titleset_with_streams(2, 1);
+        // Second title has more subtitle tracks than the first.
+        ts.titles.push(Title {
+            id: "title-2".to_string(),
+            name: "Bonus".to_string(),
+            source_asset_id: None,
+            video_mapping: None,
+            video_output_profile: None,
+            audio_mappings: vec![make_audio_mapping(0)],
+            subtitle_mappings: vec![make_subtitle_mapping(0), make_subtitle_mapping(1)],
+            chapters: vec![],
+            end_action: None,
+            order_index: 1,
+        });
+        let (audio, subtitle) = titleset_stream_counts(&ts);
+        assert_eq!(audio, 2);
+        assert_eq!(subtitle, 2);
+    }
+
+    #[test]
+    fn titleset_stream_counts_empty_titleset_returns_zero() {
+        let ts = Titleset {
+            id: "ts-empty".to_string(),
+            name: "Empty".to_string(),
+            titles: vec![],
+            menus: vec![],
+        };
+        assert_eq!(titleset_stream_counts(&ts), (0, 0));
+    }
+
+    fn run_stream_action_validation(
+        action: PlaybackAction,
+        stream_counts: Option<(usize, usize)>,
+    ) -> Vec<crate::models::ValidationIssue> {
+        let disc = Disc::default();
+        let all_title_ids = std::collections::HashSet::new();
+        let all_menu_ids = std::collections::HashSet::new();
+        let mut issues = Vec::new();
+        validate_action(
+            &action,
+            &all_title_ids,
+            &all_menu_ids,
+            &disc,
+            "Setup Menu",
+            "menu-1",
+            "Audio English",
+            stream_counts,
+            &mut issues,
+        );
+        issues
+    }
+
+    #[test]
+    fn set_audio_stream_valid_index_produces_no_issues() {
+        let issues = run_stream_action_validation(
+            PlaybackAction::SetAudioStream { stream_index: 1 },
+            Some((2, 0)),
+        );
+        assert!(issues.is_empty());
+    }
+
+    #[test]
+    fn set_audio_stream_out_of_range_is_an_error() {
+        let issues = run_stream_action_validation(
+            PlaybackAction::SetAudioStream { stream_index: 2 },
+            Some((2, 0)),
+        );
+        assert_eq!(issues.len(), 1);
+        assert!(matches!(issues[0].severity, IssueSeverity::Error));
+        assert_eq!(issues[0].code, "menu.action.audio-stream-out-of-range");
+    }
+
+    #[test]
+    fn set_audio_stream_no_tracks_is_an_error() {
+        let issues = run_stream_action_validation(
+            PlaybackAction::SetAudioStream { stream_index: 0 },
+            Some((0, 0)),
+        );
+        assert_eq!(issues.len(), 1);
+        assert_eq!(issues[0].code, "menu.action.audio-stream-no-tracks");
+    }
+
+    #[test]
+    fn set_audio_stream_without_titleset_context_skips_validation() {
+        // Global menu — no stream_counts available, validation must not fire.
+        let issues = run_stream_action_validation(
+            PlaybackAction::SetAudioStream { stream_index: 99 },
+            None,
+        );
+        assert!(issues.is_empty());
+    }
+
+    #[test]
+    fn set_subtitle_stream_valid_index_produces_no_issues() {
+        let issues = run_stream_action_validation(
+            PlaybackAction::SetSubtitleStream {
+                stream_index: Some(0),
+            },
+            Some((0, 2)),
+        );
+        assert!(issues.is_empty());
+    }
+
+    #[test]
+    fn set_subtitle_stream_out_of_range_is_an_error() {
+        let issues = run_stream_action_validation(
+            PlaybackAction::SetSubtitleStream {
+                stream_index: Some(3),
+            },
+            Some((0, 2)),
+        );
+        assert_eq!(issues.len(), 1);
+        assert!(matches!(issues[0].severity, IssueSeverity::Error));
+        assert_eq!(issues[0].code, "menu.action.subtitle-stream-out-of-range");
+    }
+
+    #[test]
+    fn set_subtitle_stream_no_tracks_is_an_error() {
+        let issues = run_stream_action_validation(
+            PlaybackAction::SetSubtitleStream {
+                stream_index: Some(0),
+            },
+            Some((0, 0)),
+        );
+        assert_eq!(issues.len(), 1);
+        assert_eq!(issues[0].code, "menu.action.subtitle-stream-no-tracks");
+    }
+
+    #[test]
+    fn set_subtitle_stream_disable_is_always_valid() {
+        // stream_index: None means "disable subtitles" — valid even with zero subtitle tracks.
+        let issues = run_stream_action_validation(
+            PlaybackAction::SetSubtitleStream { stream_index: None },
+            Some((0, 0)),
+        );
+        assert!(issues.is_empty());
+    }
+
+    #[test]
+    fn set_subtitle_stream_without_titleset_context_skips_validation() {
+        let issues = run_stream_action_validation(
+            PlaybackAction::SetSubtitleStream {
+                stream_index: Some(99),
+            },
+            None,
+        );
+        assert!(issues.is_empty());
     }
 }
