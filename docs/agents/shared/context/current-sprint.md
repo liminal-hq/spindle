@@ -20,7 +20,8 @@ This work is isolated on the `feat/menu-workspace-upgrade` branch.
 - **Visual Integration & Polish**: COMPLETED. Nicholas has delivered the Compile Preview overlay, navigation map aesthetics, and style panel scaffolding.
 - **Style Data Wiring**: COMPLETED. Tristan has wired the Button and Text style panels to the `MenuDocument` state.
 - **Full-Stack Audit**: COMPLETED. Kyle has verified the integration and fixed critical style write and legacy sync bugs (commits a50f9ba, 12fdd92, d24c0fc, 28c76e5).
-- **Final UX Review**: IN PROGRESS. Yuli is reviewing the final implementation slice.
+- **Final UX Review**: CONDITIONAL SIGN-OFF. Yuli has reviewed the implementation and identified two clarity gaps (navigation map first-play and Honest Preview context) plus a stale test.
+- **UX Polish Pass**: IN PROGRESS. Tristan is restoring the first-play doorway and fixing tests; Nicholas is enhancing the Honest Preview overlay.
 
 ## Roster & Handoff Order
 1. **Jullian:** Backend multiplexing (BOV) and SPRM compiler updates.
