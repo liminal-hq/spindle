@@ -52,5 +52,5 @@ Prefer structural UI truths over narration.
 - `return` action type: not in `PlaybackAction` schema. Flagged for Franklin to delegate to Jullian.
 - Format-aware interface: fold 8-bit alpha controls away for DVD-only targeting. Requires a `formatTarget` concept in the schema.
 - Force-directed layout for the navigation map: current grid layout is structurally correct. Phase 3 enhancement.
-- Button Style / Text Style panels (Blu-ray per-state styling): Phase 3+.
+- Button Style / Text Style panels: **complete** (commit e3cd2c0). `ButtonStyleMap` and `TextStyle` types added to `project.ts`. Both panels fully controlled; changes flow through `onUpdateSceneNode` → `updateMenuDocument` → `updateProject`. `DEFAULT_BUTTON_STYLE_MAP` and `DEFAULT_TEXT_STYLE` guard against absent data on existing nodes.
 - Generation affordances backed by real project data: Phase 4.
