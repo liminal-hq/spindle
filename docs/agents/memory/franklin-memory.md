@@ -44,6 +44,9 @@ Prefer durable, reusable context over narration.
 - The menu workspace benefits from treating authored display shape as a first-class preview concern. Even with a fixed 720-line raster, authors need a visible 4:3 versus anamorphic 16:9 simulation plus zoom to judge composition well.
 - Background controls are more trustworthy in the inspector rail than in the top toolbar when they need to grow into still, video, audio, and motion-loop settings over time.
 - A clean verification bundle for workspace-shell changes is `pnpm --filter @liminal-hq/spindle test -- src/components/menus/SceneEditor.test.tsx src/components/menus/MenuMap.test.tsx src/store/project-store.test.ts` plus `pnpm --filter @liminal-hq/spindle build`.
+- The canvas zone must be a single flat `position: relative` flex-centre container matching the Set 2b prototype `canvas-viewport` pattern. Extra wrapper shells create double-nesting that crowds the authoring surface; the tool palette belongs as a `position: absolute` overlay in the top-left corner.
+- Inspector collapsible sections should use a card pattern (border + border-radius on each section, subtle dark header background) rather than flat row dividers. The prototype `insp-section` approach is the reference. All sections should default open unless there is a deliberate progressive-disclosure reason.
+- When embedding `LayersPanel` inside the inspector body, strip its own border and background via CSS context overrides — it is already inside a card and should not double-frame.
 
 ## Open Questions
 
