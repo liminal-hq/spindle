@@ -16,12 +16,9 @@ This work is isolated on the `feat/menu-workspace-upgrade` branch.
 
 ### Progress Status
 - **Backend Infrastructure**: COMPLETED & SEALED. Kyle has verified Jullian's schema synchronization and stream index validation (commit e80ccc2).
-- **Unified Editor Shell & Map**: COMPLETED. Tristan has implemented the unified workspace foundation.
-- **Visual Integration & Polish**: COMPLETED. Nicholas has delivered the Compile Preview overlay, navigation map aesthetics, and style panel scaffolding.
-- **Style Data Wiring**: COMPLETED. Tristan has wired the Button and Text style panels to the `MenuDocument` state.
-- **Full-Stack Audit**: COMPLETED. Kyle has verified the integration and fixed critical style write and legacy sync bugs (commits a50f9ba, 12fdd92, d24c0fc, 28c76e5).
-- **Final UX Review**: CONDITIONAL SIGN-OFF. Yuli has reviewed the implementation and identified two clarity gaps (navigation map first-play and Honest Preview context) plus a stale test.
-- **UX Polish Pass**: IN PROGRESS. Tristan is restoring the first-play doorway and fixing tests; Nicholas is enhancing the Honest Preview overlay.
+- **Unified Workstation Shell**: COMPLETED. Tristan has refactored `MenusPage.tsx` into the Set 2b full-height workstation grid (commit ef56faa). Mini-map is correctly nested in the sidebar rail.
+- **Visual Polish & Premium Composition**: IN PROGRESS. Nicholas is porting workstation-level CSS, premium sidebar cards, and refining the integrated toolbar aesthetics.
+- **Final Sign-off**: PLANNED. Yuli will perform the final spatial and journey verification.
 
 ## Roster & Handoff Order
 1. **Jullian:** Backend multiplexing (BOV) and SPRM compiler updates.
