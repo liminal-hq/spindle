@@ -609,8 +609,12 @@ function MenuEditor({
 						...m.authoredDocument.scene,
 						nodes: m.authoredDocument.scene.nodes.map((node) => {
 							if (node.id !== nodeId) return node;
+							// Structural node types without a dedicated updater are blocked here.
+							// Button nodes are allowed through so that style-only fields
+							// (buttonStyle, labelStyle) written by the inspector can persist.
+							// Geometry and interaction fields on buttons are owned by
+							// handleUpdateButton and should not be sent through this path.
 							if (
-								node.type === 'button' ||
 								node.type === 'group' ||
 								node.type === 'componentInstance' ||
 								node.type === 'generatedCollection'
