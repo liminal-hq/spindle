@@ -121,7 +121,9 @@ export function MenusPage() {
 	const selectedTitleset =
 		(selectedEntry?.titlesetId
 			? disc.titlesets.find((ts) => ts.id === selectedEntry.titlesetId)
-			: null) ?? disc.titlesets[0] ?? null;
+			: null) ??
+		disc.titlesets[0] ??
+		null;
 	const chapterGenerationStats = selectedTitleset
 		? getChapterGenerationStats(selectedTitleset)
 		: { chapterCount: 0, pageCount: 0 };
@@ -239,7 +241,11 @@ export function MenusPage() {
 
 	const handleGenerateChapterMenus = () => {
 		if (!selectedTitleset) return;
-		const generated = buildChapterMenusForTitleset(selectedTitleset, selectedEntry?.menu.id ?? null);
+		const generated = buildChapterMenusForTitleset(
+			selectedTitleset,
+			project.disc.standard,
+			selectedEntry?.menu.id ?? null,
+		);
 		if (generated.length === 0) return;
 
 		updateProject((p) => ({
@@ -256,7 +262,11 @@ export function MenusPage() {
 
 	const handleGenerateAudioSetup = () => {
 		if (!selectedTitleset) return;
-		const generated = buildAudioSetupMenu(selectedTitleset, selectedEntry?.menu.id ?? null);
+		const generated = buildAudioSetupMenu(
+			selectedTitleset,
+			project.disc.standard,
+			selectedEntry?.menu.id ?? null,
+		);
 		if (!generated) return;
 
 		updateProject((p) => ({
@@ -273,7 +283,11 @@ export function MenusPage() {
 
 	const handleGenerateSubtitleSetup = () => {
 		if (!selectedTitleset) return;
-		const generated = buildSubtitleSetupMenu(selectedTitleset, selectedEntry?.menu.id ?? null);
+		const generated = buildSubtitleSetupMenu(
+			selectedTitleset,
+			project.disc.standard,
+			selectedEntry?.menu.id ?? null,
+		);
 		if (!generated) return;
 
 		updateProject((p) => ({
@@ -421,60 +435,64 @@ export function MenusPage() {
 											⌄
 										</span>
 									</button>
-									{generatorsOpen ? <div className="menu-nav__generator-list">
-										<button
-											className="menu-nav__generator-item"
-											type="button"
-											onClick={handleGenerateChapterMenus}
-											disabled={!selectedTitleset || chapterGenerationStats.chapterCount === 0}
-										>
-											<span className="menu-nav__generator-icon menu-nav__generator-icon--chapters">
-												▦
-											</span>
-											<span className="menu-nav__generator-copy">
-												<span className="menu-nav__generator-label">Chapter Grid</span>
-												<span className="menu-nav__generator-meta">
-													{chapterGenerationStats.chapterCount > 0
-														? `${chapterGenerationStats.chapterCount} ch → ${chapterGenerationStats.pageCount} page${chapterGenerationStats.pageCount === 1 ? '' : 's'}`
-														: 'No chapter data'}
+									{generatorsOpen ? (
+										<div className="menu-nav__generator-list">
+											<button
+												className="menu-nav__generator-item"
+												type="button"
+												onClick={handleGenerateChapterMenus}
+												disabled={!selectedTitleset || chapterGenerationStats.chapterCount === 0}
+											>
+												<span className="menu-nav__generator-icon menu-nav__generator-icon--chapters">
+													▦
 												</span>
-											</span>
-										</button>
-										<button
-											className="menu-nav__generator-item"
-											type="button"
-											onClick={handleGenerateAudioSetup}
-											disabled={!selectedTitleset || audioSetupCount === 0}
-										>
-											<span className="menu-nav__generator-icon menu-nav__generator-icon--audio">
-												♪
-											</span>
-											<span className="menu-nav__generator-copy">
-												<span className="menu-nav__generator-label">Audio Setup</span>
-												<span className="menu-nav__generator-meta">
-													{audioSetupCount > 0 ? `${audioSetupCount} stream${audioSetupCount === 1 ? '' : 's'}` : 'No audio mappings'}
+												<span className="menu-nav__generator-copy">
+													<span className="menu-nav__generator-label">Chapter Grid</span>
+													<span className="menu-nav__generator-meta">
+														{chapterGenerationStats.chapterCount > 0
+															? `${chapterGenerationStats.chapterCount} ch → ${chapterGenerationStats.pageCount} page${chapterGenerationStats.pageCount === 1 ? '' : 's'}`
+															: 'No chapter data'}
+													</span>
 												</span>
-											</span>
-										</button>
-										<button
-											className="menu-nav__generator-item"
-											type="button"
-											onClick={handleGenerateSubtitleSetup}
-											disabled={!selectedTitleset || subtitleSetupCount === 0}
-										>
-											<span className="menu-nav__generator-icon menu-nav__generator-icon--subtitles">
-												S
-											</span>
-											<span className="menu-nav__generator-copy">
-												<span className="menu-nav__generator-label">Subtitle Setup</span>
-												<span className="menu-nav__generator-meta">
-													{subtitleSetupCount > 0
-														? `${subtitleSetupCount} stream${subtitleSetupCount === 1 ? '' : 's'}`
-														: 'No subtitle mappings'}
+											</button>
+											<button
+												className="menu-nav__generator-item"
+												type="button"
+												onClick={handleGenerateAudioSetup}
+												disabled={!selectedTitleset || audioSetupCount === 0}
+											>
+												<span className="menu-nav__generator-icon menu-nav__generator-icon--audio">
+													♪
 												</span>
-											</span>
-										</button>
-									</div> : null}
+												<span className="menu-nav__generator-copy">
+													<span className="menu-nav__generator-label">Audio Setup</span>
+													<span className="menu-nav__generator-meta">
+														{audioSetupCount > 0
+															? `${audioSetupCount} stream${audioSetupCount === 1 ? '' : 's'}`
+															: 'No audio mappings'}
+													</span>
+												</span>
+											</button>
+											<button
+												className="menu-nav__generator-item"
+												type="button"
+												onClick={handleGenerateSubtitleSetup}
+												disabled={!selectedTitleset || subtitleSetupCount === 0}
+											>
+												<span className="menu-nav__generator-icon menu-nav__generator-icon--subtitles">
+													S
+												</span>
+												<span className="menu-nav__generator-copy">
+													<span className="menu-nav__generator-label">Subtitle Setup</span>
+													<span className="menu-nav__generator-meta">
+														{subtitleSetupCount > 0
+															? `${subtitleSetupCount} stream${subtitleSetupCount === 1 ? '' : 's'}`
+															: 'No subtitle mappings'}
+													</span>
+												</span>
+											</button>
+										</div>
+									) : null}
 								</div>
 							</div>
 						)}
@@ -1168,7 +1186,12 @@ function MenuEditor({
 						<input
 							className="editor-toolbar__name"
 							value={menu.name}
-							onChange={(e) => onUpdate((m) => ({ ...m, name: e.target.value }))}
+							onChange={(e) =>
+								updateMenuDocument(menu.id, (document) => ({
+									...document,
+									name: e.target.value,
+								}))
+							}
 							aria-label="Menu name"
 						/>
 					) : (
@@ -1182,9 +1205,7 @@ function MenuEditor({
 								<span>{menuDomainLabel}</span>
 								<span className="editor-toolbar__separator">|</span>
 								<span>
-									{displayAspect === 'sixteen-by-nine'
-										? '16:9 anamorphic DVD'
-										: '4:3 DVD'}
+									{displayAspect === 'sixteen-by-nine' ? '16:9 anamorphic DVD' : '4:3 DVD'}
 								</span>
 								<span className="editor-toolbar__separator">|</span>
 								<span>
@@ -1243,7 +1264,12 @@ function MenuEditor({
 							</button>
 						</div>
 						<div className="editor-toolbar__zoom" role="group" aria-label="Canvas zoom">
-							<button className="editor-toolbar__zoom-btn" type="button" onClick={zoomOut} title="Zoom out">
+							<button
+								className="editor-toolbar__zoom-btn"
+								type="button"
+								onClick={zoomOut}
+								title="Zoom out"
+							>
 								−
 							</button>
 							<button
@@ -1254,7 +1280,12 @@ function MenuEditor({
 							>
 								{canvasZoom}%
 							</button>
-							<button className="editor-toolbar__zoom-btn" type="button" onClick={zoomIn} title="Zoom in">
+							<button
+								className="editor-toolbar__zoom-btn"
+								type="button"
+								onClick={zoomIn}
+								title="Zoom in"
+							>
 								+
 							</button>
 						</div>
@@ -1454,12 +1485,15 @@ function getMaxAudioTrackCount(titleset: SpindleProjectFile['disc']['titlesets']
 	return Math.max(0, ...titleset.titles.map((title) => title.audioMappings.length));
 }
 
-function getMaxSubtitleTrackCount(titleset: SpindleProjectFile['disc']['titlesets'][number]): number {
+function getMaxSubtitleTrackCount(
+	titleset: SpindleProjectFile['disc']['titlesets'][number],
+): number {
 	return Math.max(0, ...titleset.titles.map((title) => title.subtitleMappings.length));
 }
 
 function buildChapterMenusForTitleset(
 	titleset: SpindleProjectFile['disc']['titlesets'][number],
+	standard: VideoStandard,
 	returnMenuId: string | null,
 ): Menu[] {
 	const chapterTargets = titleset.titles.flatMap((title) =>
@@ -1555,6 +1589,7 @@ function buildChapterMenusForTitleset(
 			pageIndex === 0 ? 'Chapter Select' : `Chapter Select ${pageIndex + 1}`,
 			[...buttons, ...pageActions],
 			'titleset',
+			MENU_HEIGHT[standard],
 			resolveTitlesetDisplayAspect(titleset),
 		);
 	});
@@ -1562,6 +1597,7 @@ function buildChapterMenusForTitleset(
 
 function buildAudioSetupMenu(
 	titleset: SpindleProjectFile['disc']['titlesets'][number],
+	standard: VideoStandard,
 	returnMenuId: string | null,
 ): Menu | null {
 	const title = titleset.titles.find((candidate) => candidate.audioMappings.length > 0);
@@ -1611,12 +1647,14 @@ function buildAudioSetupMenu(
 		'Audio Setup',
 		buttons,
 		'titleset',
+		MENU_HEIGHT[standard],
 		resolveTitlesetDisplayAspect(titleset),
 	);
 }
 
 function buildSubtitleSetupMenu(
 	titleset: SpindleProjectFile['disc']['titlesets'][number],
+	standard: VideoStandard,
 	returnMenuId: string | null,
 ): Menu | null {
 	const title = titleset.titles.find((candidate) => candidate.subtitleMappings.length > 0);
@@ -1688,15 +1726,17 @@ function buildSubtitleSetupMenu(
 		'Subtitle Setup',
 		buttons,
 		'titleset',
+		MENU_HEIGHT[standard],
 		resolveTitlesetDisplayAspect(titleset),
 	);
 }
 
-function createGeneratedMenuFromButtons(
+export function createGeneratedMenuFromButtons(
 	id: string,
 	name: string,
 	buttons: Menu['buttons'],
 	domain: 'vmgm' | 'titleset',
+	designHeight: number,
 	displayAspect: AspectMode,
 ): Menu {
 	return {
@@ -1716,7 +1756,7 @@ function createGeneratedMenuFromButtons(
 			name,
 			domain,
 			scene: {
-				designSize: { width: 720, height: 480 },
+				designSize: { width: 720, height: designHeight },
 				background: { assetId: null, colour: '#0f0e1a' },
 				nodes: buttons.map((button) => ({
 					type: 'button' as const,
@@ -1842,6 +1882,9 @@ function computeMenuConnectionCounts(
 					inspectAction(nestedAction, `${source}:sequence:${index}`, menuId),
 				);
 				break;
+			case 'return':
+				if (menuId) registerOutgoing(menuId, 'return');
+				break;
 			default:
 				break;
 		}
@@ -1923,7 +1966,7 @@ function getMenuPreviewBlocks(menu: Menu): Array<{ x: number; y: number; width: 
 			x: clampPercent((button.x / designWidth) * 100, 6, 82),
 			y: clampPercent((button.y / designHeight) * 100, 12, 82),
 			width: clampPercent((button.width / designWidth) * 100, 18, 82),
-	}));
+		}));
 }
 
 function resolveMenuDisplayAspect(project: SpindleProjectFile, menu: Menu): AspectMode {

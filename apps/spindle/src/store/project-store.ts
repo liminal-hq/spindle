@@ -22,10 +22,7 @@ import type {
 	SceneNode,
 	ToolchainStatus,
 } from '../types/project';
-import {
-	createDefaultMenuCompilePolicy,
-	inferDefaultMenuDisplayAspect,
-} from '../types/project';
+import { createDefaultMenuCompilePolicy, inferDefaultMenuDisplayAspect } from '../types/project';
 
 export type BuildStatus = 'idle' | 'planning' | 'building' | 'complete' | 'error';
 

@@ -616,6 +616,7 @@ pub struct SceneBackground {
 /// A node within the authored menu scene graph.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", tag = "type")]
+#[allow(clippy::large_enum_variant)]
 pub enum SceneNode {
     Group {
         id: String,

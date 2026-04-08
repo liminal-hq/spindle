@@ -354,7 +354,7 @@ impl<R: Runtime> SpindleProject<R> {
             .collect();
 
         for (menu, titleset_opt) in &all_menus {
-            let stream_counts = titleset_opt.map(|ts| titleset_stream_counts(ts));
+            let stream_counts = titleset_opt.map(titleset_stream_counts);
             let background_mode = menu.resolved_background_mode();
             let motion_duration_secs = menu.resolved_motion_duration_secs();
             let motion_loop_start_secs = menu.resolved_motion_loop_start_secs();
@@ -977,12 +977,12 @@ fn validate_motion_keyframes_in_node(
 ) {
     match node {
         SceneNode::Button {
-            id,
+            id: _,
             label,
-            highlight_mode,
+            highlight_mode: HighlightMode::Animated,
             highlight_keyframes,
             ..
-        } if matches!(highlight_mode, HighlightMode::Animated) => {
+        } => {
             let mut previous_timestamp = None;
             for keyframe in highlight_keyframes {
                 if !(0.0..=loop_duration_secs).contains(&keyframe.timestamp_secs) {

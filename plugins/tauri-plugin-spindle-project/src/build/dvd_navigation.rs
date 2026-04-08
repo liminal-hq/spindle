@@ -501,12 +501,16 @@ mod tests {
     fn set_audio_stream_emits_correct_dvdauthor_command() {
         let project = test_project();
 
-        let command =
-            playback_action_to_dvd_command(&PlaybackAction::SetAudioStream { stream_index: 0 }, &project.disc);
+        let command = playback_action_to_dvd_command(
+            &PlaybackAction::SetAudioStream { stream_index: 0 },
+            &project.disc,
+        );
         assert_eq!(command, "audio = 0");
 
-        let command =
-            playback_action_to_dvd_command(&PlaybackAction::SetAudioStream { stream_index: 2 }, &project.disc);
+        let command = playback_action_to_dvd_command(
+            &PlaybackAction::SetAudioStream { stream_index: 2 },
+            &project.disc,
+        );
         assert_eq!(command, "audio = 2");
     }
 
@@ -516,14 +520,18 @@ mod tests {
 
         // Stream 0: SPRM 2 = 0x40 | 0 = 64 (display on, stream 0)
         let command = playback_action_to_dvd_command(
-            &PlaybackAction::SetSubtitleStream { stream_index: Some(0) },
+            &PlaybackAction::SetSubtitleStream {
+                stream_index: Some(0),
+            },
             &project.disc,
         );
         assert_eq!(command, "subtitle = 64");
 
         // Stream 1: SPRM 2 = 0x40 | 1 = 65 (display on, stream 1)
         let command = playback_action_to_dvd_command(
-            &PlaybackAction::SetSubtitleStream { stream_index: Some(1) },
+            &PlaybackAction::SetSubtitleStream {
+                stream_index: Some(1),
+            },
             &project.disc,
         );
         assert_eq!(command, "subtitle = 65");

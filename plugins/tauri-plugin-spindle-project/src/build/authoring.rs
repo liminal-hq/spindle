@@ -121,6 +121,7 @@ fn aspect_str(aspect: AspectMode) -> &'static str {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn append_menu_section(
     xml: &mut String,
     format_str: &str,
@@ -205,9 +206,10 @@ fn menu_section_aspect(
         .next()
         .unwrap_or_else(|| inferred_menu_output_aspect(project, domain));
     if resolved.any(|aspect| aspect != first) {
-        return Err(crate::Error::Build(format!(
+        return Err(crate::Error::Build(
             "Menus in the same DVD menu section must share one display aspect. Split mismatched menus into separate sections or align their authored display aspect."
-        )));
+                .to_string(),
+        ));
     }
     Ok(first)
 }

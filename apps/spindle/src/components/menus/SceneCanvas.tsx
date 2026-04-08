@@ -24,6 +24,7 @@ const SNAP_THRESHOLD = 8;
 const MIN_BUTTON_SIZE = 30;
 
 type ResizeEdge = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw';
+type PositionedSceneNode = Extract<SceneNode, { x: number; width: number }>;
 
 /** Direction-colour mapping for navigation lines. */
 const NAV_COLOURS: Record<string, string> = {
@@ -164,6 +165,18 @@ function DesignCanvas({
 			),
 		[sceneNodes],
 	);
+	const positionedNodes = useMemo(
+		() =>
+			sceneNodes.filter(
+				(node): node is PositionedSceneNode =>
+					node.type !== 'button' &&
+					node.type !== 'group' &&
+					node.type !== 'componentInstance' &&
+					node.type !== 'generatedCollection' &&
+					'width' in node,
+			),
+		[sceneNodes],
+	);
 	const canvasRef = useRef<HTMLDivElement>(null);
 	const dragState = useRef<{
 		buttonId: string;
@@ -174,16 +187,6 @@ function DesignCanvas({
 		startBounds: ButtonBounds;
 	} | null>(null);
 	const [snapLines, setSnapLines] = useState<{ axis: 'x' | 'y'; pos: number }[]>([]);
-
-	/** Non-button scene nodes that have position and size. */
-	const positionedNodes = sceneNodes.filter(
-		(n): n is Extract<SceneNode, { x: number; width: number }> =>
-			n.type !== 'button' &&
-			n.type !== 'group' &&
-			n.type !== 'componentInstance' &&
-			n.type !== 'generatedCollection' &&
-			'width' in n,
-	);
 
 	const getSnapTargets = useCallback(
 		(excludeId: string) => {
@@ -472,9 +475,7 @@ function DesignCanvas({
 			{backgroundLabel && (
 				<div className="scene-canvas__bg-label text-muted">{backgroundLabel}</div>
 			)}
-			{honestPreview && (
-				<CompileOverlay buttons={buttons} canvasHeight={canvasHeight} />
-			)}
+			{honestPreview && <CompileOverlay buttons={buttons} canvasHeight={canvasHeight} />}
 			{showNavLines && (
 				<NavLines buttons={buttons} canvasWidth={MENU_WIDTH} canvasHeight={canvasHeight} />
 			)}
@@ -521,71 +522,23 @@ function DesignCanvas({
 			)}
 			{/* Non-button scene nodes (text, image, shape) rendered first (below buttons) */}
 			{positionedNodes.map((node) => (
-				<div
+				<RenderedSceneNode
 					key={node.id}
-					className={`scene-canvas__scene-node scene-canvas__scene-node--${node.type} ${
-						selectedNodeId === node.id ? 'scene-canvas__scene-node--selected' : ''
-					}`}
-					style={{
-						left: `${(node.x / MENU_WIDTH) * 100}%`,
-						top: `${(node.y / canvasHeight) * 100}%`,
-						width: `${(node.width / MENU_WIDTH) * 100}%`,
-						height: `${(node.height / canvasHeight) * 100}%`,
-						...(node.type === 'shape' && 'fill' in node && node.fill
-							? { backgroundColor: node.fill }
-							: {}),
-						...(node.type === 'text' && 'colour' in node && node.colour
-							? { color: node.colour }
-							: {}),
-						...(node.type === 'text' && 'fontSize' in node && node.fontSize
-							? { fontSize: `${node.fontSize}px` }
-							: {}),
-						...(node.type === 'text' && 'fontFamily' in node && node.fontFamily
-							? { fontFamily: node.fontFamily }
-							: {}),
-						...(node.type === 'text' && 'fontWeight' in node && node.fontWeight
-							? { fontWeight: node.fontWeight === 'bold' ? 700 : 400 }
-							: {}),
-						...(node.type === 'text' && 'fontItalic' in node && node.fontItalic
-							? { fontStyle: 'italic' }
-							: {}),
-						...(node.type === 'text' && 'textDecoration' in node && node.textDecoration
-							? { textDecoration: node.textDecoration }
-							: {}),
-						...(node.type === 'text' && 'textAlign' in node && node.textAlign
-							? { textAlign: node.textAlign }
-							: {}),
-						...(node.type === 'text' && 'lineHeight' in node && node.lineHeight
-							? { lineHeight: node.lineHeight }
-							: {}),
-						...(node.type === 'text' && 'letterSpacing' in node && node.letterSpacing !== undefined
-							? { letterSpacing: `${node.letterSpacing}px` }
-							: {}),
-					}}
-					onClick={(e) => e.stopPropagation()}
+					node={node}
+					canvasHeight={canvasHeight}
+					isSelected={selectedNodeId === node.id}
+					interactive={true}
 					onMouseDown={(e) => {
 						e.stopPropagation();
 						startNodeDrag(e, node, 'move');
 					}}
-				>
-					{node.type === 'text' && 'content' in node ? node.content : null}
-					{node.type === 'image' ? (
-						<span className="scene-canvas__scene-node-badge">Image</span>
-					) : null}
-					{(['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'] as ResizeEdge[]).map((edge) => (
-						<div
-							key={edge}
-							className={`scene-canvas__resize-handle scene-canvas__resize-handle--${edge}`}
-							onMouseDown={(e) => startNodeDrag(e, node, edge)}
-						/>
-					))}
-				</div>
+					onResizeStart={(edge, e) => startNodeDrag(e, node, edge)}
+				/>
 			))}
 			{/* Button nodes (on top) */}
 			{buttons.map((btn) => {
 				const buttonNode = buttonNodeMap.get(btn.id);
-				const renderedState =
-					selectedNodeId === btn.id ? buttonPreviewState : ('normal' as const);
+				const renderedState = selectedNodeId === btn.id ? buttonPreviewState : ('normal' as const);
 				const buttonStyle = buttonNode?.buttonStyle?.[renderedState];
 				const labelStyle = buttonNode?.labelStyle;
 				return (
@@ -608,7 +561,7 @@ function DesignCanvas({
 										paddingInline: `${buttonStyle.paddingH}px`,
 										paddingBlock: `${buttonStyle.paddingV}px`,
 										boxShadow: buttonShadowCss(buttonStyle),
-								  }
+									}
 								: {}),
 							...(labelStyle
 								? {
@@ -621,7 +574,7 @@ function DesignCanvas({
 										color: labelStyle.colour,
 										lineHeight: labelStyle.lineHeight,
 										letterSpacing: `${labelStyle.letterSpacing}px`,
-								  }
+									}
 								: {}),
 						}}
 						onClick={(e) => e.stopPropagation()}
@@ -686,12 +639,38 @@ function NavigationPreview({
 			),
 		[sceneNodes],
 	);
+	const positionedNodes = useMemo(
+		() =>
+			sceneNodes.filter(
+				(node): node is PositionedSceneNode =>
+					node.type !== 'button' &&
+					node.type !== 'group' &&
+					node.type !== 'componentInstance' &&
+					node.type !== 'generatedCollection' &&
+					'width' in node,
+			),
+		[sceneNodes],
+	);
 
 	useEffect(() => {
 		if (!activatedId) return;
 		const timeout = window.setTimeout(() => setActivatedId(null), 260);
 		return () => window.clearTimeout(timeout);
 	}, [activatedId]);
+
+	useEffect(() => {
+		if (buttons.length === 0) {
+			setFocusedId(null);
+			return;
+		}
+
+		const preferredFocusId = defaultButtonId ?? buttons[0]?.id ?? null;
+		const focusStillExists =
+			focusedId !== null && buttons.some((button) => button.id === focusedId);
+		if (!focusStillExists || focusedId !== preferredFocusId) {
+			setFocusedId(preferredFocusId);
+		}
+	}, [buttons, defaultButtonId, focusedId]);
 
 	const handleKeyDown = useCallback(
 		(e: React.KeyboardEvent) => {
@@ -743,9 +722,7 @@ function NavigationPreview({
 			{backgroundLabel && (
 				<div className="scene-canvas__bg-label text-muted">{backgroundLabel}</div>
 			)}
-			{honestPreview && (
-				<CompileOverlay buttons={buttons} canvasHeight={canvasHeight} />
-			)}
+			{honestPreview && <CompileOverlay buttons={buttons} canvasHeight={canvasHeight} />}
 			{showSafeArea && (
 				<>
 					<div
@@ -776,6 +753,9 @@ function NavigationPreview({
 				Use arrow keys to navigate. Press Enter to activate.
 			</div>
 			<NavLines buttons={buttons} canvasWidth={MENU_WIDTH} canvasHeight={canvasHeight} />
+			{positionedNodes.map((node) => (
+				<RenderedSceneNode key={node.id} node={node} canvasHeight={canvasHeight} />
+			))}
 			{buttons.map((btn) => {
 				const isFocused = btn.id === focusedId;
 				const isActivated = btn.id === activatedId;
@@ -804,7 +784,7 @@ function NavigationPreview({
 										paddingInline: `${buttonStyle.paddingH}px`,
 										paddingBlock: `${buttonStyle.paddingV}px`,
 										boxShadow: buttonShadowCss(buttonStyle),
-								  }
+									}
 								: {}),
 							...(labelStyle
 								? {
@@ -817,7 +797,7 @@ function NavigationPreview({
 										color: labelStyle.colour,
 										lineHeight: labelStyle.lineHeight,
 										letterSpacing: `${labelStyle.letterSpacing}px`,
-								  }
+									}
 								: {}),
 							...(isFocused
 								? {
@@ -832,7 +812,7 @@ function NavigationPreview({
 								? {
 										outline: `2px solid ${hl.activateColour}`,
 										outlineOffset: '-2px',
-								  }
+									}
 								: {}),
 						}}
 						onClick={() => setFocusedId(btn.id)}
@@ -843,6 +823,79 @@ function NavigationPreview({
 					</div>
 				);
 			})}
+		</div>
+	);
+}
+
+function RenderedSceneNode({
+	node,
+	canvasHeight,
+	isSelected = false,
+	interactive = false,
+	onMouseDown,
+	onResizeStart,
+}: {
+	node: PositionedSceneNode;
+	canvasHeight: number;
+	isSelected?: boolean;
+	interactive?: boolean;
+	onMouseDown?: (event: React.MouseEvent<HTMLDivElement>) => void;
+	onResizeStart?: (edge: ResizeEdge, event: React.MouseEvent<HTMLDivElement>) => void;
+}) {
+	return (
+		<div
+			key={node.id}
+			className={`scene-canvas__scene-node scene-canvas__scene-node--${node.type} ${
+				isSelected ? 'scene-canvas__scene-node--selected' : ''
+			}`}
+			style={{
+				left: `${(node.x / MENU_WIDTH) * 100}%`,
+				top: `${(node.y / canvasHeight) * 100}%`,
+				width: `${(node.width / MENU_WIDTH) * 100}%`,
+				height: `${(node.height / canvasHeight) * 100}%`,
+				...(node.type === 'shape' && 'fill' in node && node.fill
+					? { backgroundColor: node.fill }
+					: {}),
+				...(node.type === 'text' && 'colour' in node && node.colour ? { color: node.colour } : {}),
+				...(node.type === 'text' && 'fontSize' in node && node.fontSize
+					? { fontSize: `${node.fontSize}px` }
+					: {}),
+				...(node.type === 'text' && 'fontFamily' in node && node.fontFamily
+					? { fontFamily: node.fontFamily }
+					: {}),
+				...(node.type === 'text' && 'fontWeight' in node && node.fontWeight
+					? { fontWeight: node.fontWeight === 'bold' ? 700 : 400 }
+					: {}),
+				...(node.type === 'text' && 'fontItalic' in node && node.fontItalic
+					? { fontStyle: 'italic' }
+					: {}),
+				...(node.type === 'text' && 'textDecoration' in node && node.textDecoration
+					? { textDecoration: node.textDecoration }
+					: {}),
+				...(node.type === 'text' && 'textAlign' in node && node.textAlign
+					? { textAlign: node.textAlign }
+					: {}),
+				...(node.type === 'text' && 'lineHeight' in node && node.lineHeight
+					? { lineHeight: node.lineHeight }
+					: {}),
+				...(node.type === 'text' && 'letterSpacing' in node && node.letterSpacing !== undefined
+					? { letterSpacing: `${node.letterSpacing}px` }
+					: {}),
+			}}
+			onClick={(event) => interactive && event.stopPropagation()}
+			onMouseDown={onMouseDown}
+		>
+			{node.type === 'text' && 'content' in node ? node.content : null}
+			{node.type === 'image' ? <span className="scene-canvas__scene-node-badge">Image</span> : null}
+			{interactive && onResizeStart
+				? (['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'] as ResizeEdge[]).map((edge) => (
+						<div
+							key={edge}
+							className={`scene-canvas__resize-handle scene-canvas__resize-handle--${edge}`}
+							onMouseDown={(event) => onResizeStart(edge, event)}
+						/>
+					))
+				: null}
 		</div>
 	);
 }
@@ -949,11 +1002,7 @@ function CompileOverlay({
 		const totalDirs = buttons.length * 4;
 		const filledDirs = buttons.reduce(
 			(sum, b) =>
-				sum +
-				(b.navUp ? 1 : 0) +
-				(b.navDown ? 1 : 0) +
-				(b.navLeft ? 1 : 0) +
-				(b.navRight ? 1 : 0),
+				sum + (b.navUp ? 1 : 0) + (b.navDown ? 1 : 0) + (b.navLeft ? 1 : 0) + (b.navRight ? 1 : 0),
 			0,
 		);
 		navOk = filledDirs === totalDirs;
@@ -1025,24 +1074,24 @@ function CompileOverlay({
 						DVD fallback strips rich menu styling down to fewer colours and firmer edges.
 					</p>
 					<p className="compile-overlay__body">
-						Use this pass to judge what the viewer actually loses before compile: gentle
-						blends collapse, translucent overlays harden, and highlight states read more
-						like blunt subpictures than polished UI.
+						Use this pass to judge what the viewer actually loses before compile: gentle blends
+						collapse, translucent overlays harden, and highlight states read more like blunt
+						subpictures than polished UI.
 					</p>
 				</div>
 				<div className="compile-overlay__compass">
 					<div className="compile-overlay__card">
 						<span className="compile-overlay__card-label">Palette collapse</span>
 						<p className="compile-overlay__card-body">
-							Close hues and soft gradients compress into a 4-colour CLUT, so accents can
-							merge or posterise.
+							Close hues and soft gradients compress into a 4-colour CLUT, so accents can merge or
+							posterise.
 						</p>
 					</div>
 					<div className="compile-overlay__card">
 						<span className="compile-overlay__card-label">Alpha flattening</span>
 						<p className="compile-overlay__card-body">
-							Soft glows, shadows, and translucent fills lose their softness and often land
-							as harder mats.
+							Soft glows, shadows, and translucent fills lose their softness and often land as
+							harder mats.
 						</p>
 					</div>
 					<div className="compile-overlay__card">
@@ -1059,9 +1108,7 @@ function CompileOverlay({
 							<span className="compile-overlay__stat-label">{check.label}</span>
 							<span
 								className={`compile-overlay__stat-value ${
-									check.ok
-										? 'compile-overlay__stat-value--ok'
-										: 'compile-overlay__stat-value--warn'
+									check.ok ? 'compile-overlay__stat-value--ok' : 'compile-overlay__stat-value--warn'
 								}`}
 							>
 								{check.value}

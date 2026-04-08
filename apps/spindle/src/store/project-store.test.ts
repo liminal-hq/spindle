@@ -5,10 +5,7 @@
 
 import { describe, expect, it, beforeEach, vi } from 'vitest';
 import { useProjectStore } from './project-store';
-import {
-	createDefaultMenuCompilePolicy,
-	createDefaultProject,
-} from '../types/project';
+import { createDefaultMenuCompilePolicy, createDefaultProject } from '../types/project';
 
 // Mock Tauri APIs
 vi.mock('@tauri-apps/api/core', () => ({
@@ -205,7 +202,13 @@ describe('ProjectStore: updateMenuDocument', () => {
 									guides: [],
 								},
 								interaction: { defaultFocusId: null, nodes: [], timeoutAction: null },
-								timing: { introStartSecs: 0, introDurationSecs: 0, loopStartSecs: 0, loopDurationSecs: 0, loopCount: 0 },
+								timing: {
+									introStartSecs: 0,
+									introDurationSecs: 0,
+									loopStartSecs: 0,
+									loopDurationSecs: 0,
+									loopCount: 0,
+								},
 								highlightColours: {
 									selectColour: '#ffffff',
 									selectOpacity: 1,
@@ -264,6 +267,78 @@ describe('ProjectStore: updateMenuDocument', () => {
 		expect(updatedMenu.buttons[0].label).toBe('New Button');
 		expect(updatedMenu.buttons[0].bounds).toEqual({ x: 50, y: 60, width: 150, height: 50 });
 		expect(updatedMenu.buttons[0].action).toEqual({ type: 'stop' });
+	});
+
+	it('preserves authored menu renames across later document updates', () => {
+		const menuId = 'menu-rename';
+		const project = createDefaultProject('Rename Project');
+		project.disc.globalMenus = [
+			{
+				id: menuId,
+				name: 'Original Menu',
+				backgroundAssetId: null,
+				buttons: [],
+				defaultButtonId: null,
+				highlightColours: {
+					selectColour: '#ffffff',
+					selectOpacity: 1,
+					activateColour: '#000000',
+					activateOpacity: 1,
+				},
+				backgroundMode: 'still',
+				motionDurationSecs: null,
+				motionAudioAssetId: null,
+				motionLoopCount: 0,
+				timeoutAction: null,
+				authoredDocument: {
+					id: menuId,
+					name: 'Original Menu',
+					domain: 'vmgm',
+					scene: {
+						designSize: { width: 720, height: 480 },
+						background: { assetId: null, colour: null },
+						nodes: [],
+						guides: [],
+					},
+					interaction: { defaultFocusId: null, nodes: [], timeoutAction: null },
+					timing: {
+						introStartSecs: 0,
+						introDurationSecs: 0,
+						loopStartSecs: 0,
+						loopDurationSecs: 0,
+						loopCount: 0,
+					},
+					highlightColours: {
+						selectColour: '#ffffff',
+						selectOpacity: 1,
+						activateColour: '#000000',
+						activateOpacity: 1,
+					},
+					backgroundMode: 'still',
+					themeRef: null,
+					generationMeta: null,
+					compilePolicy: createDefaultMenuCompilePolicy('four-by-three'),
+				},
+			},
+		];
+
+		useProjectStore.setState({ project });
+
+		const { updateMenuDocument } = useProjectStore.getState();
+
+		updateMenuDocument(menuId, (doc) => ({ ...doc, name: 'Renamed Menu' }));
+		updateMenuDocument(menuId, (doc) => ({
+			...doc,
+			scene: {
+				...doc.scene,
+				background: { ...doc.scene.background, colour: '#101014' },
+			},
+		}));
+
+		const updatedMenu = useProjectStore.getState().project!.disc.globalMenus[0];
+		expect(updatedMenu.name).toBe('Renamed Menu');
+		expect(updatedMenu.authoredDocument?.name).toBe('Renamed Menu');
+		expect(updatedMenu.authoredDocument?.scene.background.colour).toBe('#101014');
 	});
 
 	it('respects NTSC/PAL resolution during initialization', () => {
@@ -372,7 +447,13 @@ describe('ProjectStore: updateMenuDocument', () => {
 					guides: [],
 				},
 				interaction: { defaultFocusId: null, nodes: [], timeoutAction: null },
-				timing: { introStartSecs: 0, introDurationSecs: 0, loopStartSecs: 0, loopDurationSecs: 0, loopCount: 0 },
+				timing: {
+					introStartSecs: 0,
+					introDurationSecs: 0,
+					loopStartSecs: 0,
+					loopDurationSecs: 0,
+					loopCount: 0,
+				},
 				highlightColours: {
 					selectColour: '#ffffff',
 					selectOpacity: 1,

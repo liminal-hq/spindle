@@ -366,12 +366,14 @@ function MenuLevelInspector({
 			{menu && (
 				<CollapsibleSection title="Background" defaultOpen>
 					<div className="inspector-panel__state-tabs">
-						{([
-							['solid', 'Solid'],
-							['image', 'Image'],
-							['video', 'Video'],
-							['audio', 'Audio'],
-						] as const).map(([tab, label]) => (
+						{(
+							[
+								['solid', 'Solid'],
+								['image', 'Image'],
+								['video', 'Video'],
+								['audio', 'Audio'],
+							] as const
+						).map(([tab, label]) => (
 							<button
 								key={tab}
 								className={`inspector-panel__state-tab ${backgroundTab === tab ? 'inspector-panel__state-tab--active' : ''}`}
@@ -466,8 +468,8 @@ function MenuLevelInspector({
 					>
 						<div className="inspector-panel__sub-label">Motion Settings</div>
 						<p className="inspector-panel__hint text-muted">
-							These controls preserve authored intent, but motion-menu build and runtime
-							support are still blocked until the next backend slice lands.
+							These controls preserve authored intent, but motion-menu build and runtime support are
+							still blocked until the next backend slice lands.
 						</p>
 						<div className="inspector-panel__grid-2">
 							<label className="inspector-panel__field">
@@ -526,16 +528,18 @@ function MenuLevelInspector({
 
 			<CollapsibleSection title="Display" defaultOpen>
 				<p className="inspector-panel__hint text-muted">
-					Choose how this 720-line DVD menu should display on the player: classic 4:3 or
-					anamorphic 16:9.
+					Choose how this 720-line DVD menu should display on the player: classic 4:3 or anamorphic
+					16:9.
 				</p>
 				<label className="inspector-panel__field">
 					<span className="inspector-panel__field-label">Display shape</span>
 					<div className="inspector-panel__style-pills">
-						{([
-							['four-by-three', '4:3'],
-							['sixteen-by-nine', '16:9'],
-						] as const).map(([aspect, label]) => (
+						{(
+							[
+								['four-by-three', '4:3'],
+								['sixteen-by-nine', '16:9'],
+							] as const
+						).map(([aspect, label]) => (
 							<button
 								key={aspect}
 								type="button"

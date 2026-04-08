@@ -10,6 +10,7 @@ import { InspectorPanel } from './InspectorPanel';
 import { SceneCanvas } from './SceneCanvas';
 import type { SceneNode, MenuButton, MenuHighlightColours } from '../../types/project';
 import { DEFAULT_HIGHLIGHT_COLOURS, createDefaultMenuCompilePolicy } from '../../types/project';
+import { createGeneratedMenuFromButtons } from '../../pages/MenusPage';
 
 // ── LayersPanel ────────────────────────────────────────────────────────────
 
@@ -236,7 +237,9 @@ describe('InspectorPanel', () => {
 		fireEvent.click(aspectButton!);
 		expect(onDisplayAspectChange).toHaveBeenCalledWith('sixteen-by-nine');
 		expect(
-			screen.getByText('16:9 here is anamorphic DVD output of the same raster, not a larger canvas.'),
+			screen.getByText(
+				'16:9 here is anamorphic DVD output of the same raster, not a larger canvas.',
+			),
 		).toBeTruthy();
 	});
 });
@@ -454,6 +457,102 @@ describe('SceneCanvas', () => {
 		expect(screen.getByText(/arrow keys/i)).toBeTruthy();
 	});
 
+	it('keeps authored text nodes visible in navigation preview mode', () => {
+		render(
+			<SceneCanvas
+				buttons={buttons}
+				canvasHeight={480}
+				sceneNodes={[
+					{
+						type: 'text',
+						id: 'text-1',
+						content: 'Menu Title',
+						x: 120,
+						y: 72,
+						width: 300,
+						height: 48,
+						fontSize: 32,
+						colour: '#ffffff',
+					},
+				]}
+				onUpdateButton={vi.fn()}
+				onUpdateSceneNode={vi.fn()}
+				showSafeArea={false}
+				backgroundLabel={null}
+				backgroundColour={null}
+				defaultButtonId="btn-1"
+				previewMode={true}
+				highlightColours={DEFAULT_HIGHLIGHT_COLOURS}
+				honestPreview={false}
+				showNavLines={true}
+				selectedNodeId={null}
+				onSelectNode={vi.fn()}
+			/>,
+		);
+
+		expect(screen.getByText('Menu Title')).toBeTruthy();
+	});
+
+	it('resets preview focus when the active menu changes', () => {
+		const { container, rerender } = render(
+			<SceneCanvas
+				buttons={buttons}
+				canvasHeight={480}
+				sceneNodes={[]}
+				onUpdateButton={vi.fn()}
+				onUpdateSceneNode={vi.fn()}
+				showSafeArea={false}
+				backgroundLabel={null}
+				backgroundColour={null}
+				defaultButtonId="btn-1"
+				previewMode={true}
+				highlightColours={DEFAULT_HIGHLIGHT_COLOURS}
+				honestPreview={false}
+				showNavLines={true}
+				selectedNodeId={null}
+				onSelectNode={vi.fn()}
+			/>,
+		);
+
+		expect(container.querySelector('.scene-canvas__node--focused')).toHaveTextContent('Play');
+
+		rerender(
+			<SceneCanvas
+				buttons={[
+					{
+						id: 'btn-3',
+						label: 'Setup',
+						bounds: { x: 120, y: 260, width: 220, height: 44 },
+						action: null,
+						navUp: null,
+						navDown: null,
+						navLeft: null,
+						navRight: null,
+						highlightMode: 'static',
+						highlightKeyframes: [],
+						videoAssetId: null,
+					},
+				]}
+				canvasHeight={480}
+				sceneNodes={[]}
+				onUpdateButton={vi.fn()}
+				onUpdateSceneNode={vi.fn()}
+				showSafeArea={false}
+				backgroundLabel={null}
+				backgroundColour={null}
+				defaultButtonId="btn-3"
+				previewMode={true}
+				highlightColours={DEFAULT_HIGHLIGHT_COLOURS}
+				honestPreview={false}
+				showNavLines={true}
+				selectedNodeId={null}
+				onSelectNode={vi.fn()}
+			/>,
+		);
+
+		expect(container.querySelector('.scene-canvas__node--focused')).toHaveTextContent('Setup');
+	});
+
 	it('applies the selected button preview state on the design canvas', () => {
 		const styledNode: SceneNode = {
 			type: 'button',
@@ -580,5 +679,32 @@ describe('SceneCanvas', () => {
 		expect(container.querySelector('.scene-canvas__viewport')).toHaveStyle({
 			aspectRatio: '16 / 9',
 		});
+	});
+
+	it('creates generated menus with the provided authored design height', () => {
+		const menu = createGeneratedMenuFromButtons(
+			'menu-generated',
+			'Generated Menu',
+			[
+				{
+					id: 'btn-generated',
+					label: 'Play',
+					bounds: { x: 96, y: 320, width: 220, height: 44 },
+					action: null,
+					navUp: null,
+					navDown: null,
+					navLeft: null,
+					navRight: null,
+					highlightMode: 'static',
+					highlightKeyframes: [],
+					videoAssetId: null,
+				},
+			],
+			'titleset',
+			576,
+			'four-by-three',
+		);
+
+		expect(menu.authoredDocument?.scene.designSize).toEqual({ width: 720, height: 576 });
 	});
 });
