@@ -302,18 +302,69 @@
 	filter: saturate(0.7) contrast(1.05);
 }
 
-.scene-canvas__honest-badge {
+/* ── Compile Preview Overlay ────────────────────────────── */
+/* Honest DVD output simulation overlay. Replaces the old
+   badge-only treatment with a banner + diagnostic stats bar
+   that communicates real DVD/VCD constraints at a glance. */
+
+.compile-overlay {
 	position: absolute;
-	top: var(--space-2);
-	left: var(--space-3);
-	font-size: var(--text-xs);
-	font-weight: 600;
-	color: var(--brand-orange);
-	background: rgba(0, 0, 0, 0.6);
-	padding: 2px var(--space-2);
-	border-radius: var(--radius-sm);
-	z-index: 10;
+	inset: 0;
+	z-index: 20;
 	pointer-events: none;
+	display: flex;
+	flex-direction: column;
+	justify-content: space-between;
+}
+
+.compile-overlay__banner {
+	background: rgba(244, 63, 94, 0.88);
+	color: #fff;
+	font-size: 10px;
+	font-weight: 600;
+	padding: 4px 12px;
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	letter-spacing: 0.04em;
+}
+
+.compile-overlay__info {
+	margin: 8px;
+	background: rgba(0, 0, 0, 0.82);
+	backdrop-filter: blur(8px);
+	border: 1px solid rgba(244, 63, 94, 0.2);
+	border-radius: var(--radius-md, 8px);
+	padding: 8px 12px;
+	font-size: 10px;
+	color: var(--text-secondary, #a1a1aa);
+	display: flex;
+	gap: 16px;
+}
+
+.compile-overlay__stat {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.compile-overlay__stat-label {
+	color: var(--text-muted, #71717a);
+	font-size: 9px;
+	letter-spacing: 0.03em;
+}
+
+.compile-overlay__stat-value {
+	font-family: var(--font-mono, monospace);
+	font-weight: 500;
+}
+
+.compile-overlay__stat-value--ok {
+	color: var(--colour-success, #4ade80);
+}
+
+.compile-overlay__stat-value--warn {
+	color: var(--colour-warning, #f59e0b);
 }
 
 .scene-canvas__bg-label {

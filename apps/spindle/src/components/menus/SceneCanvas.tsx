@@ -447,7 +447,9 @@ function DesignCanvas({
 			{backgroundLabel && (
 				<div className="scene-canvas__bg-label text-muted">{backgroundLabel}</div>
 			)}
-			{honestPreview && <div className="scene-canvas__honest-badge">DVD Preview</div>}
+			{honestPreview && (
+				<CompileOverlay buttons={buttons} canvasHeight={canvasHeight} />
+			)}
 			{showNavLines && (
 				<NavLines buttons={buttons} canvasWidth={MENU_WIDTH} canvasHeight={canvasHeight} />
 			)}
@@ -638,7 +640,9 @@ function NavigationPreview({
 			{backgroundLabel && (
 				<div className="scene-canvas__bg-label text-muted">{backgroundLabel}</div>
 			)}
-			{honestPreview && <div className="scene-canvas__honest-badge">DVD Preview</div>}
+			{honestPreview && (
+				<CompileOverlay buttons={buttons} canvasHeight={canvasHeight} />
+			)}
 			{showSafeArea && (
 				<>
 					<div
@@ -755,6 +759,116 @@ function NavLines({
 				/>
 			))}
 		</svg>
+	);
+}
+
+// ── Compile Preview Overlay ────────────────────────────────────────────────
+// Honest DVD output simulation overlay: banner + stats bar.
+// Replaces the old badge-only treatment with an informative diagnostic layer
+// that communicates real DVD/VCD constraints at a glance.
+
+const MAX_DVD_BUTTONS = 36;
+
+function CompileOverlay({
+	buttons,
+	canvasHeight,
+}: {
+	buttons: MenuButton[];
+	canvasHeight: number;
+}) {
+	const btnCount = buttons.length;
+	const btnOk = btnCount <= MAX_DVD_BUTTONS;
+
+	const actionsResolved = buttons.filter((b) => b.action !== null).length;
+	const actionsTotal = buttons.length;
+	const actionsOk = actionsTotal === 0 || actionsResolved === actionsTotal;
+
+	let navLabel = 'N/A';
+	let navOk = true;
+	if (buttons.length > 1) {
+		const totalDirs = buttons.length * 4;
+		const filledDirs = buttons.reduce(
+			(sum, b) =>
+				sum +
+				(b.navUp ? 1 : 0) +
+				(b.navDown ? 1 : 0) +
+				(b.navLeft ? 1 : 0) +
+				(b.navRight ? 1 : 0),
+			0,
+		);
+		navOk = filledDirs === totalDirs;
+		navLabel = navOk ? 'Complete' : `${filledDirs}/${totalDirs}`;
+	}
+
+	const safeL = MENU_WIDTH * ACTION_SAFE_PCT;
+	const safeT = canvasHeight * ACTION_SAFE_PCT;
+	const safeR = MENU_WIDTH * (1 - ACTION_SAFE_PCT);
+	const safeB = canvasHeight * (1 - ACTION_SAFE_PCT);
+	const outsideCount = buttons.filter(
+		(b) =>
+			b.bounds.x < safeL ||
+			b.bounds.y < safeT ||
+			b.bounds.x + b.bounds.width > safeR ||
+			b.bounds.y + b.bounds.height > safeB,
+	).length;
+	const safeOk = outsideCount === 0;
+
+	return (
+		<div className="compile-overlay">
+			<div className="compile-overlay__banner">
+				<svg
+					width="10"
+					height="10"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					strokeWidth="3"
+				>
+					<circle cx="12" cy="12" r="10" />
+					<line x1="12" y1="8" x2="12" y2="12" />
+					<line x1="12" y1="16" x2="12.01" y2="16" />
+				</svg>
+				Compile Preview — DVD output simulation
+			</div>
+			<div className="compile-overlay__info">
+				<div className="compile-overlay__stat">
+					<span className="compile-overlay__stat-label">Buttons</span>
+					<span
+						className={`compile-overlay__stat-value ${btnOk ? 'compile-overlay__stat-value--ok' : 'compile-overlay__stat-value--warn'}`}
+					>
+						{btnCount} / {MAX_DVD_BUTTONS}
+					</span>
+				</div>
+				<div className="compile-overlay__stat">
+					<span className="compile-overlay__stat-label">Actions</span>
+					<span
+						className={`compile-overlay__stat-value ${actionsOk ? 'compile-overlay__stat-value--ok' : 'compile-overlay__stat-value--warn'}`}
+					>
+						{actionsTotal === 0
+							? '—'
+							: actionsOk
+								? `${actionsResolved} resolved`
+								: `${actionsResolved}/${actionsTotal}`}
+					</span>
+				</div>
+				<div className="compile-overlay__stat">
+					<span className="compile-overlay__stat-label">Nav</span>
+					<span
+						className={`compile-overlay__stat-value ${navOk ? 'compile-overlay__stat-value--ok' : 'compile-overlay__stat-value--warn'}`}
+					>
+						{navLabel}
+					</span>
+				</div>
+				<div className="compile-overlay__stat">
+					<span className="compile-overlay__stat-label">Safe areas</span>
+					<span
+						className={`compile-overlay__stat-value ${safeOk ? 'compile-overlay__stat-value--ok' : 'compile-overlay__stat-value--warn'}`}
+					>
+						{safeOk ? 'All clear' : `${outsideCount} outside`}
+					</span>
+				</div>
+			</div>
+		</div>
 	);
 }
 
