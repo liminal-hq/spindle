@@ -189,15 +189,14 @@ export function InspectorPanel({
 			</div>
 			<div className="inspector-panel__body">
 				{sceneNodes && onSelectSceneNode && (
-					<div className="inspector-panel__section inspector-panel__section--layers">
-						<h5 className="inspector-panel__section-heading">Layers</h5>
+					<CollapsibleSection title="Layers" defaultOpen>
 						<LayersPanel
 							nodes={sceneNodes}
 							selectedNodeId={selectedNodeId ?? null}
 							onSelectNode={onSelectSceneNode}
 							showHeader={false}
 						/>
-					</div>
+					</CollapsibleSection>
 				)}
 				{!selectedNode ? (
 					// When nothing is selected and menu-level context is provided,
@@ -343,7 +342,6 @@ function MenuLevelInspector({
 	return (
 		<div className="inspector-panel__section-group">
 			<CollapsibleSection title="Diagnostics" defaultOpen>
-				<h5 className="inspector-panel__section-heading">Diagnostics</h5>
 				{diagnostics.length === 0 ? (
 					<p className="inspector-panel__hint" style={{ color: 'var(--colour-success, #4ade80)' }}>
 						No issues — menu is DVD-safe.
@@ -526,7 +524,7 @@ function MenuLevelInspector({
 				</CollapsibleSection>
 			)}
 
-			<CollapsibleSection title="Display" defaultOpen={false}>
+			<CollapsibleSection title="Display" defaultOpen>
 				<p className="inspector-panel__hint text-muted">
 					Preview the authored 720-line menu as either classic 4:3 or anamorphic 16:9 output.
 				</p>
@@ -556,7 +554,6 @@ function MenuLevelInspector({
 			{/* All Buttons Audit — batch action and default-focus overview */}
 			{buttons.length > 0 && (
 				<CollapsibleSection title="All Buttons" defaultOpen>
-					<h5 className="inspector-panel__section-heading">All Buttons</h5>
 					<p className="inspector-panel__hint text-muted">
 						Action bindings and default focus for all buttons in this menu.
 					</p>
@@ -607,8 +604,7 @@ function MenuLevelInspector({
 
 			{/* Compile Policy */}
 			{document && (
-				<CollapsibleSection title="Compile Policy" defaultOpen={false}>
-					<h5 className="inspector-panel__section-heading">Compile Policy</h5>
+				<CollapsibleSection title="Compile Policy" defaultOpen>
 					<div className="inspector-panel__policy-grid">
 						<div className="inspector-panel__policy-item">
 							<span className="inspector-panel__field-label">Safe Area</span>
@@ -631,8 +627,7 @@ function MenuLevelInspector({
 			)}
 
 			{/* CLUT Palette — DVD subpicture highlight colours */}
-			<CollapsibleSection title="CLUT Palette" defaultOpen={false}>
-				<h5 className="inspector-panel__section-heading">CLUT Palette</h5>
+			<CollapsibleSection title="CLUT Palette" defaultOpen>
 				<p className="inspector-panel__hint text-muted">
 					DVD subpicture overlays use a 4-colour palette. These colours apply to all buttons in this
 					menu.
@@ -641,7 +636,7 @@ function MenuLevelInspector({
 			</CollapsibleSection>
 
 			{onAutoNav && (
-				<CollapsibleSection title="Navigation Tools" defaultOpen={false}>
+				<CollapsibleSection title="Navigation Tools" defaultOpen>
 					<p className="inspector-panel__hint text-muted">
 						Generate a first-pass remote-navigation graph for the current menu.
 					</p>
@@ -697,7 +692,6 @@ function ButtonInspector({
 		<div className="inspector-panel__section-group">
 			{/* Identity */}
 			<CollapsibleSection title="Button" defaultOpen>
-				<h5 className="inspector-panel__section-heading">Button</h5>
 				<label className="inspector-panel__field">
 					<span className="inspector-panel__field-label">Label</span>
 					<input
@@ -719,8 +713,7 @@ function ButtonInspector({
 			</CollapsibleSection>
 
 			{/* Geometry */}
-			<CollapsibleSection title="Position & Size" defaultOpen>
-				<h5 className="inspector-panel__section-heading">Position & Size</h5>
+			<CollapsibleSection title="Transform" defaultOpen>
 				<div className="inspector-panel__grid-2">
 					<label className="inspector-panel__field">
 						<span className="inspector-panel__field-label">X</span>
@@ -779,7 +772,6 @@ function ButtonInspector({
 
 			{/* Action */}
 			<CollapsibleSection title="Action" defaultOpen>
-				<h5 className="inspector-panel__section-heading">Action</h5>
 				<select
 					className="inspector-panel__select"
 					value={actionToString(button.action)}
@@ -796,7 +788,6 @@ function ButtonInspector({
 			{/* Navigation — directional remote control, folded from Bind mode */}
 			{buttons.length > 1 && (
 				<CollapsibleSection title="Navigation" defaultOpen>
-					<h5 className="inspector-panel__section-heading">Navigation</h5>
 					<p className="inspector-panel__hint text-muted">
 						Directional remote navigation from this button.
 					</p>
@@ -989,7 +980,6 @@ function TextNodeInspector({
 	return (
 		<div className="inspector-panel__section-group">
 			<CollapsibleSection title="Text" defaultOpen>
-				<h5 className="inspector-panel__section-heading">Text</h5>
 				<label className="inspector-panel__field">
 					<span className="inspector-panel__field-label">Content</span>
 					<input
@@ -999,8 +989,7 @@ function TextNodeInspector({
 					/>
 				</label>
 			</CollapsibleSection>
-			<CollapsibleSection title="Position & Size" defaultOpen>
-				<h5 className="inspector-panel__section-heading">Position & Size</h5>
+			<CollapsibleSection title="Transform" defaultOpen>
 				<div className="inspector-panel__grid-2">
 					<label className="inspector-panel__field">
 						<span className="inspector-panel__field-label">X</span>
@@ -1090,7 +1079,6 @@ function ImageNodeInspector({
 	return (
 		<div className="inspector-panel__section-group">
 			<CollapsibleSection title="Image" defaultOpen>
-				<h5 className="inspector-panel__section-heading">Image</h5>
 				<label className="inspector-panel__field">
 					<span className="inspector-panel__field-label">Asset</span>
 					<select
@@ -1107,8 +1095,7 @@ function ImageNodeInspector({
 					</select>
 				</label>
 			</CollapsibleSection>
-			<CollapsibleSection title="Position & Size" defaultOpen>
-				<h5 className="inspector-panel__section-heading">Position & Size</h5>
+			<CollapsibleSection title="Transform" defaultOpen>
 				<div className="inspector-panel__grid-2">
 					<label className="inspector-panel__field">
 						<span className="inspector-panel__field-label">X</span>
@@ -1173,7 +1160,6 @@ function ShapeNodeInspector({
 	return (
 		<div className="inspector-panel__section-group">
 			<CollapsibleSection title="Shape" defaultOpen>
-				<h5 className="inspector-panel__section-heading">Shape</h5>
 				<label className="inspector-panel__field">
 					<span className="inspector-panel__field-label">Fill</span>
 					<div className="inspector-panel__colour-row">
@@ -1192,8 +1178,7 @@ function ShapeNodeInspector({
 					</div>
 				</label>
 			</CollapsibleSection>
-			<CollapsibleSection title="Position & Size" defaultOpen>
-				<h5 className="inspector-panel__section-heading">Position & Size</h5>
+			<CollapsibleSection title="Transform" defaultOpen>
 				<div className="inspector-panel__grid-2">
 					<label className="inspector-panel__field">
 						<span className="inspector-panel__field-label">X</span>

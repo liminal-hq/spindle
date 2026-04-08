@@ -162,18 +162,18 @@
 .inspector-panel__section-group {
 	display: flex;
 	flex-direction: column;
-	gap: var(--space-3);
+	gap: var(--space-2);
 }
 
 .inspector-panel__section {
-	padding: var(--space-3);
-	border: 1px solid var(--border-subtle);
-	border-radius: var(--radius-md);
-	background: rgba(0, 0, 0, 0.12);
+	padding: 0;
+	border: none;
+	border-radius: 0;
+	background: transparent;
 }
 
 .inspector-panel__section--layers {
-	padding: var(--space-2);
+	padding: 0;
 }
 
 .inspector-panel__section--layers .layers-panel {
@@ -210,7 +210,7 @@
 	display: flex;
 	flex-direction: column;
 	gap: 2px;
-	margin-bottom: var(--space-2);
+	margin-bottom: var(--space-1);
 }
 
 .inspector-panel__field:last-child {
@@ -272,7 +272,7 @@
 .inspector-panel__hint {
 	font-size: var(--text-xs);
 	line-height: 1.5;
-	margin-bottom: var(--space-2);
+	margin-bottom: var(--space-1);
 }
 
 .inspector-panel__colour-grid {
@@ -947,6 +947,7 @@
 
 .inspector-panel__collapsible {
 	padding: 0;
+	border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .inspector-panel__collapsible-header {
@@ -955,8 +956,8 @@
 	gap: var(--space-2);
 	cursor: pointer;
 	user-select: none;
-	padding: var(--space-3);
-	background: rgba(0, 0, 0, 0.1);
+	padding: var(--space-2) 0;
+	background: transparent;
 }
 
 .inspector-panel__collapsible-header:hover {
@@ -975,7 +976,7 @@
 }
 
 .inspector-panel__collapsible-body {
-	padding: 0 var(--space-3) var(--space-3);
+	padding: 0 0 var(--space-2);
 }
 
 /* ── Inspector: State sub-tabs ─────────────────────────────────── */
@@ -987,7 +988,7 @@
 	border-radius: 10px;
 	padding: 2px;
 	gap: 2px;
-	margin-bottom: var(--space-3);
+	margin-bottom: var(--space-2);
 }
 
 .inspector-panel__state-tab {
@@ -1042,10 +1043,10 @@
 .inspector-panel__fieldset {
 	display: grid;
 	gap: var(--space-2);
-	padding: var(--space-2);
-	border-radius: var(--radius-sm);
-	background: rgba(255, 255, 255, 0.025);
-	border: 1px solid rgba(255, 255, 255, 0.04);
+	padding: var(--space-1) 0 0;
+	border-radius: 0;
+	background: transparent;
+	border: none;
 }
 
 .inspector-panel__fieldset--disabled {

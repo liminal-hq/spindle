@@ -681,7 +681,7 @@
 	display: flex;
 	align-items: stretch;
 	justify-content: center;
-	padding: var(--space-3);
+	padding: var(--space-3) var(--space-2);
 	border-radius: 28px;
 	background:
 		radial-gradient(circle at 50% 18%, rgba(84, 64, 132, 0.12), transparent 34%),
@@ -689,21 +689,6 @@
 	box-shadow:
 		inset 0 0 0 1px rgba(255, 255, 255, 0.03),
 		0 28px 64px rgba(0, 0, 0, 0.24);
-}
-
-.menus__stage-frame {
-	flex: 1;
-	min-height: 0;
-	display: flex;
-	align-items: stretch;
-	justify-content: stretch;
-	padding: clamp(20px, 3vw, 36px);
-	border-radius: 24px;
-	background:
-		radial-gradient(circle at 50% 10%, rgba(255, 255, 255, 0.025), transparent 38%),
-		rgba(7, 7, 11, 0.98);
-	box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
-	overflow: auto;
 }
 
 .menus__canvas-scroll {
@@ -714,7 +699,7 @@
 	display: grid;
 	place-items: center;
 	overflow: auto;
-	padding: var(--space-1);
+	padding: clamp(12px, 2vw, 22px);
 }
 
 .menus__canvas-scroll > .scene-canvas__viewport {
