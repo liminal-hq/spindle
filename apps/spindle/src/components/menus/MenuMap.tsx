@@ -33,7 +33,7 @@ interface LayoutNode {
 	h: number;
 }
 
-type EdgeType = 'showMenu' | 'playTitle' | 'playChapter' | 'firstPlay' | 'endAction';
+type EdgeType = 'showMenu' | 'playTitle' | 'playChapter' | 'firstPlay' | 'endAction' | 'return';
 
 interface LayoutEdge {
 	key: string;
@@ -45,6 +45,8 @@ interface LayoutEdge {
 interface MapLayout {
 	nodes: LayoutNode[];
 	edges: LayoutEdge[];
+	/** Node IDs that contain at least one Return action (resume playback). */
+	returnNodeIds: Set<string>;
 	totalWidth: number;
 	totalHeight: number;
 }
@@ -55,6 +57,7 @@ function extractEdgesFromAction(
 	action: PlaybackAction,
 	fromId: string,
 	out: LayoutEdge[],
+	returnIds: Set<string>,
 	depth = 0,
 ): void {
 	// Guard against pathological sequence recursion
@@ -85,9 +88,13 @@ function extractEdgesFromAction(
 				edgeType: 'playChapter',
 			});
 			break;
+		case 'return':
+			// Return resumes playback — no fixed target, so mark the source node
+			returnIds.add(fromId);
+			break;
 		case 'sequence':
 			for (const sub of action.actions) {
-				extractEdgesFromAction(sub, fromId, out, depth + 1);
+				extractEdgesFromAction(sub, fromId, out, returnIds, depth + 1);
 			}
 			break;
 	}
@@ -102,6 +109,7 @@ function computeMapLayout(project: SpindleProjectFile, compact: boolean): MapLay
 
 	const nodes: LayoutNode[] = [];
 	const rawEdges: LayoutEdge[] = [];
+	const returnIds = new Set<string>();
 
 	// Column 0: Global (VMGM) menus
 	project.disc.globalMenus.forEach((menu, row) => {
@@ -155,7 +163,7 @@ function computeMapLayout(project: SpindleProjectFile, compact: boolean): MapLay
 
 	// Extract edges from firstPlayAction
 	if (project.disc.firstPlayAction) {
-		extractEdgesFromAction(project.disc.firstPlayAction, '__disc__', rawEdges);
+		extractEdgesFromAction(project.disc.firstPlayAction, '__disc__', rawEdges, returnIds);
 	}
 
 	// Extract edges from each menu's button actions and timeout
@@ -167,21 +175,21 @@ function computeMapLayout(project: SpindleProjectFile, compact: boolean): MapLay
 		const interactionNodes = menu.authoredDocument?.interaction.nodes ?? [];
 		for (const inode of interactionNodes) {
 			if (inode.action) {
-				extractEdgesFromAction(inode.action, menu.id, rawEdges);
+				extractEdgesFromAction(inode.action, menu.id, rawEdges, returnIds);
 			}
 		}
 		// Also scan legacy buttons
 		if (!menu.authoredDocument) {
 			for (const btn of menu.buttons) {
 				if (btn.action) {
-					extractEdgesFromAction(btn.action, menu.id, rawEdges);
+					extractEdgesFromAction(btn.action, menu.id, rawEdges, returnIds);
 				}
 			}
 		}
 		// Timeout action
 		const timeoutAction = menu.authoredDocument?.interaction.timeoutAction ?? menu.timeoutAction;
 		if (timeoutAction) {
-			extractEdgesFromAction(timeoutAction, menu.id, rawEdges);
+			extractEdgesFromAction(timeoutAction, menu.id, rawEdges, returnIds);
 		}
 	}
 
@@ -189,7 +197,7 @@ function computeMapLayout(project: SpindleProjectFile, compact: boolean): MapLay
 	for (const ts of project.disc.titlesets) {
 		for (const title of ts.titles) {
 			if (title.endAction) {
-				extractEdgesFromAction(title.endAction, title.id, rawEdges);
+				extractEdgesFromAction(title.endAction, title.id, rawEdges, returnIds);
 			}
 		}
 	}
@@ -211,7 +219,7 @@ function computeMapLayout(project: SpindleProjectFile, compact: boolean): MapLay
 	const totalWidth = maxX + pad;
 	const totalHeight = maxY + pad;
 
-	return { nodes, edges, totalWidth, totalHeight };
+	return { nodes, edges, returnNodeIds: returnIds, totalWidth, totalHeight };
 }
 
 // ── Colour mapping ──────────────────────────────────────────────────────────
@@ -222,6 +230,7 @@ const EDGE_COLOURS: Record<EdgeType, string> = {
 	playChapter: '#34d399', // teal
 	firstPlay: '#ffaa40', // brand orange
 	endAction: '#a78bfa', // violet
+	return: '#f472b6', // pink — distinct from other edge types
 };
 
 const EDGE_LABELS: Record<EdgeType, string> = {
@@ -230,6 +239,7 @@ const EDGE_LABELS: Record<EdgeType, string> = {
 	playChapter: 'chapter',
 	firstPlay: 'first play',
 	endAction: 'end',
+	return: 'return',
 };
 
 // ── SVG renderer ─────────────────────────────────────────────────────────────
@@ -300,12 +310,14 @@ function NodeRect({
 	node,
 	isSelected,
 	compact,
+	hasReturn,
 	onClick,
 	onDoubleClick,
 }: {
 	node: LayoutNode;
 	isSelected: boolean;
 	compact: boolean;
+	hasReturn: boolean;
 	onClick: (id: string) => void;
 	onDoubleClick?: (id: string) => void;
 }) {
@@ -315,15 +327,17 @@ function NodeRect({
 	const fill = isSelected
 		? 'rgba(255, 170, 64, 0.15)'
 		: isMenu
-			? 'rgba(255, 255, 255, 0.04)'
+			? isVmgm
+				? 'rgba(34, 211, 238, 0.06)'
+				: 'rgba(167, 139, 250, 0.06)'
 			: 'rgba(74, 222, 128, 0.06)';
 
 	const stroke = isSelected
 		? '#ffaa40'
 		: isMenu
 			? isVmgm
-				? 'rgba(255, 170, 64, 0.4)'
-				: 'rgba(255, 255, 255, 0.2)'
+				? 'rgba(34, 211, 238, 0.5)'
+				: 'rgba(167, 139, 250, 0.4)'
 			: 'rgba(74, 222, 128, 0.4)';
 
 	const fontSize = compact ? 9 : 11;
@@ -386,6 +400,33 @@ function NodeRect({
 					{node.type === 'title' ? 'TITLE' : isVmgm ? 'VMGM' : 'MENU'}
 				</text>
 			)}
+			{/* Return badge — shows a loopback indicator for nodes with return actions */}
+			{hasReturn && (
+				<>
+					<circle
+						cx={node.x + node.w - (compact ? 6 : 8)}
+						cy={node.y + node.h - (compact ? 6 : 8)}
+						r={compact ? 4 : 6}
+						fill="rgba(244, 114, 182, 0.2)"
+						stroke="#f472b6"
+						strokeWidth={compact ? 0.75 : 1}
+					/>
+					{!compact && (
+						<text
+							x={node.x + node.w - 8}
+							y={node.y + node.h - 5}
+							textAnchor="middle"
+							fontSize={7}
+							fill="#f472b6"
+							fontWeight="700"
+							fontFamily="var(--font-body, system-ui, sans-serif)"
+							style={{ pointerEvents: 'none', userSelect: 'none' }}
+						>
+							R
+						</text>
+					)}
+				</>
+			)}
 		</g>
 	);
 }
@@ -409,7 +450,7 @@ function MapSvg({
 	onSelect: (id: string) => void;
 	onOpenInEditor?: (id: string) => void;
 }) {
-	const { nodes, edges, totalWidth, totalHeight } = layout;
+	const { nodes, edges, returnNodeIds, totalWidth, totalHeight } = layout;
 	const nodeMap = new Map(nodes.map((n) => [n.id, n]));
 
 	const edgeTypes: EdgeType[] = ['showMenu', 'playTitle', 'playChapter', 'firstPlay', 'endAction'];
@@ -465,6 +506,7 @@ function MapSvg({
 					node={node}
 					isSelected={node.id === selectedMenuId}
 					compact={compact}
+					hasReturn={returnNodeIds.has(node.id)}
 					onClick={(id) => {
 						if (node.type === 'menu') onSelect(id);
 					}}
@@ -518,6 +560,9 @@ export function MiniMenuMap({
 				</span>
 				<span className="mini-map__legend-item" style={{ color: EDGE_COLOURS.playTitle }}>
 					● play
+				</span>
+				<span className="mini-map__legend-item" style={{ color: EDGE_COLOURS.return }}>
+					● return
 				</span>
 			</div>
 		</div>
