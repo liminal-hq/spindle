@@ -34,6 +34,8 @@ Prefer durable, reusable context over narration.
 - Trust and support surfaces should be checked alongside release surfaces; for example, diagnostics export can drift from runtime versioning even when the main app UI is current.
 - The shared filesystem-based agent communication layer now lives under `docs/agents/shared/`, with `context/` for Franklin/Edward broadcast state and `handoffs/<agent>/` inboxes for point-to-point JSON requests and responses.
 - The current laptop environment should be treated as container-first for verification work: when Rust tooling or mixed workspace validation is needed, prefer `ghcr.io/liminal-hq/tauri-dev-desktop:latest` rather than assuming host-installed Rust tools are available.
+- We have adopted Yuli's Set 2b unified menu editor design, establishing Blu-ray (HDMV/IG) as the primary authoring ceiling and DVD/VCD as a graceful degradation floor managed via the Compile Preview overlay.
+- Seamless branching (multiplexed BOV) for UI states and SPRM manipulation (`setAudioStream`, `setSubtitleStream`) are now confirmed backend requirements that the compiler and multiplexer must support reliably.
 
 ## Open Questions
 
