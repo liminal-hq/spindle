@@ -18,7 +18,7 @@ This work is isolated on the `feat/menu-workspace-upgrade` branch.
 - **Backend Schema Sync**: COMPLETED. Jullian has updated `MenuTiming` and aligned `Action` types.
 - **Backend Risk Audit**: COMPLETED. Kyle verified schema alignment, fixed the subtitle-off SPRM 2 encoding bug, and added tests.
 - **Unified Editor Shell**: IN PROGRESS. Tristan is scaffolding the React state and unified workspace.
-- **Backend Gaps**: IN PROGRESS. Jullian is closing the stream index validation gap.
+- **Backend Gaps**: COMPLETED. Jullian closed the stream index validation gap in `validate_action` (commit e80ccc2). `SetAudioStream` and `SetSubtitleStream` are now checked against the titleset's authored track counts at the pre-build diagnostic boundary.
 
 ## Roster & Handoff Order
 1. **Jullian:** Backend multiplexing (BOV) and SPRM compiler updates.
