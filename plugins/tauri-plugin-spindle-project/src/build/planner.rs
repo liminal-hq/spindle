@@ -183,6 +183,7 @@ pub fn generate_build_plan_with_options(
     });
 
     let assets: HashMap<&str, &Asset> = project.assets.iter().map(|a| (a.id.as_str(), a)).collect();
+    ensure_supported_menu_backend(project)?;
 
     let all_titles: Vec<(&Titleset, &Title)> = project
         .disc
@@ -492,6 +493,36 @@ pub fn generate_build_plan_with_options(
         dvdauthor_xml,
         summary,
     })
+}
+
+fn ensure_supported_menu_backend(project: &SpindleProjectFile) -> crate::Result<()> {
+    let motion_menus: Vec<_> = project
+        .disc
+        .global_menus
+        .iter()
+        .chain(
+            project
+                .disc
+                .titlesets
+                .iter()
+                .flat_map(|titleset| titleset.menus.iter()),
+        )
+        .filter(|menu| matches!(menu.resolved_background_mode(), BackgroundMode::Motion))
+        .map(|menu| menu.name.clone())
+        .collect();
+
+    if motion_menus.is_empty() {
+        return Ok(());
+    }
+
+    Err(crate::Error::Build(format!(
+        "Motion menu build authoring is not implemented yet. Switch these menus back to still mode before building: {}",
+        motion_menus
+            .iter()
+            .map(|name| format!("\"{name}\""))
+            .collect::<Vec<_>>()
+            .join(", ")
+    )))
 }
 
 fn generate_text_subtitle_spumux_xml(
@@ -836,5 +867,20 @@ mod tests {
                 .any(|j| matches!(j, BuildJob::LinkTitle { .. })),
             "duplicate title should be linked, not transcoded again"
         );
+    }
+
+    #[test]
+    fn build_plan_rejects_motion_menus_until_backend_support_lands() {
+        let mut project = test_project();
+        let mut menu = test_menu();
+        menu.background_mode = BackgroundMode::Motion;
+        menu.motion_duration_secs = Some(12.0);
+        project.disc.global_menus.push(menu);
+
+        let err = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap_err();
+        let msg = err.to_string();
+
+        assert!(msg.contains("Motion menu build authoring is not implemented yet"));
+        assert!(msg.contains("\"Main Menu\""));
     }
 }

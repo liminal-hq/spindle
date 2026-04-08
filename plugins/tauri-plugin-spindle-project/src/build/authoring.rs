@@ -13,7 +13,7 @@ use super::dvd_navigation::{
     playback_action_to_dvd_command_in_context, playback_action_to_dvd_command_in_domain_result,
     playback_action_to_dvd_command_result, DvdCommandContext,
 };
-use super::menu::{menu_output_aspect, AuthorableMenuRef, MenuDomain};
+use super::menu::{inferred_menu_output_aspect, AuthorableMenuRef, MenuDomain};
 use super::util::{format_dvd_timestamp, sanitise_filename, xml_escape};
 
 pub(crate) fn generate_dvdauthor_xml(
@@ -42,13 +42,16 @@ pub(crate) fn generate_dvdauthor_xml(
         xml.push_str("  <vmgm>\n");
 
         if has_global_menus {
+            let vmgm_aspect =
+                menu_section_aspect(project, &project.disc.global_menus, MenuDomain::Vmgm)?;
             append_menu_section(
                 &mut xml,
                 format_str,
-                aspect_str(menu_output_aspect(project, MenuDomain::Vmgm)),
+                aspect_str(vmgm_aspect),
                 &project.disc.global_menus,
                 MenuDomain::Vmgm,
                 &project.disc,
+                project,
                 menus_dir,
             )?;
         }
@@ -76,13 +79,19 @@ pub(crate) fn generate_dvdauthor_xml(
             .unwrap_or("16:9");
 
         if !titleset.menus.is_empty() {
+            let menu_aspect = menu_section_aspect(
+                project,
+                &titleset.menus,
+                MenuDomain::Titleset(titleset_index),
+            )?;
             append_menu_section(
                 &mut xml,
                 format_str,
-                titleset_aspect,
+                aspect_str(menu_aspect),
                 &titleset.menus,
                 MenuDomain::Titleset(titleset_index),
                 &project.disc,
+                project,
                 menus_dir,
             )?;
         }
@@ -115,15 +124,16 @@ fn aspect_str(aspect: AspectMode) -> &'static str {
 fn append_menu_section(
     xml: &mut String,
     format_str: &str,
-    aspect_str: &str,
+    section_aspect_str: &str,
     menus: &[Menu],
     domain: MenuDomain,
     disc: &Disc,
+    project: &SpindleProjectFile,
     menus_dir: &Path,
 ) -> crate::Result<()> {
     xml.push_str("    <menus>\n");
     xml.push_str(&format!(
-        "      <video format=\"{format_str}\" aspect=\"{aspect_str}\" />\n"
+        "      <video format=\"{format_str}\" aspect=\"{section_aspect_str}\" />\n"
     ));
 
     // For titleset menu sections with multiple PGCs, the entry PGC (first)
@@ -132,6 +142,15 @@ fn append_menu_section(
 
     for (menu_index, menu) in menus.iter().enumerate() {
         let menu_ref = AuthorableMenuRef { menu, domain };
+        let menu_aspect = menu_ref.display_aspect(project);
+        if menu_aspect != parse_aspect_str(section_aspect_str) {
+            return Err(crate::Error::Build(format!(
+                "Menu section mixes authored display aspects; menu \"{}\" resolves to {} while the section is {}.",
+                menu_ref.name(),
+                aspect_str(menu_aspect),
+                section_aspect_str
+            )));
+        }
         let menu_number = menu_index + 1;
         let entry = match domain {
             MenuDomain::Titleset(_) if menu_index == 0 => Some("root"),
@@ -171,6 +190,33 @@ fn append_menu_section(
     }
     xml.push_str("    </menus>\n");
     Ok(())
+}
+
+fn menu_section_aspect(
+    project: &SpindleProjectFile,
+    menus: &[Menu],
+    domain: MenuDomain,
+) -> crate::Result<AspectMode> {
+    let mut resolved = menus.iter().map(|menu| {
+        let menu_ref = AuthorableMenuRef { menu, domain };
+        menu_ref.display_aspect(project)
+    });
+    let first = resolved
+        .next()
+        .unwrap_or_else(|| inferred_menu_output_aspect(project, domain));
+    if resolved.any(|aspect| aspect != first) {
+        return Err(crate::Error::Build(format!(
+            "Menus in the same DVD menu section must share one display aspect. Split mismatched menus into separate sections or align their authored display aspect."
+        )));
+    }
+    Ok(first)
+}
+
+fn parse_aspect_str(value: &str) -> AspectMode {
+    match value {
+        "4:3" => AspectMode::FourByThree,
+        _ => AspectMode::SixteenByNine,
+    }
 }
 
 fn initial_button_command(menu_ref: &AuthorableMenuRef<'_>) -> Option<String> {
@@ -375,7 +421,10 @@ mod tests {
     use crate::build::test_support::{
         add_second_titleset, test_menu, test_menu_with_action, test_project,
     };
-    use crate::models::{PlaybackAction, SubtitleStreamInfo, SubtitleTrackMapping, SubtitleType};
+    use crate::models::{
+        AspectMode, MenuDomain, PlaybackAction, SubtitleStreamInfo, SubtitleTrackMapping,
+        SubtitleType, VideoStandard,
+    };
 
     #[test]
     fn dvdauthor_xml_contains_authored_menu_vob_and_button() {
@@ -438,6 +487,61 @@ mod tests {
             "dvdauthor XML must declare aspect ratio\n{}",
             plan.dvdauthor_xml
         );
+    }
+
+    #[test]
+    fn dvdauthor_xml_uses_authored_menu_display_aspect() {
+        let mut project = test_project();
+        let mut menu = test_menu();
+        menu.migrate_to_document(
+            MenuDomain::Vmgm,
+            VideoStandard::Ntsc,
+            AspectMode::FourByThree,
+        );
+        project.disc.global_menus.push(menu);
+
+        let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+
+        assert!(plan
+            .dvdauthor_xml
+            .contains("<video format=\"ntsc\" aspect=\"4:3\" />"));
+    }
+
+    #[test]
+    fn dvdauthor_xml_rejects_mixed_menu_aspects_within_one_section() {
+        let mut project = test_project();
+        let mut menu_a = test_menu_with_action(
+            "menu-1",
+            "Menu A",
+            PlaybackAction::PlayTitle {
+                title_id: "title-1".to_string(),
+            },
+        );
+        menu_a.migrate_to_document(
+            MenuDomain::Vmgm,
+            VideoStandard::Ntsc,
+            AspectMode::FourByThree,
+        );
+
+        let mut menu_b = test_menu_with_action(
+            "menu-2",
+            "Menu B",
+            PlaybackAction::PlayTitle {
+                title_id: "title-1".to_string(),
+            },
+        );
+        menu_b.migrate_to_document(
+            MenuDomain::Vmgm,
+            VideoStandard::Ntsc,
+            AspectMode::SixteenByNine,
+        );
+
+        project.disc.global_menus.extend([menu_a, menu_b]);
+
+        let err = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap_err();
+        assert!(err
+            .to_string()
+            .contains("Menus in the same DVD menu section must share one display aspect"));
     }
 
     #[test]

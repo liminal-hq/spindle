@@ -29,14 +29,43 @@ impl SpindleProjectFile {
     /// any legacy flat menu structures.
     pub fn migrate_all_menus(&mut self) {
         let standard = self.disc.standard;
+        let global_display_aspect = self.inferred_vmgm_menu_aspect();
+        let titleset_display_aspects: Vec<_> = (0..self.disc.titlesets.len())
+            .map(|index| self.inferred_titleset_menu_aspect(index))
+            .collect();
         for menu in &mut self.disc.global_menus {
-            menu.migrate_to_document(MenuDomain::Vmgm, standard);
+            menu.migrate_to_document(MenuDomain::Vmgm, standard, global_display_aspect);
+            menu.ensure_authored_compile_defaults(global_display_aspect);
         }
-        for titleset in &mut self.disc.titlesets {
+        for (titleset_index, titleset) in self.disc.titlesets.iter_mut().enumerate() {
+            let display_aspect = titleset_display_aspects[titleset_index];
             for menu in &mut titleset.menus {
-                menu.migrate_to_document(MenuDomain::Titleset, standard);
+                menu.migrate_to_document(MenuDomain::Titleset, standard, display_aspect);
+                menu.ensure_authored_compile_defaults(display_aspect);
             }
         }
+    }
+
+    pub fn inferred_vmgm_menu_aspect(&self) -> AspectMode {
+        self.disc
+            .titlesets
+            .iter()
+            .flat_map(|titleset| titleset.titles.iter())
+            .find_map(|title| title.video_output_profile.map(|profile| profile.aspect))
+            .unwrap_or(AspectMode::SixteenByNine)
+    }
+
+    pub fn inferred_titleset_menu_aspect(&self, titleset_index: usize) -> AspectMode {
+        self.disc
+            .titlesets
+            .get(titleset_index)
+            .and_then(|titleset| {
+                titleset
+                    .titles
+                    .iter()
+                    .find_map(|title| title.video_output_profile.map(|profile| profile.aspect))
+            })
+            .unwrap_or_else(|| self.inferred_vmgm_menu_aspect())
     }
 }
 
@@ -399,7 +428,12 @@ impl Default for Menu {
 impl Menu {
     /// Lift a legacy menu into the new authored document format.
     /// This is used during migration to ensure old projects can be edited in the new scene editor.
-    pub fn migrate_to_document(&mut self, domain: MenuDomain, standard: VideoStandard) {
+    pub fn migrate_to_document(
+        &mut self,
+        domain: MenuDomain,
+        standard: VideoStandard,
+        display_aspect: AspectMode,
+    ) {
         if self.authored_document.is_some() {
             return;
         }
@@ -472,10 +506,61 @@ impl Menu {
             theme_ref: None,
             generation_meta: None,
             compile_policy: MenuCompilePolicy {
+                display_aspect: Some(display_aspect),
                 safe_area_mode: SafeAreaMode::ActionSafe,
                 palette_strategy: PaletteStrategy::Auto,
             },
         });
+    }
+
+    pub fn ensure_authored_compile_defaults(&mut self, display_aspect: AspectMode) {
+        if let Some(doc) = &mut self.authored_document {
+            if doc.compile_policy.display_aspect.is_none() {
+                doc.compile_policy.display_aspect = Some(display_aspect);
+            }
+        }
+    }
+
+    pub fn resolved_background_asset_id(&self) -> Option<&str> {
+        self.authored_document
+            .as_ref()
+            .and_then(|doc| doc.scene.background.asset_id.as_deref())
+            .or(self.background_asset_id.as_deref())
+    }
+
+    pub fn resolved_background_mode(&self) -> BackgroundMode {
+        self.authored_document
+            .as_ref()
+            .map(|doc| doc.background_mode)
+            .unwrap_or(self.background_mode)
+    }
+
+    pub fn resolved_motion_duration_secs(&self) -> Option<f64> {
+        self.authored_document
+            .as_ref()
+            .map(|doc| doc.timing.loop_duration_secs)
+            .or(self.motion_duration_secs)
+    }
+
+    pub fn resolved_motion_loop_start_secs(&self) -> Option<f64> {
+        self.authored_document
+            .as_ref()
+            .map(|doc| doc.timing.loop_start_secs)
+            .or_else(|| (self.background_mode == BackgroundMode::Motion).then_some(0.0))
+    }
+
+    pub fn resolved_motion_audio_asset_id(&self) -> Option<&str> {
+        self.motion_audio_asset_id.as_deref()
+    }
+
+    pub fn authored_display_aspect(&self) -> Option<AspectMode> {
+        self.authored_document
+            .as_ref()
+            .and_then(|doc| doc.compile_policy.display_aspect)
+    }
+
+    pub fn resolved_display_aspect(&self, fallback: AspectMode) -> AspectMode {
+        self.authored_display_aspect().unwrap_or(fallback)
     }
 }
 
@@ -688,6 +773,7 @@ pub struct MenuGenerationMeta {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MenuCompilePolicy {
+    pub display_aspect: Option<AspectMode>,
     pub safe_area_mode: SafeAreaMode,
     pub palette_strategy: PaletteStrategy,
 }
@@ -695,6 +781,7 @@ pub struct MenuCompilePolicy {
 impl Default for MenuCompilePolicy {
     fn default() -> Self {
         Self {
+            display_aspect: None,
             safe_area_mode: SafeAreaMode::ActionSafe,
             palette_strategy: PaletteStrategy::Auto,
         }
@@ -1469,7 +1556,11 @@ mod tests {
             authored_document: None,
         };
 
-        menu.migrate_to_document(MenuDomain::Vmgm, VideoStandard::Ntsc);
+        menu.migrate_to_document(
+            MenuDomain::Vmgm,
+            VideoStandard::Ntsc,
+            AspectMode::FourByThree,
+        );
 
         let doc = menu.authored_document.expect("should have migrated");
         assert_eq!(doc.id, "menu-1");
@@ -1501,6 +1592,10 @@ mod tests {
         assert_eq!(doc.interaction.nodes.len(), 1);
         assert_eq!(doc.interaction.nodes[0].node_id, "btn-1");
         assert_eq!(doc.timing.loop_duration_secs, 10.0);
+        assert_eq!(
+            doc.compile_policy.display_aspect,
+            Some(AspectMode::FourByThree)
+        );
     }
 
     #[test]
@@ -1630,6 +1725,7 @@ mod tests {
 
         assert_eq!(doc.timing.intro_start_secs, 0.0);
         assert_eq!(doc.timing.loop_start_secs, 0.0);
+        assert_eq!(doc.compile_policy.display_aspect, None);
 
         match &doc.scene.nodes[0] {
             SceneNode::Button {
@@ -1772,5 +1868,69 @@ mod tests {
             }
             other => panic!("expected button node, found {other:?}"),
         }
+    }
+
+    #[test]
+    fn migrate_all_menus_backfills_display_aspect_on_legacy_authored_documents() {
+        let mut project = SpindleProjectFile::default();
+        project.disc.titlesets[0].titles.push(Title {
+            id: "title-1".to_string(),
+            name: "Feature".to_string(),
+            source_asset_id: None,
+            video_mapping: None,
+            video_output_profile: Some(VideoOutputProfile {
+                raster: VideoRaster::FullD1,
+                aspect: AspectMode::FourByThree,
+            }),
+            audio_mappings: vec![],
+            subtitle_mappings: vec![],
+            chapters: vec![],
+            end_action: None,
+            order_index: 0,
+        });
+        project.disc.titlesets[0].menus.push(Menu {
+            id: "menu-1".to_string(),
+            name: "Main Menu".to_string(),
+            authored_document: Some(MenuDocument {
+                id: "menu-1".to_string(),
+                name: "Main Menu".to_string(),
+                domain: MenuDomain::Titleset,
+                scene: MenuScene {
+                    design_size: MenuSize {
+                        width: 720.0,
+                        height: 480.0,
+                    },
+                    background: SceneBackground {
+                        asset_id: None,
+                        colour: Some("#101014".to_string()),
+                    },
+                    nodes: vec![],
+                    guides: vec![],
+                },
+                interaction: MenuInteractionGraph {
+                    default_focus_id: None,
+                    nodes: vec![],
+                    timeout_action: None,
+                },
+                timing: MenuTiming::default(),
+                highlight_colours: MenuHighlightColours::default(),
+                background_mode: BackgroundMode::Still,
+                theme_ref: None,
+                generation_meta: None,
+                compile_policy: MenuCompilePolicy::default(),
+            }),
+            ..Menu::default()
+        });
+
+        project.migrate_all_menus();
+
+        let doc = project.disc.titlesets[0].menus[0]
+            .authored_document
+            .as_ref()
+            .expect("menu should retain authored document");
+        assert_eq!(
+            doc.compile_policy.display_aspect,
+            Some(AspectMode::FourByThree)
+        );
     }
 }

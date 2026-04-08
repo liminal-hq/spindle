@@ -334,9 +334,13 @@ impl<R: Runtime> SpindleProject<R> {
             .global_menus
             .iter()
             .map(|m| (m, None))
-            .chain(project.disc.titlesets.iter().flat_map(|ts| {
-                ts.menus.iter().map(move |m| (m, Some(ts)))
-            }))
+            .chain(
+                project
+                    .disc
+                    .titlesets
+                    .iter()
+                    .flat_map(|ts| ts.menus.iter().map(move |m| (m, Some(ts)))),
+            )
             .collect();
 
         let all_menu_ids: std::collections::HashSet<&str> =
@@ -351,6 +355,11 @@ impl<R: Runtime> SpindleProject<R> {
 
         for (menu, titleset_opt) in &all_menus {
             let stream_counts = titleset_opt.map(|ts| titleset_stream_counts(ts));
+            let background_mode = menu.resolved_background_mode();
+            let motion_duration_secs = menu.resolved_motion_duration_secs();
+            let motion_loop_start_secs = menu.resolved_motion_loop_start_secs();
+            let background_asset_id = menu.resolved_background_asset_id();
+            let motion_audio_asset_id = menu.resolved_motion_audio_asset_id();
 
             // Hard limit: 36 buttons per menu (DVD spec limit for most players/configurations)
             if menu.buttons.len() > 36 {
@@ -572,7 +581,161 @@ impl<R: Runtime> SpindleProject<R> {
                     }
                 }
             }
+
+            if matches!(background_mode, BackgroundMode::Motion) {
+                issues.push(ValidationIssue {
+                    severity: IssueSeverity::Warning,
+                    code: "menu.motion-build-pending".to_string(),
+                    message: format!(
+                        "Menu \"{}\" is authored as a motion menu, but the backend still blocks motion-menu builds until video-loop authoring is implemented.",
+                        menu.name
+                    ),
+                    context: Some(menu.id.clone()),
+                    entity_type: Some("menu".to_string()),
+                    entity_name: Some(menu.name.clone()),
+                    suggested_fix: Some(
+                        "Keep authoring the motion timing and assets, but switch this menu back to still mode before building for now.".to_string(),
+                    ),
+                });
+
+                if background_asset_id.is_none() {
+                    issues.push(ValidationIssue {
+                        severity: IssueSeverity::Error,
+                        code: "menu.motion-missing-background".to_string(),
+                        message: format!(
+                            "Motion menu \"{}\" has no background video asset assigned.",
+                            menu.name
+                        ),
+                        context: Some(menu.id.clone()),
+                        entity_type: Some("menu".to_string()),
+                        entity_name: Some(menu.name.clone()),
+                        suggested_fix: Some(
+                            "Assign a video-backed background asset before enabling motion mode."
+                                .to_string(),
+                        ),
+                    });
+                } else if let Some(asset_id) = background_asset_id {
+                    if let Some(asset) = asset_map.get(asset_id) {
+                        if asset.video_streams.is_empty() {
+                            issues.push(ValidationIssue {
+                                severity: IssueSeverity::Error,
+                                code: "menu.motion-background-no-video-stream".to_string(),
+                                message: format!(
+                                    "Motion menu \"{}\" uses a background asset that has no video stream.",
+                                    menu.name
+                                ),
+                                context: Some(menu.id.clone()),
+                                entity_type: Some("menu".to_string()),
+                                entity_name: Some(menu.name.clone()),
+                                suggested_fix: Some(
+                                    "Choose a source asset with a video stream for the motion background."
+                                        .to_string(),
+                                ),
+                            });
+                        } else if motion_audio_asset_id.is_none() && asset.audio_streams.is_empty()
+                        {
+                            issues.push(ValidationIssue {
+                                severity: IssueSeverity::Warning,
+                                code: "menu.motion-no-audio-bed".to_string(),
+                                message: format!(
+                                    "Motion menu \"{}\" has no authored audio bed, and its background video asset does not carry audio either.",
+                                    menu.name
+                                ),
+                                context: Some(menu.id.clone()),
+                                entity_type: Some("menu".to_string()),
+                                entity_name: Some(menu.name.clone()),
+                                suggested_fix: Some(
+                                    "Assign a separate motion audio asset or choose a background video with usable audio."
+                                        .to_string(),
+                                ),
+                            });
+                        }
+                    }
+                }
+
+                if !motion_duration_secs.is_some_and(|secs| secs > 0.0) {
+                    issues.push(ValidationIssue {
+                        severity: IssueSeverity::Error,
+                        code: "menu.motion-invalid-duration".to_string(),
+                        message: format!(
+                            "Motion menu \"{}\" needs a loop duration greater than 0 seconds.",
+                            menu.name
+                        ),
+                        context: Some(menu.id.clone()),
+                        entity_type: Some("menu".to_string()),
+                        entity_name: Some(menu.name.clone()),
+                        suggested_fix: Some(
+                            "Set an explicit motion loop duration in the menu inspector."
+                                .to_string(),
+                        ),
+                    });
+                }
+
+                if motion_loop_start_secs.is_some_and(|secs| secs <= 0.0) {
+                    issues.push(ValidationIssue {
+                        severity: IssueSeverity::Warning,
+                        code: "menu.motion-loop-start-default".to_string(),
+                        message: format!(
+                            "Motion menu \"{}\" still uses a loop start time of 0.0 seconds, which causes a visible restart cut on each loop.",
+                            menu.name
+                        ),
+                        context: Some(menu.id.clone()),
+                        entity_type: Some("menu".to_string()),
+                        entity_name: Some(menu.name.clone()),
+                        suggested_fix: Some(
+                            "Set a loop start time after the intro segment so the loop can re-enter cleanly."
+                                .to_string(),
+                        ),
+                    });
+                }
+
+                if let Some(audio_asset_id) = motion_audio_asset_id {
+                    if !asset_ids.contains(audio_asset_id) {
+                        issues.push(ValidationIssue {
+                            severity: IssueSeverity::Error,
+                            code: "menu.motion-audio-dangling".to_string(),
+                            message: format!(
+                                "Motion menu \"{}\" references an audio asset that no longer exists.",
+                                menu.name
+                            ),
+                            context: Some(menu.id.clone()),
+                            entity_type: Some("menu".to_string()),
+                            entity_name: Some(menu.name.clone()),
+                            suggested_fix: Some(
+                                "Choose another audio asset or clear the motion audio assignment."
+                                    .to_string(),
+                            ),
+                        });
+                    } else if let Some(asset) = asset_map.get(audio_asset_id) {
+                        if asset.audio_streams.is_empty() {
+                            issues.push(ValidationIssue {
+                                severity: IssueSeverity::Error,
+                                code: "menu.motion-audio-no-stream".to_string(),
+                                message: format!(
+                                    "Motion menu \"{}\" uses an audio asset that has no audio stream.",
+                                    menu.name
+                                ),
+                                context: Some(menu.id.clone()),
+                                entity_type: Some("menu".to_string()),
+                                entity_name: Some(menu.name.clone()),
+                                suggested_fix: Some(
+                                    "Pick an asset with at least one audio stream for the motion bed."
+                                        .to_string(),
+                                ),
+                            });
+                        }
+                    }
+                }
+            }
+
+            validate_button_video_usage(menu, background_mode, &asset_map, &mut issues);
+
+            if let Some(doc) = &menu.authored_document {
+                validate_motion_keyframes(doc, menu, motion_duration_secs, &mut issues);
+            }
         }
+
+        validate_menu_aspect_sections(project, &mut issues);
 
         // ── Titleset format mismatch checks ─────────────────────────────
 
@@ -735,6 +898,246 @@ fn validate_scene_nodes(
             }
             _ => {}
         }
+    }
+}
+
+fn validate_button_video_usage(
+    menu: &Menu,
+    background_mode: BackgroundMode,
+    asset_map: &std::collections::HashMap<&str, &Asset>,
+    issues: &mut Vec<ValidationIssue>,
+) {
+    for button in &menu.buttons {
+        if let Some(asset_id) = button.video_asset_id.as_deref() {
+            if matches!(background_mode, BackgroundMode::Still) {
+                issues.push(ValidationIssue {
+                    severity: IssueSeverity::Warning,
+                    code: "menu.button-video-ignored-on-still-menu".to_string(),
+                    message: format!(
+                        "Button \"{}\" in menu \"{}\" has a video asset, but button video is ignored while the menu is authored as still.",
+                        button.label, menu.name
+                    ),
+                    context: Some(menu.id.clone()),
+                    entity_type: Some("menu".to_string()),
+                    entity_name: Some(menu.name.clone()),
+                    suggested_fix: Some(
+                        "Switch the menu to motion mode or clear the button video assignment."
+                            .to_string(),
+                    ),
+                });
+            }
+
+            if let Some(asset) = asset_map.get(asset_id) {
+                if asset.video_streams.is_empty() {
+                    issues.push(ValidationIssue {
+                        severity: IssueSeverity::Error,
+                        code: "menu.button-video-no-stream".to_string(),
+                        message: format!(
+                            "Button \"{}\" in menu \"{}\" uses a video asset that has no video stream.",
+                            button.label, menu.name
+                        ),
+                        context: Some(menu.id.clone()),
+                        entity_type: Some("menu".to_string()),
+                        entity_name: Some(menu.name.clone()),
+                        suggested_fix: Some(
+                            "Choose an asset with a video stream for the button video."
+                                .to_string(),
+                        ),
+                    });
+                }
+            }
+        }
+    }
+}
+
+fn validate_motion_keyframes(
+    doc: &MenuDocument,
+    menu: &Menu,
+    motion_duration_secs: Option<f64>,
+    issues: &mut Vec<ValidationIssue>,
+) {
+    if !matches!(doc.background_mode, BackgroundMode::Motion) {
+        return;
+    }
+
+    let Some(loop_duration_secs) = motion_duration_secs else {
+        return;
+    };
+
+    for node in &doc.scene.nodes {
+        validate_motion_keyframes_in_node(node, menu, loop_duration_secs, issues);
+    }
+}
+
+fn validate_motion_keyframes_in_node(
+    node: &SceneNode,
+    menu: &Menu,
+    loop_duration_secs: f64,
+    issues: &mut Vec<ValidationIssue>,
+) {
+    match node {
+        SceneNode::Button {
+            id,
+            label,
+            highlight_mode,
+            highlight_keyframes,
+            ..
+        } if matches!(highlight_mode, HighlightMode::Animated) => {
+            let mut previous_timestamp = None;
+            for keyframe in highlight_keyframes {
+                if !(0.0..=loop_duration_secs).contains(&keyframe.timestamp_secs) {
+                    issues.push(ValidationIssue {
+                        severity: IssueSeverity::Error,
+                        code: "menu.motion-keyframe-out-of-range".to_string(),
+                        message: format!(
+                            "Animated highlight keyframe for button \"{}\" in menu \"{}\" falls outside the motion loop ({} s).",
+                            label, menu.name, loop_duration_secs
+                        ),
+                        context: Some(menu.id.clone()),
+                        entity_type: Some("menu".to_string()),
+                        entity_name: Some(menu.name.clone()),
+                        suggested_fix: Some(
+                            "Move the keyframe inside the authored motion loop duration."
+                                .to_string(),
+                        ),
+                    });
+                }
+
+                if previous_timestamp.is_some_and(|previous| keyframe.timestamp_secs < previous) {
+                    issues.push(ValidationIssue {
+                        severity: IssueSeverity::Error,
+                        code: "menu.motion-keyframes-out-of-order".to_string(),
+                        message: format!(
+                            "Animated highlight keyframes for button \"{}\" in menu \"{}\" are not in chronological order.",
+                            label, menu.name
+                        ),
+                        context: Some(menu.id.clone()),
+                        entity_type: Some("menu".to_string()),
+                        entity_name: Some(menu.name.clone()),
+                        suggested_fix: Some(
+                            "Sort the keyframes by timestamp so the motion loop can be interpreted deterministically."
+                                .to_string(),
+                        ),
+                    });
+                    break;
+                }
+
+                previous_timestamp = Some(keyframe.timestamp_secs);
+            }
+
+            if highlight_keyframes.is_empty() {
+                issues.push(ValidationIssue {
+                    severity: IssueSeverity::Warning,
+                    code: "menu.motion-animated-button-no-keyframes".to_string(),
+                    message: format!(
+                        "Button \"{}\" in menu \"{}\" is marked animated, but it has no highlight keyframes yet.",
+                        label, menu.name
+                    ),
+                    context: Some(menu.id.clone()),
+                    entity_type: Some("menu".to_string()),
+                    entity_name: Some(menu.name.clone()),
+                    suggested_fix: Some(
+                        "Add at least one highlight keyframe or switch the button back to static highlights."
+                            .to_string(),
+                    ),
+                });
+            }
+        }
+        SceneNode::Group { children, .. } => {
+            for child in children {
+                validate_motion_keyframes_in_node(child, menu, loop_duration_secs, issues);
+            }
+        }
+        _ => {}
+    }
+}
+
+fn validate_menu_aspect_sections(project: &SpindleProjectFile, issues: &mut Vec<ValidationIssue>) {
+    validate_menu_aspect_section(
+        project.disc.global_menus.iter(),
+        project.inferred_vmgm_menu_aspect(),
+        "disc-global menus",
+        None,
+        issues,
+    );
+
+    for (titleset_index, titleset) in project.disc.titlesets.iter().enumerate() {
+        let titleset_profile_aspect = titleset
+            .titles
+            .iter()
+            .find_map(|title| title.video_output_profile.map(|profile| profile.aspect));
+        validate_menu_aspect_section(
+            titleset.menus.iter(),
+            project.inferred_titleset_menu_aspect(titleset_index),
+            &format!("titleset \"{}\" menus", titleset.name),
+            titleset_profile_aspect.map(|aspect| (&titleset.id[..], &titleset.name[..], aspect)),
+            issues,
+        );
+    }
+}
+
+fn validate_menu_aspect_section<'a>(
+    menus: impl Iterator<Item = &'a Menu>,
+    fallback_aspect: AspectMode,
+    scope_name: &str,
+    titleset_context: Option<(&str, &str, AspectMode)>,
+    issues: &mut Vec<ValidationIssue>,
+) {
+    let mut authored_aspect = None;
+    for menu in menus {
+        let resolved_aspect = menu.resolved_display_aspect(fallback_aspect);
+        if let Some(section_aspect) = authored_aspect {
+            if resolved_aspect != section_aspect {
+                issues.push(ValidationIssue {
+                    severity: IssueSeverity::Error,
+                    code: "menu.section-aspect-mismatch".to_string(),
+                    message: format!(
+                        "Menus in {} do not agree on one authored display aspect. DVD authoring currently needs one menu aspect per section.",
+                        scope_name
+                    ),
+                    context: Some(menu.id.clone()),
+                    entity_type: Some("menu".to_string()),
+                    entity_name: Some(menu.name.clone()),
+                    suggested_fix: Some(
+                        "Align the authored menu aspects inside this section, or move the mismatched menu into a different DVD section."
+                            .to_string(),
+                    ),
+                });
+                break;
+            }
+        } else {
+            authored_aspect = Some(resolved_aspect);
+        }
+
+        if let Some((titleset_id, titleset_name, profile_aspect)) = titleset_context {
+            if resolved_aspect != profile_aspect {
+                issues.push(ValidationIssue {
+                    severity: IssueSeverity::Warning,
+                    code: "menu.titleset-aspect-mismatch".to_string(),
+                    message: format!(
+                        "Menu \"{}\" is authored for {}, but titleset \"{}\" currently resolves to {} from its title profiles.",
+                        menu.name,
+                        aspect_label(resolved_aspect),
+                        titleset_name,
+                        aspect_label(profile_aspect),
+                    ),
+                    context: Some(titleset_id.to_string()),
+                    entity_type: Some("titleset".to_string()),
+                    entity_name: Some(titleset_name.to_string()),
+                    suggested_fix: Some(
+                        "Keep the authored menu aspect only if the titleset genuinely needs a different display shape; otherwise align it with the titleset titles."
+                            .to_string(),
+                    ),
+                });
+            }
+        }
+    }
+}
+
+fn aspect_label(aspect: AspectMode) -> &'static str {
+    match aspect {
+        AspectMode::FourByThree => "4:3",
+        AspectMode::SixteenByNine => "16:9 anamorphic",
     }
 }
 
@@ -918,12 +1321,22 @@ fn validate_action(
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     use crate::models::{
-        AudioOutputTarget, AudioTrackMapping, ChapterPoint, CopyMode, Disc, IssueSeverity,
-        PlaybackAction, SubtitleTrackMapping, Title, Titleset, VideoStandard,
+        AspectMode, Asset, AudioOutputTarget, AudioTrackMapping, BackgroundMode, ButtonBounds,
+        ChapterPoint, CompatibilityAssessment, CopyMode, Disc, HighlightKeyframe, HighlightMode,
+        IssueSeverity, Menu, MenuButton, MenuCompilePolicy, MenuDocument, MenuDomain,
+        MenuHighlightColours, MenuInteractionGraph, MenuScene, MenuSize, MenuTiming,
+        PlaybackAction, SceneBackground, SceneNode, SubtitleTrackMapping, Title, Titleset,
+        VideoStandard,
     };
 
-    use super::{chapter_target_exists, dangling_play_chapter_issue, titleset_stream_counts, validate_action};
+    use super::{
+        chapter_target_exists, dangling_play_chapter_issue, titleset_stream_counts,
+        validate_action, validate_button_video_usage, validate_menu_aspect_section,
+        validate_motion_keyframes,
+    };
 
     #[test]
     fn chapter_target_exists_requires_matching_title_and_chapter() {
@@ -1116,10 +1529,8 @@ mod tests {
     #[test]
     fn set_audio_stream_without_titleset_context_skips_validation() {
         // Global menu — no stream_counts available, validation must not fire.
-        let issues = run_stream_action_validation(
-            PlaybackAction::SetAudioStream { stream_index: 99 },
-            None,
-        );
+        let issues =
+            run_stream_action_validation(PlaybackAction::SetAudioStream { stream_index: 99 }, None);
         assert!(issues.is_empty());
     }
 
@@ -1178,5 +1589,219 @@ mod tests {
             None,
         );
         assert!(issues.is_empty());
+    }
+
+    #[test]
+    fn validate_menu_aspect_section_reports_mixed_authored_aspects() {
+        let menu_a = Menu {
+            id: "menu-a".to_string(),
+            name: "Menu A".to_string(),
+            authored_document: Some(MenuDocument {
+                id: "menu-a".to_string(),
+                name: "Menu A".to_string(),
+                domain: MenuDomain::Vmgm,
+                scene: MenuScene {
+                    design_size: MenuSize {
+                        width: 720.0,
+                        height: 480.0,
+                    },
+                    background: SceneBackground {
+                        asset_id: None,
+                        colour: None,
+                    },
+                    nodes: vec![],
+                    guides: vec![],
+                },
+                interaction: MenuInteractionGraph {
+                    default_focus_id: None,
+                    nodes: vec![],
+                    timeout_action: None,
+                },
+                timing: MenuTiming::default(),
+                highlight_colours: MenuHighlightColours::default(),
+                background_mode: BackgroundMode::Still,
+                theme_ref: None,
+                generation_meta: None,
+                compile_policy: MenuCompilePolicy {
+                    display_aspect: Some(AspectMode::FourByThree),
+                    ..MenuCompilePolicy::default()
+                },
+            }),
+            ..Menu::default()
+        };
+        let menu_b = Menu {
+            id: "menu-b".to_string(),
+            name: "Menu B".to_string(),
+            authored_document: Some(MenuDocument {
+                id: "menu-b".to_string(),
+                name: "Menu B".to_string(),
+                domain: MenuDomain::Vmgm,
+                scene: MenuScene {
+                    design_size: MenuSize {
+                        width: 720.0,
+                        height: 480.0,
+                    },
+                    background: SceneBackground {
+                        asset_id: None,
+                        colour: None,
+                    },
+                    nodes: vec![],
+                    guides: vec![],
+                },
+                interaction: MenuInteractionGraph {
+                    default_focus_id: None,
+                    nodes: vec![],
+                    timeout_action: None,
+                },
+                timing: MenuTiming::default(),
+                highlight_colours: MenuHighlightColours::default(),
+                background_mode: BackgroundMode::Still,
+                theme_ref: None,
+                generation_meta: None,
+                compile_policy: MenuCompilePolicy {
+                    display_aspect: Some(AspectMode::SixteenByNine),
+                    ..MenuCompilePolicy::default()
+                },
+            }),
+            ..Menu::default()
+        };
+
+        let mut issues = Vec::new();
+        validate_menu_aspect_section(
+            [&menu_a, &menu_b].into_iter(),
+            AspectMode::SixteenByNine,
+            "disc-global menus",
+            None,
+            &mut issues,
+        );
+
+        assert_eq!(issues.len(), 1);
+        assert_eq!(issues[0].code, "menu.section-aspect-mismatch");
+    }
+
+    #[test]
+    fn validate_motion_keyframes_flags_out_of_range_entries() {
+        let menu = Menu {
+            id: "menu-1".to_string(),
+            name: "Motion Menu".to_string(),
+            authored_document: Some(MenuDocument {
+                id: "menu-1".to_string(),
+                name: "Motion Menu".to_string(),
+                domain: MenuDomain::Vmgm,
+                scene: MenuScene {
+                    design_size: MenuSize {
+                        width: 720.0,
+                        height: 480.0,
+                    },
+                    background: SceneBackground {
+                        asset_id: Some("asset-1".to_string()),
+                        colour: None,
+                    },
+                    nodes: vec![SceneNode::Button {
+                        id: "btn-1".to_string(),
+                        label: "Play".to_string(),
+                        x: 0.0,
+                        y: 0.0,
+                        width: 100.0,
+                        height: 40.0,
+                        highlight_mode: HighlightMode::Animated,
+                        highlight_keyframes: vec![HighlightKeyframe {
+                            timestamp_secs: 9.0,
+                            select_colour: None,
+                            select_opacity: None,
+                            activate_colour: None,
+                            activate_opacity: None,
+                        }],
+                        video_asset_id: None,
+                        button_style: None,
+                        label_style: None,
+                    }],
+                    guides: vec![],
+                },
+                interaction: MenuInteractionGraph {
+                    default_focus_id: None,
+                    nodes: vec![],
+                    timeout_action: None,
+                },
+                timing: MenuTiming {
+                    intro_start_secs: 0.0,
+                    intro_duration_secs: 0.0,
+                    loop_start_secs: 2.0,
+                    loop_duration_secs: 5.0,
+                    loop_count: 0,
+                },
+                highlight_colours: MenuHighlightColours::default(),
+                background_mode: BackgroundMode::Motion,
+                theme_ref: None,
+                generation_meta: None,
+                compile_policy: MenuCompilePolicy::default(),
+            }),
+            ..Menu::default()
+        };
+
+        let mut issues = Vec::new();
+        validate_motion_keyframes(
+            menu.authored_document.as_ref().expect("authored doc"),
+            &menu,
+            Some(5.0),
+            &mut issues,
+        );
+
+        assert_eq!(issues.len(), 1);
+        assert_eq!(issues[0].code, "menu.motion-keyframe-out-of-range");
+    }
+
+    #[test]
+    fn validate_button_video_usage_warns_for_still_menus() {
+        let menu = Menu {
+            id: "menu-1".to_string(),
+            name: "Still Menu".to_string(),
+            buttons: vec![MenuButton {
+                id: "btn-1".to_string(),
+                label: "Play".to_string(),
+                bounds: ButtonBounds {
+                    x: 0.0,
+                    y: 0.0,
+                    width: 100.0,
+                    height: 40.0,
+                },
+                action: None,
+                nav_up: None,
+                nav_down: None,
+                nav_left: None,
+                nav_right: None,
+                highlight_mode: HighlightMode::Static,
+                highlight_keyframes: vec![],
+                video_asset_id: Some("asset-1".to_string()),
+            }],
+            ..Menu::default()
+        };
+        let asset = Asset {
+            id: "asset-1".to_string(),
+            file_name: "clip.mp4".to_string(),
+            source_path: "/tmp/clip.mp4".to_string(),
+            file_size_bytes: None,
+            duration_secs: None,
+            container_format: None,
+            video_streams: vec![],
+            audio_streams: vec![],
+            subtitle_streams: vec![],
+            compatibility: Some(CompatibilityAssessment::ReEncodeRequired),
+            compatibility_detail: None,
+            fingerprint: None,
+            warnings: vec![],
+            thumbnail_path: None,
+            thumbnail_error: None,
+            source_chapters: vec![],
+            format_title: None,
+        };
+
+        let asset_map: HashMap<&str, &Asset> = HashMap::from([("asset-1", &asset)]);
+        let mut issues = Vec::new();
+        validate_button_video_usage(&menu, BackgroundMode::Still, &asset_map, &mut issues);
+
+        assert_eq!(issues.len(), 2);
+        assert_eq!(issues[0].code, "menu.button-video-ignored-on-still-menu");
+        assert_eq!(issues[1].code, "menu.button-video-no-stream");
     }
 }

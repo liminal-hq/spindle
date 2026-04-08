@@ -33,11 +33,7 @@ impl<'a> AuthorableMenuRef<'a> {
     }
 
     pub(crate) fn background_asset_id(&self) -> Option<&str> {
-        self.menu
-            .authored_document
-            .as_ref()
-            .and_then(|doc| doc.scene.background.asset_id.as_deref())
-            .or(self.menu.background_asset_id.as_deref())
+        self.menu.resolved_background_asset_id()
     }
 
     pub(crate) fn highlight_colours(&self) -> &MenuHighlightColours {
@@ -50,11 +46,7 @@ impl<'a> AuthorableMenuRef<'a> {
 
     #[allow(dead_code)]
     pub(crate) fn background_mode(&self) -> BackgroundMode {
-        self.menu
-            .authored_document
-            .as_ref()
-            .map(|doc| doc.background_mode)
-            .unwrap_or(self.menu.background_mode)
+        self.menu.resolved_background_mode()
     }
 
     #[allow(dead_code)]
@@ -68,11 +60,7 @@ impl<'a> AuthorableMenuRef<'a> {
 
     #[allow(dead_code)]
     pub(crate) fn motion_duration_secs(&self) -> Option<f64> {
-        self.menu
-            .authored_document
-            .as_ref()
-            .map(|doc| doc.timing.loop_duration_secs)
-            .or(self.menu.motion_duration_secs)
+        self.menu.resolved_motion_duration_secs()
     }
 
     #[allow(dead_code)]
@@ -82,6 +70,11 @@ impl<'a> AuthorableMenuRef<'a> {
             .as_ref()
             .map(|doc| doc.timing.loop_count)
             .unwrap_or(self.menu.motion_loop_count)
+    }
+
+    pub(crate) fn display_aspect(&self, project: &SpindleProjectFile) -> AspectMode {
+        let fallback = inferred_menu_output_aspect(project, self.domain);
+        self.menu.resolved_display_aspect(fallback)
     }
 
     pub(crate) fn buttons(&self) -> Vec<AuthorableButtonRef<'_>> {
@@ -191,26 +184,13 @@ pub(crate) fn authorable_menus(project: &SpindleProjectFile) -> Vec<AuthorableMe
     menus
 }
 
-pub(crate) fn menu_output_aspect(project: &SpindleProjectFile, domain: MenuDomain) -> AspectMode {
+pub(crate) fn inferred_menu_output_aspect(
+    project: &SpindleProjectFile,
+    domain: MenuDomain,
+) -> AspectMode {
     match domain {
-        MenuDomain::Vmgm => project
-            .disc
-            .titlesets
-            .iter()
-            .flat_map(|titleset| titleset.titles.iter())
-            .find_map(|title| title.video_output_profile.map(|profile| profile.aspect))
-            .unwrap_or(AspectMode::SixteenByNine),
-        MenuDomain::Titleset(index) => project
-            .disc
-            .titlesets
-            .get(index)
-            .and_then(|titleset| {
-                titleset
-                    .titles
-                    .iter()
-                    .find_map(|title| title.video_output_profile.map(|profile| profile.aspect))
-            })
-            .unwrap_or(AspectMode::SixteenByNine),
+        MenuDomain::Vmgm => project.inferred_vmgm_menu_aspect(),
+        MenuDomain::Titleset(index) => project.inferred_titleset_menu_aspect(index),
     }
 }
 
@@ -223,7 +203,7 @@ pub(crate) fn build_ffmpeg_menu_command(
     output_path: &Path,
 ) -> crate::Result<Vec<String>> {
     let (width, height) = VideoRaster::FullD1.resolution(standard);
-    let aspect = menu_output_aspect(project, menu_ref.domain);
+    let aspect = menu_ref.display_aspect(project);
     let (display_num, display_den) = output_display_aspect_ratio_parts(aspect);
     let sar = dvd_sample_aspect_ratio(width, height, display_num, display_den);
     let aspect_str = match aspect {
@@ -704,6 +684,10 @@ mod tests {
         assert_eq!(menu_ref.name(), "Authored Name");
         assert_eq!(menu_ref.background_asset_id(), Some("asset-authored"));
         assert_eq!(menu_ref.default_button_id(), Some("btn-authored"));
+        assert_eq!(
+            menu_ref.display_aspect(&SpindleProjectFile::default()),
+            AspectMode::SixteenByNine
+        );
 
         let buttons = menu_ref.buttons();
         assert_eq!(buttons.len(), 1);
@@ -816,5 +800,6 @@ mod tests {
 
         // Check for button (overlay box)
         assert!(cmd_str.contains("drawbox=x=100:y=150:w=200:h=40"));
+        assert!(cmd_str.contains("-aspect 16:9"));
     }
 }
