@@ -136,7 +136,7 @@ export interface SourceChapter {
 
 // ── Menus ───────────────────────────────────────────────────────────────────
 
-export type MenuEditorMode = 'design' | 'bind' | 'remote' | 'compile';
+export type MenuEditorMode = 'editor' | 'map' | 'design' | 'bind' | 'remote' | 'compile';
 export type BackgroundMode = 'still' | 'motion';
 export type HighlightMode = 'static' | 'animated';
 

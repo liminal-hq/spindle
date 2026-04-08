@@ -283,7 +283,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 	buildLog: [],
 	toolchain: [],
 	selectedMenuId: null,
-	menuEditorMode: 'design',
+	menuEditorMode: 'editor',
 	previewMode: false,
 	showSafeArea: true,
 	undoStack: [],
@@ -417,7 +417,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 			buildProgress: null,
 			buildLog: [],
 			selectedMenuId: null,
-			menuEditorMode: 'design',
+			menuEditorMode: 'editor',
 			undoStack: [],
 			redoStack: [],
 		});
