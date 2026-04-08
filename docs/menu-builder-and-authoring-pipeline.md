@@ -14,7 +14,7 @@ This note covers:
 - the menu-to-MPG and highlight-overlay pipeline
 - `dvdauthor` XML generation for menu video and button commands
 
-This note does not attempt to define a future motion-menu architecture in detail. Motion-menu fields already exist in the model, but the current authored pipeline is still centred on still backgrounds plus highlight overlays.
+This note does not attempt to define a future motion-menu architecture in detail. Motion-menu fields already exist in the model, and the current workspace now exposes reserved inspector controls for motion audio and loop settings, but the compiled authored pipeline is still centred on still backgrounds plus highlight overlays.
 
 ## Quick View
 
@@ -115,8 +115,8 @@ flowchart TD
 Those layers behave differently:
 
 - the visual canvas edits geometry
-- the property rows edit labels and actions
-- the preview reuses the same data but changes interaction mode
+- the inspector edits labels, actions, background selection, display-aspect preview, and authored style states
+- the preview reuses the same data but changes interaction mode and now surfaces authored button-state styling plus action chips
 
 ### 3. Menu actions are stored as playback actions
 

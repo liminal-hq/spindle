@@ -225,7 +225,7 @@
 
 .inspector-panel__grid-2 {
 	display: grid;
-	grid-template-columns: 1fr 1fr;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
 	gap: var(--space-2);
 }
 
@@ -236,6 +236,8 @@
 	color: var(--text-primary);
 	font-size: var(--text-xs);
 	padding: var(--space-1) var(--space-2);
+	width: 100%;
+	min-width: 0;
 }
 
 .inspector-panel__input:focus {
@@ -501,7 +503,7 @@
 	position: absolute;
 	display: flex;
 	align-items: center;
-	justify-content: center;
+	justify-content: flex-start;
 	background: rgba(255, 170, 64, 0.15);
 	border: 1px solid var(--brand-orange);
 	border-radius: var(--radius-sm);
@@ -512,11 +514,43 @@
 	user-select: none;
 	z-index: 2;
 	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
 	transition:
 		background var(--transition-base),
 		box-shadow var(--transition-base);
+}
+
+.scene-canvas__node-body {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 4px;
+	width: 100%;
+	min-width: 0;
+	padding: 6px 10px;
+}
+
+.scene-canvas__node-label {
+	display: block;
+	max-width: 100%;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.scene-canvas__node-chip {
+	display: inline-flex;
+	align-items: center;
+	max-width: 100%;
+	padding: 1px 6px;
+	border-radius: 999px;
+	background: rgba(24, 190, 154, 0.18);
+	color: #57d8bd;
+	font-size: 9px;
+	font-weight: 700;
+	letter-spacing: 0.04em;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .scene-canvas__node:hover {
@@ -996,12 +1030,32 @@
 	display: flex;
 	align-items: center;
 	gap: 4px;
+	min-width: 0;
 }
 
 .inspector-panel__unit {
 	font-size: 9px;
 	color: var(--text-muted);
 	flex-shrink: 0;
+}
+
+.inspector-panel__fieldset {
+	display: grid;
+	gap: var(--space-2);
+	padding: var(--space-2);
+	border-radius: var(--radius-sm);
+	background: rgba(255, 255, 255, 0.025);
+	border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.inspector-panel__fieldset--disabled {
+	opacity: 0.7;
+}
+
+.inspector-panel__actions-row {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--space-2);
 }
 
 /* ── Inspector: Style pill toggles ─────────────────────────────── */
@@ -1012,7 +1066,7 @@
 }
 
 .inspector-panel__style-pill {
-	width: 26px;
+	min-width: 26px;
 	height: 24px;
 	display: flex;
 	align-items: center;
@@ -1022,6 +1076,7 @@
 	background: none;
 	color: var(--text-muted);
 	font-size: var(--text-xs);
+	padding: 0 8px;
 	cursor: pointer;
 	transition: all var(--transition-base, 150ms ease);
 }

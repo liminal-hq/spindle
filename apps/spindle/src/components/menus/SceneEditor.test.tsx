@@ -227,6 +227,35 @@ describe('SceneCanvas', () => {
 		expect(screen.getByText('Chapters')).toBeTruthy();
 	});
 
+	it('shows action chips for button actions on the design canvas', () => {
+		render(
+			<SceneCanvas
+				buttons={[
+					{
+						...buttons[0],
+						action: { type: 'playTitle', titleId: 'title-1' },
+					},
+				]}
+				canvasHeight={480}
+				sceneNodes={[]}
+				onUpdateButton={vi.fn()}
+				onUpdateSceneNode={vi.fn()}
+				showSafeArea={false}
+				backgroundLabel={null}
+				backgroundColour={null}
+				defaultButtonId={null}
+				previewMode={false}
+				highlightColours={DEFAULT_HIGHLIGHT_COLOURS}
+				honestPreview={false}
+				showNavLines={false}
+				selectedNodeId={null}
+				onSelectNode={vi.fn()}
+			/>,
+		);
+
+		expect(screen.getByText('playTitle')).toBeTruthy();
+	});
+
 	it('applies selection class when a node is selected', () => {
 		render(
 			<SceneCanvas
@@ -381,6 +410,80 @@ describe('SceneCanvas', () => {
 		);
 
 		expect(screen.getByText(/arrow keys/i)).toBeTruthy();
+	});
+
+	it('applies the selected button preview state on the design canvas', () => {
+		const styledNode: SceneNode = {
+			type: 'button',
+			id: 'btn-1',
+			label: 'Play',
+			x: 100,
+			y: 300,
+			width: 200,
+			height: 40,
+			buttonStyle: {
+				normal: {
+					bgFill: 'rgba(255,255,255,0.04)',
+					borderColour: '#ffffff1f',
+					borderWidth: 1,
+					borderRadius: 6,
+					paddingH: 12,
+					paddingV: 0,
+					shadowType: 'none',
+					shadowColour: '#000000',
+					shadowBlur: 0,
+					shadowSpread: 0,
+				},
+				focus: {
+					bgFill: 'rgb(255, 0, 0)',
+					borderColour: '#ff0000',
+					borderWidth: 1,
+					borderRadius: 6,
+					paddingH: 12,
+					paddingV: 0,
+					shadowType: 'none',
+					shadowColour: '#000000',
+					shadowBlur: 0,
+					shadowSpread: 0,
+				},
+				activate: {
+					bgFill: 'rgb(0, 255, 0)',
+					borderColour: '#00ff00',
+					borderWidth: 1,
+					borderRadius: 6,
+					paddingH: 12,
+					paddingV: 0,
+					shadowType: 'none',
+					shadowColour: '#000000',
+					shadowBlur: 0,
+					shadowSpread: 0,
+				},
+			},
+		};
+
+		render(
+			<SceneCanvas
+				buttons={buttons}
+				canvasHeight={480}
+				sceneNodes={[styledNode]}
+				onUpdateButton={vi.fn()}
+				onUpdateSceneNode={vi.fn()}
+				showSafeArea={false}
+				backgroundLabel={null}
+				backgroundColour={null}
+				defaultButtonId={null}
+				previewMode={false}
+				highlightColours={DEFAULT_HIGHLIGHT_COLOURS}
+				honestPreview={false}
+				showNavLines={false}
+				selectedNodeId="btn-1"
+				onSelectNode={vi.fn()}
+				buttonPreviewState="focus"
+			/>,
+		);
+
+		const playNode = screen.getByText('Play').closest('.scene-canvas__node');
+		expect(playNode).toHaveStyle({ background: 'rgb(255, 0, 0)' });
 	});
 
 	it('deselects node when canvas background is clicked', () => {

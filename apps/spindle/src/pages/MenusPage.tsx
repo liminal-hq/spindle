@@ -4,9 +4,11 @@
 // SPDX-License-Identifier: MIT
 
 import { useState, useEffect, useMemo } from 'react';
+import type { CSSProperties } from 'react';
 import { useProjectStore } from '../store/project-store';
 import { useNavigation } from '../App';
 import type {
+	AspectMode,
 	ButtonStyleMap,
 	Menu,
 	MenuButton,
@@ -624,6 +626,11 @@ function MenuEditor({
 	const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
 	const [honestPreview, setHonestPreview] = useState(false);
 	const [showNavLines, setShowNavLines] = useState(false);
+	const [buttonPreviewState, setButtonPreviewState] = useState<'normal' | 'focus' | 'activate'>(
+		'normal',
+	);
+	const [canvasZoom, setCanvasZoom] = useState(100);
+	const [displayAspectOverride, setDisplayAspectOverride] = useState<AspectMode | null>(null);
 	const [activeTool, setActiveTool] = useState<'select' | 'button' | 'text' | 'image' | 'shape'>(
 		'select',
 	);
@@ -689,9 +696,16 @@ function MenuEditor({
 	const backgroundAssetLabel = backgroundAsset ? backgroundAsset.fileName : null;
 	const highlightColours = menu.authoredDocument?.highlightColours ?? menu.highlightColours;
 	const defaultFocusId = menu.authoredDocument?.interaction.defaultFocusId ?? menu.defaultButtonId;
+	const displayAspect = displayAspectOverride ?? inferMenuDisplayAspect(project, menu.id);
 
 	const selectedNode = sceneNodes.find((n) => n.id === selectedNodeId) ?? null;
 	const selectedButton = currentButtons.find((b) => b.id === selectedNodeId) ?? null;
+
+	useEffect(() => {
+		if (!selectedNode || selectedNode.type !== 'button') {
+			setButtonPreviewState('normal');
+		}
+	}, [selectedNode]);
 
 	// ── Node addition handlers
 
@@ -1054,6 +1068,62 @@ function MenuEditor({
 		});
 	};
 
+	const handleBackgroundModeChange = (mode: 'still' | 'motion') => {
+		onUpdate((m) => ({
+			...m,
+			backgroundMode: mode,
+			authoredDocument: m.authoredDocument
+				? {
+						...m.authoredDocument,
+						backgroundMode: mode,
+					}
+				: m.authoredDocument,
+		}));
+	};
+
+	const handleMotionAudioChange = (assetId: string | null) => {
+		onUpdate((m) => ({
+			...m,
+			motionAudioAssetId: assetId,
+		}));
+	};
+
+	const handleMotionDurationChange = (secs: number | null) => {
+		onUpdate((m) => ({
+			...m,
+			motionDurationSecs: secs,
+			authoredDocument: m.authoredDocument
+				? {
+						...m.authoredDocument,
+						timing: {
+							...m.authoredDocument.timing,
+							loopDurationSecs: secs ?? m.authoredDocument.timing.loopDurationSecs,
+						},
+					}
+				: m.authoredDocument,
+		}));
+	};
+
+	const handleMotionLoopCountChange = (count: number) => {
+		onUpdate((m) => ({
+			...m,
+			motionLoopCount: count,
+			authoredDocument: m.authoredDocument
+				? {
+						...m.authoredDocument,
+						timing: {
+							...m.authoredDocument.timing,
+							loopCount: count,
+						},
+					}
+				: m.authoredDocument,
+		}));
+	};
+
+	const zoomOut = () => setCanvasZoom((value) => Math.max(50, value - 10));
+	const zoomIn = () => setCanvasZoom((value) => Math.min(200, value + 10));
+	const resetZoom = () => setCanvasZoom(100);
+
 	return (
 		<section className="editor-area">
 			<div className={`editor-toolbar ${activeView === 'map' ? 'editor-toolbar--map' : ''}`}>
@@ -1074,6 +1144,8 @@ function MenuEditor({
 								<span>{currentButtons.length} buttons</span>
 								<span className="editor-toolbar__separator">|</span>
 								<span>{menuDomainLabel}</span>
+								<span className="editor-toolbar__separator">|</span>
+								<span>{displayAspect === 'sixteen-by-nine' ? '16:9 anamorphic' : '4:3 standard'}</span>
 								<span className="editor-toolbar__separator">|</span>
 								<span>
 									720 x {canvasHeight} {project.disc.standard}
@@ -1130,36 +1202,21 @@ function MenuEditor({
 								Nav Lines
 							</button>
 						</div>
-						<div className="editor-toolbar__background">
-							<span className="editor-toolbar__field-label">Background</span>
-							<select
-								className="editor-toolbar__select"
-								value={menu.backgroundAssetId ?? ''}
-								onChange={(e) => handleBackgroundChange(e.target.value || null)}
-								aria-label="Background asset"
+						<div className="editor-toolbar__zoom" role="group" aria-label="Canvas zoom">
+							<button className="editor-toolbar__zoom-btn" type="button" onClick={zoomOut} title="Zoom out">
+								−
+							</button>
+							<button
+								className="editor-toolbar__zoom-readout"
+								type="button"
+								onClick={resetZoom}
+								title="Reset zoom"
 							>
-								<option value="">Solid colour</option>
-								{project.assets
-									.filter(
-										(a) =>
-											a.videoStreams.length > 0 || a.fileName.match(/\.(png|jpg|jpeg|bmp|tiff?)$/i),
-									)
-									.map((a) => (
-										<option key={a.id} value={a.id}>
-											{a.fileName}
-										</option>
-									))}
-							</select>
-							{!menu.backgroundAssetId && (
-								<input
-									type="color"
-									className="editor-toolbar__colour-input"
-									value={menu.authoredDocument?.scene.background.colour ?? '#000000'}
-									onChange={(e) => handleBackgroundColourChange(e.target.value)}
-									title="Background colour"
-									aria-label="Background colour"
-								/>
-							)}
+								{canvasZoom}%
+							</button>
+							<button className="editor-toolbar__zoom-btn" type="button" onClick={zoomIn} title="Zoom in">
+								+
+							</button>
 						</div>
 						<div className="editor-toolbar__actions">
 							<button className="btn btn--sm btn--danger" onClick={onRemove}>
@@ -1263,23 +1320,30 @@ function MenuEditor({
 						<div className="menus__canvas-zone">
 							<div className="menus__stage-shell">
 								<div className="menus__stage-frame">
-									<SceneCanvas
-										buttons={currentButtons}
-										sceneNodes={sceneNodes}
-										canvasHeight={canvasHeight}
-										onUpdateButton={handleUpdateButton}
-										onUpdateSceneNode={handleUpdateSceneNode}
-										showSafeArea={showSafeArea}
-										backgroundLabel={backgroundAssetLabel}
-										backgroundColour={menu.authoredDocument?.scene.background.colour ?? null}
-										defaultButtonId={defaultFocusId}
-										previewMode={previewMode}
-										highlightColours={highlightColours}
-										honestPreview={honestPreview}
-										showNavLines={showNavLines}
-										selectedNodeId={selectedNodeId}
-										onSelectNode={setSelectedNodeId}
-									/>
+									<div
+										className="menus__canvas-scroll"
+										style={{ '--scene-zoom': `${canvasZoom / 100}` } as CSSProperties}
+									>
+										<SceneCanvas
+											buttons={currentButtons}
+											sceneNodes={sceneNodes}
+											canvasHeight={canvasHeight}
+											onUpdateButton={handleUpdateButton}
+											onUpdateSceneNode={handleUpdateSceneNode}
+											showSafeArea={showSafeArea}
+											backgroundLabel={backgroundAssetLabel}
+											backgroundColour={menu.authoredDocument?.scene.background.colour ?? null}
+											defaultButtonId={defaultFocusId}
+											previewMode={previewMode}
+											highlightColours={highlightColours}
+											honestPreview={honestPreview}
+											showNavLines={showNavLines}
+											selectedNodeId={selectedNodeId}
+											onSelectNode={setSelectedNodeId}
+											buttonPreviewState={buttonPreviewState}
+											displayAspect={displayAspect}
+										/>
+									</div>
 								</div>
 							</div>
 						</div>
@@ -1308,6 +1372,18 @@ function MenuEditor({
 							sceneNodes={sceneNodes}
 							selectedNodeId={selectedNodeId}
 							onSelectSceneNode={setSelectedNodeId}
+							menu={menu}
+							onUpdateBackgroundAsset={handleBackgroundChange}
+							onUpdateBackgroundColour={handleBackgroundColourChange}
+							onUpdateBackgroundMode={handleBackgroundModeChange}
+							onUpdateMotionAudioAsset={handleMotionAudioChange}
+							onUpdateMotionDurationSecs={handleMotionDurationChange}
+							onUpdateMotionLoopCount={handleMotionLoopCountChange}
+							onAutoNav={onAutoNav}
+							buttonPreviewState={buttonPreviewState}
+							onButtonPreviewStateChange={setButtonPreviewState}
+							displayAspect={displayAspect}
+							onDisplayAspectChange={setDisplayAspectOverride}
 						/>
 					</div>
 				</div>
@@ -1798,7 +1874,24 @@ function getMenuPreviewBlocks(menu: Menu): Array<{ x: number; y: number; width: 
 			x: clampPercent((button.x / designWidth) * 100, 6, 82),
 			y: clampPercent((button.y / designHeight) * 100, 12, 82),
 			width: clampPercent((button.width / designWidth) * 100, 18, 82),
-		}));
+	}));
+}
+
+function inferMenuDisplayAspect(project: SpindleProjectFile, menuId: string): AspectMode {
+	const titleset = project.disc.titlesets.find((entry) => entry.menus.some((menu) => menu.id === menuId));
+	if (titleset) {
+		return (
+			titleset.titles.find((title) => title.videoOutputProfile?.aspect)?.videoOutputProfile?.aspect ??
+			'four-by-three'
+		);
+	}
+
+	return (
+		project.disc.titlesets
+			.flatMap((entry) => entry.titles)
+			.find((title) => title.videoOutputProfile?.aspect)?.videoOutputProfile?.aspect ??
+		'four-by-three'
+	);
 }
 
 function getMenuPreviewBackground(menu: Menu): string {

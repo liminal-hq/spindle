@@ -802,6 +802,18 @@ The current editor already binds background choices to real project assets and r
 
 The prototype’s background section is richer, but it is still a mockup-level control surface.
 
+As of the current workspace pass, the right inspector now carries:
+
+- real asset-backed background selection
+- a still versus motion background mode toggle
+- reserved motion-audio, loop-duration, and loop-count controls
+- a display-aspect preview switch for 4:3 versus anamorphic 16:9 authoring review
+
+Those controls should be treated as:
+
+- implemented surface area for asset selection and authored preview
+- reserved control slots for motion-menu runtime behaviour that is still being completed in the backend
+
 ### Requirement
 
 Back the new background editor with:
@@ -810,6 +822,7 @@ Back the new background editor with:
 - asset validation
 - image versus video eligibility
 - audio compatibility checks
+- clear distinction between preview-only display simulation and compiled runtime guarantees
 
 ## 10. Compile Policy And Authored Metadata Are Not Visible Enough
 

@@ -17,6 +17,7 @@ import type {
 	ButtonStyleMap,
 	ButtonStateStyle,
 	TextStyle,
+	AspectMode,
 } from '../../types/project';
 import { LayersPanel } from './LayersPanel';
 
@@ -65,7 +66,7 @@ const DEFAULT_BUTTON_STYLE_MAP: ButtonStyleMap = {
 };
 
 const DEFAULT_TEXT_STYLE: TextStyle = {
-	fontFamily: 'Inter',
+	fontFamily: 'Space Grotesk',
 	fontSize: 14,
 	fontWeight: 'normal',
 	fontItalic: false,
@@ -114,6 +115,30 @@ export interface InspectorPanelProps {
 	canvasHeight?: number;
 	/** Set the default focus to a button. */
 	onSetDefaultFocus?: (buttonId: string) => void;
+	/** Current menu context for menu-level controls. */
+	menu?: Menu | null;
+	/** Update the menu background asset reference. */
+	onUpdateBackgroundAsset?: (assetId: string | null) => void;
+	/** Update the menu background colour. */
+	onUpdateBackgroundColour?: (colour: string) => void;
+	/** Toggle still vs motion background mode. */
+	onUpdateBackgroundMode?: (mode: 'still' | 'motion') => void;
+	/** Update the optional motion-menu audio bed. */
+	onUpdateMotionAudioAsset?: (assetId: string | null) => void;
+	/** Update the motion menu loop duration. */
+	onUpdateMotionDurationSecs?: (secs: number | null) => void;
+	/** Update the motion menu loop count. */
+	onUpdateMotionLoopCount?: (count: number) => void;
+	/** Run automatic navigation generation for the current menu. */
+	onAutoNav?: () => void;
+	/** Canvas preview state for the selected button. */
+	buttonPreviewState?: 'normal' | 'focus' | 'activate';
+	/** Update the canvas preview state for the selected button. */
+	onButtonPreviewStateChange?: (state: 'normal' | 'focus' | 'activate') => void;
+	/** Current display aspect for authoring preview. */
+	displayAspect?: AspectMode;
+	/** Update the authoring display aspect for the current menu preview. */
+	onDisplayAspectChange?: (aspect: AspectMode) => void;
 }
 
 export function InspectorPanel({
@@ -138,6 +163,18 @@ export function InspectorPanel({
 	onSelectSceneNode,
 	canvasHeight,
 	onSetDefaultFocus,
+	menu,
+	onUpdateBackgroundAsset,
+	onUpdateBackgroundColour,
+	onUpdateBackgroundMode,
+	onUpdateMotionAudioAsset,
+	onUpdateMotionDurationSecs,
+	onUpdateMotionLoopCount,
+	onAutoNav,
+	buttonPreviewState,
+	onButtonPreviewStateChange,
+	displayAspect,
+	onDisplayAspectChange,
 }: InspectorPanelProps) {
 	const inspectorTitle = getInspectorTitle(selectedNode, selectedButton);
 	const inspectorSubtitle = getInspectorSubtitle(selectedNode, selectedButton, buttons);
@@ -179,6 +216,17 @@ export function InspectorPanel({
 							onUpdateHighlightColours={onUpdateHighlightColours}
 							onSetDefaultFocus={onSetDefaultFocus}
 							onUpdateButton={onUpdateButton}
+							menu={menu ?? null}
+							assets={assets ?? []}
+							onUpdateBackgroundAsset={onUpdateBackgroundAsset}
+							onUpdateBackgroundColour={onUpdateBackgroundColour}
+							onUpdateBackgroundMode={onUpdateBackgroundMode}
+							onUpdateMotionAudioAsset={onUpdateMotionAudioAsset}
+							onUpdateMotionDurationSecs={onUpdateMotionDurationSecs}
+							onUpdateMotionLoopCount={onUpdateMotionLoopCount}
+							onAutoNav={onAutoNav}
+							displayAspect={displayAspect ?? 'four-by-three'}
+							onDisplayAspectChange={onDisplayAspectChange}
 						/>
 					) : (
 						<div className="inspector-panel__empty text-muted">
@@ -200,6 +248,8 @@ export function InspectorPanel({
 						onRemoveButton={onRemoveButton}
 						onSetDefaultFocus={onSetDefaultFocus}
 						onUpdateSceneNode={onUpdateSceneNode}
+						buttonPreviewState={buttonPreviewState ?? 'normal'}
+						onButtonPreviewStateChange={onButtonPreviewStateChange}
 					/>
 				) : selectedNode.type === 'text' ? (
 					<TextNodeInspector
@@ -244,6 +294,17 @@ function MenuLevelInspector({
 	onUpdateHighlightColours,
 	onSetDefaultFocus,
 	onUpdateButton,
+	menu,
+	assets,
+	onUpdateBackgroundAsset,
+	onUpdateBackgroundColour,
+	onUpdateBackgroundMode,
+	onUpdateMotionAudioAsset,
+	onUpdateMotionDurationSecs,
+	onUpdateMotionLoopCount,
+	onAutoNav,
+	displayAspect,
+	onDisplayAspectChange,
 }: {
 	buttons: MenuButton[];
 	interactionNodes: FocusNode[];
@@ -257,13 +318,31 @@ function MenuLevelInspector({
 	onUpdateHighlightColours: (colours: MenuHighlightColours) => void;
 	onSetDefaultFocus?: (buttonId: string) => void;
 	onUpdateButton: (buttonId: string, updates: Partial<MenuButton>) => void;
+	menu: Menu | null;
+	assets: Asset[];
+	onUpdateBackgroundAsset?: (assetId: string | null) => void;
+	onUpdateBackgroundColour?: (colour: string) => void;
+	onUpdateBackgroundMode?: (mode: 'still' | 'motion') => void;
+	onUpdateMotionAudioAsset?: (assetId: string | null) => void;
+	onUpdateMotionDurationSecs?: (secs: number | null) => void;
+	onUpdateMotionLoopCount?: (count: number) => void;
+	onAutoNav?: () => void;
+	displayAspect: AspectMode;
+	onDisplayAspectChange?: (aspect: AspectMode) => void;
 }) {
 	const diagnostics = computeDiagnostics(document, buttons);
+	const backgroundAssets = assets.filter(
+		(asset) =>
+			asset.videoStreams.length > 0 || asset.fileName.match(/\.(png|jpg|jpeg|bmp|tiff?)$/i),
+	);
+	const audioAssets = assets.filter((asset) => asset.audioStreams.length > 0);
+	const [backgroundTab, setBackgroundTab] = useState<'solid' | 'image' | 'video' | 'audio'>(
+		menu?.backgroundMode === 'motion' ? 'video' : 'solid',
+	);
 
 	return (
 		<div className="inspector-panel__section-group">
-			{/* Diagnostics — always visible, cannot disappear */}
-			<div className="inspector-panel__section">
+			<CollapsibleSection title="Diagnostics" defaultOpen>
 				<h5 className="inspector-panel__section-heading">Diagnostics</h5>
 				{diagnostics.length === 0 ? (
 					<p className="inspector-panel__hint" style={{ color: 'var(--colour-success, #4ade80)' }}>
@@ -284,11 +363,199 @@ function MenuLevelInspector({
 						))}
 					</div>
 				)}
-			</div>
+			</CollapsibleSection>
+
+			{menu && (
+				<CollapsibleSection title="Background" defaultOpen>
+					<div className="inspector-panel__state-tabs">
+						{([
+							['solid', 'Solid'],
+							['image', 'Image'],
+							['video', 'Video'],
+							['audio', 'Audio'],
+						] as const).map(([tab, label]) => (
+							<button
+								key={tab}
+								className={`inspector-panel__state-tab ${backgroundTab === tab ? 'inspector-panel__state-tab--active' : ''}`}
+								type="button"
+								onClick={() => setBackgroundTab(tab)}
+							>
+								{label}
+							</button>
+						))}
+					</div>
+
+					<label className="inspector-panel__field">
+						<span className="inspector-panel__field-label">Mode</span>
+						<div className="inspector-panel__style-pills">
+							{(['still', 'motion'] as const).map((mode) => (
+								<button
+									key={mode}
+									type="button"
+									className={`inspector-panel__style-pill ${menu.backgroundMode === mode ? 'inspector-panel__style-pill--active' : ''}`}
+									onClick={() => onUpdateBackgroundMode?.(mode)}
+									title={mode === 'still' ? 'Still background' : 'Motion background'}
+								>
+									{mode === 'still' ? 'Still' : 'Motion'}
+								</button>
+							))}
+						</div>
+					</label>
+
+					{backgroundTab === 'solid' && (
+						<label className="inspector-panel__field">
+							<span className="inspector-panel__field-label">Colour</span>
+							<div className="inspector-panel__colour-row">
+								<input
+									type="color"
+									className="inspector-panel__colour-input"
+									value={document?.scene.background.colour ?? '#0f0e1a'}
+									onChange={(e) => onUpdateBackgroundColour?.(e.target.value)}
+								/>
+								<input
+									className="inspector-panel__input inspector-panel__input--hex"
+									value={document?.scene.background.colour ?? '#0f0e1a'}
+									onChange={(e) => onUpdateBackgroundColour?.(e.target.value)}
+									maxLength={7}
+								/>
+							</div>
+						</label>
+					)}
+
+					{(backgroundTab === 'image' || backgroundTab === 'video') && (
+						<label className="inspector-panel__field">
+							<span className="inspector-panel__field-label">
+								{backgroundTab === 'image' ? 'Background asset' : 'Video loop'}
+							</span>
+							<select
+								className="inspector-panel__select"
+								value={menu.backgroundAssetId ?? ''}
+								onChange={(e) => onUpdateBackgroundAsset?.(e.target.value || null)}
+							>
+								<option value="">
+									{backgroundTab === 'image' ? 'No background asset' : 'No motion video'}
+								</option>
+								{backgroundAssets.map((asset) => (
+									<option key={asset.id} value={asset.id}>
+										{asset.fileName}
+									</option>
+								))}
+							</select>
+						</label>
+					)}
+
+					{backgroundTab === 'audio' && (
+						<label className="inspector-panel__field">
+							<span className="inspector-panel__field-label">Audio bed</span>
+							<select
+								className="inspector-panel__select"
+								value={menu.motionAudioAssetId ?? ''}
+								onChange={(e) => onUpdateMotionAudioAsset?.(e.target.value || null)}
+								disabled={menu.backgroundMode !== 'motion'}
+							>
+								<option value="">No background audio</option>
+								{audioAssets.map((asset) => (
+									<option key={asset.id} value={asset.id}>
+										{asset.fileName}
+									</option>
+								))}
+							</select>
+						</label>
+					)}
+
+					<div
+						className={`inspector-panel__fieldset ${menu.backgroundMode !== 'motion' ? 'inspector-panel__fieldset--disabled' : ''}`}
+					>
+						<div className="inspector-panel__sub-label">Motion Settings</div>
+						<p className="inspector-panel__hint text-muted">
+							These fields reserve space for motion-menu audio and loop behaviour, even when
+							the compile path is still evolving.
+						</p>
+						<div className="inspector-panel__grid-2">
+							<label className="inspector-panel__field">
+								<span className="inspector-panel__field-label">Duration</span>
+								<div className="inspector-panel__inline-unit">
+									<input
+										className="inspector-panel__input inspector-panel__input--num"
+										type="number"
+										min="0"
+										step="0.5"
+										value={menu.motionDurationSecs ?? ''}
+										onChange={(e) =>
+											onUpdateMotionDurationSecs?.(
+												e.target.value === '' ? null : Number(e.target.value),
+											)
+										}
+										disabled={menu.backgroundMode !== 'motion'}
+									/>
+									<span className="inspector-panel__unit">s</span>
+								</div>
+							</label>
+							<label className="inspector-panel__field">
+								<span className="inspector-panel__field-label">Loops</span>
+								<div className="inspector-panel__inline-unit">
+									<input
+										className="inspector-panel__input inspector-panel__input--num"
+										type="number"
+										min="0"
+										value={menu.motionLoopCount}
+										onChange={(e) => onUpdateMotionLoopCount?.(Number(e.target.value))}
+										disabled={menu.backgroundMode !== 'motion'}
+									/>
+									<span className="inspector-panel__unit">x</span>
+								</div>
+							</label>
+						</div>
+						<label className="inspector-panel__field">
+							<span className="inspector-panel__field-label">Audio asset</span>
+							<select
+								className="inspector-panel__select"
+								value={menu.motionAudioAssetId ?? ''}
+								onChange={(e) => onUpdateMotionAudioAsset?.(e.target.value || null)}
+								disabled={menu.backgroundMode !== 'motion'}
+							>
+								<option value="">No background audio</option>
+								{audioAssets.map((asset) => (
+									<option key={asset.id} value={asset.id}>
+										{asset.fileName}
+									</option>
+								))}
+							</select>
+						</label>
+					</div>
+				</CollapsibleSection>
+			)}
+
+			<CollapsibleSection title="Display" defaultOpen={false}>
+				<p className="inspector-panel__hint text-muted">
+					Preview the authored 720-line menu as either classic 4:3 or anamorphic 16:9 output.
+				</p>
+				<label className="inspector-panel__field">
+					<span className="inspector-panel__field-label">Aspect</span>
+					<div className="inspector-panel__style-pills">
+						{([
+							['four-by-three', '4:3'],
+							['sixteen-by-nine', '16:9'],
+						] as const).map(([aspect, label]) => (
+							<button
+								key={aspect}
+								type="button"
+								className={`inspector-panel__style-pill ${displayAspect === aspect ? 'inspector-panel__style-pill--active' : ''}`}
+								onClick={() => onDisplayAspectChange?.(aspect)}
+							>
+								{label}
+							</button>
+						))}
+					</div>
+				</label>
+				<p className="inspector-panel__hint text-muted">
+					16:9 preview stretches the same authored raster into its anamorphic display frame.
+				</p>
+			</CollapsibleSection>
 
 			{/* All Buttons Audit — batch action and default-focus overview */}
 			{buttons.length > 0 && (
-				<div className="inspector-panel__section">
+				<CollapsibleSection title="All Buttons" defaultOpen>
 					<h5 className="inspector-panel__section-heading">All Buttons</h5>
 					<p className="inspector-panel__hint text-muted">
 						Action bindings and default focus for all buttons in this menu.
@@ -335,12 +602,12 @@ function MenuLevelInspector({
 							);
 						})}
 					</div>
-				</div>
+				</CollapsibleSection>
 			)}
 
 			{/* Compile Policy */}
 			{document && (
-				<div className="inspector-panel__section">
+				<CollapsibleSection title="Compile Policy" defaultOpen={false}>
 					<h5 className="inspector-panel__section-heading">Compile Policy</h5>
 					<div className="inspector-panel__policy-grid">
 						<div className="inspector-panel__policy-item">
@@ -360,18 +627,31 @@ function MenuLevelInspector({
 							<span className="inspector-panel__policy-value">{document.backgroundMode}</span>
 						</div>
 					</div>
-				</div>
+				</CollapsibleSection>
 			)}
 
 			{/* CLUT Palette — DVD subpicture highlight colours */}
-			<div className="inspector-panel__section">
+			<CollapsibleSection title="CLUT Palette" defaultOpen={false}>
 				<h5 className="inspector-panel__section-heading">CLUT Palette</h5>
 				<p className="inspector-panel__hint text-muted">
 					DVD subpicture overlays use a 4-colour palette. These colours apply to all buttons in this
 					menu.
 				</p>
 				<HighlightColourFields colours={highlightColours} onChange={onUpdateHighlightColours} />
-			</div>
+			</CollapsibleSection>
+
+			{onAutoNav && (
+				<CollapsibleSection title="Navigation Tools" defaultOpen={false}>
+					<p className="inspector-panel__hint text-muted">
+						Generate a first-pass remote-navigation graph for the current menu.
+					</p>
+					<div className="inspector-panel__actions-row">
+						<button className="btn btn--sm btn--ghost" type="button" onClick={onAutoNav}>
+							Auto Nav
+						</button>
+					</div>
+				</CollapsibleSection>
+			)}
 		</div>
 	);
 }
@@ -392,6 +672,8 @@ function ButtonInspector({
 	onRemoveButton,
 	onSetDefaultFocus,
 	onUpdateSceneNode,
+	buttonPreviewState,
+	onButtonPreviewStateChange,
 }: {
 	button: MenuButton;
 	buttonNode: Extract<SceneNode, { type: 'button' }>;
@@ -406,13 +688,15 @@ function ButtonInspector({
 	onRemoveButton: (buttonId: string) => void;
 	onSetDefaultFocus?: (buttonId: string) => void;
 	onUpdateSceneNode?: (nodeId: string, updates: Record<string, unknown>) => void;
+	buttonPreviewState: 'normal' | 'focus' | 'activate';
+	onButtonPreviewStateChange?: (state: 'normal' | 'focus' | 'activate') => void;
 }) {
 	const isDefault = defaultFocusId === button.id;
 
 	return (
 		<div className="inspector-panel__section-group">
 			{/* Identity */}
-			<div className="inspector-panel__section">
+			<CollapsibleSection title="Button" defaultOpen>
 				<h5 className="inspector-panel__section-heading">Button</h5>
 				<label className="inspector-panel__field">
 					<span className="inspector-panel__field-label">Label</span>
@@ -432,10 +716,10 @@ function ButtonInspector({
 						</button>
 					) : null}
 				</div>
-			</div>
+			</CollapsibleSection>
 
 			{/* Geometry */}
-			<div className="inspector-panel__section">
+			<CollapsibleSection title="Position & Size" defaultOpen>
 				<h5 className="inspector-panel__section-heading">Position & Size</h5>
 				<div className="inspector-panel__grid-2">
 					<label className="inspector-panel__field">
@@ -491,10 +775,10 @@ function ButtonInspector({
 						/>
 					</label>
 				</div>
-			</div>
+			</CollapsibleSection>
 
 			{/* Action */}
-			<div className="inspector-panel__section">
+			<CollapsibleSection title="Action" defaultOpen>
 				<h5 className="inspector-panel__section-heading">Action</h5>
 				<select
 					className="inspector-panel__select"
@@ -507,11 +791,11 @@ function ButtonInspector({
 				>
 					<ActionOptions allTitles={allTitles} allMenus={allMenus} currentMenuId={currentMenuId} />
 				</select>
-			</div>
+			</CollapsibleSection>
 
 			{/* Navigation — directional remote control, folded from Bind mode */}
 			{buttons.length > 1 && (
-				<div className="inspector-panel__section">
+				<CollapsibleSection title="Navigation" defaultOpen>
 					<h5 className="inspector-panel__section-heading">Navigation</h5>
 					<p className="inspector-panel__hint text-muted">
 						Directional remote navigation from this button.
@@ -553,13 +837,15 @@ function ButtonInspector({
 							);
 						})}
 					</div>
-				</div>
+				</CollapsibleSection>
 			)}
 
 			{/* Button Style — per-state visual controls */}
 			<ButtonStyleSection
 				style={buttonNode.buttonStyle ?? DEFAULT_BUTTON_STYLE_MAP}
 				onChange={(style) => onUpdateSceneNode?.(buttonNode.id, { buttonStyle: style })}
+				activeState={buttonPreviewState}
+				onActiveStateChange={onButtonPreviewStateChange}
 			/>
 
 			{/* Text Style — label typography */}
@@ -702,7 +988,7 @@ function TextNodeInspector({
 }) {
 	return (
 		<div className="inspector-panel__section-group">
-			<div className="inspector-panel__section">
+			<CollapsibleSection title="Text" defaultOpen>
 				<h5 className="inspector-panel__section-heading">Text</h5>
 				<label className="inspector-panel__field">
 					<span className="inspector-panel__field-label">Content</span>
@@ -712,8 +998,8 @@ function TextNodeInspector({
 						onChange={(e) => onUpdate?.(node.id, { content: e.target.value })}
 					/>
 				</label>
-			</div>
-			<div className="inspector-panel__section">
+			</CollapsibleSection>
+			<CollapsibleSection title="Position & Size" defaultOpen>
 				<h5 className="inspector-panel__section-heading">Position & Size</h5>
 				<div className="inspector-panel__grid-2">
 					<label className="inspector-panel__field">
@@ -753,7 +1039,7 @@ function TextNodeInspector({
 						/>
 					</label>
 				</div>
-			</div>
+			</CollapsibleSection>
 			{/* Text Style — full typography panel */}
 			<TextStyleSection
 				fontFamily={node.fontFamily}
@@ -803,7 +1089,7 @@ function ImageNodeInspector({
 
 	return (
 		<div className="inspector-panel__section-group">
-			<div className="inspector-panel__section">
+			<CollapsibleSection title="Image" defaultOpen>
 				<h5 className="inspector-panel__section-heading">Image</h5>
 				<label className="inspector-panel__field">
 					<span className="inspector-panel__field-label">Asset</span>
@@ -820,8 +1106,8 @@ function ImageNodeInspector({
 						))}
 					</select>
 				</label>
-			</div>
-			<div className="inspector-panel__section">
+			</CollapsibleSection>
+			<CollapsibleSection title="Position & Size" defaultOpen>
 				<h5 className="inspector-panel__section-heading">Position & Size</h5>
 				<div className="inspector-panel__grid-2">
 					<label className="inspector-panel__field">
@@ -861,7 +1147,7 @@ function ImageNodeInspector({
 						/>
 					</label>
 				</div>
-			</div>
+			</CollapsibleSection>
 			{onRemove && (
 				<div className="inspector-panel__section">
 					<button className="btn btn--sm btn--danger" onClick={() => onRemove(node.id)}>
@@ -886,7 +1172,7 @@ function ShapeNodeInspector({
 }) {
 	return (
 		<div className="inspector-panel__section-group">
-			<div className="inspector-panel__section">
+			<CollapsibleSection title="Shape" defaultOpen>
 				<h5 className="inspector-panel__section-heading">Shape</h5>
 				<label className="inspector-panel__field">
 					<span className="inspector-panel__field-label">Fill</span>
@@ -905,8 +1191,8 @@ function ShapeNodeInspector({
 						/>
 					</div>
 				</label>
-			</div>
-			<div className="inspector-panel__section">
+			</CollapsibleSection>
+			<CollapsibleSection title="Position & Size" defaultOpen>
 				<h5 className="inspector-panel__section-heading">Position & Size</h5>
 				<div className="inspector-panel__grid-2">
 					<label className="inspector-panel__field">
@@ -946,7 +1232,7 @@ function ShapeNodeInspector({
 						/>
 					</label>
 				</div>
-			</div>
+			</CollapsibleSection>
 			{onRemove && (
 				<div className="inspector-panel__section">
 					<button className="btn btn--sm btn--danger" onClick={() => onRemove(node.id)}>
@@ -1012,12 +1298,14 @@ type ButtonVisualState = 'normal' | 'focus' | 'activate';
 function ButtonStyleSection({
 	style,
 	onChange,
+	activeState,
+	onActiveStateChange,
 }: {
 	style: ButtonStyleMap;
 	onChange: (style: ButtonStyleMap) => void;
+	activeState: ButtonVisualState;
+	onActiveStateChange?: (state: ButtonVisualState) => void;
 }) {
-	const [activeState, setActiveState] = useState<ButtonVisualState>('normal');
-
 	const s = style[activeState];
 	const update = (patch: Partial<ButtonStateStyle>) =>
 		onChange({ ...style, [activeState]: { ...s, ...patch } });
@@ -1030,7 +1318,8 @@ function ButtonStyleSection({
 					<button
 						key={state}
 						className={`inspector-panel__state-tab ${activeState === state ? 'inspector-panel__state-tab--active' : ''}`}
-						onClick={() => setActiveState(state)}
+						type="button"
+						onClick={() => onActiveStateChange?.(state)}
 					>
 						{state.charAt(0).toUpperCase() + state.slice(1)}
 					</button>
@@ -1230,11 +1519,11 @@ function TextStyleSection({
 				<span className="inspector-panel__field-label">Font</span>
 				<select
 					className="inspector-panel__select"
-					value={fontFamily ?? 'Inter'}
+					value={fontFamily ?? 'Space Grotesk'}
 					onChange={(e) => onFontFamilyChange?.(e.target.value)}
 				>
-					<option value="Inter">Inter</option>
 					<option value="Space Grotesk">Space Grotesk</option>
+					<option value="Inter">Inter</option>
 					<option value="System UI">System UI</option>
 					<option value="Georgia">Georgia</option>
 					<option value="Courier New">Courier New</option>

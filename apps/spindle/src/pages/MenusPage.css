@@ -495,7 +495,7 @@
 .editor-toolbar__toggles,
 .editor-toolbar__actions,
 .editor-toolbar__legend,
-.editor-toolbar__background {
+.editor-toolbar__zoom {
 	display: flex;
 	align-items: center;
 	gap: var(--space-2);
@@ -544,30 +544,29 @@
 	background: currentColor;
 }
 
-.editor-toolbar__field-label {
-	font-size: 10px;
-	font-weight: 700;
-	letter-spacing: 0.06em;
-	color: var(--text-muted);
-	text-transform: uppercase;
-}
-
-.editor-toolbar__select {
-	min-width: 180px;
-	max-width: 240px;
-	padding-top: 4px;
-	padding-bottom: 4px;
-	font-size: var(--text-xs);
-}
-
-.editor-toolbar__colour-input {
-	width: 28px;
-	height: 28px;
-	padding: 0;
+.editor-toolbar__zoom {
+	background: rgba(0, 0, 0, 0.2);
 	border: 1px solid var(--border-subtle);
-	border-radius: var(--radius-sm);
-	cursor: pointer;
+	border-radius: 999px;
+	padding: 3px;
+}
+
+.editor-toolbar__zoom-btn,
+.editor-toolbar__zoom-readout {
+	border: none;
 	background: transparent;
+	color: var(--text-muted);
+	font-size: var(--text-xs);
+	font-weight: 700;
+	padding: 4px 10px;
+	border-radius: 999px;
+	cursor: pointer;
+}
+
+.editor-toolbar__zoom-btn:hover,
+.editor-toolbar__zoom-readout:hover {
+	color: var(--text-primary);
+	background: rgba(255, 255, 255, 0.05);
 }
 
 .editor-toolbar__legend {
@@ -695,20 +694,32 @@
 .menus__stage-frame {
 	flex: 1;
 	min-height: 0;
-	max-width: 980px;
 	display: flex;
-	align-items: center;
-	justify-content: center;
+	align-items: stretch;
+	justify-content: stretch;
 	padding: clamp(20px, 3vw, 36px);
 	border-radius: 24px;
 	background:
 		radial-gradient(circle at 50% 10%, rgba(255, 255, 255, 0.025), transparent 38%),
 		rgba(7, 7, 11, 0.98);
 	box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+	overflow: auto;
 }
 
-.menus__stage-frame > .scene-canvas__viewport {
-	width: min(100%, 720px);
+.menus__canvas-scroll {
+	--scene-zoom: 1;
+	flex: 1;
+	min-width: 0;
+	min-height: 0;
+	display: grid;
+	place-items: center;
+	overflow: auto;
+	padding: var(--space-1);
+}
+
+.menus__canvas-scroll > .scene-canvas__viewport {
+	width: calc(720px * var(--scene-zoom));
+	max-width: none;
 	min-height: 0;
 }
 

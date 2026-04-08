@@ -3,13 +3,15 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: MIT
 
-import { useState, useRef, useCallback, useMemo } from 'react';
+import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import type {
 	MenuButton,
 	MenuHighlightColours,
 	ButtonBounds,
 	SceneNode,
 	ButtonStateStyle,
+	AspectMode,
+	PlaybackAction,
 } from '../../types/project';
 
 // DVD menu canvas dimensions
@@ -56,6 +58,10 @@ export interface SceneCanvasProps {
 	selectedNodeId: string | null;
 	/** Callback when a node is clicked to select it. */
 	onSelectNode: (nodeId: string | null) => void;
+	/** Preview state to apply to the selected button while styling. */
+	buttonPreviewState?: 'normal' | 'focus' | 'activate';
+	/** Display aspect used to simulate 4:3 vs anamorphic 16:9 rendering. */
+	displayAspect?: AspectMode;
 }
 
 export function SceneCanvas({
@@ -74,11 +80,14 @@ export function SceneCanvas({
 	showNavLines,
 	selectedNodeId,
 	onSelectNode,
+	buttonPreviewState = 'normal',
+	displayAspect = 'four-by-three',
 }: SceneCanvasProps) {
 	if (previewMode) {
 		return (
 			<NavigationPreview
 				buttons={buttons}
+				sceneNodes={sceneNodes}
 				canvasHeight={canvasHeight}
 				showSafeArea={showSafeArea}
 				backgroundLabel={backgroundLabel}
@@ -86,6 +95,7 @@ export function SceneCanvas({
 				defaultButtonId={defaultButtonId}
 				highlightColours={highlightColours}
 				honestPreview={honestPreview}
+				displayAspect={displayAspect}
 			/>
 		);
 	}
@@ -105,6 +115,8 @@ export function SceneCanvas({
 			showNavLines={showNavLines}
 			selectedNodeId={selectedNodeId}
 			onSelectNode={onSelectNode}
+			buttonPreviewState={buttonPreviewState}
+			displayAspect={displayAspect}
 		/>
 	);
 }
@@ -125,6 +137,8 @@ function DesignCanvas({
 	showNavLines,
 	selectedNodeId,
 	onSelectNode,
+	buttonPreviewState,
+	displayAspect,
 }: {
 	buttons: MenuButton[];
 	sceneNodes: SceneNode[];
@@ -139,6 +153,8 @@ function DesignCanvas({
 	showNavLines: boolean;
 	selectedNodeId: string | null;
 	onSelectNode: (nodeId: string | null) => void;
+	buttonPreviewState: 'normal' | 'focus' | 'activate';
+	displayAspect: AspectMode;
 }) {
 	const buttonNodeMap = useMemo(
 		() =>
@@ -449,7 +465,7 @@ function DesignCanvas({
 			className={`scene-canvas__viewport ${honestPreview ? 'scene-canvas__viewport--honest' : ''}`}
 			ref={canvasRef}
 			style={{
-				aspectRatio: `${MENU_WIDTH} / ${canvasHeight}`,
+				aspectRatio: aspectRatioForDisplay(displayAspect),
 				...(backgroundColour && !backgroundLabel ? { backgroundColor: backgroundColour } : {}),
 			}}
 			onClick={() => onSelectNode(null)}
@@ -569,8 +585,11 @@ function DesignCanvas({
 			{/* Button nodes (on top) */}
 			{buttons.map((btn) => {
 				const buttonNode = buttonNodeMap.get(btn.id);
-				const buttonStyle = buttonNode?.buttonStyle?.normal;
+				const renderedState =
+					selectedNodeId === btn.id ? buttonPreviewState : ('normal' as const);
+				const buttonStyle = buttonNode?.buttonStyle?.[renderedState];
 				const labelStyle = buttonNode?.labelStyle;
+				const actionChip = getActionChipLabel(btn.action);
 
 				return (
 					<div
@@ -614,7 +633,10 @@ function DesignCanvas({
 							startDrag(e, btn, 'move');
 						}}
 					>
-						{btn.label}
+						<div className="scene-canvas__node-body">
+							<span className="scene-canvas__node-label">{btn.label}</span>
+							{actionChip && <span className="scene-canvas__node-chip">{actionChip}</span>}
+						</div>
 						{(['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'] as ResizeEdge[]).map((edge) => (
 							<div
 								key={edge}
@@ -633,6 +655,7 @@ function DesignCanvas({
 
 function NavigationPreview({
 	buttons,
+	sceneNodes,
 	canvasHeight,
 	showSafeArea,
 	backgroundLabel,
@@ -640,8 +663,10 @@ function NavigationPreview({
 	defaultButtonId,
 	highlightColours,
 	honestPreview,
+	displayAspect,
 }: {
 	buttons: MenuButton[];
+	sceneNodes: SceneNode[];
 	canvasHeight: number;
 	showSafeArea: boolean;
 	backgroundLabel: string | null;
@@ -649,11 +674,28 @@ function NavigationPreview({
 	defaultButtonId: string | null;
 	highlightColours: MenuHighlightColours;
 	honestPreview: boolean;
+	displayAspect: AspectMode;
 }) {
 	const [focusedId, setFocusedId] = useState<string | null>(
 		defaultButtonId ?? buttons[0]?.id ?? null,
 	);
+	const [activatedId, setActivatedId] = useState<string | null>(null);
 	const containerRef = useRef<HTMLDivElement>(null);
+	const buttonNodeMap = useMemo(
+		() =>
+			new Map(
+				sceneNodes
+					.filter((node): node is Extract<SceneNode, { type: 'button' }> => node.type === 'button')
+					.map((node) => [node.id, node]),
+			),
+		[sceneNodes],
+	);
+
+	useEffect(() => {
+		if (!activatedId) return;
+		const timeout = window.setTimeout(() => setActivatedId(null), 260);
+		return () => window.clearTimeout(timeout);
+	}, [activatedId]);
 
 	const handleKeyDown = useCallback(
 		(e: React.KeyboardEvent) => {
@@ -680,6 +722,10 @@ function NavigationPreview({
 				case 'ArrowRight':
 					nextId = btn.navRight;
 					break;
+				case 'Enter':
+				case ' ':
+					setActivatedId(btn.id);
+					break;
 			}
 			if (nextId) setFocusedId(nextId);
 		},
@@ -694,7 +740,7 @@ function NavigationPreview({
 			onKeyDown={handleKeyDown}
 			onFocus={() => containerRef.current?.focus()}
 			style={{
-				aspectRatio: `${MENU_WIDTH} / ${canvasHeight}`,
+				aspectRatio: aspectRatioForDisplay(displayAspect),
 				...(backgroundColour && !backgroundLabel ? { backgroundColor: backgroundColour } : {}),
 			}}
 		>
@@ -736,7 +782,13 @@ function NavigationPreview({
 			<NavLines buttons={buttons} canvasWidth={MENU_WIDTH} canvasHeight={canvasHeight} />
 			{buttons.map((btn) => {
 				const isFocused = btn.id === focusedId;
+				const isActivated = btn.id === activatedId;
 				const hl = highlightColours;
+				const buttonNode = buttonNodeMap.get(btn.id);
+				const visualState = isActivated ? 'activate' : isFocused ? 'focus' : 'normal';
+				const buttonStyle = buttonNode?.buttonStyle?.[visualState];
+				const labelStyle = buttonNode?.labelStyle;
+				const actionChip = getActionChipLabel(btn.action);
 				return (
 					<div
 						key={btn.id}
@@ -748,17 +800,52 @@ function NavigationPreview({
 							top: `${(btn.bounds.y / canvasHeight) * 100}%`,
 							width: `${(btn.bounds.width / MENU_WIDTH) * 100}%`,
 							height: `${(btn.bounds.height / canvasHeight) * 100}%`,
+							...(buttonStyle
+								? {
+										background: buttonStyle.bgFill,
+										borderColor: buttonStyle.borderColour,
+										borderWidth: `${buttonStyle.borderWidth}px`,
+										borderRadius: `${buttonStyle.borderRadius}px`,
+										paddingInline: `${buttonStyle.paddingH}px`,
+										paddingBlock: `${buttonStyle.paddingV}px`,
+										boxShadow: buttonShadowCss(buttonStyle),
+								  }
+								: {}),
+							...(labelStyle
+								? {
+										fontFamily: labelStyle.fontFamily,
+										fontSize: `${labelStyle.fontSize}px`,
+										fontWeight: labelStyle.fontWeight === 'bold' ? 700 : 400,
+										fontStyle: labelStyle.fontItalic ? 'italic' : 'normal',
+										textDecoration: labelStyle.textDecoration,
+										textAlign: labelStyle.textAlign,
+										color: labelStyle.colour,
+										lineHeight: labelStyle.lineHeight,
+										letterSpacing: `${labelStyle.letterSpacing}px`,
+								  }
+								: {}),
 							...(isFocused
 								? {
-										background: hexToRgba(hl.selectColour, hl.selectOpacity),
-										borderColor: hl.selectColour,
-										boxShadow: `0 0 12px ${hexToRgba(hl.selectColour, 0.5)}, 0 0 24px ${hexToRgba(hl.selectColour, 0.2)}`,
+										outline: `1px solid ${hl.selectColour}`,
+										outlineOffset: '-1px',
+										boxShadow: buttonStyle
+											? `${buttonShadowCss(buttonStyle)}, 0 0 12px ${hexToRgba(hl.selectColour, 0.5)}`
+											: `0 0 12px ${hexToRgba(hl.selectColour, 0.5)}, 0 0 24px ${hexToRgba(hl.selectColour, 0.2)}`,
 									}
+								: {}),
+							...(isActivated
+								? {
+										outline: `2px solid ${hl.activateColour}`,
+										outlineOffset: '-2px',
+								  }
 								: {}),
 						}}
 						onClick={() => setFocusedId(btn.id)}
 					>
-						{btn.label}
+						<div className="scene-canvas__node-body">
+							<span className="scene-canvas__node-label">{btn.label}</span>
+							{actionChip && <span className="scene-canvas__node-chip">{actionChip}</span>}
+						</div>
 					</div>
 				);
 			})}
@@ -772,6 +859,32 @@ function buttonShadowCss(style: ButtonStateStyle): string {
 		return `inset 0 0 ${style.shadowBlur}px ${style.shadowSpread}px ${style.shadowColour}`;
 	}
 	return `0 0 ${style.shadowBlur}px ${style.shadowSpread}px ${style.shadowColour}`;
+}
+
+function aspectRatioForDisplay(displayAspect: AspectMode): string {
+	return displayAspect === 'sixteen-by-nine' ? '16 / 9' : '4 / 3';
+}
+
+function getActionChipLabel(action: PlaybackAction | null): string | null {
+	if (!action) return null;
+	switch (action.type) {
+		case 'playTitle':
+			return 'playTitle';
+		case 'playChapter':
+			return 'playChapter';
+		case 'showMenu':
+			return 'showMenu';
+		case 'setAudioStream':
+			return `setAudio ${action.streamIndex + 1}`;
+		case 'setSubtitleStream':
+			return action.streamIndex === null ? 'setSub Off' : `setSub ${action.streamIndex + 1}`;
+		case 'return':
+			return 'return';
+		case 'stop':
+			return 'stop';
+		case 'sequence':
+			return action.actions.length > 0 ? getActionChipLabel(action.actions[0]) : 'sequence';
+	}
 }
 
 // ── Nav Lines SVG ──────────────────────────────────────────────────────────
