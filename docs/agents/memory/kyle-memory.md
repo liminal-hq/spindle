@@ -42,7 +42,12 @@ Prefer structural review guidance over narration.
     - **RESOLVED — Motion Menu Timing Gate (2026-04-08)**: `motionMenusWithoutLoopStart()` preflight added to both `generateBuildPlan` and `executeBuild` in `project-store.ts`. Build is hard-blocked with a named error log entry when any motion menu has `loopStartSecs === 0.0`. Inspector diagnostic severity upgraded from `warning` to `error` to match.
     - **RESOLVED — Button Style Silent Failure (2026-04-08)**: `handleUpdateSceneNode` in `MenusPage.tsx` had an over-broad guard (`node.type === 'button' → return node`) that silently dropped all `buttonStyle` and `labelStyle` writes. Guard narrowed to block only structural node types (`group`, `componentInstance`, `generatedCollection`). Button style persistence now confirmed correct.
     - **RESOLVED — Legacy Buttons Sync Drift (2026-04-08)**: `handleUpdateButton` in the `authoredDocument` path did not sync `menu.buttons`. Added a rebuild step after updating `nodes` and `interactionNodes`. Matches the `syncMenu` logic in `updateMenuDocument`.
-    - **UI State Binding**: The `MenuDocument` schema needs a way to map SPRM register values back to button "Active/Selected" visual states so setup menus reflect actual player state.
+- **UI State Binding**: The `MenuDocument` schema needs a way to map SPRM register values back to button "Active/Selected" visual states so setup menus reflect actual player state.
+- **Menu Workspace Hardening (2026-04-08)**:
+  - **Critical Sync Drift**: The menu name field in `MenusPage.tsx` can be edited through the top-level `Menu` only. Any later `updateMenuDocument()` write can restore the stale `authoredDocument.name`, and the DVD builder prefers `authored_document.name` when naming menu outputs.
+  - **Preview Honesty Risk**: `NavigationPreview` currently renders button projections only. Authored text, image, and shape nodes can disappear when preview mode is enabled, which makes the compile/navigation preview dishonest for styled menus.
+  - **Preview State Reset Risk**: `NavigationPreview` seeds focus state from the initial menu only. Switching menus while preview mode stays enabled can leave focus pointing at a missing button until the user manually reselects one.
+  - **Generated Menu Format Drift**: Generated setup/chapter menus are still being created with a hardcoded `480` design height. On PAL projects that produces authored-versus-rendered vertical drift because the workspace canvas and backend expect `576`.
 
 ## Open Questions
 
