@@ -3,6 +3,7 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: MIT
 
+import { useMemo } from 'react';
 import type { SpindleProjectFile, PlaybackAction } from '../../types/project';
 
 // ── Layout constants ────────────────────────────────────────────────────────
@@ -533,7 +534,7 @@ export function MiniMenuMap({
 	onSelect: (id: string) => void;
 	onExpand: () => void;
 }) {
-	const layout = computeMapLayout(project, true);
+	const layout = useMemo(() => computeMapLayout(project, true), [project.disc]);
 
 	if (layout.nodes.length === 0) return null;
 
@@ -583,7 +584,7 @@ export function FullMenuMap({
 	onSelectMenu: (id: string) => void;
 	onOpenInEditor: (id: string) => void;
 }) {
-	const layout = computeMapLayout(project, false);
+	const layout = useMemo(() => computeMapLayout(project, false), [project.disc]);
 	const allMenus = [
 		...project.disc.globalMenus,
 		...project.disc.titlesets.flatMap((ts) => ts.menus),
