@@ -159,6 +159,10 @@ function actionToString(action: PlaybackAction | null): string {
 			return `playChapter:${action.titleId}:${action.chapterId}`;
 		case 'showMenu':
 			return `showMenu:${action.menuId}`;
+		case 'setAudioStream':
+			return `setAudioStream:${action.streamIndex}`;
+		case 'setSubtitleStream':
+			return `setSubtitleStream:${action.streamIndex ?? 'null'}`;
 		case 'stop':
 			return 'stop';
 		default:
@@ -175,5 +179,11 @@ function stringToAction(str: string): PlaybackAction | null {
 	if (type === 'playChapter' && parts[1] && parts[2])
 		return { type: 'playChapter', titleId: parts[1], chapterId: parts[2] };
 	if (type === 'showMenu' && parts[1]) return { type: 'showMenu', menuId: parts[1] };
+	if (type === 'setAudioStream' && parts[1] !== undefined)
+		return { type: 'setAudioStream', streamIndex: Number(parts[1]) };
+	if (type === 'setSubtitleStream' && parts[1] !== undefined) {
+		const idx = parts[1] === 'null' ? null : Number(parts[1]);
+		return { type: 'setSubtitleStream', streamIndex: idx };
+	}
 	return null;
 }
