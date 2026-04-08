@@ -1,4 +1,4 @@
-// Menus page — scene-document editor with layers, canvas, and inspector.
+// Menus page — unified menu authoring workspace (Set 2b).
 //
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: MIT
@@ -12,15 +12,12 @@ import type {
 	MenuHighlightColours,
 	SpindleProjectFile,
 	VideoStandard,
-	MenuEditorMode,
 	SceneNode,
 } from '../types/project';
 import { DEFAULT_HIGHLIGHT_COLOURS } from '../types/project';
 import { SceneCanvas } from '../components/menus/SceneCanvas';
 import { LayersPanel } from '../components/menus/LayersPanel';
 import { InspectorPanel } from '../components/menus/InspectorPanel';
-import { BindMode } from '../components/menus/BindMode';
-import { CompileMode } from '../components/menus/CompileMode';
 import '../components/menus/SceneEditor.css';
 
 import './MenusPage.css';
@@ -161,7 +158,7 @@ export function MenusPage() {
 				<EmptyMenusView onAdd={handleAddGlobalMenu} />
 			) : (
 				<div className="menus__layout">
-					{/* Menu list — grouped by scope */}
+					{/* Left rail — menu list grouped by scope */}
 					<div className="menus__list">
 						{/* Global menus */}
 						<div className="menus__scope-section">
@@ -179,23 +176,12 @@ export function MenusPage() {
 								<div className="menus__scope-empty text-muted">No global menus</div>
 							) : (
 								disc.globalMenus.map((menu) => (
-									<div
+									<MenuListItem
 										key={menu.id}
-										className={`menus__item card ${menu.id === selectedMenuId ? 'menus__item--selected' : ''}`}
-										onClick={() => setSelectedMenuId(menu.id)}
-										role="button"
-										tabIndex={0}
-										onKeyDown={(e) => e.key === 'Enter' && setSelectedMenuId(menu.id)}
-									>
-										<span className="menus__item-name">{menu.name}</span>
-										<span className="badge badge--neutral">
-											{menu.authoredDocument
-												? menu.authoredDocument.scene.nodes.filter((n) => n.type === 'button')
-														.length
-												: menu.buttons.length}{' '}
-											btn
-										</span>
-									</div>
+										menu={menu}
+										isSelected={menu.id === selectedMenuId}
+										onSelect={() => setSelectedMenuId(menu.id)}
+									/>
 								))
 							)}
 						</div>
@@ -217,30 +203,19 @@ export function MenusPage() {
 									<div className="menus__scope-empty text-muted">No menus</div>
 								) : (
 									ts.menus.map((menu) => (
-										<div
+										<MenuListItem
 											key={menu.id}
-											className={`menus__item card ${menu.id === selectedMenuId ? 'menus__item--selected' : ''}`}
-											onClick={() => setSelectedMenuId(menu.id)}
-											role="button"
-											tabIndex={0}
-											onKeyDown={(e) => e.key === 'Enter' && setSelectedMenuId(menu.id)}
-										>
-											<span className="menus__item-name">{menu.name}</span>
-											<span className="badge badge--neutral">
-												{menu.authoredDocument
-													? menu.authoredDocument.scene.nodes.filter((n) => n.type === 'button')
-															.length
-													: menu.buttons.length}{' '}
-												btn
-											</span>
-										</div>
+											menu={menu}
+											isSelected={menu.id === selectedMenuId}
+											onSelect={() => setSelectedMenuId(menu.id)}
+										/>
 									))
 								)}
 							</div>
 						))}
 					</div>
 
-					{/* Menu editor */}
+					{/* Unified editor workspace */}
 					{selectedEntry && (
 						<MenuEditor
 							menu={selectedEntry.menu}
@@ -257,7 +232,36 @@ export function MenusPage() {
 	);
 }
 
-// ── Sub-components ──────────────────────────────────────────────────────────
+// ── Menu List Item ──────────────────────────────────────────────────────────
+
+function MenuListItem({
+	menu,
+	isSelected,
+	onSelect,
+}: {
+	menu: Menu;
+	isSelected: boolean;
+	onSelect: () => void;
+}) {
+	const buttonCount = menu.authoredDocument
+		? menu.authoredDocument.scene.nodes.filter((n) => n.type === 'button').length
+		: menu.buttons.length;
+
+	return (
+		<div
+			className={`menus__item card ${isSelected ? 'menus__item--selected' : ''}`}
+			onClick={onSelect}
+			role="button"
+			tabIndex={0}
+			onKeyDown={(e) => e.key === 'Enter' && onSelect()}
+		>
+			<span className="menus__item-name">{menu.name}</span>
+			<span className="badge badge--neutral">{buttonCount} btn</span>
+		</div>
+	);
+}
+
+// ── Empty State ─────────────────────────────────────────────────────────────
 
 function EmptyMenusView({ onAdd }: { onAdd: () => void }) {
 	return (
@@ -286,6 +290,8 @@ function EmptyMenusView({ onAdd }: { onAdd: () => void }) {
 	);
 }
 
+// ── Unified Menu Editor ─────────────────────────────────────────────────────
+
 function MenuEditor({
 	menu,
 	project,
@@ -306,8 +312,13 @@ function MenuEditor({
 		...project.disc.globalMenus,
 		...project.disc.titlesets.flatMap((ts) => ts.menus),
 	];
+
+	// ── Workspace view: 'editor' or 'map'
 	const menuEditorMode = useProjectStore((s) => s.menuEditorMode);
 	const setMenuEditorMode = useProjectStore((s) => s.setMenuEditorMode);
+	// Treat any legacy mode value as 'editor'
+	const activeView = menuEditorMode === 'map' ? 'map' : 'editor';
+
 	const previewMode = useProjectStore((s) => s.previewMode);
 	const setPreviewMode = useProjectStore((s) => s.setPreviewMode);
 	const showSafeArea = useProjectStore((s) => s.showSafeArea);
@@ -337,10 +348,8 @@ function MenuEditor({
 		return () => document.removeEventListener('keydown', handler);
 	}, [undo, redo]);
 
-	// Derive the scene nodes from the authoredDocument
+	// Derive the scene nodes and button projections from authoredDocument
 	const sceneNodes: SceneNode[] = menu.authoredDocument?.scene.nodes ?? [];
-
-	// Project buttons from authoredDocument (or legacy)
 	const currentButtons: MenuButton[] = menu.authoredDocument
 		? menu.authoredDocument.scene.nodes
 				.filter((n): n is Extract<SceneNode, { type: 'button' }> => n.type === 'button')
@@ -368,27 +377,23 @@ function MenuEditor({
 		? (project.assets.find((a) => a.id === menu.backgroundAssetId) ?? null)
 		: null;
 	const backgroundAssetLabel = backgroundAsset ? backgroundAsset.fileName : null;
-
 	const highlightColours = menu.authoredDocument?.highlightColours ?? menu.highlightColours;
+	const defaultFocusId =
+		menu.authoredDocument?.interaction.defaultFocusId ?? menu.defaultButtonId;
 
 	const selectedNode = sceneNodes.find((n) => n.id === selectedNodeId) ?? null;
 	const selectedButton = currentButtons.find((b) => b.id === selectedNodeId) ?? null;
 
+	// ── Node addition handlers
+
 	const handleAddButton = () => {
 		const id = crypto.randomUUID();
-		const label = `Button ${(menu.authoredDocument?.scene.nodes.filter((n) => n.type === 'button').length ?? menu.buttons.length) + 1}`;
-		const x =
-			100 +
-			(menu.authoredDocument?.scene.nodes.filter((n) => n.type === 'button').length ??
-				menu.buttons.length) *
-				20;
-		const y = Math.min(
-			300 +
-				(menu.authoredDocument?.scene.nodes.filter((n) => n.type === 'button').length ??
-					menu.buttons.length) *
-					20,
-			canvasHeight - 60,
-		);
+		const btnCount =
+			menu.authoredDocument?.scene.nodes.filter((n) => n.type === 'button').length ??
+			menu.buttons.length;
+		const label = `Button ${btnCount + 1}`;
+		const x = 100 + btnCount * 20;
+		const y = Math.min(300 + btnCount * 20, canvasHeight - 60);
 
 		onUpdate((m) => {
 			if (m.authoredDocument) {
@@ -418,14 +423,7 @@ function MenuEditor({
 							...m.authoredDocument.interaction,
 							nodes: [
 								...m.authoredDocument.interaction.nodes,
-								{
-									nodeId: id,
-									navUp: null,
-									navDown: null,
-									navLeft: null,
-									navRight: null,
-									action: null,
-								},
+								{ nodeId: id, navUp: null, navDown: null, navLeft: null, navRight: null, action: null },
 							],
 						},
 					},
@@ -495,6 +493,8 @@ function MenuEditor({
 		});
 		setSelectedNodeId(id);
 	};
+
+	// ── Update handlers
 
 	const handleUpdateButton = (buttonId: string, updates: Partial<MenuButton>) => {
 		onUpdate((m) => {
@@ -604,7 +604,6 @@ function MenuEditor({
 	};
 
 	const handleRemoveNode = (nodeId: string) => {
-		// Try removing as a button first, then as a generic scene node
 		const isButton = currentButtons.some((b) => b.id === nodeId);
 		if (isButton) {
 			handleRemoveButton(nodeId);
@@ -626,7 +625,7 @@ function MenuEditor({
 		if (selectedNodeId === nodeId) setSelectedNodeId(null);
 	};
 
-	// Delete selected node with Delete key (or Backspace on Mac)
+	// Delete selected node with Delete/Backspace key
 	useEffect(() => {
 		const handler = (e: KeyboardEvent) => {
 			if (!selectedNodeId) return;
@@ -638,7 +637,7 @@ function MenuEditor({
 		};
 		document.addEventListener('keydown', handler);
 		return () => document.removeEventListener('keydown', handler);
-	}); // re-registers on every render to capture current selectedNodeId and handler
+	}); // re-registers each render to close over current handlers
 
 	const handleUpdateHighlightColours = (colours: MenuHighlightColours) => {
 		onUpdate((m) => {
@@ -653,96 +652,137 @@ function MenuEditor({
 		});
 	};
 
+	// Set default focus — updates authoredDocument interaction graph
+	const handleSetDefaultFocus = (buttonId: string) => {
+		onUpdate((m) => {
+			if (m.authoredDocument) {
+				return {
+					...m,
+					authoredDocument: {
+						...m.authoredDocument,
+						interaction: {
+							...m.authoredDocument.interaction,
+							defaultFocusId: buttonId,
+						},
+					},
+				};
+			}
+			return { ...m, defaultButtonId: buttonId };
+		});
+	};
+
+	// ── Background assignment (kept in canvas toolbar for now)
+
+	const handleBackgroundChange = (newAssetId: string | null) => {
+		onUpdate((m) => ({
+			...m,
+			backgroundAssetId: newAssetId,
+			authoredDocument: m.authoredDocument
+				? {
+						...m.authoredDocument,
+						scene: {
+							...m.authoredDocument.scene,
+							background: { ...m.authoredDocument.scene.background, assetId: newAssetId },
+						},
+					}
+				: m.authoredDocument,
+		}));
+	};
+
+	const handleBackgroundColourChange = (colour: string) => {
+		onUpdate((m) => {
+			if (m.authoredDocument) {
+				return {
+					...m,
+					authoredDocument: {
+						...m.authoredDocument,
+						scene: {
+							...m.authoredDocument.scene,
+							background: { ...m.authoredDocument.scene.background, colour },
+						},
+					},
+				};
+			}
+			return m;
+		});
+	};
+
 	return (
 		<div className="menus__editor">
-			{/* Header: name + mode switcher */}
-			<div className="card">
-				<div className="card__header">
+			{/* Toolbar: name + Editor/Map toggle + authoring actions */}
+			<div className="menus__toolbar card">
+				<div className="menus__toolbar-left">
 					<input
 						className="menus__editor-name"
 						value={menu.name}
 						onChange={(e) => onUpdate((m) => ({ ...m, name: e.target.value }))}
+						aria-label="Menu name"
 					/>
-					<div className="menus__editor-actions">
-						{menuEditorMode === 'design' && (
-							<>
-								<button className="btn btn--sm" onClick={handleAddButton}>
-									+ Button
-								</button>
-								<button className="btn btn--sm" onClick={() => handleAddSceneNode('text')}>
-									+ Text
-								</button>
-								<button className="btn btn--sm" onClick={() => handleAddSceneNode('image')}>
-									+ Image
-								</button>
-								<button className="btn btn--sm" onClick={() => handleAddSceneNode('shape')}>
-									+ Shape
-								</button>
-							</>
-						)}
+					{/* Editor / Map view toggle */}
+					<div className="menus__view-toggle" role="group" aria-label="Workspace view">
 						<button
-							className="btn btn--sm"
-							onClick={onAutoNav}
-							title="Auto-generate directional navigation from button positions"
+							className={`btn btn--sm ${activeView === 'editor' ? 'btn--primary' : 'btn--ghost'}`}
+							onClick={() => setMenuEditorMode('editor')}
 						>
-							Auto Nav
+							Editor
 						</button>
-						<button className="btn btn--sm btn--danger" onClick={onRemove}>
-							Delete Menu
+						<button
+							className={`btn btn--sm ${activeView === 'map' ? 'btn--primary' : 'btn--ghost'}`}
+							onClick={() => setMenuEditorMode('map')}
+						>
+							Map
 						</button>
 					</div>
 				</div>
-
-				{/* Mode switcher */}
-				<div className="menus__mode-switcher">
-					{(['design', 'bind', 'compile'] as MenuEditorMode[]).map((mode) => (
-						<button
-							key={mode}
-							className={`btn btn--sm ${menuEditorMode === mode ? 'btn--primary' : 'btn--ghost'}`}
-							onClick={() => setMenuEditorMode(mode)}
-						>
-							{mode.charAt(0).toUpperCase() + mode.slice(1)}
-						</button>
-					))}
+				<div className="menus__toolbar-right">
+					{activeView === 'editor' && (
+						<>
+							<button className="btn btn--sm" onClick={handleAddButton}>
+								+ Button
+							</button>
+							<button className="btn btn--sm" onClick={() => handleAddSceneNode('text')}>
+								+ Text
+							</button>
+							<button className="btn btn--sm" onClick={() => handleAddSceneNode('image')}>
+								+ Image
+							</button>
+							<button className="btn btn--sm" onClick={() => handleAddSceneNode('shape')}>
+								+ Shape
+							</button>
+						</>
+					)}
+					<button
+						className="btn btn--sm"
+						onClick={onAutoNav}
+						title="Auto-generate directional navigation from button positions"
+					>
+						Auto Nav
+					</button>
+					<button className="btn btn--sm btn--danger" onClick={onRemove}>
+						Delete Menu
+					</button>
 				</div>
 			</div>
 
-			{/* Canvas-first scene editor */}
-			{menuEditorMode === 'design' ? (
-				<div className="scene-editor">
-					{/* Canvas — full width, the primary workspace */}
-					<div className="scene-canvas">
-						{/* Background assignment */}
+			{/* Workspace */}
+			{activeView === 'editor' ? (
+				<div className="menus__workspace">
+					{/* Canvas zone — primary authoring surface */}
+					<div className="menus__canvas-zone">
+						{/* Background assignment strip */}
 						<div className="menus__bg-select">
-							<label className="text-muted">Background: </label>
+							<label className="text-muted">Background:</label>
 							<select
 								className="menus__select-sm"
 								value={menu.backgroundAssetId ?? ''}
-								onChange={(e) => {
-									const newAssetId = e.target.value || null;
-									onUpdate((m) => ({
-										...m,
-										backgroundAssetId: newAssetId,
-										authoredDocument: m.authoredDocument
-											? {
-													...m.authoredDocument,
-													scene: {
-														...m.authoredDocument.scene,
-														background: {
-															...m.authoredDocument.scene.background,
-															assetId: newAssetId,
-														},
-													},
-												}
-											: m.authoredDocument,
-									}));
-								}}
+								onChange={(e) => handleBackgroundChange(e.target.value || null)}
 							>
 								<option value="">Solid colour</option>
 								{project.assets
 									.filter(
 										(a) =>
-											a.videoStreams.length > 0 || a.fileName.match(/\.(png|jpg|jpeg|bmp|tiff?)$/i),
+											a.videoStreams.length > 0 ||
+											a.fileName.match(/\.(png|jpg|jpeg|bmp|tiff?)$/i),
 									)
 									.map((a) => (
 										<option key={a.id} value={a.id}>
@@ -755,26 +795,7 @@ function MenuEditor({
 									type="color"
 									className="menus__bg-colour-input"
 									value={menu.authoredDocument?.scene.background.colour ?? '#000000'}
-									onChange={(e) =>
-										onUpdate((m) => {
-											if (m.authoredDocument) {
-												return {
-													...m,
-													authoredDocument: {
-														...m.authoredDocument,
-														scene: {
-															...m.authoredDocument.scene,
-															background: {
-																...m.authoredDocument.scene.background,
-																colour: e.target.value,
-															},
-														},
-													},
-												};
-											}
-											return m;
-										})
-									}
+									onChange={(e) => handleBackgroundColourChange(e.target.value)}
 									title="Background colour"
 								/>
 							)}
@@ -789,9 +810,7 @@ function MenuEditor({
 							showSafeArea={showSafeArea}
 							backgroundLabel={backgroundAssetLabel}
 							backgroundColour={menu.authoredDocument?.scene.background.colour ?? null}
-							defaultButtonId={
-								menu.authoredDocument?.interaction.defaultFocusId ?? menu.defaultButtonId
-							}
+							defaultButtonId={defaultFocusId}
 							previewMode={previewMode}
 							highlightColours={highlightColours}
 							honestPreview={honestPreview}
@@ -800,7 +819,7 @@ function MenuEditor({
 							onSelectNode={setSelectedNodeId}
 						/>
 
-						{/* Canvas toolbar */}
+						{/* Canvas toggles toolbar */}
 						<div className="scene-canvas__toolbar">
 							<label className="scene-canvas__toolbar-toggle" title="Show safe-area guides">
 								<input
@@ -846,8 +865,8 @@ function MenuEditor({
 						</div>
 					</div>
 
-					{/* Secondary panels — layers and inspector below the canvas */}
-					<div className="scene-editor__panels">
+					{/* Side panel — layers and inspector */}
+					<div className="menus__side-panel">
 						<LayersPanel
 							nodes={sceneNodes}
 							selectedNodeId={selectedNodeId}
@@ -866,77 +885,23 @@ function MenuEditor({
 							onUpdateSceneNode={handleUpdateSceneNode}
 							onRemoveNode={handleRemoveNode}
 							assets={project.assets}
-						/>
-					</div>
-				</div>
-			) : menuEditorMode === 'bind' ? (
-				<div className="bind-mode-layout">
-					{/* Mini canvas preview */}
-					<div className="bind-mode-layout__preview">
-						<SceneCanvas
 							buttons={currentButtons}
-							sceneNodes={sceneNodes}
+							interactionNodes={menu.authoredDocument?.interaction.nodes ?? []}
+							defaultFocusId={defaultFocusId}
+							document={menu.authoredDocument ?? null}
 							canvasHeight={canvasHeight}
-							onUpdateButton={handleUpdateButton}
-							onUpdateSceneNode={handleUpdateSceneNode}
-							showSafeArea={false}
-							backgroundLabel={backgroundAssetLabel}
-							backgroundColour={menu.authoredDocument?.scene.background.colour ?? null}
-							defaultButtonId={
-								menu.authoredDocument?.interaction.defaultFocusId ?? menu.defaultButtonId
-							}
-							previewMode={false}
-							highlightColours={highlightColours}
-							honestPreview={false}
-							showNavLines={true}
-							selectedNodeId={selectedNodeId}
-							onSelectNode={setSelectedNodeId}
-						/>
-					</div>
-					<div className="card" style={{ padding: 'var(--space-4)', flex: 1 }}>
-						<BindMode
-							buttons={currentButtons}
-							allTitles={allTitles}
-							allMenus={allMenus}
-							currentMenuId={menu.id}
-							defaultFocusId={
-								menu.authoredDocument?.interaction.defaultFocusId ?? menu.defaultButtonId
-							}
-							onUpdateButton={handleUpdateButton}
-							onSetDefaultFocus={(btnId) =>
-								onUpdate((m) => {
-									if (m.authoredDocument) {
-										return {
-											...m,
-											authoredDocument: {
-												...m.authoredDocument,
-												interaction: {
-													...m.authoredDocument.interaction,
-													defaultFocusId: btnId,
-												},
-											},
-										};
-									}
-									return { ...m, defaultButtonId: btnId };
-								})
-							}
+							onSetDefaultFocus={handleSetDefaultFocus}
 						/>
 					</div>
 				</div>
-			) : menuEditorMode === 'compile' ? (
-				<div className="card" style={{ padding: 'var(--space-4)' }}>
-					<CompileMode
-						document={menu.authoredDocument ?? null}
-						buttons={currentButtons}
-						canvasHeight={canvasHeight}
-						highlightColours={highlightColours}
-						defaultFocusId={
-							menu.authoredDocument?.interaction.defaultFocusId ?? menu.defaultButtonId
-						}
-						backgroundLabel={backgroundAssetLabel}
-					/>
+			) : (
+				/* Map view — planned for Phase 2 */
+				<div className="menus__map-placeholder">
+					<p className="text-muted">
+						Navigation map view is planned for Phase 2. Switch back to Editor to author this menu.
+					</p>
 				</div>
-			) : null}
+			)}
 		</div>
 	);
 }

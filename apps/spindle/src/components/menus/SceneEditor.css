@@ -619,6 +619,141 @@
 	white-space: nowrap;
 }
 
+/* ── Inspector: Diagnostics ─────────────────────────────────── */
+
+.inspector-panel__diagnostic-list {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2);
+}
+
+.inspector-panel__diagnostic {
+	display: flex;
+	align-items: baseline;
+	gap: var(--space-2);
+	font-size: var(--text-xs);
+	line-height: 1.5;
+}
+
+.inspector-panel__diagnostic-badge {
+	font-size: 10px;
+	font-weight: 700;
+	padding: 1px var(--space-1);
+	border-radius: 2px;
+	flex-shrink: 0;
+}
+
+.inspector-panel__diagnostic--error .inspector-panel__diagnostic-badge {
+	background: rgba(239, 68, 68, 0.2);
+	color: var(--colour-error, #ef4444);
+}
+
+.inspector-panel__diagnostic--warning .inspector-panel__diagnostic-badge {
+	background: rgba(245, 158, 11, 0.2);
+	color: var(--brand-orange);
+}
+
+.inspector-panel__diagnostic--info .inspector-panel__diagnostic-badge {
+	background: rgba(59, 130, 246, 0.2);
+	color: #60a5fa;
+}
+
+/* ── Inspector: Compile Policy ──────────────────────────────── */
+
+.inspector-panel__policy-grid {
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
+	gap: var(--space-2);
+	margin-top: var(--space-2);
+}
+
+.inspector-panel__policy-item {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.inspector-panel__policy-value {
+	font-size: var(--text-xs);
+	font-weight: 600;
+	text-transform: capitalize;
+	color: var(--text-primary);
+}
+
+/* ── Inspector: Navigation grid ─────────────────────────────── */
+
+.inspector-panel__nav-grid {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: var(--space-2);
+}
+
+/* ── Inspector: All Buttons audit ───────────────────────────── */
+
+.inspector-panel__audit-table {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-1);
+}
+
+.inspector-panel__audit-row {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	padding: var(--space-1) 0;
+	border-top: 1px solid var(--border-subtle);
+	font-size: var(--text-xs);
+}
+
+.inspector-panel__audit-row:first-child {
+	border-top: none;
+}
+
+.inspector-panel__audit-name {
+	min-width: 80px;
+	max-width: 100px;
+	font-weight: 600;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	flex-shrink: 0;
+}
+
+.inspector-panel__audit-name--default {
+	color: var(--brand-orange);
+}
+
+.inspector-panel__default-badge {
+	font-size: 9px;
+	margin-left: 2px;
+	color: var(--brand-orange);
+}
+
+.inspector-panel__select--sm {
+	flex: 1;
+	min-width: 0;
+}
+
+/* ── Inspector: Default focus control ──────────────────────── */
+
+.inspector-panel__default-focus-row {
+	margin-top: var(--space-2);
+}
+
+.inspector-panel__default-focus-badge {
+	font-size: var(--text-xs);
+	font-weight: 600;
+	color: var(--brand-orange);
+}
+
+/* ── Small button variant (btn--xs) ─────────────────────────── */
+
+.btn--xs {
+	font-size: 10px;
+	padding: 1px var(--space-1);
+	line-height: 1.4;
+}
+
 /* ── Bind Mode ──────────────────────────────────────────────── */
 
 .bind-mode {
