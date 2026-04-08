@@ -129,10 +129,16 @@ export function InspectorPanel({
 	canvasHeight,
 	onSetDefaultFocus,
 }: InspectorPanelProps) {
+	const inspectorTitle = getInspectorTitle(selectedNode, selectedButton);
+	const inspectorSubtitle = getInspectorSubtitle(selectedNode, selectedButton, buttons);
+
 	return (
 		<div className="inspector-panel">
 			<div className="inspector-panel__header">
-				<h4 className="inspector-panel__title">Inspector</h4>
+				<div className="inspector-panel__header-copy">
+					<h4 className="inspector-panel__title">{inspectorTitle}</h4>
+					<p className="inspector-panel__subtitle">{inspectorSubtitle}</p>
+				</div>
 			</div>
 			<div className="inspector-panel__body">
 				{!selectedNode ? (
@@ -289,7 +295,11 @@ function MenuLevelInspector({
 											onUpdateButton(btn.id, { action: stringToAction(e.target.value) })
 										}
 									>
-										<ActionOptions allTitles={allTitles} allMenus={allMenus} currentMenuId={currentMenuId} />
+										<ActionOptions
+											allTitles={allTitles}
+											allMenus={allMenus}
+											currentMenuId={currentMenuId}
+										/>
 									</select>
 									{onSetDefaultFocus && !isDefault && (
 										<button
@@ -336,8 +346,8 @@ function MenuLevelInspector({
 			<div className="inspector-panel__section">
 				<h5 className="inspector-panel__section-heading">CLUT Palette</h5>
 				<p className="inspector-panel__hint text-muted">
-					DVD subpicture overlays use a 4-colour palette. These colours apply to all buttons in
-					this menu.
+					DVD subpicture overlays use a 4-colour palette. These colours apply to all buttons in this
+					menu.
 				</p>
 				<HighlightColourFields colours={highlightColours} onChange={onUpdateHighlightColours} />
 			</div>
@@ -396,10 +406,7 @@ function ButtonInspector({
 					{isDefault ? (
 						<span className="inspector-panel__default-focus-badge">Default focus ◆</span>
 					) : onSetDefaultFocus ? (
-						<button
-							className="btn btn--ghost btn--sm"
-							onClick={() => onSetDefaultFocus(button.id)}
-						>
+						<button className="btn btn--ghost btn--sm" onClick={() => onSetDefaultFocus(button.id)}>
 							Set as default focus
 						</button>
 					) : null}
@@ -510,9 +517,7 @@ function ButtonInspector({
 									<select
 										className="inspector-panel__select"
 										value={button[dir] ?? ''}
-										onChange={(e) =>
-											onUpdateButton(button.id, { [dir]: e.target.value || null })
-										}
+										onChange={(e) => onUpdateButton(button.id, { [dir]: e.target.value || null })}
 									>
 										<option value="">—</option>
 										{buttons
@@ -947,7 +952,9 @@ function CollapsibleSection({
 	const [open, setOpen] = useState(defaultOpen);
 
 	return (
-		<div className={`inspector-panel__section inspector-panel__collapsible ${open ? 'inspector-panel__collapsible--open' : ''}`}>
+		<div
+			className={`inspector-panel__section inspector-panel__collapsible ${open ? 'inspector-panel__collapsible--open' : ''}`}
+		>
 			<div
 				className="inspector-panel__collapsible-header"
 				onClick={() => setOpen(!open)}
@@ -1096,9 +1103,7 @@ function ButtonStyleSection({
 				<select
 					className="inspector-panel__select"
 					value={s.shadowType}
-					onChange={(e) =>
-						update({ shadowType: e.target.value as ButtonStateStyle['shadowType'] })
-					}
+					onChange={(e) => update({ shadowType: e.target.value as ButtonStateStyle['shadowType'] })}
 				>
 					<option value="none">None</option>
 					<option value="box-shadow">Box shadow</option>
@@ -1300,7 +1305,14 @@ function TextStyleSection({
 							onClick={() => onTextAlignChange?.(a)}
 							title={a === 'center' ? 'Centre' : a.charAt(0).toUpperCase() + a.slice(1)}
 						>
-							<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+							<svg
+								width="12"
+								height="12"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								strokeWidth="2"
+							>
 								{a === 'left' && (
 									<>
 										<line x1="3" y1="6" x2="21" y2="6" />
@@ -1430,6 +1442,49 @@ function HighlightColourFields({
 			</div>
 		</div>
 	);
+}
+
+function getInspectorTitle(
+	selectedNode: SceneNode | null,
+	selectedButton: MenuButton | null,
+): string {
+	if (!selectedNode) return 'Menu Inspector';
+	if (selectedNode.type === 'button' && selectedButton) return selectedButton.label || 'Button';
+	if (selectedNode.type === 'text') return selectedNode.content || 'Text';
+	if (selectedNode.type === 'image') return selectedNode.assetId || 'Image';
+	if (selectedNode.type === 'shape') return 'Shape';
+	return selectedNode.type.charAt(0).toUpperCase() + selectedNode.type.slice(1);
+}
+
+function getInspectorSubtitle(
+	selectedNode: SceneNode | null,
+	selectedButton: MenuButton | null,
+	buttons?: MenuButton[],
+): string {
+	if (!selectedNode) {
+		const buttonCount = buttons?.length ?? 0;
+		return buttonCount === 0
+			? 'Diagnostics, compile policy, and palette controls for this menu.'
+			: `Diagnostics, palette, and default-focus controls across ${buttonCount} button${buttonCount === 1 ? '' : 's'}.`;
+	}
+
+	if (selectedNode.type === 'button' && selectedButton) {
+		return `Button node with action, navigation, and authored highlight styling.`;
+	}
+
+	if (selectedNode.type === 'text') {
+		return 'Typography, colour, and frame controls for the selected text node.';
+	}
+
+	if (selectedNode.type === 'image') {
+		return 'Asset assignment and frame controls for the selected image node.';
+	}
+
+	if (selectedNode.type === 'shape') {
+		return 'Fill and frame controls for the selected shape node.';
+	}
+
+	return 'Additional node controls will land in a future polish pass.';
 }
 
 // ── Diagnostics ────────────────────────────────────────────────────────────

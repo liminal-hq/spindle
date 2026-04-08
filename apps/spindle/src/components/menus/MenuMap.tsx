@@ -351,21 +351,21 @@ function NodeRect({
 		? 'rgba(255, 170, 64, 0.15)'
 		: isDisc
 			? 'rgba(255, 170, 64, 0.08)'
-		: isMenu
-			? isVmgm
-				? 'rgba(34, 211, 238, 0.06)'
-				: 'rgba(167, 139, 250, 0.06)'
-			: 'rgba(74, 222, 128, 0.06)';
+			: isMenu
+				? isVmgm
+					? 'rgba(34, 211, 238, 0.06)'
+					: 'rgba(167, 139, 250, 0.06)'
+				: 'rgba(74, 222, 128, 0.06)';
 
 	const stroke = isSelected
 		? '#ffaa40'
 		: isDisc
 			? 'rgba(255, 170, 64, 0.55)'
-		: isMenu
-			? isVmgm
-				? 'rgba(34, 211, 238, 0.5)'
-				: 'rgba(167, 139, 250, 0.4)'
-			: 'rgba(74, 222, 128, 0.4)';
+			: isMenu
+				? isVmgm
+					? 'rgba(34, 211, 238, 0.5)'
+					: 'rgba(167, 139, 250, 0.4)'
+				: 'rgba(74, 222, 128, 0.4)';
 
 	const fontSize = compact ? 9 : 11;
 	const subFontSize = compact ? 8 : 9;
@@ -424,7 +424,13 @@ function NodeRect({
 					fontFamily="var(--font-body, system-ui, sans-serif)"
 					style={{ pointerEvents: 'none', userSelect: 'none' }}
 				>
-					{node.type === 'title' ? 'TITLE' : node.type === 'disc' ? 'START' : isVmgm ? 'VMGM' : 'MENU'}
+					{node.type === 'title'
+						? 'TITLE'
+						: node.type === 'disc'
+							? 'START'
+							: isVmgm
+								? 'VMGM'
+								: 'MENU'}
 				</text>
 			)}
 			{/* Return badge — shows a loopback indicator for nodes with return actions */}
@@ -582,14 +588,17 @@ export function MiniMenuMap({
 			</div>
 			{/* Edge type legend */}
 			<div className="mini-map__legend">
-				<span className="mini-map__legend-item" style={{ color: EDGE_COLOURS.showMenu }}>
-					● show
+				<span className="mini-map__legend-item">
+					<span className="mini-map__legend-line mini-map__legend-line--show" />
+					<span>show</span>
 				</span>
-				<span className="mini-map__legend-item" style={{ color: EDGE_COLOURS.playTitle }}>
-					● play
+				<span className="mini-map__legend-item">
+					<span className="mini-map__legend-line mini-map__legend-line--play" />
+					<span>play</span>
 				</span>
-				<span className="mini-map__legend-item" style={{ color: EDGE_COLOURS.return }}>
-					● return
+				<span className="mini-map__legend-item">
+					<span className="mini-map__legend-line mini-map__legend-line--return" />
+					<span>return</span>
 				</span>
 			</div>
 		</div>
@@ -616,6 +625,11 @@ export function FullMenuMap({
 		...project.disc.titlesets.flatMap((ts) => ts.menus),
 	];
 	const selectedMenu = allMenus.find((m) => m.id === selectedMenuId) ?? null;
+	const selectedMenuButtonCount = selectedMenu
+		? (selectedMenu.authoredDocument?.scene.nodes.filter((node) => node.type === 'button').length ??
+			selectedMenu.buttons.length)
+		: 0;
+	const selectedMenuHeight = project.disc.standard === 'PAL' ? 576 : 480;
 
 	// Compute outgoing and incoming connections for the selected menu
 	const outgoing = layout.edges.filter((e) => e.fromId === selectedMenuId);
@@ -625,9 +639,7 @@ export function FullMenuMap({
 		<div className="menu-map">
 			<div className="menu-map__canvas-area">
 				{layout.nodes.length === 0 ? (
-					<div className="menu-map__empty text-muted">
-						Add menus to see the navigation map.
-					</div>
+					<div className="menu-map__empty text-muted">Add menus to see the navigation map.</div>
 				) : (
 					<MapSvg
 						layout={layout}
@@ -643,12 +655,25 @@ export function FullMenuMap({
 			<div className="menu-map__inspector">
 				{selectedMenu ? (
 					<div className="menu-map__inspector-body">
-						<h4 className="menu-map__inspector-heading">
-							{selectedMenu.name}
-						</h4>
-						<p className="menu-map__inspector-hint text-muted">
-							Double-click a menu card to open it in the editor.
-						</p>
+						<div className="menu-map__inspector-header">
+							<h4 className="menu-map__inspector-heading">{selectedMenu.name}</h4>
+							<p className="menu-map__inspector-hint text-muted">
+								Double-click a menu card to open it in the editor.
+							</p>
+						</div>
+						<div className="menu-map__inspector-stats">
+							<div className="menu-map__inspector-stat">
+								<strong>{selectedMenuButtonCount}</strong> button
+								{selectedMenuButtonCount === 1 ? '' : 's'}
+							</div>
+							<div className="menu-map__inspector-stat">
+								<strong>{selectedMenu.backgroundMode === 'motion' ? 'Motion' : 'Still'}</strong>{' '}
+								menu
+							</div>
+							<div className="menu-map__inspector-stat">
+								<strong>720 x {selectedMenuHeight}</strong> {project.disc.standard}
+							</div>
+						</div>
 
 						<div className="menu-map__inspector-section">
 							<h5 className="menu-map__inspector-subheading">Outgoing</h5>
@@ -719,7 +744,10 @@ export function FullMenuMap({
 						</div>
 
 						<div className="menu-map__inspector-section">
-							<button className="btn btn--sm btn--primary" onClick={() => onOpenInEditor(selectedMenu.id)}>
+							<button
+								className="btn btn--sm btn--primary"
+								onClick={() => onOpenInEditor(selectedMenu.id)}
+							>
 								Open in Editor
 							</button>
 						</div>
@@ -734,8 +762,8 @@ export function FullMenuMap({
 				<div className="menu-map__legend">
 					{(Object.entries(EDGE_COLOURS) as [EdgeType, string][]).map(([type, colour]) => (
 						<div key={type} className="menu-map__legend-item">
-							<span className="menu-map__legend-dot" style={{ background: colour }} />
-							<span className="menu-map__legend-label">{EDGE_LABELS[type]}</span>
+							<span className="menu-map__legend-line" style={{ background: colour }} />
+							<span>{EDGE_LABELS[type]}</span>
 						</div>
 					))}
 				</div>
