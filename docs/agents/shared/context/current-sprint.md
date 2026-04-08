@@ -2,21 +2,24 @@
 
 ## Focus
 
-Executing the holistic menu-system overhaul.
+Executing the Set 2b Menu Workspace Upgrade.
 
-The immediate thread is to replace the legacy flat menu model with the new scene-driven `MenuDocument` architecture. This is a deliberate "break-the-pipeline" phase where we prioritize structural integrity and long-term scalability (including motion and Blu-ray) over maintaining a playable DVD build on the feature branch.
+The immediate thread is to build the unified menu authoring interface designed by Yuli, replacing the legacy multi-mode (Bind/Route/Compile) editor with a single cohesive workspace.
 
-Key workstreams:
+Key constraints & requirements:
+- **Blu-ray (HDMV/IG) Ceiling:** The UI supports rich styling (8-bit alpha, drop shadows, Focus/Activate states).
+- **DVD/VCD Degradation Floor:** The new `Compile Preview` overlay must honestly and elegantly communicate downsampling constraints to the user.
+- **Seamless Branching (BOV):** Jullian's multiplexing engine must achieve flawless I-frame sector alignment to support fluid UI state transitions without mechanical clunks.
+- **SPRM Management:** The compiler must reliably manipulate SPRM 1 and SPRM 2 to support the new `setAudioStream` and `setSubtitleStream` actions in the generated setup menus.
 
-- **Milestone 1**: COMPLETED & VERIFIED. Schema and serialization are 100% synchronized.
-- **Milestone 2**: COMPLETED & VERIFIED. Nicholas has delivered the fully functional Scene Editor.
-- **Milestone 3**: COMPLETED & VERIFIED. Jullian's backend seams are locked.
+This work is isolated on the `feat/menu-workspace-upgrade` branch. 
 
-## Product Stance: Rich Design, Honest Compilation
-
-The primary menu design space must remain high-fidelity and unrestricted. The "Honest Preview" (showing DVD palette/resolution downgrades) is an optional mode or overlay, not a forced canvas constraint. Users should design in a rich environment and opt-in to see target-specific compromises.
-
-This work is isolated on the `feature/menu-system-overhaul` branch. Main remains stable for v0.2.x maintenance.
+## Roster & Handoff Order
+1. **Jullian:** Backend multiplexing (BOV) and SPRM compiler updates.
+2. **Kyle:** Auditing backend boundaries, type-safety, and failure states.
+3. **Tristan:** Building the React state, `MenuDocument` structure, and the unified editor shell.
+4. **Nicholas:** Styling the unified editor, visual hierarchies, and the Compile Preview overlay.
+5. **Yuli:** Final UX review to ensure the calm user journey survives implementation.
 
 ## Channel
 
