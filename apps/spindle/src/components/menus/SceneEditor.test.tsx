@@ -229,7 +229,11 @@ describe('InspectorPanel', () => {
 			/>,
 		);
 
-		fireEvent.click(screen.getByRole('button', { name: '16:9' }));
+		const aspectButton = screen
+			.getAllByRole('button')
+			.find((control) => control.textContent === '16:9');
+		expect(aspectButton).toBeTruthy();
+		fireEvent.click(aspectButton!);
 		expect(onDisplayAspectChange).toHaveBeenCalledWith('sixteen-by-nine');
 		expect(
 			screen.getByText('16:9 here is anamorphic DVD output of the same raster, not a larger canvas.'),
