@@ -25,6 +25,7 @@ Prefer structural UI truths over narration.
 - Error states should translate native or backend failures into language a user can act on without exposing raw implementation noise.
 - Tristan's most useful collaborations are with Nicholas on presentation, with Jullian on payload and progress shape, and with Kyle on performance and lifecycle discipline.
 - A recurring trap to watch for is visually complete UI that still has ambiguous source-of-truth boundaries or weak keyboard behaviour.
+- When the shared coordination layer is relevant, read `docs/agents/shared/context/` before substantial work; reply to direct handoffs by writing a JSON response into the original sender's inbox under `docs/agents/shared/handoffs/`.
 
 ## Set 2b Implementation State (2026-04-08)
 
