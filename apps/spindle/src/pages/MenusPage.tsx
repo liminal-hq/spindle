@@ -332,16 +332,26 @@ function MenuEditor({
 	const redo = useProjectStore((s) => s.redo);
 
 	// Ctrl+Z / Ctrl+Shift+Z for undo/redo
+	// P for DVD preview toggle (format-scaling doc §2)
 	useEffect(() => {
 		const handler = (e: KeyboardEvent) => {
-			if (!(e.ctrlKey || e.metaKey) || e.key !== 'z') return;
 			const tag = (e.target as HTMLElement).tagName;
-			if (tag === 'INPUT' || tag === 'TEXTAREA') return;
-			e.preventDefault();
-			if (e.shiftKey) {
-				redo();
-			} else {
-				undo();
+			if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+
+			if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+				e.preventDefault();
+				if (e.shiftKey) {
+					redo();
+				} else {
+					undo();
+				}
+				return;
+			}
+
+			// P — toggle DVD Preview (honest compile preview)
+			if (e.key === 'p' || e.key === 'P') {
+				e.preventDefault();
+				setHonestPreview((v) => !v);
 			}
 		};
 		document.addEventListener('keydown', handler);
