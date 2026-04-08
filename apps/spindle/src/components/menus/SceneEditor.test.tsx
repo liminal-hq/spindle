@@ -303,7 +303,7 @@ describe('SceneCanvas', () => {
 		expect(viewport).toBeTruthy();
 	});
 
-	it('shows DVD Preview badge when honest preview is on', () => {
+	it('shows compile preview badge when honest preview is on', () => {
 		render(
 			<SceneCanvas
 				buttons={buttons}
@@ -324,7 +324,7 @@ describe('SceneCanvas', () => {
 			/>,
 		);
 
-		expect(screen.getByText('DVD Preview')).toBeTruthy();
+		expect(screen.getByText('Compile Preview — DVD output simulation')).toBeTruthy();
 	});
 
 	it('renders safe-area guides when enabled', () => {

@@ -24,7 +24,7 @@ const MINI_PADDING = 12;
 
 interface LayoutNode {
 	id: string;
-	type: 'menu' | 'title';
+	type: 'disc' | 'menu' | 'title';
 	label: string;
 	sublabel?: string;
 	domain?: 'vmgm' | 'titleset';
@@ -59,6 +59,7 @@ function extractEdgesFromAction(
 	fromId: string,
 	out: LayoutEdge[],
 	returnIds: Set<string>,
+	terminalEdgeType?: Extract<EdgeType, 'firstPlay' | 'endAction'>,
 	depth = 0,
 ): void {
 	// Guard against pathological sequence recursion
@@ -67,26 +68,26 @@ function extractEdgesFromAction(
 	switch (action.type) {
 		case 'showMenu':
 			out.push({
-				key: `${fromId}→showMenu→${action.menuId}`,
+				key: `${fromId}→${terminalEdgeType ?? 'showMenu'}→${action.menuId}`,
 				fromId,
 				toId: action.menuId,
-				edgeType: 'showMenu',
+				edgeType: terminalEdgeType ?? 'showMenu',
 			});
 			break;
 		case 'playTitle':
 			out.push({
-				key: `${fromId}→playTitle→${action.titleId}`,
+				key: `${fromId}→${terminalEdgeType ?? 'playTitle'}→${action.titleId}`,
 				fromId,
 				toId: action.titleId,
-				edgeType: 'playTitle',
+				edgeType: terminalEdgeType ?? 'playTitle',
 			});
 			break;
 		case 'playChapter':
 			out.push({
-				key: `${fromId}→playChapter→${action.titleId}`,
+				key: `${fromId}→${terminalEdgeType ?? 'playChapter'}→${action.titleId}`,
 				fromId,
 				toId: action.titleId,
-				edgeType: 'playChapter',
+				edgeType: terminalEdgeType ?? 'playChapter',
 			});
 			break;
 		case 'return':
@@ -95,7 +96,7 @@ function extractEdgesFromAction(
 			break;
 		case 'sequence':
 			for (const sub of action.actions) {
-				extractEdgesFromAction(sub, fromId, out, returnIds, depth + 1);
+				extractEdgesFromAction(sub, fromId, out, returnIds, terminalEdgeType, depth + 1);
 			}
 			break;
 	}
@@ -111,6 +112,20 @@ function computeMapLayout(project: SpindleProjectFile, compact: boolean): MapLay
 	const nodes: LayoutNode[] = [];
 	const rawEdges: LayoutEdge[] = [];
 	const returnIds = new Set<string>();
+	const hasFirstPlayAction = project.disc.firstPlayAction !== null;
+
+	if (hasFirstPlayAction) {
+		nodes.push({
+			id: '__disc__',
+			type: 'disc',
+			label: 'Disc',
+			sublabel: 'First play',
+			x: pad,
+			y: pad,
+			w: nw,
+			h: nh,
+		});
+	}
 
 	// Column 0: Global (VMGM) menus
 	project.disc.globalMenus.forEach((menu, row) => {
@@ -120,7 +135,7 @@ function computeMapLayout(project: SpindleProjectFile, compact: boolean): MapLay
 			label: menu.name,
 			domain: 'vmgm',
 			x: pad,
-			y: pad + row * (nh + rg),
+			y: pad + (row + (hasFirstPlayAction ? 1 : 0)) * (nh + rg),
 			w: nw,
 			h: nh,
 		});
@@ -164,7 +179,13 @@ function computeMapLayout(project: SpindleProjectFile, compact: boolean): MapLay
 
 	// Extract edges from firstPlayAction
 	if (project.disc.firstPlayAction) {
-		extractEdgesFromAction(project.disc.firstPlayAction, '__disc__', rawEdges, returnIds);
+		extractEdgesFromAction(
+			project.disc.firstPlayAction,
+			'__disc__',
+			rawEdges,
+			returnIds,
+			'firstPlay',
+		);
 	}
 
 	// Extract edges from each menu's button actions and timeout
@@ -198,7 +219,7 @@ function computeMapLayout(project: SpindleProjectFile, compact: boolean): MapLay
 	for (const ts of project.disc.titlesets) {
 		for (const title of ts.titles) {
 			if (title.endAction) {
-				extractEdgesFromAction(title.endAction, title.id, rawEdges, returnIds);
+				extractEdgesFromAction(title.endAction, title.id, rawEdges, returnIds, 'endAction');
 			}
 		}
 	}
@@ -323,10 +344,13 @@ function NodeRect({
 	onDoubleClick?: (id: string) => void;
 }) {
 	const isMenu = node.type === 'menu';
+	const isDisc = node.type === 'disc';
 	const isVmgm = node.domain === 'vmgm';
 
 	const fill = isSelected
 		? 'rgba(255, 170, 64, 0.15)'
+		: isDisc
+			? 'rgba(255, 170, 64, 0.08)'
 		: isMenu
 			? isVmgm
 				? 'rgba(34, 211, 238, 0.06)'
@@ -335,6 +359,8 @@ function NodeRect({
 
 	const stroke = isSelected
 		? '#ffaa40'
+		: isDisc
+			? 'rgba(255, 170, 64, 0.55)'
 		: isMenu
 			? isVmgm
 				? 'rgba(34, 211, 238, 0.5)'
@@ -398,7 +424,7 @@ function NodeRect({
 					fontFamily="var(--font-body, system-ui, sans-serif)"
 					style={{ pointerEvents: 'none', userSelect: 'none' }}
 				>
-					{node.type === 'title' ? 'TITLE' : isVmgm ? 'VMGM' : 'MENU'}
+					{node.type === 'title' ? 'TITLE' : node.type === 'disc' ? 'START' : isVmgm ? 'VMGM' : 'MENU'}
 				</text>
 			)}
 			{/* Return badge — shows a loopback indicator for nodes with return actions */}

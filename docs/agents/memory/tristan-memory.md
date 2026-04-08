@@ -44,6 +44,7 @@ Prefer structural UI truths over narration.
 - All `MenuDocument` updates should go through `updateMenuDocument` (store) to maintain the Sync Layer back to legacy fields. The `MenuEditor` uses direct `onUpdate` (Menu updater) handlers; both paths eventually call `updateProject`.
 - `ProjectState.selectedMenuId` and `menuEditorMode` remain the canonical cross-pane synchronisation points.
 - The interaction graph (`interaction.nodes`) is the source of truth for navigation contracts — not the flat `buttons` array.
+- The navigation map must render a visible first-play source node when `disc.firstPlayAction` exists; otherwise a real authored entry path disappears from the graph.
 - Menu design size is enforced relative to project `VideoStandard` (NTSC: 720×480, PAL: 720×576).
 - DVD subpicture palette: 4 colours max. `honestPreview` communicates this visually on the canvas.
 
