@@ -3,7 +3,7 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: MIT
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useProjectStore } from '../store/project-store';
 import { useNavigation } from '../App';
 import type {
@@ -55,6 +55,7 @@ export function MenusPage() {
 			ts.menus.map((m) => ({ menu: m, scope: 'titleset' as const, titlesetId: ts.id })),
 		),
 	];
+	const menuConnectionCounts = useMemo(() => computeMenuConnectionCounts(project), [project]);
 	const selectedEntry = allMenus.find((e) => e.menu.id === selectedMenuId) ?? null;
 	const firstMenuId = allMenus[0]?.menu.id ?? null;
 	const activeView = menuEditorMode === 'map' ? 'map' : 'editor';
@@ -210,6 +211,9 @@ export function MenusPage() {
 										<MenuListItem
 											key={menu.id}
 											menu={menu}
+											connectionCounts={
+												menuConnectionCounts[menu.id] ?? EMPTY_MENU_CONNECTION_COUNTS
+											}
 											isSelected={menu.id === selectedMenuId}
 											onSelect={() => setSelectedMenuId(menu.id)}
 										/>
@@ -241,6 +245,9 @@ export function MenusPage() {
 											<MenuListItem
 												key={menu.id}
 												menu={menu}
+												connectionCounts={
+													menuConnectionCounts[menu.id] ?? EMPTY_MENU_CONNECTION_COUNTS
+												}
 												isSelected={menu.id === selectedMenuId}
 												onSelect={() => setSelectedMenuId(menu.id)}
 											/>
@@ -286,20 +293,24 @@ export function MenusPage() {
 
 function MenuListItem({
 	menu,
+	connectionCounts,
 	isSelected,
 	onSelect,
 }: {
 	menu: Menu;
+	connectionCounts: MenuConnectionCounts;
 	isSelected: boolean;
 	onSelect: () => void;
 }) {
-	const buttonCount = menu.authoredDocument
-		? menu.authoredDocument.scene.nodes.filter((n) => n.type === 'button').length
-		: menu.buttons.length;
+	const previewBlocks = getMenuPreviewBlocks(menu);
+	const buttonCount = previewBlocks.length;
+	const previewBackground = getMenuPreviewBackground(menu);
+	const hasWarning =
+		buttonCount === 0 || (connectionCounts.incoming === 0 && connectionCounts.outgoing === 0);
 
 	return (
 		<div
-			className={`menus__item card ${isSelected ? 'menus__item--selected' : ''}`}
+			className={`menus__item ${isSelected ? 'menus__item--selected' : ''}`}
 			onClick={onSelect}
 			role="button"
 			tabIndex={0}
@@ -311,8 +322,48 @@ function MenuListItem({
 				}
 			}}
 		>
-			<span className="menus__item-name">{menu.name}</span>
-			<span className="badge badge--neutral">{buttonCount} btn</span>
+			<div className="menus__item-preview" style={{ background: previewBackground }}>
+				{previewBlocks.slice(0, 4).map((block, index) => (
+					<div
+						key={`${menu.id}-preview-${index}`}
+						className="menus__item-preview-block"
+						style={{
+							left: `${block.x}%`,
+							top: `${block.y}%`,
+							width: `${block.width}%`,
+						}}
+					/>
+				))}
+				{previewBlocks.length === 0 && <div className="menus__item-preview-empty" />}
+			</div>
+			<div className="menus__item-info">
+				<div className="menus__item-name">{menu.name}</div>
+				<div className="menus__item-meta">
+					<span>
+						{buttonCount} button{buttonCount === 1 ? '' : 's'}
+					</span>
+					<div className="menus__item-conns">
+						<span
+							className="conn-indicator conn-indicator--out"
+							title={`${connectionCounts.outgoing} outgoing connection${connectionCounts.outgoing === 1 ? '' : 's'}`}
+						>
+							&#8594;{connectionCounts.outgoing}
+						</span>
+						<span
+							className="conn-indicator conn-indicator--in"
+							title={`${connectionCounts.incoming} incoming connection${connectionCounts.incoming === 1 ? '' : 's'}`}
+						>
+							&#8592;{connectionCounts.incoming}
+						</span>
+					</div>
+				</div>
+			</div>
+			<div
+				className={`menus__item-status ${
+					hasWarning ? 'menus__item-status--warn' : 'menus__item-status--ok'
+				}`}
+				aria-hidden="true"
+			/>
 		</div>
 	);
 }
@@ -449,8 +500,7 @@ function MenuEditor({
 		: null;
 	const backgroundAssetLabel = backgroundAsset ? backgroundAsset.fileName : null;
 	const highlightColours = menu.authoredDocument?.highlightColours ?? menu.highlightColours;
-	const defaultFocusId =
-		menu.authoredDocument?.interaction.defaultFocusId ?? menu.defaultButtonId;
+	const defaultFocusId = menu.authoredDocument?.interaction.defaultFocusId ?? menu.defaultButtonId;
 
 	const selectedNode = sceneNodes.find((n) => n.id === selectedNodeId) ?? null;
 	const selectedButton = currentButtons.find((b) => b.id === selectedNodeId) ?? null;
@@ -494,7 +544,14 @@ function MenuEditor({
 							...m.authoredDocument.interaction,
 							nodes: [
 								...m.authoredDocument.interaction.nodes,
-								{ nodeId: id, navUp: null, navDown: null, navLeft: null, navRight: null, action: null },
+								{
+									nodeId: id,
+									navUp: null,
+									navDown: null,
+									navLeft: null,
+									navRight: null,
+									action: null,
+								},
 							],
 						},
 					},
@@ -616,7 +673,7 @@ function MenuEditor({
 							navDown: inode?.navDown ?? null,
 							navLeft: inode?.navLeft ?? null,
 							navRight: inode?.navRight ?? null,
-							highlightMode: node.highlightMode ?? 'static' as const,
+							highlightMode: node.highlightMode ?? ('static' as const),
 							highlightKeyframes: node.highlightKeyframes ?? [],
 							videoAssetId: node.videoAssetId ?? null,
 						};
@@ -806,27 +863,112 @@ function MenuEditor({
 
 	return (
 		<section className="editor-area">
-			<div className="editor-toolbar card">
+			<div className={`editor-toolbar ${activeView === 'map' ? 'editor-toolbar--map' : ''}`}>
 				<div className="editor-toolbar__left">
-					<input
-						className="editor-toolbar__name"
-						value={menu.name}
-						onChange={(e) => onUpdate((m) => ({ ...m, name: e.target.value }))}
-						aria-label="Menu name"
-					/>
-					<div className="editor-toolbar__info text-muted">
-						<span>{currentButtons.length} buttons</span>
-						<span>|</span>
-						<span>{menuDomainLabel}</span>
-						<span>|</span>
-						<span>
-							720 x {canvasHeight} {project.disc.standard}
-						</span>
+					{activeView === 'editor' ? (
+						<input
+							className="editor-toolbar__name"
+							value={menu.name}
+							onChange={(e) => onUpdate((m) => ({ ...m, name: e.target.value }))}
+							aria-label="Menu name"
+						/>
+					) : (
+						<h2 className="editor-toolbar__title">Navigation Map</h2>
+					)}
+					<div className="editor-toolbar__info">
+						{activeView === 'editor' ? (
+							<>
+								<span>{currentButtons.length} buttons</span>
+								<span className="editor-toolbar__separator">|</span>
+								<span>{menuDomainLabel}</span>
+								<span className="editor-toolbar__separator">|</span>
+								<span>
+									720 x {canvasHeight} {project.disc.standard}
+								</span>
+							</>
+						) : (
+							<>
+								<span>{allMenus.length} menus</span>
+								<span className="editor-toolbar__separator">|</span>
+								<span>{project.disc.titlesets.length} titlesets</span>
+								<span className="editor-toolbar__separator">|</span>
+								<span>Double-click a card to open it in the editor</span>
+							</>
+						)}
 					</div>
 				</div>
-				<div className="editor-toolbar__actions">
-					{activeView === 'editor' && (
-						<>
+				<div className="editor-toolbar__spacer" />
+				{activeView === 'editor' ? (
+					<>
+						<div className="editor-toolbar__toggles" role="group" aria-label="Canvas overlays">
+							<button
+								className={`editor-toolbar__toggle ${showSafeArea ? 'editor-toolbar__toggle--active' : ''}`}
+								onClick={() => setShowSafeArea(!showSafeArea)}
+								aria-pressed={showSafeArea}
+								title="Show safe-area guides"
+							>
+								Safe Area
+							</button>
+							<button
+								className={`editor-toolbar__toggle editor-toolbar__toggle--preview ${
+									honestPreview ? 'editor-toolbar__toggle--active' : ''
+								}`}
+								onClick={() => setHonestPreview((value) => !value)}
+								aria-pressed={honestPreview}
+								title="Toggle DVD preview"
+							>
+								<span className="editor-toolbar__toggle-dot" aria-hidden="true" />
+								Preview
+							</button>
+							<button
+								className={`editor-toolbar__toggle ${showNavLines ? 'editor-toolbar__toggle--active' : ''}`}
+								onClick={() => setShowNavLines((value) => !value)}
+								aria-pressed={showNavLines}
+								title="Show navigation lines between buttons"
+							>
+								Nav Lines
+							</button>
+							<button
+								className={`editor-toolbar__toggle ${previewMode ? 'editor-toolbar__toggle--active' : ''}`}
+								onClick={() => setPreviewMode(!previewMode)}
+								aria-pressed={previewMode}
+								title="Navigate with the keyboard"
+							>
+								Keyboard Nav
+							</button>
+						</div>
+						<div className="editor-toolbar__background">
+							<span className="editor-toolbar__field-label">Background</span>
+							<select
+								className="editor-toolbar__select"
+								value={menu.backgroundAssetId ?? ''}
+								onChange={(e) => handleBackgroundChange(e.target.value || null)}
+								aria-label="Background asset"
+							>
+								<option value="">Solid colour</option>
+								{project.assets
+									.filter(
+										(a) =>
+											a.videoStreams.length > 0 || a.fileName.match(/\.(png|jpg|jpeg|bmp|tiff?)$/i),
+									)
+									.map((a) => (
+										<option key={a.id} value={a.id}>
+											{a.fileName}
+										</option>
+									))}
+							</select>
+							{!menu.backgroundAssetId && (
+								<input
+									type="color"
+									className="editor-toolbar__colour-input"
+									value={menu.authoredDocument?.scene.background.colour ?? '#000000'}
+									onChange={(e) => handleBackgroundColourChange(e.target.value)}
+									title="Background colour"
+									aria-label="Background colour"
+								/>
+							)}
+						</div>
+						<div className="editor-toolbar__actions">
 							<button className="btn btn--sm" onClick={handleAddButton}>
 								+ Button
 							</button>
@@ -839,55 +981,39 @@ function MenuEditor({
 							<button className="btn btn--sm" onClick={() => handleAddSceneNode('shape')}>
 								+ Shape
 							</button>
-						</>
-					)}
-					<button
-						className="btn btn--sm"
-						onClick={onAutoNav}
-						title="Auto-generate directional navigation from button positions"
-					>
-						Auto Nav
-					</button>
-					<button className="btn btn--sm btn--danger" onClick={onRemove}>
-						Delete Menu
-					</button>
-				</div>
+							<button
+								className="btn btn--sm"
+								onClick={onAutoNav}
+								title="Auto-generate directional navigation from button positions"
+							>
+								Auto Nav
+							</button>
+							<button className="btn btn--sm btn--danger" onClick={onRemove}>
+								Delete Menu
+							</button>
+						</div>
+					</>
+				) : (
+					<div className="editor-toolbar__legend" aria-label="Map legend">
+						<div className="editor-toolbar__legend-item">
+							<span className="editor-toolbar__legend-line editor-toolbar__legend-line--show" />
+							<span>Show</span>
+						</div>
+						<div className="editor-toolbar__legend-item">
+							<span className="editor-toolbar__legend-line editor-toolbar__legend-line--play" />
+							<span>Play</span>
+						</div>
+						<div className="editor-toolbar__legend-item">
+							<span className="editor-toolbar__legend-line editor-toolbar__legend-line--return" />
+							<span>Return</span>
+						</div>
+					</div>
+				)}
 			</div>
 
 			{activeView === 'editor' ? (
 				<div className="editor-body">
 					<div className="menus__canvas-zone">
-						<div className="menus__bg-select">
-							<label className="text-muted">Background:</label>
-							<select
-								className="menus__select-sm"
-								value={menu.backgroundAssetId ?? ''}
-								onChange={(e) => handleBackgroundChange(e.target.value || null)}
-							>
-								<option value="">Solid colour</option>
-								{project.assets
-									.filter(
-										(a) =>
-											a.videoStreams.length > 0 ||
-											a.fileName.match(/\.(png|jpg|jpeg|bmp|tiff?)$/i),
-									)
-									.map((a) => (
-										<option key={a.id} value={a.id}>
-											{a.fileName}
-										</option>
-									))}
-							</select>
-							{!menu.backgroundAssetId && (
-								<input
-									type="color"
-									className="menus__bg-colour-input"
-									value={menu.authoredDocument?.scene.background.colour ?? '#000000'}
-									onChange={(e) => handleBackgroundColourChange(e.target.value)}
-									title="Background colour"
-								/>
-							)}
-						</div>
-
 						<SceneCanvas
 							buttons={currentButtons}
 							sceneNodes={sceneNodes}
@@ -905,51 +1031,6 @@ function MenuEditor({
 							selectedNodeId={selectedNodeId}
 							onSelectNode={setSelectedNodeId}
 						/>
-
-						{/* Canvas toggles toolbar */}
-						<div className="scene-canvas__toolbar">
-							<label className="scene-canvas__toolbar-toggle" title="Show safe-area guides">
-								<input
-									type="checkbox"
-									checked={showSafeArea}
-									onChange={(e) => setShowSafeArea(e.target.checked)}
-								/>
-								Safe Area
-							</label>
-							<label
-								className="scene-canvas__toolbar-toggle"
-								title="Preview with DVD-safe colour reduction"
-							>
-								<input
-									type="checkbox"
-									checked={honestPreview}
-									onChange={(e) => setHonestPreview(e.target.checked)}
-								/>
-								DVD Preview
-							</label>
-							<label
-								className="scene-canvas__toolbar-toggle"
-								title="Show navigation direction lines between buttons"
-							>
-								<input
-									type="checkbox"
-									checked={showNavLines}
-									onChange={(e) => setShowNavLines(e.target.checked)}
-								/>
-								Nav Lines
-							</label>
-							<label
-								className="scene-canvas__toolbar-toggle"
-								title="Navigate with arrow keys (remote preview)"
-							>
-								<input
-									type="checkbox"
-									checked={previewMode}
-									onChange={(e) => setPreviewMode(e.target.checked)}
-								/>
-								Keyboard Nav
-							</label>
-						</div>
 					</div>
 
 					<div className="menus__side-panel">
@@ -1015,4 +1096,149 @@ function updateMenuInProject(
 			})),
 		},
 	};
+}
+
+type MenuConnectionCounts = {
+	incoming: number;
+	outgoing: number;
+};
+
+const EMPTY_MENU_CONNECTION_COUNTS: MenuConnectionCounts = {
+	incoming: 0,
+	outgoing: 0,
+};
+
+function computeMenuConnectionCounts(
+	project: SpindleProjectFile,
+): Record<string, MenuConnectionCounts> {
+	const countSets = new Map<string, { incoming: Set<string>; outgoing: Set<string> }>();
+
+	const ensureCounts = (menuId: string) => {
+		const existing = countSets.get(menuId);
+		if (existing) return existing;
+		const next = { incoming: new Set<string>(), outgoing: new Set<string>() };
+		countSets.set(menuId, next);
+		return next;
+	};
+
+	const registerOutgoing = (menuId: string, key: string) => {
+		ensureCounts(menuId).outgoing.add(key);
+	};
+
+	const registerIncoming = (menuId: string, key: string) => {
+		ensureCounts(menuId).incoming.add(key);
+	};
+
+	const inspectAction = (action: Menu['timeoutAction'], source: string, menuId?: string) => {
+		if (!action) return;
+		switch (action.type) {
+			case 'showMenu':
+				if (menuId) registerOutgoing(menuId, `show:${action.menuId}`);
+				registerIncoming(action.menuId, `${source}:show:${action.menuId}`);
+				break;
+			case 'playTitle':
+				if (menuId) registerOutgoing(menuId, `title:${action.titleId}`);
+				break;
+			case 'playChapter':
+				if (menuId) registerOutgoing(menuId, `chapter:${action.titleId}:${action.chapterId}`);
+				break;
+			case 'sequence':
+				action.actions.forEach((nestedAction, index) =>
+					inspectAction(nestedAction, `${source}:sequence:${index}`, menuId),
+				);
+				break;
+			default:
+				break;
+		}
+	};
+
+	project.disc.globalMenus.forEach((menu) => ensureCounts(menu.id));
+	project.disc.titlesets.forEach((titleset) =>
+		titleset.menus.forEach((menu) => ensureCounts(menu.id)),
+	);
+
+	if (project.disc.firstPlayAction) {
+		inspectAction(project.disc.firstPlayAction, 'disc:first-play');
+	}
+
+	project.disc.titlesets.forEach((titleset) =>
+		titleset.titles.forEach((title) => {
+			if (title.endAction) {
+				inspectAction(title.endAction, `title:${title.id}`);
+			}
+		}),
+	);
+
+	const authoredMenus = [
+		...project.disc.globalMenus,
+		...project.disc.titlesets.flatMap((titleset) => titleset.menus),
+	];
+
+	authoredMenus.forEach((menu) => {
+		const interactionNodes = menu.authoredDocument?.interaction.nodes ?? [];
+		if (interactionNodes.length > 0) {
+			interactionNodes.forEach((node, index) =>
+				inspectAction(node.action, `menu:${menu.id}:node:${index}`, menu.id),
+			);
+		} else {
+			menu.buttons.forEach((button) =>
+				inspectAction(button.action, `menu:${menu.id}:button:${button.id}`, menu.id),
+			);
+		}
+		inspectAction(
+			menu.authoredDocument?.interaction.timeoutAction ?? menu.timeoutAction,
+			`menu:${menu.id}:timeout`,
+			menu.id,
+		);
+	});
+
+	return Object.fromEntries(
+		[...countSets.entries()].map(([menuId, counts]) => [
+			menuId,
+			{
+				incoming: counts.incoming.size,
+				outgoing: counts.outgoing.size,
+			},
+		]),
+	);
+}
+
+function getMenuPreviewBlocks(menu: Menu): Array<{ x: number; y: number; width: number }> {
+	const designWidth = menu.authoredDocument?.scene.designSize.width ?? 720;
+	const designHeight = menu.authoredDocument?.scene.designSize.height ?? 480;
+	const authoredButtons = menu.authoredDocument?.scene.nodes
+		.filter((node): node is Extract<SceneNode, { type: 'button' }> => node.type === 'button')
+		.map((button) => ({
+			x: button.x,
+			y: button.y,
+			width: button.width,
+		}));
+	const legacyButtons =
+		authoredButtons ??
+		menu.buttons.map((button) => ({
+			x: button.bounds.x,
+			y: button.bounds.y,
+			width: button.bounds.width,
+		}));
+
+	return legacyButtons
+		.slice()
+		.sort((left, right) => left.y - right.y || left.x - right.x)
+		.map((button) => ({
+			x: clampPercent((button.x / designWidth) * 100, 6, 82),
+			y: clampPercent((button.y / designHeight) * 100, 12, 82),
+			width: clampPercent((button.width / designWidth) * 100, 18, 82),
+		}));
+}
+
+function getMenuPreviewBackground(menu: Menu): string {
+	const backgroundColour = menu.authoredDocument?.scene.background.colour;
+	if (backgroundColour) {
+		return `linear-gradient(135deg, ${backgroundColour}, rgba(5, 5, 7, 0.92))`;
+	}
+	return 'linear-gradient(135deg, #1a1828, #0f0e1a)';
+}
+
+function clampPercent(value: number, minimum: number, maximum: number): number {
+	return Math.min(maximum, Math.max(minimum, Number.isFinite(value) ? value : minimum));
 }
