@@ -39,6 +39,10 @@ Prefer durable, reusable context over narration.
 - During the Set 2b menu-editor finish, old `.spindle` files were blocked by authored menu document drift rather than by top-level project metadata. Compatibility fixes belong at the Rust schema boundary first, especially for mixed `camelCase` and legacy `snake_case` node fields plus newly added timing defaults.
 - The upgraded menu inspector now persists optional scene-node styling data for text and button nodes, so the Rust `SceneNode` model must stay aligned with the frontend editor types or those style-only edits will be silently dropped on open/save.
 - For menu-editor hardening, the most useful verification pair was containerised Rust plugin coverage (`cargo test -p tauri-plugin-spindle-project`) plus targeted frontend store tests (`pnpm --filter @liminal-hq/spindle test -- src/store/project-store.test.ts`) rather than broader UI-only smoke passes.
+- For the Set 2b shell itself, the biggest UX misses were usually not missing data models but missing feedback loops: if the inspector can edit a state, the centre canvas needs to show that state honestly right away.
+- The menu workspace benefits from treating authored display shape as a first-class preview concern. Even with a fixed 720-line raster, authors need a visible 4:3 versus anamorphic 16:9 simulation plus zoom to judge composition well.
+- Background controls are more trustworthy in the inspector rail than in the top toolbar when they need to grow into still, video, audio, and motion-loop settings over time.
+- A clean verification bundle for workspace-shell changes is `pnpm --filter @liminal-hq/spindle test -- src/components/menus/SceneEditor.test.tsx src/components/menus/MenuMap.test.tsx src/store/project-store.test.ts` plus `pnpm --filter @liminal-hq/spindle build`.
 
 ## Open Questions
 
