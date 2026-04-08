@@ -270,6 +270,25 @@ async function resolveOutputDir(
 	return selected ?? null;
 }
 
+/**
+ * Return the names of motion menus that have not had a loop start time set.
+ * A loopStartSecs of 0.0 means the authored timing default was never changed —
+ * building such a menu produces a hard cut from frame 0 on every loop iteration.
+ */
+function motionMenusWithoutLoopStart(project: SpindleProjectFile): string[] {
+	const allMenus = [
+		...project.disc.globalMenus,
+		...project.disc.titlesets.flatMap((ts) => ts.menus),
+	];
+	return allMenus
+		.filter((m) => {
+			const doc = m.authoredDocument;
+			if (doc) return doc.backgroundMode === 'motion' && doc.timing.loopStartSecs === 0.0;
+			return m.backgroundMode === 'motion';
+		})
+		.map((m) => m.name);
+}
+
 export const useProjectStore = create<ProjectState>((set, get) => ({
 	project: null,
 	filePath: null,
@@ -671,6 +690,19 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 		const { project } = get();
 		if (!project) return;
 
+		const badMenus = motionMenusWithoutLoopStart(project);
+		if (badMenus.length > 0) {
+			set({
+				buildStatus: 'error',
+				buildLog: [
+					`Build blocked: motion menu${badMenus.length > 1 ? 's' : ''} ${badMenus.map((n) => `"${n}"`).join(', ')} ` +
+						`${badMenus.length > 1 ? 'have' : 'has'} loop start time set to 0.0 s. ` +
+						'Set an explicit loop start time in the menu inspector before building.',
+				],
+			});
+			return;
+		}
+
 		const outputDir = await resolveOutputDir(project, get().updateProject);
 		if (!outputDir) return;
 
@@ -696,6 +728,19 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 	executeBuild: async () => {
 		const { project } = get();
 		if (!project) return;
+
+		const badMenus = motionMenusWithoutLoopStart(project);
+		if (badMenus.length > 0) {
+			set({
+				buildStatus: 'error',
+				buildLog: [
+					`Build blocked: motion menu${badMenus.length > 1 ? 's' : ''} ${badMenus.map((n) => `"${n}"`).join(', ')} ` +
+						`${badMenus.length > 1 ? 'have' : 'has'} loop start time set to 0.0 s. ` +
+						'Set an explicit loop start time in the menu inspector before building.',
+				],
+			});
+			return;
+		}
 
 		const outputDir = await resolveOutputDir(project, get().updateProject);
 		if (!outputDir) return;

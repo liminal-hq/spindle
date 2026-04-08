@@ -1506,13 +1506,13 @@ function computeDiagnostics(doc: MenuDocument | null, buttons: MenuButton[]): Di
 		}
 	}
 
-	// Motion menu timing safety gate
+	// Motion menu timing safety gate — a loop start of 0.0 blocks the build.
 	if (doc?.backgroundMode === 'motion') {
 		if (doc.timing.loopStartSecs === 0.0) {
 			results.push({
-				severity: 'warning',
+				severity: 'error',
 				message:
-					'Motion menu: loop start time is 0.0 s. Set a loop start point to avoid a hard cut at the beginning of playback.',
+					'Motion menu: loop start time is 0.0 s. Set a loop start point before building — this will block the build.',
 			});
 		}
 		results.push({
