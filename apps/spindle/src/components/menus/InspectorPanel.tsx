@@ -189,7 +189,7 @@ export function InspectorPanel({
 			</div>
 			<div className="inspector-panel__body">
 				{sceneNodes && onSelectSceneNode && (
-					<CollapsibleSection title="Layers" defaultOpen>
+					<CollapsibleSection title="Layers" defaultOpen={false}>
 						<LayersPanel
 							nodes={sceneNodes}
 							selectedNodeId={selectedNodeId ?? null}
