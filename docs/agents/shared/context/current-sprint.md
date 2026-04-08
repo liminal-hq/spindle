@@ -16,8 +16,9 @@ This work is isolated on the `feat/menu-workspace-upgrade` branch.
 
 ### Progress Status
 - **Backend Infrastructure**: COMPLETED & SEALED. Kyle has verified Jullian's schema synchronization and stream index validation (commit e80ccc2). All backend risks identified in the Set 2b audit are resolved.
-- **Unified Editor Shell**: IN PROGRESS. Tristan is implementing the unified React workspace and updating the `MenuDocument` state management.
-- **Visual Integration**: PLANNED. Nicholas will apply visual polish and the Compile Preview treatment once the structural shell is ready.
+- **Unified Editor Shell & Map**: COMPLETED. Tristan has implemented the unified workspace (Phase 1) and the data-driven navigation maps (Phase 2).
+- **PlaybackAction::Return**: COMPLETED. Jullian has added the `Return` action type to the schema and mapped it to the `resume` VM command.
+- **Visual Integration**: IN PROGRESS. Nicholas is applying visual polish and the Compile Preview treatment.
 
 ## Roster & Handoff Order
 1. **Jullian:** Backend multiplexing (BOV) and SPRM compiler updates.
