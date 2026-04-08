@@ -1244,8 +1244,8 @@ function MenuEditor({
 
 			{activeView === 'editor' ? (
 				<div className="editor-body">
-					<div className="menus__workspace-shell">
-						<div className="menus__tool-rail" role="toolbar" aria-label="Scene tools">
+					<div className="menus__canvas-zone">
+						<div className="menus__tools-floating" role="toolbar" aria-label="Scene tools">
 							<button
 								className={`menus__tool-button ${
 									activeTool === 'select' ? 'menus__tool-button--active' : ''
@@ -1308,6 +1308,7 @@ function MenuEditor({
 							>
 								□
 							</button>
+							<div className="menus__tool-sep" />
 							<button
 								className="menus__tool-button menus__tool-button--accent"
 								type="button"
@@ -1317,33 +1318,29 @@ function MenuEditor({
 								➤
 							</button>
 						</div>
-						<div className="menus__canvas-zone">
-							<div className="menus__stage-shell">
-								<div
-									className="menus__canvas-scroll"
-									style={{ '--scene-zoom': `${canvasZoom / 100}` } as CSSProperties}
-								>
-									<SceneCanvas
-										buttons={currentButtons}
-										sceneNodes={sceneNodes}
-										canvasHeight={canvasHeight}
-										onUpdateButton={handleUpdateButton}
-										onUpdateSceneNode={handleUpdateSceneNode}
-										showSafeArea={showSafeArea}
-										backgroundLabel={backgroundAssetLabel}
-										backgroundColour={menu.authoredDocument?.scene.background.colour ?? null}
-										defaultButtonId={defaultFocusId}
-										previewMode={previewMode}
-										highlightColours={highlightColours}
-										honestPreview={honestPreview}
-										showNavLines={showNavLines}
-										selectedNodeId={selectedNodeId}
-										onSelectNode={setSelectedNodeId}
-										buttonPreviewState={buttonPreviewState}
-										displayAspect={displayAspect}
-									/>
-								</div>
-							</div>
+						<div
+							className="menus__canvas-scroll"
+							style={{ '--scene-zoom': `${canvasZoom / 100}` } as CSSProperties}
+						>
+							<SceneCanvas
+								buttons={currentButtons}
+								sceneNodes={sceneNodes}
+								canvasHeight={canvasHeight}
+								onUpdateButton={handleUpdateButton}
+								onUpdateSceneNode={handleUpdateSceneNode}
+								showSafeArea={showSafeArea}
+								backgroundLabel={backgroundAssetLabel}
+								backgroundColour={menu.authoredDocument?.scene.background.colour ?? null}
+								defaultButtonId={defaultFocusId}
+								previewMode={previewMode}
+								highlightColours={highlightColours}
+								honestPreview={honestPreview}
+								showNavLines={showNavLines}
+								selectedNodeId={selectedNodeId}
+								onSelectNode={setSelectedNodeId}
+								buttonPreviewState={buttonPreviewState}
+								displayAspect={displayAspect}
+							/>
 						</div>
 					</div>
 

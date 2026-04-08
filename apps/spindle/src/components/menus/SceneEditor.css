@@ -151,7 +151,7 @@
 .inspector-panel__body {
 	flex: 1;
 	overflow-y: auto;
-	padding: var(--space-3) var(--space-4) var(--space-4);
+	padding: var(--space-3);
 }
 
 .inspector-panel__empty {
@@ -163,6 +163,24 @@
 	display: flex;
 	flex-direction: column;
 	gap: var(--space-2);
+}
+
+/* Remove card chrome from LayersPanel when embedded in inspector body */
+.inspector-panel__body .layers-panel {
+	border: none;
+	border-radius: 0;
+	background: transparent;
+}
+
+.inspector-panel__body .layers-panel__header {
+	background: transparent;
+	border: none;
+	padding-left: 0;
+	padding-right: 0;
+}
+
+.inspector-panel__body .layers-panel__list {
+	padding: 0;
 }
 
 .inspector-panel__section {
@@ -203,7 +221,7 @@
 	font-weight: 700;
 	letter-spacing: 0.06em;
 	color: var(--text-muted);
-	margin: 0 0 var(--space-2);
+	margin: 0;
 }
 
 .inspector-panel__field {
@@ -946,8 +964,9 @@
 /* ── Inspector: Collapsible sections ───────────────────────────── */
 
 .inspector-panel__collapsible {
-	padding: 0;
-	border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+	border: 1px solid var(--border-subtle);
+	border-radius: var(--radius-md);
+	overflow: hidden;
 }
 
 .inspector-panel__collapsible-header {
@@ -956,8 +975,11 @@
 	gap: var(--space-2);
 	cursor: pointer;
 	user-select: none;
-	padding: var(--space-2) 0;
-	background: transparent;
+	padding: var(--space-2) var(--space-3);
+	background: rgba(0, 0, 0, 0.12);
+	color: var(--text-muted);
+	font-size: var(--text-xs);
+	font-weight: 600;
 }
 
 .inspector-panel__collapsible-header:hover {
@@ -976,7 +998,7 @@
 }
 
 .inspector-panel__collapsible-body {
-	padding: 0 0 var(--space-2);
+	padding: var(--space-2) var(--space-3);
 }
 
 /* ── Inspector: State sub-tabs ─────────────────────────────────── */

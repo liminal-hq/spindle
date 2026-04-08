@@ -869,7 +869,7 @@ function ButtonInspector({
 			})()}
 
 			{/* Highlight */}
-			<CollapsibleSection title="Highlight Mode" defaultOpen={false}>
+			<CollapsibleSection title="Highlight Mode" defaultOpen>
 				<select
 					className="inspector-panel__select"
 					value={button.highlightMode}
@@ -885,7 +885,7 @@ function ButtonInspector({
 			</CollapsibleSection>
 
 			{/* Overlay Colours */}
-			<CollapsibleSection title="Overlay Colours" defaultOpen={false}>
+			<CollapsibleSection title="Overlay Colours" defaultOpen>
 				<p className="inspector-panel__hint text-muted">
 					DVD subpicture highlight palette (menu-level).
 				</p>
