@@ -33,6 +33,7 @@ Supporting docs:
 - `docs/Spindle_Menu_System_Spec.md`
 - `docs/menu-builder-and-authoring-pipeline.md`
 - `docs/agents/personas/yuli-persona.md`
+- `docs/menu-editor-set-2b-format-scaling.md`
 
 ## Executive Review
 
