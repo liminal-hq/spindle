@@ -269,7 +269,9 @@ export interface FocusNode {
 
 /** Timing and motion rules for the menu. */
 export interface MenuTiming {
+	introStartSecs: number;
 	introDurationSecs: number;
+	loopStartSecs: number;
 	loopDurationSecs: number;
 	loopCount: number; // 0 = infinite
 }

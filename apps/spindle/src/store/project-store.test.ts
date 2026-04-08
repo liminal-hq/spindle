@@ -148,7 +148,7 @@ describe('ProjectStore: updateMenuDocument', () => {
 									guides: [],
 								},
 								interaction: { defaultFocusId: null, nodes: [], timeoutAction: null },
-								timing: { introDurationSecs: 0, loopDurationSecs: 0, loopCount: 0 },
+								timing: { introStartSecs: 0, introDurationSecs: 0, loopStartSecs: 0, loopDurationSecs: 0, loopCount: 0 },
 								highlightColours: {
 									selectColour: '#ffffff',
 									selectOpacity: 1,
@@ -315,7 +315,7 @@ describe('ProjectStore: updateMenuDocument', () => {
 					guides: [],
 				},
 				interaction: { defaultFocusId: null, nodes: [], timeoutAction: null },
-				timing: { introDurationSecs: 0, loopDurationSecs: 0, loopCount: 0 },
+				timing: { introStartSecs: 0, introDurationSecs: 0, loopStartSecs: 0, loopDurationSecs: 0, loopCount: 0 },
 				highlightColours: {
 					selectColour: '#ffffff',
 					selectOpacity: 1,

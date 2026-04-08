@@ -451,7 +451,9 @@ impl Menu {
         };
 
         let timing = MenuTiming {
+            intro_start_secs: 0.0,
             intro_duration_secs: 0.0,
+            loop_start_secs: 0.0,
             loop_duration_secs: self.motion_duration_secs.unwrap_or(0.0),
             loop_count: self.motion_loop_count,
         };
@@ -630,7 +632,9 @@ pub struct FocusNode {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MenuTiming {
+    pub intro_start_secs: f64,
     pub intro_duration_secs: f64,
+    pub loop_start_secs: f64,
     pub loop_duration_secs: f64,
     pub loop_count: u32, // 0 = infinite
 }
@@ -638,7 +642,9 @@ pub struct MenuTiming {
 impl Default for MenuTiming {
     fn default() -> Self {
         Self {
+            intro_start_secs: 0.0,
             intro_duration_secs: 0.0,
+            loop_start_secs: 0.0,
             loop_duration_secs: 0.0,
             loop_count: 0,
         }

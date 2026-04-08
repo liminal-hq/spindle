@@ -26,6 +26,7 @@ Prefer concrete technical facts over speculation.
 - Sidecar orchestration, filesystem effects, and output generation should be treated as proof-sensitive seams, not casual helper code.
 - Hidden crash paths and overconfident error handling are recurring traps; prefer explicit failure flow that the UI can represent cleanly.
 - Jullian and Edward work especially well when legacy format constraints need to be mapped to precise implementation boundaries.
+- **Set 2b Upgrades:** `MenuTiming` schema updated to include `intro_start_secs` and `loop_start_secs` for BOV I-frame alignment. `PlaybackAction` schema confirmed to use `streamIndex` (u32) and `Option<u32>` for subtitles, matching existing TS contracts. Verification build (cargo check/test and pnpm build) confirmed successful on 2026-04-07.
 
 ## Open Questions
 

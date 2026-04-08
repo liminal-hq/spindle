@@ -87,7 +87,9 @@ export function MenusPage() {
 					timeoutAction: null,
 				},
 				timing: {
+					introStartSecs: 0,
 					introDurationSecs: 0,
+					loopStartSecs: 0,
 					loopDurationSecs: 0,
 					loopCount: 0,
 				},
