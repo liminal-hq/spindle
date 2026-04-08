@@ -214,9 +214,12 @@ pub(crate) fn playback_action_to_dvd_command_in_context(
         }
         PlaybackAction::SetAudioStream { stream_index } => Ok(format!("audio = {stream_index}")),
         PlaybackAction::SetSubtitleStream { stream_index } => {
+            // SPRM 2 bit 6 (0x40) is the subtitle display flag; bits 0–5 are the stream
+            // number. A value with bit 6 clear means "not displayed". None means the user
+            // wants subtitles off, so we emit 0 (display=off, stream=0).
             let val = match stream_index {
-                None => 64, // Off
-                Some(idx) => idx + 64,
+                None => 0u32,          // Disable subtitle display
+                Some(idx) => idx + 64, // Enable stream idx (0x40 | idx)
             };
             Ok(format!("subtitle = {val}"))
         }
@@ -491,5 +494,49 @@ mod tests {
         .unwrap();
 
         assert_eq!(command, "{ g0 = 2; call titleset 2 menu entry root; }");
+    }
+
+    #[test]
+    fn set_audio_stream_emits_correct_dvdauthor_command() {
+        let project = test_project();
+
+        let command =
+            playback_action_to_dvd_command(&PlaybackAction::SetAudioStream { stream_index: 0 }, &project.disc);
+        assert_eq!(command, "audio = 0");
+
+        let command =
+            playback_action_to_dvd_command(&PlaybackAction::SetAudioStream { stream_index: 2 }, &project.disc);
+        assert_eq!(command, "audio = 2");
+    }
+
+    #[test]
+    fn set_subtitle_stream_enables_with_display_bit_set() {
+        let project = test_project();
+
+        // Stream 0: SPRM 2 = 0x40 | 0 = 64 (display on, stream 0)
+        let command = playback_action_to_dvd_command(
+            &PlaybackAction::SetSubtitleStream { stream_index: Some(0) },
+            &project.disc,
+        );
+        assert_eq!(command, "subtitle = 64");
+
+        // Stream 1: SPRM 2 = 0x40 | 1 = 65 (display on, stream 1)
+        let command = playback_action_to_dvd_command(
+            &PlaybackAction::SetSubtitleStream { stream_index: Some(1) },
+            &project.disc,
+        );
+        assert_eq!(command, "subtitle = 65");
+    }
+
+    #[test]
+    fn set_subtitle_stream_none_disables_display() {
+        let project = test_project();
+
+        // None → SPRM 2 bit 6 clear → display off. Value 0 = stream 0, not displayed.
+        let command = playback_action_to_dvd_command(
+            &PlaybackAction::SetSubtitleStream { stream_index: None },
+            &project.disc,
+        );
+        assert_eq!(command, "subtitle = 0");
     }
 }
