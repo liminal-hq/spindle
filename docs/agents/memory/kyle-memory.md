@@ -35,9 +35,11 @@ Prefer structural review guidance over narration.
     - **Compiler Bridge Verified**: `AuthorableMenuRef` in `menu.rs` now properly prioritises `authoredDocument` data. Added a targeted Rust unit test to confirm this contract.
     - **Air Gap Closed**: Refactored `menu_button_overlay_filter` to use user-authored `highlight_colours` instead of hardcoded hex values.
   - **Set 2b Workspace Upgrades (2026-04-07)**:
-    - **Contract Drift**: Jullian's proposed `SetAudioStream`/`SetSubtitleStream` expansion with `id: u16` conflicts with the already existing `streamIndex: u32` (and `Option<u32>` for subtitles) in `models.rs` and `project.ts`.
-    - **Timecode Accuracy**: BOV multiplexing cannot rely on precise sector-aligned I-frames until `MenuDocument` stores explicit `intro_start_secs` and `loop_start_secs` instead of just durations.
-    - **SPRM Validation**: Stream ID validation must happen against the `Titleset` streams during a pre-build diagnostic phase, not just silently failing at VM opcode emission.
+    - **RESOLVED — Contract Drift**: `SetAudioStream { stream_index: u32 }` and `SetSubtitleStream { stream_index: Option<u32> }` are now correctly aligned between `models.rs` and `project.ts`. Serde rename annotations ensure camelCase on the wire.
+    - **RESOLVED — Timecode Accuracy**: `MenuTiming` now carries `intro_start_secs` and `loop_start_secs` in both Rust and TypeScript, with full field parity confirmed.
+    - **FIXED — Subtitle-Off Bug (commit 59f1521)**: `dvd_navigation.rs` was emitting `subtitle = 64` for `SetSubtitleStream { None }`. SPRM 2 = 64 = 0x40 = bit 6 SET = display ON. Correct value for "off" is `0` (bit 6 clear). Fixed and covered by new unit tests.
+    - **OPEN — Stream Index Validation Missing**: `validate_action()` in `desktop.rs` silently ignores `SetAudioStream` and `SetSubtitleStream` via `_ => {}`. No pre-build diagnostic validates stream indices against the target `Titleset`. Jullian must implement this before stream-selection actions are production-safe.
+    - **OPEN — Motion Menu Timing Defaults**: The `to_authored_document()` migration sets `intro_start_secs` and `loop_start_secs` to 0.0. The UI (Tristan) must block BOV builds when `loop_start_secs` is 0.0 on a motion menu, prompting the user to confirm or set an explicit value.
     - **UI State Binding**: The `MenuDocument` schema needs a way to map SPRM register values back to button "Active/Selected" visual states so setup menus reflect actual player state.
 
 ## Open Questions

@@ -14,6 +14,10 @@ Key constraints & requirements:
 
 This work is isolated on the `feat/menu-workspace-upgrade` branch. 
 
+### Progress Status
+- **Backend Schema Sync**: COMPLETED. Jullian has updated `MenuTiming` and aligned `Action` types.
+- **Backend Risk Audit**: COMPLETED. Kyle verified schema alignment, fixed the subtitle-off SPRM 2 encoding bug (commit 59f1521), added stream action tests, and filed a conditional go-ahead. Stream index validation (Jullian) and BOV timing gate (Tristan) remain open items before production use.
+
 ## Roster & Handoff Order
 1. **Jullian:** Backend multiplexing (BOV) and SPRM compiler updates.
 2. **Kyle:** Auditing backend boundaries, type-safety, and failure states.
