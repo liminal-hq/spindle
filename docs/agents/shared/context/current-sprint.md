@@ -17,8 +17,8 @@ This work is isolated on the `feat/menu-workspace-upgrade` branch.
 ### Progress Status
 - **Backend Infrastructure**: COMPLETED & SEALED. Kyle has verified Jullian's schema synchronization and stream index validation (commit e80ccc2).
 - **Unified Workstation Shell**: COMPLETED. Tristan has refactored `MenusPage.tsx` into the Set 2b full-height workstation grid (commit ef56faa). Mini-map is correctly nested in the sidebar rail.
-- **Visual Polish & Premium Composition**: IN PROGRESS. Nicholas is porting workstation-level CSS, premium sidebar cards, and refining the integrated toolbar aesthetics.
-- **Final Sign-off**: PLANNED. Yuli will perform the final spatial and journey verification.
+- **Visual Polish & Premium Composition**: COMPLETED. Nicholas has ported the workstation-level CSS, premium sidebar cards, and refined the integrated toolbar aesthetics (commit b7d6297, bea442a).
+- **Final Sign-off**: IN PROGRESS. Yuli is performing the final spatial and journey verification.
 
 ## Roster & Handoff Order
 1. **Jullian:** Backend multiplexing (BOV) and SPRM compiler updates.
