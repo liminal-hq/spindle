@@ -18,8 +18,9 @@ This work is isolated on the `feat/menu-workspace-upgrade` branch.
 - **Backend Infrastructure**: COMPLETED & SEALED. Kyle has verified Jullian's schema synchronization and stream index validation (commit e80ccc2).
 - **Unified Editor Shell & Map**: COMPLETED. Tristan has implemented the unified workspace foundation.
 - **Visual Integration & Polish**: COMPLETED. Nicholas has delivered the Compile Preview overlay, navigation map aesthetics, and style panel scaffolding.
-- **Style Data Wiring**: COMPLETED. Tristan has wired the Button and Text style panels to the `MenuDocument` state (commit e3cd2c0).
-- **Final Audit & Review**: IN PROGRESS. Kyle is performing a full-stack audit followed by Yuli's UX review.
+- **Style Data Wiring**: COMPLETED. Tristan has wired the Button and Text style panels to the `MenuDocument` state.
+- **Full-Stack Audit**: COMPLETED. Kyle has verified the integration and fixed critical style write and legacy sync bugs (commits a50f9ba, 12fdd92, d24c0fc, 28c76e5).
+- **Final UX Review**: IN PROGRESS. Yuli is reviewing the final implementation slice.
 
 ## Roster & Handoff Order
 1. **Jullian:** Backend multiplexing (BOV) and SPRM compiler updates.
