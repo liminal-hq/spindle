@@ -199,6 +199,44 @@ export interface SceneBackground {
 	colour: string | null;
 }
 
+// ── Button & Text Style ─────────────────────────────────────────────────────
+
+export type ButtonShadowType = 'none' | 'box-shadow' | 'outer-glow' | 'inner-glow';
+
+/** Per-state visual appearance for a button node (authored layer only). */
+export interface ButtonStateStyle {
+	bgFill: string;
+	borderColour: string;
+	borderWidth: number;
+	borderRadius: number;
+	paddingH: number;
+	paddingV: number;
+	shadowType: ButtonShadowType;
+	shadowColour: string;
+	shadowBlur: number;
+	shadowSpread: number;
+}
+
+/** The three interactive states for a button. */
+export interface ButtonStyleMap {
+	normal: ButtonStateStyle;
+	focus: ButtonStateStyle;
+	activate: ButtonStateStyle;
+}
+
+/** Typography style shared by button labels and standalone text nodes. */
+export interface TextStyle {
+	fontFamily: string;
+	fontSize: number;
+	fontWeight: 'normal' | 'bold';
+	fontItalic: boolean;
+	textDecoration: 'none' | 'underline';
+	textAlign: 'left' | 'center' | 'right';
+	colour: string;
+	lineHeight: number;
+	letterSpacing: number;
+}
+
 /** A node within the authored menu scene graph. */
 export type SceneNode =
 	| { type: 'group'; id: string; name: string; children: SceneNode[] }
@@ -212,6 +250,13 @@ export type SceneNode =
 			height: number;
 			fontSize?: number;
 			colour?: string;
+			fontFamily?: string;
+			fontWeight?: 'normal' | 'bold';
+			fontItalic?: boolean;
+			textDecoration?: 'none' | 'underline';
+			textAlign?: 'left' | 'center' | 'right';
+			lineHeight?: number;
+			letterSpacing?: number;
 	  }
 	| {
 			type: 'image';
@@ -243,6 +288,10 @@ export type SceneNode =
 			highlightMode?: HighlightMode;
 			highlightKeyframes?: HighlightKeyframe[];
 			videoAssetId?: string | null;
+			/** Per-state visual appearance (authored layer). */
+			buttonStyle?: ButtonStyleMap;
+			/** Label typography. */
+			labelStyle?: TextStyle;
 	  }
 	| { type: 'componentInstance'; id: string; componentId: string }
 	| { type: 'generatedCollection'; id: string; source: string };

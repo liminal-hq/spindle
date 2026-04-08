@@ -14,10 +14,66 @@ import type {
 	Asset,
 	MenuDocument,
 	FocusNode,
+	ButtonStyleMap,
+	ButtonStateStyle,
+	TextStyle,
 } from '../../types/project';
 
 /** DVD constraint thresholds (shared with compile diagnostics). */
 const MAX_DVD_BUTTONS = 36;
+
+const DEFAULT_BUTTON_STATE_STYLE: ButtonStateStyle = {
+	bgFill: 'rgba(255,255,255,0.04)',
+	borderColour: '#ffffff1f',
+	borderWidth: 1.5,
+	borderRadius: 6,
+	paddingH: 16,
+	paddingV: 0,
+	shadowType: 'none',
+	shadowColour: '#ffa84020',
+	shadowBlur: 16,
+	shadowSpread: 0,
+};
+
+const DEFAULT_BUTTON_STYLE_MAP: ButtonStyleMap = {
+	normal: DEFAULT_BUTTON_STATE_STYLE,
+	focus: {
+		bgFill: 'rgba(255,170,64,0.15)',
+		borderColour: '#ffaa40',
+		borderWidth: 1.5,
+		borderRadius: 6,
+		paddingH: 16,
+		paddingV: 0,
+		shadowType: 'box-shadow',
+		shadowColour: '#ffa84040',
+		shadowBlur: 16,
+		shadowSpread: 0,
+	},
+	activate: {
+		bgFill: 'rgba(255,209,102,0.2)',
+		borderColour: '#ffd166',
+		borderWidth: 2,
+		borderRadius: 6,
+		paddingH: 16,
+		paddingV: 0,
+		shadowType: 'outer-glow',
+		shadowColour: '#ffd16660',
+		shadowBlur: 24,
+		shadowSpread: 4,
+	},
+};
+
+const DEFAULT_TEXT_STYLE: TextStyle = {
+	fontFamily: 'Inter',
+	fontSize: 14,
+	fontWeight: 'normal',
+	fontItalic: false,
+	textDecoration: 'none',
+	textAlign: 'left',
+	colour: '#ffffff',
+	lineHeight: 1.4,
+	letterSpacing: 0,
+};
 
 export interface InspectorPanelProps {
 	selectedNode: SceneNode | null;
@@ -105,6 +161,7 @@ export function InspectorPanel({
 				) : selectedNode.type === 'button' && selectedButton ? (
 					<ButtonInspector
 						button={selectedButton}
+						buttonNode={selectedNode}
 						buttons={buttons ?? []}
 						defaultFocusId={defaultFocusId ?? null}
 						highlightColours={highlightColours}
@@ -115,6 +172,7 @@ export function InspectorPanel({
 						onUpdateHighlightColours={onUpdateHighlightColours}
 						onRemoveButton={onRemoveButton}
 						onSetDefaultFocus={onSetDefaultFocus}
+						onUpdateSceneNode={onUpdateSceneNode}
 					/>
 				) : selectedNode.type === 'text' ? (
 					<TextNodeInspector
@@ -291,6 +349,7 @@ function MenuLevelInspector({
 
 function ButtonInspector({
 	button,
+	buttonNode,
 	buttons,
 	defaultFocusId,
 	highlightColours,
@@ -301,8 +360,10 @@ function ButtonInspector({
 	onUpdateHighlightColours,
 	onRemoveButton,
 	onSetDefaultFocus,
+	onUpdateSceneNode,
 }: {
 	button: MenuButton;
+	buttonNode: Extract<SceneNode, { type: 'button' }>;
 	buttons: MenuButton[];
 	defaultFocusId: string | null;
 	highlightColours: MenuHighlightColours;
@@ -313,6 +374,7 @@ function ButtonInspector({
 	onUpdateHighlightColours: (colours: MenuHighlightColours) => void;
 	onRemoveButton: (buttonId: string) => void;
 	onSetDefaultFocus?: (buttonId: string) => void;
+	onUpdateSceneNode?: (nodeId: string, updates: Record<string, unknown>) => void;
 }) {
 	const isDefault = defaultFocusId === button.id;
 
@@ -469,10 +531,39 @@ function ButtonInspector({
 			)}
 
 			{/* Button Style — per-state visual controls */}
-			<ButtonStyleSection />
+			<ButtonStyleSection
+				style={buttonNode.buttonStyle ?? DEFAULT_BUTTON_STYLE_MAP}
+				onChange={(style) => onUpdateSceneNode?.(buttonNode.id, { buttonStyle: style })}
+			/>
 
 			{/* Text Style — label typography */}
-			<TextStyleSection />
+			{(() => {
+				const ls = { ...DEFAULT_TEXT_STYLE, ...buttonNode.labelStyle };
+				const update = (patch: Partial<TextStyle>) =>
+					onUpdateSceneNode?.(buttonNode.id, { labelStyle: { ...ls, ...patch } });
+				return (
+					<TextStyleSection
+						fontFamily={ls.fontFamily}
+						fontSize={ls.fontSize}
+						fontWeight={ls.fontWeight}
+						fontItalic={ls.fontItalic}
+						textDecoration={ls.textDecoration}
+						textAlign={ls.textAlign}
+						colour={ls.colour}
+						lineHeight={ls.lineHeight}
+						letterSpacing={ls.letterSpacing}
+						onFontFamilyChange={(v) => update({ fontFamily: v })}
+						onFontSizeChange={(v) => update({ fontSize: v })}
+						onFontWeightChange={(v) => update({ fontWeight: v })}
+						onFontItalicChange={(v) => update({ fontItalic: v })}
+						onTextDecorationChange={(v) => update({ textDecoration: v })}
+						onTextAlignChange={(v) => update({ textAlign: v })}
+						onColourChange={(v) => update({ colour: v })}
+						onLineHeightChange={(v) => update({ lineHeight: v })}
+						onLetterSpacingChange={(v) => update({ letterSpacing: v })}
+					/>
+				);
+			})()}
 
 			{/* Highlight */}
 			<CollapsibleSection title="Highlight Mode" defaultOpen={false}>
@@ -639,10 +730,24 @@ function TextNodeInspector({
 			</div>
 			{/* Text Style — full typography panel */}
 			<TextStyleSection
-				colour={node.colour ?? '#ffffff'}
+				fontFamily={node.fontFamily}
 				fontSize={node.fontSize ?? 24}
-				onColourChange={(colour) => onUpdate?.(node.id, { colour })}
+				fontWeight={node.fontWeight}
+				fontItalic={node.fontItalic}
+				textDecoration={node.textDecoration}
+				textAlign={node.textAlign}
+				colour={node.colour ?? '#ffffff'}
+				lineHeight={node.lineHeight}
+				letterSpacing={node.letterSpacing}
+				onFontFamilyChange={(fontFamily) => onUpdate?.(node.id, { fontFamily })}
 				onFontSizeChange={(fontSize) => onUpdate?.(node.id, { fontSize })}
+				onFontWeightChange={(fontWeight) => onUpdate?.(node.id, { fontWeight })}
+				onFontItalicChange={(fontItalic) => onUpdate?.(node.id, { fontItalic })}
+				onTextDecorationChange={(textDecoration) => onUpdate?.(node.id, { textDecoration })}
+				onTextAlignChange={(textAlign) => onUpdate?.(node.id, { textAlign })}
+				onColourChange={(colour) => onUpdate?.(node.id, { colour })}
+				onLineHeightChange={(lineHeight) => onUpdate?.(node.id, { lineHeight })}
+				onLetterSpacingChange={(letterSpacing) => onUpdate?.(node.id, { letterSpacing })}
 			/>
 			{onRemove && (
 				<div className="inspector-panel__section">
@@ -872,54 +977,22 @@ function CollapsibleSection({
 
 // ── Button Style Section ──────────────────────────────────────────────────
 // Per-state visual controls: Normal/Focus/Activate with background, border,
-// radius, padding, and shadow/glow. Following Yuli's Set 2b mockup.
+// radius, padding, and shadow/glow. Fully wired to ButtonStyleMap on the node.
 
 type ButtonVisualState = 'normal' | 'focus' | 'activate';
 
-function ButtonStyleSection() {
+function ButtonStyleSection({
+	style,
+	onChange,
+}: {
+	style: ButtonStyleMap;
+	onChange: (style: ButtonStyleMap) => void;
+}) {
 	const [activeState, setActiveState] = useState<ButtonVisualState>('normal');
 
-	// Local styling state (will be wired to document model in a future pass)
-	const [styles] = useState({
-		normal: {
-			bgFill: 'rgba(255,255,255,0.04)',
-			borderColour: '#ffffff1f',
-			borderWidth: 1.5,
-			borderRadius: 6,
-			paddingH: 16,
-			paddingV: 0,
-			shadowType: 'none' as 'none' | 'box-shadow' | 'outer-glow' | 'inner-glow',
-			shadowColour: '#ffa84020',
-			shadowBlur: 16,
-			shadowSpread: 0,
-		},
-		focus: {
-			bgFill: 'rgba(255,170,64,0.15)',
-			borderColour: '#ffaa40',
-			borderWidth: 1.5,
-			borderRadius: 6,
-			paddingH: 16,
-			paddingV: 0,
-			shadowType: 'box-shadow' as const,
-			shadowColour: '#ffa84040',
-			shadowBlur: 16,
-			shadowSpread: 0,
-		},
-		activate: {
-			bgFill: 'rgba(255,209,102,0.2)',
-			borderColour: '#ffd166',
-			borderWidth: 2,
-			borderRadius: 6,
-			paddingH: 16,
-			paddingV: 0,
-			shadowType: 'outer-glow' as const,
-			shadowColour: '#ffd16660',
-			shadowBlur: 24,
-			shadowSpread: 4,
-		},
-	});
-
-	const s = styles[activeState];
+	const s = style[activeState];
+	const update = (patch: Partial<ButtonStateStyle>) =>
+		onChange({ ...style, [activeState]: { ...s, ...patch } });
 
 	return (
 		<CollapsibleSection title="Button Style">
@@ -940,15 +1013,12 @@ function ButtonStyleSection() {
 			<div className="inspector-panel__sub-label">Background</div>
 			<div className="inspector-panel__field">
 				<span className="inspector-panel__field-label">Fill</span>
-				<div className="inspector-panel__colour-row">
-					<input
-						type="color"
-						className="inspector-panel__colour-input"
-						value={s.bgFill.includes('rgba') ? '#ffffff' : s.bgFill}
-						readOnly
-					/>
-					<input className="inspector-panel__input" value={s.bgFill} readOnly style={{ flex: 1 }} />
-				</div>
+				<input
+					className="inspector-panel__input"
+					value={s.bgFill}
+					onChange={(e) => update({ bgFill: e.target.value })}
+					style={{ flex: 1 }}
+				/>
 			</div>
 
 			{/* Border */}
@@ -961,9 +1031,13 @@ function ButtonStyleSection() {
 							type="color"
 							className="inspector-panel__colour-input"
 							value={s.borderColour.length <= 7 ? s.borderColour : '#ffffff'}
-							readOnly
+							onChange={(e) => update({ borderColour: e.target.value })}
 						/>
-						<input className="inspector-panel__input inspector-panel__input--hex" value={s.borderColour} readOnly />
+						<input
+							className="inspector-panel__input inspector-panel__input--hex"
+							value={s.borderColour}
+							onChange={(e) => update({ borderColour: e.target.value })}
+						/>
 					</div>
 				</label>
 				<label className="inspector-panel__field">
@@ -973,7 +1047,7 @@ function ButtonStyleSection() {
 							className="inspector-panel__input inspector-panel__input--num"
 							type="number"
 							value={s.borderWidth}
-							readOnly
+							onChange={(e) => update({ borderWidth: Number(e.target.value) })}
 						/>
 						<span className="inspector-panel__unit">px</span>
 					</div>
@@ -986,7 +1060,7 @@ function ButtonStyleSection() {
 						className="inspector-panel__input inspector-panel__input--num"
 						type="number"
 						value={s.borderRadius}
-						readOnly
+						onChange={(e) => update({ borderRadius: Number(e.target.value) })}
 					/>
 					<span className="inspector-panel__unit">px</span>
 				</div>
@@ -1001,7 +1075,7 @@ function ButtonStyleSection() {
 						className="inspector-panel__input inspector-panel__input--num"
 						type="number"
 						value={s.paddingH}
-						readOnly
+						onChange={(e) => update({ paddingH: Number(e.target.value) })}
 					/>
 				</label>
 				<label className="inspector-panel__field">
@@ -1010,7 +1084,7 @@ function ButtonStyleSection() {
 						className="inspector-panel__input inspector-panel__input--num"
 						type="number"
 						value={s.paddingV}
-						readOnly
+						onChange={(e) => update({ paddingV: Number(e.target.value) })}
 					/>
 				</label>
 			</div>
@@ -1019,7 +1093,13 @@ function ButtonStyleSection() {
 			<div className="inspector-panel__sub-label">Shadow / Glow</div>
 			<label className="inspector-panel__field">
 				<span className="inspector-panel__field-label">Type</span>
-				<select className="inspector-panel__select" value={s.shadowType} disabled>
+				<select
+					className="inspector-panel__select"
+					value={s.shadowType}
+					onChange={(e) =>
+						update({ shadowType: e.target.value as ButtonStateStyle['shadowType'] })
+					}
+				>
 					<option value="none">None</option>
 					<option value="box-shadow">Box shadow</option>
 					<option value="outer-glow">Outer glow</option>
@@ -1035,9 +1115,13 @@ function ButtonStyleSection() {
 								type="color"
 								className="inspector-panel__colour-input"
 								value={s.shadowColour.length <= 7 ? s.shadowColour : '#ffa840'}
-								readOnly
+								onChange={(e) => update({ shadowColour: e.target.value })}
 							/>
-							<input className="inspector-panel__input inspector-panel__input--hex" value={s.shadowColour} readOnly />
+							<input
+								className="inspector-panel__input inspector-panel__input--hex"
+								value={s.shadowColour}
+								onChange={(e) => update({ shadowColour: e.target.value })}
+							/>
 						</div>
 					</label>
 					<div className="inspector-panel__grid-2">
@@ -1047,7 +1131,7 @@ function ButtonStyleSection() {
 								className="inspector-panel__input inspector-panel__input--num"
 								type="number"
 								value={s.shadowBlur}
-								readOnly
+								onChange={(e) => update({ shadowBlur: Number(e.target.value) })}
 							/>
 						</label>
 						<label className="inspector-panel__field">
@@ -1056,7 +1140,7 @@ function ButtonStyleSection() {
 								className="inspector-panel__input inspector-panel__input--num"
 								type="number"
 								value={s.shadowSpread}
-								readOnly
+								onChange={(e) => update({ shadowSpread: Number(e.target.value) })}
 							/>
 						</label>
 					</div>
@@ -1067,35 +1151,67 @@ function ButtonStyleSection() {
 }
 
 // ── Text Style Section ────────────────────────────────────────────────────
-// Typography controls for button labels and text nodes. Following Yuli's
-// Set 2b mockup: font, size, weight, italic, colour, alignment.
+// Typography controls for button labels and text nodes. Fully wired to the
+// node's TextStyle (label) or individual typography fields (text node).
 
 function TextStyleSection({
-	colour,
+	fontFamily,
 	fontSize,
-	onColourChange,
+	fontWeight,
+	fontItalic,
+	textDecoration,
+	textAlign,
+	colour,
+	lineHeight,
+	letterSpacing,
+	onFontFamilyChange,
 	onFontSizeChange,
+	onFontWeightChange,
+	onFontItalicChange,
+	onTextDecorationChange,
+	onTextAlignChange,
+	onColourChange,
+	onLineHeightChange,
+	onLetterSpacingChange,
 }: {
-	colour?: string;
+	fontFamily?: string;
 	fontSize?: number;
-	onColourChange?: (colour: string) => void;
-	onFontSizeChange?: (size: number) => void;
+	fontWeight?: 'normal' | 'bold';
+	fontItalic?: boolean;
+	textDecoration?: 'none' | 'underline';
+	textAlign?: 'left' | 'center' | 'right';
+	colour?: string;
+	lineHeight?: number;
+	letterSpacing?: number;
+	onFontFamilyChange?: (v: string) => void;
+	onFontSizeChange?: (v: number) => void;
+	onFontWeightChange?: (v: 'normal' | 'bold') => void;
+	onFontItalicChange?: (v: boolean) => void;
+	onTextDecorationChange?: (v: 'none' | 'underline') => void;
+	onTextAlignChange?: (v: 'left' | 'center' | 'right') => void;
+	onColourChange?: (v: string) => void;
+	onLineHeightChange?: (v: number) => void;
+	onLetterSpacingChange?: (v: number) => void;
 }) {
-	const [bold, setBold] = useState(false);
-	const [italic, setItalic] = useState(false);
-	const [underline, setUnderline] = useState(false);
-	const [align, setAlign] = useState<'left' | 'center' | 'right'>('left');
+	const bold = fontWeight === 'bold';
+	const italic = fontItalic ?? false;
+	const underline = textDecoration === 'underline';
+	const align = textAlign ?? 'left';
 
 	return (
 		<CollapsibleSection title="Text Style">
 			<label className="inspector-panel__field">
 				<span className="inspector-panel__field-label">Font</span>
-				<select className="inspector-panel__select" defaultValue="Inter">
-					<option>Inter</option>
-					<option>Space Grotesk</option>
-					<option>System UI</option>
-					<option>Georgia</option>
-					<option>Courier New</option>
+				<select
+					className="inspector-panel__select"
+					value={fontFamily ?? 'Inter'}
+					onChange={(e) => onFontFamilyChange?.(e.target.value)}
+				>
+					<option value="Inter">Inter</option>
+					<option value="Space Grotesk">Space Grotesk</option>
+					<option value="System UI">System UI</option>
+					<option value="Georgia">Georgia</option>
+					<option value="Courier New">Courier New</option>
 				</select>
 			</label>
 			<div className="inspector-panel__grid-2">
@@ -1116,8 +1232,9 @@ function TextStyleSection({
 					<input
 						className="inspector-panel__input inspector-panel__input--num"
 						type="number"
-						defaultValue={1.4}
+						value={lineHeight ?? 1.4}
 						step={0.1}
+						onChange={(e) => onLineHeightChange?.(Number(e.target.value))}
 					/>
 				</label>
 			</div>
@@ -1128,7 +1245,7 @@ function TextStyleSection({
 				<div className="inspector-panel__style-pills">
 					<button
 						className={`inspector-panel__style-pill ${bold ? 'inspector-panel__style-pill--active' : ''}`}
-						onClick={() => setBold(!bold)}
+						onClick={() => onFontWeightChange?.(bold ? 'normal' : 'bold')}
 						title="Bold"
 						style={{ fontWeight: 700 }}
 					>
@@ -1136,7 +1253,7 @@ function TextStyleSection({
 					</button>
 					<button
 						className={`inspector-panel__style-pill ${italic ? 'inspector-panel__style-pill--active' : ''}`}
-						onClick={() => setItalic(!italic)}
+						onClick={() => onFontItalicChange?.(!italic)}
 						title="Italic"
 						style={{ fontStyle: 'italic' }}
 					>
@@ -1144,7 +1261,7 @@ function TextStyleSection({
 					</button>
 					<button
 						className={`inspector-panel__style-pill ${underline ? 'inspector-panel__style-pill--active' : ''}`}
-						onClick={() => setUnderline(!underline)}
+						onClick={() => onTextDecorationChange?.(underline ? 'none' : 'underline')}
 						title="Underline"
 						style={{ textDecoration: 'underline' }}
 					>
@@ -1180,7 +1297,7 @@ function TextStyleSection({
 						<button
 							key={a}
 							className={`inspector-panel__align-btn ${align === a ? 'inspector-panel__align-btn--active' : ''}`}
-							onClick={() => setAlign(a)}
+							onClick={() => onTextAlignChange?.(a)}
 							title={a === 'center' ? 'Centre' : a.charAt(0).toUpperCase() + a.slice(1)}
 						>
 							<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -1218,8 +1335,9 @@ function TextStyleSection({
 					<input
 						className="inspector-panel__input inspector-panel__input--num"
 						type="number"
-						defaultValue={0}
+						value={letterSpacing ?? 0}
 						step={0.5}
+						onChange={(e) => onLetterSpacingChange?.(Number(e.target.value))}
 					/>
 					<span className="inspector-panel__unit">px</span>
 				</div>
