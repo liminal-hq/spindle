@@ -1,3 +1,7 @@
+# CRITICAL: Do NOT use `git add -f` or `--force` to stage ignored files.
+# Agent communication files (handoffs, daily sessions, workspaces) are
+# intentionally excluded from source control to maintain a clean history.
+
 node_modules/
 .pnpm-store/
 target/

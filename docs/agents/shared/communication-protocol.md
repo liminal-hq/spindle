@@ -57,6 +57,14 @@ Only Franklin and Edward are permitted to write or update files in `context/`.
 
 That write restriction exists to keep the broadcast layer stable, curated, and low-noise.
 
+## Source Control and Visibility
+
+The `handoffs/` directory and other agent-specific dynamic states are intentionally ignored by the repository's `.gitignore` rules.
+
+**CRITICAL RULE:** Agents must NEVER use `git add -f`, `git add --force`, or any other mechanism to force these files into a commit or a pull request.
+
+The handoff system exists for local inter-agent coordination and durable workspace state. It is not part of the shipping application code or the canonical project history. Only broadcast context files in `context/` are intended for source control.
+
 ## Folder Layout
 
 ```text
