@@ -542,13 +542,14 @@ pub enum SceneNode {
         y: f64,
         width: f64,
         height: f64,
-        #[serde(default)]
+        #[serde(default, alias = "font_size")]
         font_size: Option<f64>,
         #[serde(default)]
         colour: Option<String>,
     },
     Image {
         id: String,
+        #[serde(alias = "asset_id")]
         asset_id: String,
         x: f64,
         y: f64,
@@ -566,6 +567,7 @@ pub enum SceneNode {
     },
     Video {
         id: String,
+        #[serde(alias = "asset_id")]
         asset_id: String,
         x: f64,
         y: f64,
@@ -577,15 +579,16 @@ pub enum SceneNode {
         y: f64,
         width: f64,
         height: f64,
-        #[serde(default)]
+        #[serde(default, alias = "highlight_mode")]
         highlight_mode: HighlightMode,
-        #[serde(default)]
+        #[serde(default, alias = "highlight_keyframes")]
         highlight_keyframes: Vec<HighlightKeyframe>,
-        #[serde(default)]
+        #[serde(default, alias = "video_asset_id")]
         video_asset_id: Option<String>,
     },
     ComponentInstance {
         id: String,
+        #[serde(alias = "component_id")]
         component_id: String,
     },
     GeneratedCollection {
@@ -632,8 +635,10 @@ pub struct FocusNode {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MenuTiming {
+    #[serde(default)]
     pub intro_start_secs: f64,
     pub intro_duration_secs: f64,
+    #[serde(default)]
     pub loop_start_secs: f64,
     pub loop_duration_secs: f64,
     pub loop_count: u32, // 0 = infinite
@@ -783,6 +788,117 @@ pub enum HighlightMode {
     #[default]
     Static,
     Animated,
+}
+
+// ── Button & Text Style ─────────────────────────────────────────────────────
+
+/// Legal shadow types for authored button styling.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "kebab-case")]
+pub enum ButtonShadowType {
+    #[default]
+    None,
+    BoxShadow,
+    OuterGlow,
+    InnerGlow,
+}
+
+/// Per-state visual appearance for a button node (authored layer only).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ButtonStateStyle {
+    pub bg_fill: String,
+    pub border_colour: String,
+    pub border_width: f64,
+    pub border_radius: f64,
+    pub padding_h: f64,
+    pub padding_v: f64,
+    pub shadow_type: ButtonShadowType,
+    pub shadow_colour: String,
+    pub shadow_blur: f64,
+    pub shadow_spread: f64,
+}
+
+impl Default for ButtonStateStyle {
+    fn default() -> Self {
+        Self {
+            bg_fill: "rgba(255, 255, 255, 0.04)".to_string(),
+            border_colour: "rgba(255, 255, 255, 0.12)".to_string(),
+            border_width: 1.5,
+            border_radius: 6.0,
+            padding_h: 16.0,
+            padding_v: 0.0,
+            shadow_type: ButtonShadowType::None,
+            shadow_colour: "transparent".to_string(),
+            shadow_blur: 0.0,
+            shadow_spread: 0.0,
+        }
+    }
+}
+
+/// The three interactive states for a button.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ButtonStyleMap {
+    pub normal: ButtonStateStyle,
+    pub focus: ButtonStateStyle,
+    pub activate: ButtonStateStyle,
+}
+
+/// Typography style shared by button labels and standalone text nodes.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TextStyle {
+    pub font_family: String,
+    pub font_size: f64,
+    pub font_weight: FontWeight,
+    pub font_italic: bool,
+    pub text_decoration: TextDecoration,
+    pub text_align: TextAlign,
+    pub colour: String,
+    pub line_height: f64,
+    pub letter_spacing: f64,
+}
+
+impl Default for TextStyle {
+    fn default() -> Self {
+        Self {
+            font_family: "Inter".to_string(),
+            font_size: 14.0,
+            font_weight: FontWeight::Normal,
+            font_italic: false,
+            text_decoration: TextDecoration::None,
+            text_align: TextAlign::Left,
+            colour: "#ffffff".to_string(),
+            line_height: 1.4,
+            letter_spacing: 0.0,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "kebab-case")]
+pub enum FontWeight {
+    #[default]
+    Normal,
+    Bold,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "kebab-case")]
+pub enum TextDecoration {
+    #[default]
+    None,
+    Underline,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "kebab-case")]
+pub enum TextAlign {
+    #[default]
+    Left,
+    Center,
+    Right,
 }
 
 /// A keyframe for animated button highlights within a motion menu loop.
@@ -1365,5 +1481,148 @@ mod tests {
         assert_eq!(doc.interaction.nodes.len(), 1);
         assert_eq!(doc.interaction.nodes[0].node_id, "btn-1");
         assert_eq!(doc.timing.loop_duration_secs, 10.0);
+    }
+
+    #[test]
+    fn legacy_authored_menu_document_deserialises() {
+        let json = r##"
+        {
+          "schemaVersion": 1,
+          "project": {
+            "id": "project-1",
+            "name": "Legacy Menu Project",
+            "createdAt": "2026-04-01T00:00:00Z",
+            "modifiedAt": "2026-04-01T00:00:00Z"
+          },
+          "disc": {
+            "family": "dvd-video",
+            "standard": "NTSC",
+            "capacityTarget": "DVD5",
+            "firstPlayAction": null,
+            "titlesets": [
+              {
+                "id": "titleset-1",
+                "name": "Titleset 1",
+                "titles": [],
+                "menus": [
+                  {
+                    "id": "menu-1",
+                    "name": "Main Menu",
+                    "backgroundAssetId": null,
+                    "buttons": [],
+                    "defaultButtonId": "btn-1",
+                    "highlightColours": {
+                      "selectColour": "#ffaa40",
+                      "selectOpacity": 0.6,
+                      "activateColour": "#ffffff",
+                      "activateOpacity": 0.8
+                    },
+                    "backgroundMode": "still",
+                    "motionDurationSecs": null,
+                    "motionAudioAssetId": null,
+                    "motionLoopCount": 0,
+                    "timeoutAction": null,
+                    "authoredDocument": {
+                      "id": "menu-1",
+                      "name": "Main Menu",
+                      "domain": "titleset",
+                      "scene": {
+                        "designSize": {
+                          "width": 720.0,
+                          "height": 480.0
+                        },
+                        "background": {
+                          "assetId": null,
+                          "colour": "#101014"
+                        },
+                        "nodes": [
+                          {
+                            "type": "button",
+                            "id": "btn-1",
+                            "label": "Play",
+                            "x": 100.0,
+                            "y": 200.0,
+                            "width": 240.0,
+                            "height": 48.0,
+                            "highlight_mode": "static",
+                            "highlight_keyframes": [],
+                            "video_asset_id": null
+                          }
+                        ],
+                        "guides": []
+                      },
+                      "interaction": {
+                        "defaultFocusId": "btn-1",
+                        "nodes": [
+                          {
+                            "nodeId": "btn-1",
+                            "navUp": null,
+                            "navDown": null,
+                            "navLeft": null,
+                            "navRight": null,
+                            "action": {
+                              "type": "return"
+                            }
+                          }
+                        ],
+                        "timeoutAction": null
+                      },
+                      "timing": {
+                        "introDurationSecs": 0.0,
+                        "loopDurationSecs": 0.0,
+                        "loopCount": 0
+                      },
+                      "highlightColours": {
+                        "selectColour": "#ffaa40",
+                        "selectOpacity": 0.6,
+                        "activateColour": "#ffffff",
+                        "activateOpacity": 0.8
+                      },
+                      "backgroundMode": "still",
+                      "themeRef": null,
+                      "generationMeta": null,
+                      "compilePolicy": {
+                        "safeAreaMode": "action-safe",
+                        "paletteStrategy": "auto"
+                      }
+                    }
+                  }
+                ]
+              }
+            ],
+            "globalMenus": []
+          },
+          "assets": [],
+          "buildSettings": {
+            "outputDirectory": null,
+            "generateIso": false,
+            "safetyMarginBytes": 50000000,
+            "allocationStrategy": "duration-weighted"
+          }
+        }
+        "##;
+
+        let parsed: SpindleProjectFile = serde_json::from_str(json).unwrap();
+        let doc = &parsed.disc.titlesets[0].menus[0]
+            .authored_document
+            .as_ref()
+            .expect("legacy authored document should load");
+
+        assert_eq!(doc.timing.intro_start_secs, 0.0);
+        assert_eq!(doc.timing.loop_start_secs, 0.0);
+
+        match &doc.scene.nodes[0] {
+            SceneNode::Button {
+                highlight_mode,
+                highlight_keyframes,
+                video_asset_id,
+                ..
+            } => {
+                assert_eq!(*highlight_mode, HighlightMode::Static);
+                assert!(highlight_keyframes.is_empty());
+                assert!(video_asset_id.is_none());
+            }
+            other => panic!("expected button node, found {other:?}"),
+        }
     }
 }
