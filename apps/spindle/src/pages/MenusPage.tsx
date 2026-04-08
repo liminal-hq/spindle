@@ -32,6 +32,7 @@ export function MenusPage() {
 	const autoGenerateMenuNav = useProjectStore((s) => s.autoGenerateMenuNav);
 	const selectedMenuId = useProjectStore((s) => s.selectedMenuId);
 	const setSelectedMenuId = useProjectStore((s) => s.setSelectedMenuId);
+	const menuEditorMode = useProjectStore((s) => s.menuEditorMode);
 	const setMenuEditorMode = useProjectStore((s) => s.setMenuEditorMode);
 	const { consumePendingEntityId } = useNavigation();
 
@@ -55,6 +56,19 @@ export function MenusPage() {
 		),
 	];
 	const selectedEntry = allMenus.find((e) => e.menu.id === selectedMenuId) ?? null;
+	const firstMenuId = allMenus[0]?.menu.id ?? null;
+	const activeView = menuEditorMode === 'map' ? 'map' : 'editor';
+
+	useEffect(() => {
+		if (!firstMenuId) {
+			if (selectedMenuId !== null) setSelectedMenuId(null);
+			return;
+		}
+
+		if (!selectedEntry) {
+			setSelectedMenuId(firstMenuId);
+		}
+	}, [firstMenuId, selectedEntry, selectedMenuId, setSelectedMenuId]);
 
 	const createMenu = (name: string, domain: 'vmgm' | 'titleset'): Menu => {
 		const id = crypto.randomUUID();
@@ -149,62 +163,50 @@ export function MenusPage() {
 
 	return (
 		<div className="menus">
-			<div className="page-header">
-				<h1 className="page-title">Menus</h1>
-				<button className="btn btn--primary" onClick={handleAddGlobalMenu}>
-					Add Menu
-				</button>
-			</div>
-
-			{allMenus.length === 0 ? (
-				<EmptyMenusView onAdd={handleAddGlobalMenu} />
-			) : (
-				<div className="menus__layout">
-					{/* Left rail — menu list grouped by scope */}
-					<div className="menus__list">
-						{/* Global menus */}
-						<div className="menus__scope-section">
-							<div className="menus__scope-header">
-								<span className="menus__scope-heading">Global</span>
-								<button
-									className="btn btn--ghost btn--sm"
-									onClick={handleAddGlobalMenu}
-									title="Add global menu"
-								>
-									+
-								</button>
-							</div>
-							{disc.globalMenus.length === 0 ? (
-								<div className="menus__scope-empty text-muted">No global menus</div>
-							) : (
-								disc.globalMenus.map((menu) => (
-									<MenuListItem
-										key={menu.id}
-										menu={menu}
-										isSelected={menu.id === selectedMenuId}
-										onSelect={() => setSelectedMenuId(menu.id)}
-									/>
-								))
-							)}
+			<div className="menus-content">
+				<aside className="menu-nav">
+					<div className="menu-nav__header">
+						<span className="menu-nav__title">Menus</span>
+						<div className="menu-nav__view-toggle" role="group" aria-label="Workspace view">
+							<button
+								className={`menu-nav__view-button ${
+									activeView === 'editor' ? 'menu-nav__view-button--active' : ''
+								}`}
+								onClick={() => setMenuEditorMode('editor')}
+							>
+								Editor
+							</button>
+							<button
+								className={`menu-nav__view-button ${
+									activeView === 'map' ? 'menu-nav__view-button--active' : ''
+								}`}
+								onClick={() => setMenuEditorMode('map')}
+							>
+								Map
+							</button>
 						</div>
+					</div>
 
-						{/* Per-titleset menus */}
-						{disc.titlesets.map((ts) => (
-							<div key={ts.id} className="menus__scope-section">
+					<div className="menu-nav__body">
+						<div className="menu-nav__list">
+							<div className="menus__scope-section">
 								<div className="menus__scope-header">
-									<span className="menus__scope-heading">{ts.name}</span>
+									<span className="menus__scope-heading">
+										<span className="menus__scope-badge menus__scope-badge--global">VMGM</span>
+										Global
+									</span>
 									<button
 										className="btn btn--ghost btn--sm"
-										onClick={() => handleAddTitlesetMenu(ts.id)}
-										title={`Add menu to ${ts.name}`}
+										onClick={handleAddGlobalMenu}
+										title="Add global menu"
 									>
 										+
 									</button>
 								</div>
-								{ts.menus.length === 0 ? (
-									<div className="menus__scope-empty text-muted">No menus</div>
+								{disc.globalMenus.length === 0 ? (
+									<div className="menus__scope-empty text-muted">No global menus</div>
 								) : (
-									ts.menus.map((menu) => (
+									disc.globalMenus.map((menu) => (
 										<MenuListItem
 											key={menu.id}
 											menu={menu}
@@ -214,30 +216,68 @@ export function MenusPage() {
 									))
 								)}
 							</div>
-						))}
+
+							{disc.titlesets.map((ts, index) => (
+								<div key={ts.id} className="menus__scope-section">
+									<div className="menus__scope-header">
+										<span className="menus__scope-heading">
+											<span className="menus__scope-badge menus__scope-badge--titleset">
+												VTS {index + 1}
+											</span>
+											{ts.name}
+										</span>
+										<button
+											className="btn btn--ghost btn--sm"
+											onClick={() => handleAddTitlesetMenu(ts.id)}
+											title={`Add menu to ${ts.name}`}
+										>
+											+
+										</button>
+									</div>
+									{ts.menus.length === 0 ? (
+										<div className="menus__scope-empty text-muted">No menus</div>
+									) : (
+										ts.menus.map((menu) => (
+											<MenuListItem
+												key={menu.id}
+												menu={menu}
+												isSelected={menu.id === selectedMenuId}
+												onSelect={() => setSelectedMenuId(menu.id)}
+											/>
+										))
+									)}
+								</div>
+							))}
+						</div>
+
+						{allMenus.length === 0 ? (
+							<div className="menu-nav__empty text-muted">
+								Add a global or titleset menu to start authoring this disc.
+							</div>
+						) : (
+							<MiniMenuMap
+								project={project}
+								selectedMenuId={selectedMenuId}
+								onSelect={setSelectedMenuId}
+								onExpand={() => setMenuEditorMode('map')}
+							/>
+						)}
 					</div>
+				</aside>
 
-					{/* Mini navigation map — persistent in left rail */}
-					<MiniMenuMap
+				{selectedEntry ? (
+					<MenuEditor
+						menu={selectedEntry.menu}
 						project={project}
-						selectedMenuId={selectedMenuId}
-						onSelect={setSelectedMenuId}
-						onExpand={() => setMenuEditorMode('map')}
+						canvasHeight={MENU_HEIGHT[disc.standard]}
+						onUpdate={(updater) => handleUpdateMenu(selectedEntry.menu.id, updater)}
+						onRemove={() => handleRemoveMenu(selectedEntry.menu.id)}
+						onAutoNav={() => autoGenerateMenuNav(selectedEntry.menu.id)}
 					/>
-
-					{/* Unified editor workspace */}
-					{selectedEntry && (
-						<MenuEditor
-							menu={selectedEntry.menu}
-							project={project}
-							canvasHeight={MENU_HEIGHT[disc.standard]}
-							onUpdate={(updater) => handleUpdateMenu(selectedEntry.menu.id, updater)}
-							onRemove={() => handleRemoveMenu(selectedEntry.menu.id)}
-							onAutoNav={() => autoGenerateMenuNav(selectedEntry.menu.id)}
-						/>
-					)}
-				</div>
-			)}
+				) : (
+					<EmptyMenuWorkspace />
+				)}
+			</div>
 		</div>
 	);
 }
@@ -263,7 +303,13 @@ function MenuListItem({
 			onClick={onSelect}
 			role="button"
 			tabIndex={0}
-			onKeyDown={(e) => e.key === 'Enter' && onSelect()}
+			aria-pressed={isSelected}
+			onKeyDown={(e) => {
+				if (e.key === 'Enter' || e.key === ' ') {
+					e.preventDefault();
+					onSelect();
+				}
+			}}
 		>
 			<span className="menus__item-name">{menu.name}</span>
 			<span className="badge badge--neutral">{buttonCount} btn</span>
@@ -271,32 +317,35 @@ function MenuListItem({
 	);
 }
 
-// ── Empty State ─────────────────────────────────────────────────────────────
-
-function EmptyMenusView({ onAdd }: { onAdd: () => void }) {
+function EmptyMenuWorkspace() {
 	return (
-		<div className="menus__empty">
-			<svg
-				className="menus__empty-icon"
-				viewBox="0 0 64 64"
-				fill="none"
-				stroke="currentColor"
-				strokeWidth="1.5"
-			>
-				<rect x="8" y="8" width="48" height="48" rx="4" />
-				<rect x="14" y="36" width="14" height="8" rx="2" />
-				<rect x="36" y="36" width="14" height="8" rx="2" />
-				<rect x="14" y="16" width="36" height="14" rx="2" />
-			</svg>
-			<h2>No menus yet</h2>
-			<p className="text-muted">
-				Add menus to create navigation for your disc. Each menu can have buttons that link to
-				titles, chapters, or other menus.
-			</p>
-			<button className="btn btn--primary" onClick={onAdd}>
-				Add Menu
-			</button>
-		</div>
+		<section className="editor-area">
+			<div className="editor-toolbar card">
+				<div className="editor-toolbar__left">
+					<h2 className="editor-toolbar__title">Menu Workspace</h2>
+				</div>
+			</div>
+			<div className="editor-body editor-body--empty">
+				<div className="menus__empty">
+					<svg
+						className="menus__empty-icon"
+						viewBox="0 0 64 64"
+						fill="none"
+						stroke="currentColor"
+						strokeWidth="1.5"
+					>
+						<rect x="8" y="8" width="48" height="48" rx="4" />
+						<rect x="14" y="36" width="14" height="8" rx="2" />
+						<rect x="36" y="36" width="14" height="8" rx="2" />
+						<rect x="14" y="16" width="36" height="14" rx="2" />
+					</svg>
+					<h2>No menus yet</h2>
+					<p className="text-muted">
+						Use the rail to add a global or titleset menu, then author its canvas here.
+					</p>
+				</div>
+			</div>
+		</section>
 	);
 }
 
@@ -329,6 +378,7 @@ function MenuEditor({
 	const setSelectedMenuId = useProjectStore((s) => s.setSelectedMenuId);
 	// Treat any legacy mode value as 'editor'
 	const activeView = menuEditorMode === 'map' ? 'map' : 'editor';
+	const menuDomainLabel = menu.authoredDocument?.domain === 'vmgm' ? 'VMGM' : 'Titleset';
 
 	const previewMode = useProjectStore((s) => s.previewMode);
 	const setPreviewMode = useProjectStore((s) => s.setPreviewMode);
@@ -755,33 +805,26 @@ function MenuEditor({
 	};
 
 	return (
-		<div className="menus__editor">
-			{/* Toolbar: name + Editor/Map toggle + authoring actions */}
-			<div className="menus__toolbar card">
-				<div className="menus__toolbar-left">
+		<section className="editor-area">
+			<div className="editor-toolbar card">
+				<div className="editor-toolbar__left">
 					<input
-						className="menus__editor-name"
+						className="editor-toolbar__name"
 						value={menu.name}
 						onChange={(e) => onUpdate((m) => ({ ...m, name: e.target.value }))}
 						aria-label="Menu name"
 					/>
-					{/* Editor / Map view toggle */}
-					<div className="menus__view-toggle" role="group" aria-label="Workspace view">
-						<button
-							className={`btn btn--sm ${activeView === 'editor' ? 'btn--primary' : 'btn--ghost'}`}
-							onClick={() => setMenuEditorMode('editor')}
-						>
-							Editor
-						</button>
-						<button
-							className={`btn btn--sm ${activeView === 'map' ? 'btn--primary' : 'btn--ghost'}`}
-							onClick={() => setMenuEditorMode('map')}
-						>
-							Map
-						</button>
+					<div className="editor-toolbar__info text-muted">
+						<span>{currentButtons.length} buttons</span>
+						<span>|</span>
+						<span>{menuDomainLabel}</span>
+						<span>|</span>
+						<span>
+							720 x {canvasHeight} {project.disc.standard}
+						</span>
 					</div>
 				</div>
-				<div className="menus__toolbar-right">
+				<div className="editor-toolbar__actions">
 					{activeView === 'editor' && (
 						<>
 							<button className="btn btn--sm" onClick={handleAddButton}>
@@ -811,12 +854,9 @@ function MenuEditor({
 				</div>
 			</div>
 
-			{/* Workspace */}
 			{activeView === 'editor' ? (
-				<div className="menus__workspace">
-					{/* Canvas zone — primary authoring surface */}
+				<div className="editor-body">
 					<div className="menus__canvas-zone">
-						{/* Background assignment strip */}
 						<div className="menus__bg-select">
 							<label className="text-muted">Background:</label>
 							<select
@@ -912,7 +952,6 @@ function MenuEditor({
 						</div>
 					</div>
 
-					{/* Side panel — layers and inspector */}
 					<div className="menus__side-panel">
 						<LayersPanel
 							nodes={sceneNodes}
@@ -942,18 +981,19 @@ function MenuEditor({
 					</div>
 				</div>
 			) : (
-				/* Map view — full navigation graph */
-				<FullMenuMap
-					project={project}
-					selectedMenuId={menu.id}
-					onSelectMenu={setSelectedMenuId}
-					onOpenInEditor={(id) => {
-						setSelectedMenuId(id);
-						setMenuEditorMode('editor');
-					}}
-				/>
+				<div className="editor-body editor-body--map">
+					<FullMenuMap
+						project={project}
+						selectedMenuId={menu.id}
+						onSelectMenu={setSelectedMenuId}
+						onOpenInEditor={(id) => {
+							setSelectedMenuId(id);
+							setMenuEditorMode('editor');
+						}}
+					/>
+				</div>
 			)}
-		</div>
+		</section>
 	);
 }
 
