@@ -3,6 +3,7 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: MIT
 
+import { useState } from 'react';
 import type {
 	SceneNode,
 	MenuButton,
@@ -467,9 +468,14 @@ function ButtonInspector({
 				</div>
 			)}
 
+			{/* Button Style — per-state visual controls */}
+			<ButtonStyleSection />
+
+			{/* Text Style — label typography */}
+			<TextStyleSection />
+
 			{/* Highlight */}
-			<div className="inspector-panel__section">
-				<h5 className="inspector-panel__section-heading">Highlight Mode</h5>
+			<CollapsibleSection title="Highlight Mode" defaultOpen={false}>
 				<select
 					className="inspector-panel__select"
 					value={button.highlightMode}
@@ -482,16 +488,15 @@ function ButtonInspector({
 					<option value="static">Static</option>
 					<option value="animated">Animated</option>
 				</select>
-			</div>
+			</CollapsibleSection>
 
 			{/* Overlay Colours */}
-			<div className="inspector-panel__section">
-				<h5 className="inspector-panel__section-heading">Overlay Colours</h5>
+			<CollapsibleSection title="Overlay Colours" defaultOpen={false}>
 				<p className="inspector-panel__hint text-muted">
 					DVD subpicture highlight palette (menu-level).
 				</p>
 				<HighlightColourFields colours={highlightColours} onChange={onUpdateHighlightColours} />
-			</div>
+			</CollapsibleSection>
 
 			{/* Remove */}
 			<div className="inspector-panel__section">
@@ -562,6 +567,7 @@ function ActionOptions({
 				<option value="setSubtitleStream:null">Subtitles Off</option>
 			</optgroup>
 			<option value="stop">Stop</option>
+			<option value="return">Return (Resume Playback)</option>
 		</>
 	);
 }
@@ -631,35 +637,13 @@ function TextNodeInspector({
 					</label>
 				</div>
 			</div>
-			<div className="inspector-panel__section">
-				<h5 className="inspector-panel__section-heading">Style</h5>
-				<label className="inspector-panel__field">
-					<span className="inspector-panel__field-label">Font Size</span>
-					<input
-						className="inspector-panel__input inspector-panel__input--num"
-						type="number"
-						value={node.fontSize ?? 24}
-						onChange={(e) => onUpdate?.(node.id, { fontSize: Number(e.target.value) })}
-					/>
-				</label>
-				<label className="inspector-panel__field">
-					<span className="inspector-panel__field-label">Colour</span>
-					<div className="inspector-panel__colour-row">
-						<input
-							type="color"
-							className="inspector-panel__colour-input"
-							value={node.colour ?? '#ffffff'}
-							onChange={(e) => onUpdate?.(node.id, { colour: e.target.value })}
-						/>
-						<input
-							className="inspector-panel__input inspector-panel__input--hex"
-							value={node.colour ?? '#ffffff'}
-							onChange={(e) => onUpdate?.(node.id, { colour: e.target.value })}
-							maxLength={7}
-						/>
-					</div>
-				</label>
-			</div>
+			{/* Text Style — full typography panel */}
+			<TextStyleSection
+				colour={node.colour ?? '#ffffff'}
+				fontSize={node.fontSize ?? 24}
+				onColourChange={(colour) => onUpdate?.(node.id, { colour })}
+				onFontSizeChange={(fontSize) => onUpdate?.(node.id, { fontSize })}
+			/>
 			{onRemove && (
 				<div className="inspector-panel__section">
 					<button className="btn btn--sm btn--danger" onClick={() => onRemove(node.id)}>
@@ -840,6 +824,407 @@ function ShapeNodeInspector({
 				</div>
 			)}
 		</div>
+	);
+}
+
+// ── Collapsible Section ───────────────────────────────────────────────────
+// Reusable wrapper with chevron toggle for inspector sections.
+
+function CollapsibleSection({
+	title,
+	defaultOpen = true,
+	children,
+}: {
+	title: string;
+	defaultOpen?: boolean;
+	children: React.ReactNode;
+}) {
+	const [open, setOpen] = useState(defaultOpen);
+
+	return (
+		<div className={`inspector-panel__section inspector-panel__collapsible ${open ? 'inspector-panel__collapsible--open' : ''}`}>
+			<div
+				className="inspector-panel__collapsible-header"
+				onClick={() => setOpen(!open)}
+				role="button"
+				tabIndex={0}
+				onKeyDown={(e) => e.key === 'Enter' && setOpen(!open)}
+			>
+				<svg
+					className="inspector-panel__collapsible-chevron"
+					width="12"
+					height="12"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					strokeWidth="2"
+				>
+					<polyline points="6 9 12 15 18 9" />
+				</svg>
+				<span className="inspector-panel__section-heading" style={{ margin: 0 }}>
+					{title}
+				</span>
+			</div>
+			{open && <div className="inspector-panel__collapsible-body">{children}</div>}
+		</div>
+	);
+}
+
+// ── Button Style Section ──────────────────────────────────────────────────
+// Per-state visual controls: Normal/Focus/Activate with background, border,
+// radius, padding, and shadow/glow. Following Yuli's Set 2b mockup.
+
+type ButtonVisualState = 'normal' | 'focus' | 'activate';
+
+function ButtonStyleSection() {
+	const [activeState, setActiveState] = useState<ButtonVisualState>('normal');
+
+	// Local styling state (will be wired to document model in a future pass)
+	const [styles] = useState({
+		normal: {
+			bgFill: 'rgba(255,255,255,0.04)',
+			borderColour: '#ffffff1f',
+			borderWidth: 1.5,
+			borderRadius: 6,
+			paddingH: 16,
+			paddingV: 0,
+			shadowType: 'none' as 'none' | 'box-shadow' | 'outer-glow' | 'inner-glow',
+			shadowColour: '#ffa84020',
+			shadowBlur: 16,
+			shadowSpread: 0,
+		},
+		focus: {
+			bgFill: 'rgba(255,170,64,0.15)',
+			borderColour: '#ffaa40',
+			borderWidth: 1.5,
+			borderRadius: 6,
+			paddingH: 16,
+			paddingV: 0,
+			shadowType: 'box-shadow' as const,
+			shadowColour: '#ffa84040',
+			shadowBlur: 16,
+			shadowSpread: 0,
+		},
+		activate: {
+			bgFill: 'rgba(255,209,102,0.2)',
+			borderColour: '#ffd166',
+			borderWidth: 2,
+			borderRadius: 6,
+			paddingH: 16,
+			paddingV: 0,
+			shadowType: 'outer-glow' as const,
+			shadowColour: '#ffd16660',
+			shadowBlur: 24,
+			shadowSpread: 4,
+		},
+	});
+
+	const s = styles[activeState];
+
+	return (
+		<CollapsibleSection title="Button Style">
+			{/* State sub-tabs */}
+			<div className="inspector-panel__state-tabs">
+				{(['normal', 'focus', 'activate'] as const).map((state) => (
+					<button
+						key={state}
+						className={`inspector-panel__state-tab ${activeState === state ? 'inspector-panel__state-tab--active' : ''}`}
+						onClick={() => setActiveState(state)}
+					>
+						{state.charAt(0).toUpperCase() + state.slice(1)}
+					</button>
+				))}
+			</div>
+
+			{/* Background */}
+			<div className="inspector-panel__sub-label">Background</div>
+			<div className="inspector-panel__field">
+				<span className="inspector-panel__field-label">Fill</span>
+				<div className="inspector-panel__colour-row">
+					<input
+						type="color"
+						className="inspector-panel__colour-input"
+						value={s.bgFill.includes('rgba') ? '#ffffff' : s.bgFill}
+						readOnly
+					/>
+					<input className="inspector-panel__input" value={s.bgFill} readOnly style={{ flex: 1 }} />
+				</div>
+			</div>
+
+			{/* Border */}
+			<div className="inspector-panel__sub-label">Border</div>
+			<div className="inspector-panel__grid-2">
+				<label className="inspector-panel__field">
+					<span className="inspector-panel__field-label">Colour</span>
+					<div className="inspector-panel__colour-row">
+						<input
+							type="color"
+							className="inspector-panel__colour-input"
+							value={s.borderColour.length <= 7 ? s.borderColour : '#ffffff'}
+							readOnly
+						/>
+						<input className="inspector-panel__input inspector-panel__input--hex" value={s.borderColour} readOnly />
+					</div>
+				</label>
+				<label className="inspector-panel__field">
+					<span className="inspector-panel__field-label">Width</span>
+					<div className="inspector-panel__inline-unit">
+						<input
+							className="inspector-panel__input inspector-panel__input--num"
+							type="number"
+							value={s.borderWidth}
+							readOnly
+						/>
+						<span className="inspector-panel__unit">px</span>
+					</div>
+				</label>
+			</div>
+			<label className="inspector-panel__field">
+				<span className="inspector-panel__field-label">Radius</span>
+				<div className="inspector-panel__inline-unit">
+					<input
+						className="inspector-panel__input inspector-panel__input--num"
+						type="number"
+						value={s.borderRadius}
+						readOnly
+					/>
+					<span className="inspector-panel__unit">px</span>
+				</div>
+			</label>
+
+			{/* Padding */}
+			<div className="inspector-panel__sub-label">Padding</div>
+			<div className="inspector-panel__grid-2">
+				<label className="inspector-panel__field">
+					<span className="inspector-panel__field-label">H</span>
+					<input
+						className="inspector-panel__input inspector-panel__input--num"
+						type="number"
+						value={s.paddingH}
+						readOnly
+					/>
+				</label>
+				<label className="inspector-panel__field">
+					<span className="inspector-panel__field-label">V</span>
+					<input
+						className="inspector-panel__input inspector-panel__input--num"
+						type="number"
+						value={s.paddingV}
+						readOnly
+					/>
+				</label>
+			</div>
+
+			{/* Shadow / Glow */}
+			<div className="inspector-panel__sub-label">Shadow / Glow</div>
+			<label className="inspector-panel__field">
+				<span className="inspector-panel__field-label">Type</span>
+				<select className="inspector-panel__select" value={s.shadowType} disabled>
+					<option value="none">None</option>
+					<option value="box-shadow">Box shadow</option>
+					<option value="outer-glow">Outer glow</option>
+					<option value="inner-glow">Inner glow</option>
+				</select>
+			</label>
+			{s.shadowType !== 'none' && (
+				<>
+					<label className="inspector-panel__field">
+						<span className="inspector-panel__field-label">Colour</span>
+						<div className="inspector-panel__colour-row">
+							<input
+								type="color"
+								className="inspector-panel__colour-input"
+								value={s.shadowColour.length <= 7 ? s.shadowColour : '#ffa840'}
+								readOnly
+							/>
+							<input className="inspector-panel__input inspector-panel__input--hex" value={s.shadowColour} readOnly />
+						</div>
+					</label>
+					<div className="inspector-panel__grid-2">
+						<label className="inspector-panel__field">
+							<span className="inspector-panel__field-label">Blur</span>
+							<input
+								className="inspector-panel__input inspector-panel__input--num"
+								type="number"
+								value={s.shadowBlur}
+								readOnly
+							/>
+						</label>
+						<label className="inspector-panel__field">
+							<span className="inspector-panel__field-label">Spread</span>
+							<input
+								className="inspector-panel__input inspector-panel__input--num"
+								type="number"
+								value={s.shadowSpread}
+								readOnly
+							/>
+						</label>
+					</div>
+				</>
+			)}
+		</CollapsibleSection>
+	);
+}
+
+// ── Text Style Section ────────────────────────────────────────────────────
+// Typography controls for button labels and text nodes. Following Yuli's
+// Set 2b mockup: font, size, weight, italic, colour, alignment.
+
+function TextStyleSection({
+	colour,
+	fontSize,
+	onColourChange,
+	onFontSizeChange,
+}: {
+	colour?: string;
+	fontSize?: number;
+	onColourChange?: (colour: string) => void;
+	onFontSizeChange?: (size: number) => void;
+}) {
+	const [bold, setBold] = useState(false);
+	const [italic, setItalic] = useState(false);
+	const [underline, setUnderline] = useState(false);
+	const [align, setAlign] = useState<'left' | 'center' | 'right'>('left');
+
+	return (
+		<CollapsibleSection title="Text Style">
+			<label className="inspector-panel__field">
+				<span className="inspector-panel__field-label">Font</span>
+				<select className="inspector-panel__select" defaultValue="Inter">
+					<option>Inter</option>
+					<option>Space Grotesk</option>
+					<option>System UI</option>
+					<option>Georgia</option>
+					<option>Courier New</option>
+				</select>
+			</label>
+			<div className="inspector-panel__grid-2">
+				<label className="inspector-panel__field">
+					<span className="inspector-panel__field-label">Size</span>
+					<div className="inspector-panel__inline-unit">
+						<input
+							className="inspector-panel__input inspector-panel__input--num"
+							type="number"
+							value={fontSize ?? 14}
+							onChange={(e) => onFontSizeChange?.(Number(e.target.value))}
+						/>
+						<span className="inspector-panel__unit">px</span>
+					</div>
+				</label>
+				<label className="inspector-panel__field">
+					<span className="inspector-panel__field-label">Height</span>
+					<input
+						className="inspector-panel__input inspector-panel__input--num"
+						type="number"
+						defaultValue={1.4}
+						step={0.1}
+					/>
+				</label>
+			</div>
+
+			{/* Weight + style toggles */}
+			<label className="inspector-panel__field">
+				<span className="inspector-panel__field-label">Style</span>
+				<div className="inspector-panel__style-pills">
+					<button
+						className={`inspector-panel__style-pill ${bold ? 'inspector-panel__style-pill--active' : ''}`}
+						onClick={() => setBold(!bold)}
+						title="Bold"
+						style={{ fontWeight: 700 }}
+					>
+						B
+					</button>
+					<button
+						className={`inspector-panel__style-pill ${italic ? 'inspector-panel__style-pill--active' : ''}`}
+						onClick={() => setItalic(!italic)}
+						title="Italic"
+						style={{ fontStyle: 'italic' }}
+					>
+						I
+					</button>
+					<button
+						className={`inspector-panel__style-pill ${underline ? 'inspector-panel__style-pill--active' : ''}`}
+						onClick={() => setUnderline(!underline)}
+						title="Underline"
+						style={{ textDecoration: 'underline' }}
+					>
+						U
+					</button>
+				</div>
+			</label>
+
+			{/* Colour */}
+			<label className="inspector-panel__field">
+				<span className="inspector-panel__field-label">Colour</span>
+				<div className="inspector-panel__colour-row">
+					<input
+						type="color"
+						className="inspector-panel__colour-input"
+						value={colour ?? '#ffffff'}
+						onChange={(e) => onColourChange?.(e.target.value)}
+					/>
+					<input
+						className="inspector-panel__input inspector-panel__input--hex"
+						value={colour ?? '#ffffff'}
+						onChange={(e) => onColourChange?.(e.target.value)}
+						maxLength={7}
+					/>
+				</div>
+			</label>
+
+			{/* Alignment */}
+			<label className="inspector-panel__field">
+				<span className="inspector-panel__field-label">Align</span>
+				<div className="inspector-panel__align-row">
+					{(['left', 'center', 'right'] as const).map((a) => (
+						<button
+							key={a}
+							className={`inspector-panel__align-btn ${align === a ? 'inspector-panel__align-btn--active' : ''}`}
+							onClick={() => setAlign(a)}
+							title={a === 'center' ? 'Centre' : a.charAt(0).toUpperCase() + a.slice(1)}
+						>
+							<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+								{a === 'left' && (
+									<>
+										<line x1="3" y1="6" x2="21" y2="6" />
+										<line x1="3" y1="12" x2="15" y2="12" />
+										<line x1="3" y1="18" x2="18" y2="18" />
+									</>
+								)}
+								{a === 'center' && (
+									<>
+										<line x1="3" y1="6" x2="21" y2="6" />
+										<line x1="6" y1="12" x2="18" y2="12" />
+										<line x1="4" y1="18" x2="20" y2="18" />
+									</>
+								)}
+								{a === 'right' && (
+									<>
+										<line x1="3" y1="6" x2="21" y2="6" />
+										<line x1="9" y1="12" x2="21" y2="12" />
+										<line x1="6" y1="18" x2="21" y2="18" />
+									</>
+								)}
+							</svg>
+						</button>
+					))}
+				</div>
+			</label>
+
+			{/* Letter spacing */}
+			<label className="inspector-panel__field">
+				<span className="inspector-panel__field-label">Spacing</span>
+				<div className="inspector-panel__inline-unit">
+					<input
+						className="inspector-panel__input inspector-panel__input--num"
+						type="number"
+						defaultValue={0}
+						step={0.5}
+					/>
+					<span className="inspector-panel__unit">px</span>
+				</div>
+			</label>
+		</CollapsibleSection>
 	);
 }
 
@@ -1038,6 +1423,8 @@ function actionToString(action: PlaybackAction | null): string {
 			return `setSubtitleStream:${action.streamIndex ?? 'null'}`;
 		case 'stop':
 			return 'stop';
+		case 'return':
+			return 'return';
 		default:
 			return '';
 	}
@@ -1046,6 +1433,7 @@ function actionToString(action: PlaybackAction | null): string {
 function stringToAction(str: string): PlaybackAction | null {
 	if (!str) return null;
 	if (str === 'stop') return { type: 'stop' };
+	if (str === 'return') return { type: 'return' };
 	const parts = str.split(':');
 	const type = parts[0];
 	if (type === 'playTitle' && parts[1]) return { type: 'playTitle', titleId: parts[1] };

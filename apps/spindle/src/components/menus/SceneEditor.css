@@ -797,6 +797,166 @@
 	color: var(--brand-orange);
 }
 
+/* ── Inspector: Collapsible sections ───────────────────────────── */
+
+.inspector-panel__collapsible {
+	padding-bottom: 0;
+}
+
+.inspector-panel__collapsible-header {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	cursor: pointer;
+	user-select: none;
+	padding: var(--space-1) 0;
+}
+
+.inspector-panel__collapsible-header:hover {
+	color: var(--text-primary);
+}
+
+.inspector-panel__collapsible-chevron {
+	color: var(--text-muted);
+	flex-shrink: 0;
+	transition: transform var(--transition-base, 150ms ease);
+	transform: rotate(-90deg);
+}
+
+.inspector-panel__collapsible--open .inspector-panel__collapsible-chevron {
+	transform: rotate(0deg);
+}
+
+.inspector-panel__collapsible-body {
+	padding-top: var(--space-2);
+	padding-bottom: var(--space-2);
+}
+
+/* ── Inspector: State sub-tabs ─────────────────────────────────── */
+
+.inspector-panel__state-tabs {
+	display: flex;
+	background: rgba(0, 0, 0, 0.25);
+	border: 1px solid var(--border-subtle);
+	border-radius: 10px;
+	padding: 2px;
+	gap: 2px;
+	margin-bottom: var(--space-3);
+}
+
+.inspector-panel__state-tab {
+	flex: 1;
+	padding: 3px 0;
+	border-radius: 8px;
+	font-size: 10px;
+	font-weight: 600;
+	text-align: center;
+	cursor: pointer;
+	color: var(--text-muted);
+	transition: all var(--transition-base, 150ms ease);
+	border: none;
+	background: none;
+}
+
+.inspector-panel__state-tab:hover {
+	color: var(--text-primary);
+}
+
+.inspector-panel__state-tab--active {
+	background: rgba(255, 255, 255, 0.1);
+	color: var(--text-primary);
+}
+
+/* ── Inspector: Sub-labels ─────────────────────────────────────── */
+
+.inspector-panel__sub-label {
+	font-size: 10px;
+	font-weight: 600;
+	letter-spacing: 0.04em;
+	color: var(--text-muted);
+	margin-top: var(--space-2);
+	margin-bottom: var(--space-1);
+}
+
+/* ── Inspector: Inline unit suffix ─────────────────────────────── */
+
+.inspector-panel__inline-unit {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+}
+
+.inspector-panel__unit {
+	font-size: 9px;
+	color: var(--text-muted);
+	flex-shrink: 0;
+}
+
+/* ── Inspector: Style pill toggles ─────────────────────────────── */
+
+.inspector-panel__style-pills {
+	display: flex;
+	gap: 2px;
+}
+
+.inspector-panel__style-pill {
+	width: 26px;
+	height: 24px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border: 1px solid var(--border-subtle);
+	border-radius: var(--radius-sm);
+	background: none;
+	color: var(--text-muted);
+	font-size: var(--text-xs);
+	cursor: pointer;
+	transition: all var(--transition-base, 150ms ease);
+}
+
+.inspector-panel__style-pill:hover {
+	background: rgba(255, 255, 255, 0.06);
+	color: var(--text-primary);
+}
+
+.inspector-panel__style-pill--active {
+	background: rgba(255, 170, 64, 0.15);
+	border-color: var(--brand-orange);
+	color: var(--brand-orange);
+}
+
+/* ── Inspector: Alignment buttons ──────────────────────────────── */
+
+.inspector-panel__align-row {
+	display: flex;
+	gap: 2px;
+}
+
+.inspector-panel__align-btn {
+	width: 28px;
+	height: 24px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border: 1px solid var(--border-subtle);
+	border-radius: var(--radius-sm);
+	background: none;
+	color: var(--text-muted);
+	cursor: pointer;
+	transition: all var(--transition-base, 150ms ease);
+}
+
+.inspector-panel__align-btn:hover {
+	background: rgba(255, 255, 255, 0.06);
+	color: var(--text-primary);
+}
+
+.inspector-panel__align-btn--active {
+	background: rgba(255, 170, 64, 0.15);
+	border-color: var(--brand-orange);
+	color: var(--brand-orange);
+}
+
 /* ── Small button variant (btn--xs) ─────────────────────────── */
 
 .btn--xs {
