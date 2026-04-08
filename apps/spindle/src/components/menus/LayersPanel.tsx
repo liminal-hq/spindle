@@ -32,14 +32,22 @@ export interface LayersPanelProps {
 	nodes: SceneNode[];
 	selectedNodeId: string | null;
 	onSelectNode: (nodeId: string | null) => void;
+	showHeader?: boolean;
 }
 
-export function LayersPanel({ nodes, selectedNodeId, onSelectNode }: LayersPanelProps) {
+export function LayersPanel({
+	nodes,
+	selectedNodeId,
+	onSelectNode,
+	showHeader = true,
+}: LayersPanelProps) {
 	return (
 		<div className="layers-panel">
-			<div className="layers-panel__header">
-				<h4 className="layers-panel__title">Layers</h4>
-			</div>
+			{showHeader && (
+				<div className="layers-panel__header">
+					<h4 className="layers-panel__title">Layers</h4>
+				</div>
+			)}
 			<div className="layers-panel__list">
 				{nodes.length === 0 ? (
 					<div className="layers-panel__empty text-muted">No scene nodes</div>

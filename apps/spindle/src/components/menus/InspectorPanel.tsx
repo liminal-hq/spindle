@@ -18,6 +18,7 @@ import type {
 	ButtonStateStyle,
 	TextStyle,
 } from '../../types/project';
+import { LayersPanel } from './LayersPanel';
 
 /** DVD constraint thresholds (shared with compile diagnostics). */
 const MAX_DVD_BUTTONS = 36;
@@ -103,6 +104,12 @@ export interface InspectorPanelProps {
 	defaultFocusId?: string | null;
 	/** Full authored document (for diagnostics and compile policy). */
 	document?: MenuDocument | null;
+	/** Scene nodes for the layer stack embedded in the inspector rail. */
+	sceneNodes?: SceneNode[];
+	/** Current selected scene node ID. */
+	selectedNodeId?: string | null;
+	/** Select a node from the layer stack. */
+	onSelectSceneNode?: (nodeId: string | null) => void;
 	/** DVD canvas height for diagnostic context. */
 	canvasHeight?: number;
 	/** Set the default focus to a button. */
@@ -126,6 +133,9 @@ export function InspectorPanel({
 	interactionNodes,
 	defaultFocusId,
 	document,
+	sceneNodes,
+	selectedNodeId,
+	onSelectSceneNode,
 	canvasHeight,
 	onSetDefaultFocus,
 }: InspectorPanelProps) {
@@ -141,6 +151,17 @@ export function InspectorPanel({
 				</div>
 			</div>
 			<div className="inspector-panel__body">
+				{sceneNodes && onSelectSceneNode && (
+					<div className="inspector-panel__section inspector-panel__section--layers">
+						<h5 className="inspector-panel__section-heading">Layers</h5>
+						<LayersPanel
+							nodes={sceneNodes}
+							selectedNodeId={selectedNodeId ?? null}
+							onSelectNode={onSelectSceneNode}
+							showHeader={false}
+						/>
+					</div>
+				)}
 				{!selectedNode ? (
 					// When nothing is selected and menu-level context is provided,
 					// show the menu-level inspector. Otherwise show the selection prompt.

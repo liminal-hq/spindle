@@ -3,9 +3,9 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: MIT
 
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { MiniMenuMap } from './MenuMap';
+import { FullMenuMap, MiniMenuMap } from './MenuMap';
 import { DEFAULT_HIGHLIGHT_COLOURS } from '../../types/project';
 import type { SpindleProjectFile } from '../../types/project';
 
@@ -64,5 +64,25 @@ describe('MiniMenuMap', () => {
 
 		expect(screen.getByText('Disc')).toBeTruthy();
 		expect(screen.getByText('Main Menu')).toBeTruthy();
+	});
+});
+
+describe('FullMenuMap', () => {
+	it('selects a menu from the central chart and updates the inspector', () => {
+		const onSelectMenu = vi.fn();
+		const onOpenInEditor = vi.fn();
+
+		render(
+			<FullMenuMap
+				project={buildProject()}
+				selectedMenuId={null}
+				onSelectMenu={onSelectMenu}
+				onOpenInEditor={onOpenInEditor}
+			/>,
+		);
+
+		fireEvent.click(screen.getByTestId('menu-map-node-menu-main'));
+
+		expect(onSelectMenu).toHaveBeenCalledWith('menu-main');
 	});
 });

@@ -10,13 +10,13 @@ import type {
 	Menu,
 	MenuButton,
 	MenuHighlightColours,
+	PlaybackAction,
 	SpindleProjectFile,
 	VideoStandard,
 	SceneNode,
 } from '../types/project';
 import { DEFAULT_HIGHLIGHT_COLOURS } from '../types/project';
 import { SceneCanvas } from '../components/menus/SceneCanvas';
-import { LayersPanel } from '../components/menus/LayersPanel';
 import { InspectorPanel } from '../components/menus/InspectorPanel';
 import { MiniMenuMap, FullMenuMap } from '../components/menus/MenuMap';
 import '../components/menus/SceneEditor.css';
@@ -59,6 +59,15 @@ export function MenusPage() {
 	const selectedEntry = allMenus.find((e) => e.menu.id === selectedMenuId) ?? null;
 	const firstMenuId = allMenus[0]?.menu.id ?? null;
 	const activeView = menuEditorMode === 'map' ? 'map' : 'editor';
+	const selectedTitleset =
+		(selectedEntry?.titlesetId
+			? disc.titlesets.find((ts) => ts.id === selectedEntry.titlesetId)
+			: null) ?? disc.titlesets[0] ?? null;
+	const chapterGenerationStats = selectedTitleset
+		? getChapterGenerationStats(selectedTitleset)
+		: { chapterCount: 0, pageCount: 0 };
+	const audioSetupCount = selectedTitleset ? getMaxAudioTrackCount(selectedTitleset) : 0;
+	const subtitleSetupCount = selectedTitleset ? getMaxSubtitleTrackCount(selectedTitleset) : 0;
 
 	useEffect(() => {
 		if (!firstMenuId) {
@@ -162,6 +171,57 @@ export function MenusPage() {
 		if (selectedMenuId === menuId) setSelectedMenuId(null);
 	};
 
+	const handleGenerateChapterMenus = () => {
+		if (!selectedTitleset) return;
+		const generated = buildChapterMenusForTitleset(selectedTitleset, selectedEntry?.menu.id ?? null);
+		if (generated.length === 0) return;
+
+		updateProject((p) => ({
+			...p,
+			disc: {
+				...p.disc,
+				titlesets: p.disc.titlesets.map((ts) =>
+					ts.id === selectedTitleset.id ? { ...ts, menus: [...ts.menus, ...generated] } : ts,
+				),
+			},
+		}));
+		setSelectedMenuId(generated[0].id);
+	};
+
+	const handleGenerateAudioSetup = () => {
+		if (!selectedTitleset) return;
+		const generated = buildAudioSetupMenu(selectedTitleset, selectedEntry?.menu.id ?? null);
+		if (!generated) return;
+
+		updateProject((p) => ({
+			...p,
+			disc: {
+				...p.disc,
+				titlesets: p.disc.titlesets.map((ts) =>
+					ts.id === selectedTitleset.id ? { ...ts, menus: [...ts.menus, generated] } : ts,
+				),
+			},
+		}));
+		setSelectedMenuId(generated.id);
+	};
+
+	const handleGenerateSubtitleSetup = () => {
+		if (!selectedTitleset) return;
+		const generated = buildSubtitleSetupMenu(selectedTitleset, selectedEntry?.menu.id ?? null);
+		if (!generated) return;
+
+		updateProject((p) => ({
+			...p,
+			disc: {
+				...p.disc,
+				titlesets: p.disc.titlesets.map((ts) =>
+					ts.id === selectedTitleset.id ? { ...ts, menus: [...ts.menus, generated] } : ts,
+				),
+			},
+		}));
+		setSelectedMenuId(generated.id);
+	};
+
 	return (
 		<div className="menus">
 			<div className="menus-content">
@@ -262,12 +322,81 @@ export function MenusPage() {
 								Add a global or titleset menu to start authoring this disc.
 							</div>
 						) : (
-							<MiniMenuMap
-								project={project}
-								selectedMenuId={selectedMenuId}
-								onSelect={setSelectedMenuId}
-								onExpand={() => setMenuEditorMode('map')}
-							/>
+							<div className="menu-nav__lower-stack">
+								<MiniMenuMap
+									project={project}
+									selectedMenuId={selectedMenuId}
+									onSelect={setSelectedMenuId}
+									onExpand={() => setMenuEditorMode('map')}
+								/>
+								<div className="menu-nav__panel">
+									<button className="menu-nav__panel-header" type="button">
+										<span>Templates</span>
+										<span className="menu-nav__panel-chevron" aria-hidden="true">
+											⌄
+										</span>
+									</button>
+								</div>
+								<div className="menu-nav__panel">
+									<div className="menu-nav__panel-header menu-nav__panel-header--static">
+										<span>Generate Menus</span>
+									</div>
+									<div className="menu-nav__generator-list">
+										<button
+											className="menu-nav__generator-item"
+											type="button"
+											onClick={handleGenerateChapterMenus}
+											disabled={!selectedTitleset || chapterGenerationStats.chapterCount === 0}
+										>
+											<span className="menu-nav__generator-icon menu-nav__generator-icon--chapters">
+												▦
+											</span>
+											<span className="menu-nav__generator-copy">
+												<span className="menu-nav__generator-label">Chapter Grid</span>
+												<span className="menu-nav__generator-meta">
+													{chapterGenerationStats.chapterCount > 0
+														? `${chapterGenerationStats.chapterCount} ch → ${chapterGenerationStats.pageCount} page${chapterGenerationStats.pageCount === 1 ? '' : 's'}`
+														: 'No chapter data'}
+												</span>
+											</span>
+										</button>
+										<button
+											className="menu-nav__generator-item"
+											type="button"
+											onClick={handleGenerateAudioSetup}
+											disabled={!selectedTitleset || audioSetupCount === 0}
+										>
+											<span className="menu-nav__generator-icon menu-nav__generator-icon--audio">
+												♪
+											</span>
+											<span className="menu-nav__generator-copy">
+												<span className="menu-nav__generator-label">Audio Setup</span>
+												<span className="menu-nav__generator-meta">
+													{audioSetupCount > 0 ? `${audioSetupCount} stream${audioSetupCount === 1 ? '' : 's'}` : 'No audio mappings'}
+												</span>
+											</span>
+										</button>
+										<button
+											className="menu-nav__generator-item"
+											type="button"
+											onClick={handleGenerateSubtitleSetup}
+											disabled={!selectedTitleset || subtitleSetupCount === 0}
+										>
+											<span className="menu-nav__generator-icon menu-nav__generator-icon--subtitles">
+												S
+											</span>
+											<span className="menu-nav__generator-copy">
+												<span className="menu-nav__generator-label">Subtitle Setup</span>
+												<span className="menu-nav__generator-meta">
+													{subtitleSetupCount > 0
+														? `${subtitleSetupCount} stream${subtitleSetupCount === 1 ? '' : 's'}`
+														: 'No subtitle mappings'}
+												</span>
+											</span>
+										</button>
+									</div>
+								</div>
+							</div>
 						)}
 					</div>
 				</aside>
@@ -439,6 +568,9 @@ function MenuEditor({
 	const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
 	const [honestPreview, setHonestPreview] = useState(false);
 	const [showNavLines, setShowNavLines] = useState(false);
+	const [activeTool, setActiveTool] = useState<'select' | 'button' | 'text' | 'image' | 'shape'>(
+		'select',
+	);
 
 	const undo = useProjectStore((s) => s.undo);
 	const redo = useProjectStore((s) => s.redo);
@@ -918,6 +1050,14 @@ function MenuEditor({
 								title="Toggle DVD preview"
 							>
 								<span className="editor-toolbar__toggle-dot" aria-hidden="true" />
+								DVD Preview
+							</button>
+							<button
+								className={`editor-toolbar__toggle ${previewMode ? 'editor-toolbar__toggle--active' : ''}`}
+								onClick={() => setPreviewMode(!previewMode)}
+								aria-pressed={previewMode}
+								title="Enter remote preview mode"
+							>
 								Preview
 							</button>
 							<button
@@ -927,14 +1067,6 @@ function MenuEditor({
 								title="Show navigation lines between buttons"
 							>
 								Nav Lines
-							</button>
-							<button
-								className={`editor-toolbar__toggle ${previewMode ? 'editor-toolbar__toggle--active' : ''}`}
-								onClick={() => setPreviewMode(!previewMode)}
-								aria-pressed={previewMode}
-								title="Navigate with the keyboard"
-							>
-								Keyboard Nav
 							</button>
 						</div>
 						<div className="editor-toolbar__background">
@@ -969,25 +1101,6 @@ function MenuEditor({
 							)}
 						</div>
 						<div className="editor-toolbar__actions">
-							<button className="btn btn--sm" onClick={handleAddButton}>
-								+ Button
-							</button>
-							<button className="btn btn--sm" onClick={() => handleAddSceneNode('text')}>
-								+ Text
-							</button>
-							<button className="btn btn--sm" onClick={() => handleAddSceneNode('image')}>
-								+ Image
-							</button>
-							<button className="btn btn--sm" onClick={() => handleAddSceneNode('shape')}>
-								+ Shape
-							</button>
-							<button
-								className="btn btn--sm"
-								onClick={onAutoNav}
-								title="Auto-generate directional navigation from button positions"
-							>
-								Auto Nav
-							</button>
 							<button className="btn btn--sm btn--danger" onClick={onRemove}>
 								Delete Menu
 							</button>
@@ -1013,32 +1126,105 @@ function MenuEditor({
 
 			{activeView === 'editor' ? (
 				<div className="editor-body">
-					<div className="menus__canvas-zone">
-						<SceneCanvas
-							buttons={currentButtons}
-							sceneNodes={sceneNodes}
-							canvasHeight={canvasHeight}
-							onUpdateButton={handleUpdateButton}
-							onUpdateSceneNode={handleUpdateSceneNode}
-							showSafeArea={showSafeArea}
-							backgroundLabel={backgroundAssetLabel}
-							backgroundColour={menu.authoredDocument?.scene.background.colour ?? null}
-							defaultButtonId={defaultFocusId}
-							previewMode={previewMode}
-							highlightColours={highlightColours}
-							honestPreview={honestPreview}
-							showNavLines={showNavLines}
-							selectedNodeId={selectedNodeId}
-							onSelectNode={setSelectedNodeId}
-						/>
+					<div className="menus__workspace-shell">
+						<div className="menus__tool-rail" role="toolbar" aria-label="Scene tools">
+							<button
+								className={`menus__tool-button ${
+									activeTool === 'select' ? 'menus__tool-button--active' : ''
+								}`}
+								type="button"
+								onClick={() => setActiveTool('select')}
+								title="Select"
+							>
+								↖
+							</button>
+							<button
+								className={`menus__tool-button ${
+									activeTool === 'text' ? 'menus__tool-button--active' : ''
+								}`}
+								type="button"
+								onClick={() => {
+									setActiveTool('text');
+									handleAddSceneNode('text');
+								}}
+								title="Add text"
+							>
+								T
+							</button>
+							<button
+								className={`menus__tool-button ${
+									activeTool === 'button' ? 'menus__tool-button--active' : ''
+								}`}
+								type="button"
+								onClick={() => {
+									setActiveTool('button');
+									handleAddButton();
+								}}
+								title="Add button"
+							>
+								▭
+							</button>
+							<button
+								className={`menus__tool-button ${
+									activeTool === 'image' ? 'menus__tool-button--active' : ''
+								}`}
+								type="button"
+								onClick={() => {
+									setActiveTool('image');
+									handleAddSceneNode('image');
+								}}
+								title="Add image"
+							>
+								▧
+							</button>
+							<button
+								className={`menus__tool-button ${
+									activeTool === 'shape' ? 'menus__tool-button--active' : ''
+								}`}
+								type="button"
+								onClick={() => {
+									setActiveTool('shape');
+									handleAddSceneNode('shape');
+								}}
+								title="Add shape"
+							>
+								□
+							</button>
+							<button
+								className="menus__tool-button menus__tool-button--accent"
+								type="button"
+								onClick={onAutoNav}
+								title="Auto-generate navigation"
+							>
+								➤
+							</button>
+						</div>
+						<div className="menus__canvas-zone">
+							<div className="menus__stage-shell">
+								<div className="menus__stage-frame">
+									<SceneCanvas
+										buttons={currentButtons}
+										sceneNodes={sceneNodes}
+										canvasHeight={canvasHeight}
+										onUpdateButton={handleUpdateButton}
+										onUpdateSceneNode={handleUpdateSceneNode}
+										showSafeArea={showSafeArea}
+										backgroundLabel={backgroundAssetLabel}
+										backgroundColour={menu.authoredDocument?.scene.background.colour ?? null}
+										defaultButtonId={defaultFocusId}
+										previewMode={previewMode}
+										highlightColours={highlightColours}
+										honestPreview={honestPreview}
+										showNavLines={showNavLines}
+										selectedNodeId={selectedNodeId}
+										onSelectNode={setSelectedNodeId}
+									/>
+								</div>
+							</div>
+						</div>
 					</div>
 
 					<div className="menus__side-panel">
-						<LayersPanel
-							nodes={sceneNodes}
-							selectedNodeId={selectedNodeId}
-							onSelectNode={setSelectedNodeId}
-						/>
 						<InspectorPanel
 							selectedNode={selectedNode}
 							selectedButton={selectedButton}
@@ -1058,6 +1244,9 @@ function MenuEditor({
 							document={menu.authoredDocument ?? null}
 							canvasHeight={canvasHeight}
 							onSetDefaultFocus={handleSetDefaultFocus}
+							sceneNodes={sceneNodes}
+							selectedNodeId={selectedNodeId}
+							onSelectSceneNode={setSelectedNodeId}
 						/>
 					</div>
 				</div>
@@ -1076,6 +1265,326 @@ function MenuEditor({
 			)}
 		</section>
 	);
+}
+
+function getChapterGenerationStats(titleset: SpindleProjectFile['disc']['titlesets'][number]): {
+	chapterCount: number;
+	pageCount: number;
+} {
+	const chapterCount = titleset.titles.reduce((sum, title) => sum + title.chapters.length, 0);
+	return {
+		chapterCount,
+		pageCount: chapterCount === 0 ? 0 : Math.ceil(chapterCount / 6),
+	};
+}
+
+function getMaxAudioTrackCount(titleset: SpindleProjectFile['disc']['titlesets'][number]): number {
+	return Math.max(0, ...titleset.titles.map((title) => title.audioMappings.length));
+}
+
+function getMaxSubtitleTrackCount(titleset: SpindleProjectFile['disc']['titlesets'][number]): number {
+	return Math.max(0, ...titleset.titles.map((title) => title.subtitleMappings.length));
+}
+
+function buildChapterMenusForTitleset(
+	titleset: SpindleProjectFile['disc']['titlesets'][number],
+	returnMenuId: string | null,
+): Menu[] {
+	const chapterTargets = titleset.titles.flatMap((title) =>
+		title.chapters.map((chapter) => ({
+			titleId: title.id,
+			chapterId: chapter.id,
+			label: chapter.name,
+		})),
+	);
+	if (chapterTargets.length === 0) return [];
+
+	const pages = chunkArray(chapterTargets, 6);
+	const pageIds = pages.map(() => crypto.randomUUID());
+
+	return pages.map((page, pageIndex) => {
+		const id = pageIds[pageIndex];
+		const buttons = page.map((target, buttonIndex) => {
+			const col = buttonIndex % 2;
+			const row = Math.floor(buttonIndex / 2);
+			return {
+				id: crypto.randomUUID(),
+				label: target.label,
+				bounds: {
+					x: 72 + col * 292,
+					y: 132 + row * 92,
+					width: 248,
+					height: 52,
+				},
+				action: {
+					type: 'playChapter' as const,
+					titleId: target.titleId,
+					chapterId: target.chapterId,
+				},
+				navUp: null,
+				navDown: null,
+				navLeft: null,
+				navRight: null,
+				highlightMode: 'static' as const,
+				highlightKeyframes: [],
+				videoAssetId: null,
+			};
+		});
+
+		const pageActions: Menu['buttons'] = [];
+		if (pageIndex > 0) {
+			pageActions.push({
+				id: crypto.randomUUID(),
+				label: 'Previous',
+				bounds: { x: 72, y: 420, width: 148, height: 40 },
+				action: { type: 'showMenu', menuId: pageIds[pageIndex - 1] },
+				navUp: null,
+				navDown: null,
+				navLeft: null,
+				navRight: null,
+				highlightMode: 'static',
+				highlightKeyframes: [],
+				videoAssetId: null,
+			});
+		}
+		if (pageIndex < pages.length - 1) {
+			pageActions.push({
+				id: crypto.randomUUID(),
+				label: 'Next',
+				bounds: { x: 500, y: 420, width: 148, height: 40 },
+				action: { type: 'showMenu', menuId: pageIds[pageIndex + 1] },
+				navUp: null,
+				navDown: null,
+				navLeft: null,
+				navRight: null,
+				highlightMode: 'static',
+				highlightKeyframes: [],
+				videoAssetId: null,
+			});
+		}
+		if (returnMenuId) {
+			pageActions.push({
+				id: crypto.randomUUID(),
+				label: 'Back',
+				bounds: { x: 286, y: 420, width: 148, height: 40 },
+				action: { type: 'showMenu', menuId: returnMenuId },
+				navUp: null,
+				navDown: null,
+				navLeft: null,
+				navRight: null,
+				highlightMode: 'static',
+				highlightKeyframes: [],
+				videoAssetId: null,
+			});
+		}
+
+		return createGeneratedMenuFromButtons(
+			id,
+			pageIndex === 0 ? 'Chapter Select' : `Chapter Select ${pageIndex + 1}`,
+			[...buttons, ...pageActions],
+			'titleset',
+		);
+	});
+}
+
+function buildAudioSetupMenu(
+	titleset: SpindleProjectFile['disc']['titlesets'][number],
+	returnMenuId: string | null,
+): Menu | null {
+	const title = titleset.titles.find((candidate) => candidate.audioMappings.length > 0);
+	if (!title) return null;
+
+	const id = crypto.randomUUID();
+	const buttons: MenuButton[] = title.audioMappings.map((mapping, index) => ({
+		id: crypto.randomUUID(),
+		label: mapping.label || `Audio ${index + 1}`,
+		bounds: { x: 120, y: 132 + index * 72, width: 480, height: 48 },
+		action: {
+			type: 'sequence' as const,
+			actions: [
+				{ type: 'setAudioStream' as const, streamIndex: index },
+				...(returnMenuId
+					? ([{ type: 'showMenu', menuId: returnMenuId }] satisfies PlaybackAction[])
+					: []),
+			],
+		},
+		navUp: null,
+		navDown: null,
+		navLeft: null,
+		navRight: null,
+		highlightMode: 'static' as const,
+		highlightKeyframes: [],
+		videoAssetId: null,
+	}));
+
+	if (returnMenuId) {
+		buttons.push({
+			id: crypto.randomUUID(),
+			label: 'Back',
+			bounds: { x: 286, y: 420, width: 148, height: 40 },
+			action: { type: 'showMenu', menuId: returnMenuId },
+			navUp: null,
+			navDown: null,
+			navLeft: null,
+			navRight: null,
+			highlightMode: 'static',
+			highlightKeyframes: [],
+			videoAssetId: null,
+		});
+	}
+
+	return createGeneratedMenuFromButtons(id, 'Audio Setup', buttons, 'titleset');
+}
+
+function buildSubtitleSetupMenu(
+	titleset: SpindleProjectFile['disc']['titlesets'][number],
+	returnMenuId: string | null,
+): Menu | null {
+	const title = titleset.titles.find((candidate) => candidate.subtitleMappings.length > 0);
+	if (!title) return null;
+
+	const id = crypto.randomUUID();
+	const buttons: MenuButton[] = title.subtitleMappings.map((mapping, index) => ({
+		id: crypto.randomUUID(),
+		label: mapping.label || `Subtitle ${index + 1}`,
+		bounds: { x: 120, y: 116 + index * 64, width: 480, height: 44 },
+		action: {
+			type: 'sequence' as const,
+			actions: [
+				{ type: 'setSubtitleStream' as const, streamIndex: index },
+				...(returnMenuId
+					? ([{ type: 'showMenu', menuId: returnMenuId }] satisfies PlaybackAction[])
+					: []),
+			],
+		},
+		navUp: null,
+		navDown: null,
+		navLeft: null,
+		navRight: null,
+		highlightMode: 'static' as const,
+		highlightKeyframes: [],
+		videoAssetId: null,
+	}));
+
+	buttons.push({
+		id: crypto.randomUUID(),
+		label: 'Subtitles Off',
+		bounds: { x: 120, y: 116 + buttons.length * 64, width: 480, height: 44 },
+		action: {
+			type: 'sequence' as const,
+			actions: [
+				{ type: 'setSubtitleStream' as const, streamIndex: null },
+				...(returnMenuId
+					? ([{ type: 'showMenu', menuId: returnMenuId }] satisfies PlaybackAction[])
+					: []),
+			],
+		},
+		navUp: null,
+		navDown: null,
+		navLeft: null,
+		navRight: null,
+		highlightMode: 'static',
+		highlightKeyframes: [],
+		videoAssetId: null,
+	});
+
+	if (returnMenuId) {
+		buttons.push({
+			id: crypto.randomUUID(),
+			label: 'Back',
+			bounds: { x: 286, y: 420, width: 148, height: 40 },
+			action: { type: 'showMenu', menuId: returnMenuId },
+			navUp: null,
+			navDown: null,
+			navLeft: null,
+			navRight: null,
+			highlightMode: 'static',
+			highlightKeyframes: [],
+			videoAssetId: null,
+		});
+	}
+
+	return createGeneratedMenuFromButtons(id, 'Subtitle Setup', buttons, 'titleset');
+}
+
+function createGeneratedMenuFromButtons(
+	id: string,
+	name: string,
+	buttons: Menu['buttons'],
+	domain: 'vmgm' | 'titleset',
+): Menu {
+	return {
+		id,
+		name,
+		backgroundAssetId: null,
+		buttons,
+		defaultButtonId: buttons[0]?.id ?? null,
+		highlightColours: { ...DEFAULT_HIGHLIGHT_COLOURS },
+		backgroundMode: 'still',
+		motionDurationSecs: null,
+		motionAudioAssetId: null,
+		motionLoopCount: 0,
+		timeoutAction: null,
+		authoredDocument: {
+			id,
+			name,
+			domain,
+			scene: {
+				designSize: { width: 720, height: 480 },
+				background: { assetId: null, colour: '#0f0e1a' },
+				nodes: buttons.map((button) => ({
+					type: 'button' as const,
+					id: button.id,
+					label: button.label,
+					x: button.bounds.x,
+					y: button.bounds.y,
+					width: button.bounds.width,
+					height: button.bounds.height,
+					highlightMode: button.highlightMode,
+					highlightKeyframes: button.highlightKeyframes,
+					videoAssetId: button.videoAssetId,
+					buttonStyle: undefined,
+					labelStyle: undefined,
+				})),
+				guides: [],
+			},
+			interaction: {
+				defaultFocusId: buttons[0]?.id ?? null,
+				nodes: buttons.map((button) => ({
+					nodeId: button.id,
+					navUp: button.navUp,
+					navDown: button.navDown,
+					navLeft: button.navLeft,
+					navRight: button.navRight,
+					action: button.action,
+				})),
+				timeoutAction: null,
+			},
+			timing: {
+				introStartSecs: 0,
+				introDurationSecs: 0,
+				loopStartSecs: 0,
+				loopDurationSecs: 0,
+				loopCount: 0,
+			},
+			highlightColours: { ...DEFAULT_HIGHLIGHT_COLOURS },
+			backgroundMode: 'still',
+			themeRef: null,
+			generationMeta: {
+				generatorId: 'menu-workspace',
+				lastGeneratedAt: new Date().toISOString(),
+			},
+			compilePolicy: { safeAreaMode: 'title-safe', paletteStrategy: 'auto' },
+		},
+	};
+}
+
+function chunkArray<T>(items: T[], size: number): T[][] {
+	const chunks: T[][] = [];
+	for (let index = 0; index < items.length; index += size) {
+		chunks.push(items.slice(index, index + size));
+	}
+	return chunks;
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────

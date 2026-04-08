@@ -374,6 +374,7 @@ function NodeRect({
 
 	return (
 		<g
+			data-testid={`menu-map-node-${node.id}`}
 			style={{ cursor: 'pointer' }}
 			onClick={() => onClick(node.id)}
 			onDoubleClick={() => onDoubleClick?.(node.id)}
@@ -387,6 +388,8 @@ function NodeRect({
 				fill={fill}
 				stroke={stroke}
 				strokeWidth={isSelected ? 1.5 : 1}
+				onClick={() => onClick(node.id)}
+				onDoubleClick={() => onDoubleClick?.(node.id)}
 			/>
 			<text
 				x={node.x + node.w / 2}

@@ -3,12 +3,13 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: MIT
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useMemo } from 'react';
 import type {
 	MenuButton,
 	MenuHighlightColours,
 	ButtonBounds,
 	SceneNode,
+	ButtonStateStyle,
 } from '../../types/project';
 
 // DVD menu canvas dimensions
@@ -139,6 +140,15 @@ function DesignCanvas({
 	selectedNodeId: string | null;
 	onSelectNode: (nodeId: string | null) => void;
 }) {
+	const buttonNodeMap = useMemo(
+		() =>
+			new Map(
+				sceneNodes
+					.filter((node): node is Extract<SceneNode, { type: 'button' }> => node.type === 'button')
+					.map((node) => [node.id, node]),
+			),
+		[sceneNodes],
+	);
 	const canvasRef = useRef<HTMLDivElement>(null);
 	const dragState = useRef<{
 		buttonId: string;
@@ -515,6 +525,27 @@ function DesignCanvas({
 						...(node.type === 'text' && 'fontSize' in node && node.fontSize
 							? { fontSize: `${node.fontSize}px` }
 							: {}),
+						...(node.type === 'text' && 'fontFamily' in node && node.fontFamily
+							? { fontFamily: node.fontFamily }
+							: {}),
+						...(node.type === 'text' && 'fontWeight' in node && node.fontWeight
+							? { fontWeight: node.fontWeight === 'bold' ? 700 : 400 }
+							: {}),
+						...(node.type === 'text' && 'fontItalic' in node && node.fontItalic
+							? { fontStyle: 'italic' }
+							: {}),
+						...(node.type === 'text' && 'textDecoration' in node && node.textDecoration
+							? { textDecoration: node.textDecoration }
+							: {}),
+						...(node.type === 'text' && 'textAlign' in node && node.textAlign
+							? { textAlign: node.textAlign }
+							: {}),
+						...(node.type === 'text' && 'lineHeight' in node && node.lineHeight
+							? { lineHeight: node.lineHeight }
+							: {}),
+						...(node.type === 'text' && 'letterSpacing' in node && node.letterSpacing !== undefined
+							? { letterSpacing: `${node.letterSpacing}px` }
+							: {}),
 					}}
 					onClick={(e) => e.stopPropagation()}
 					onMouseDown={(e) => {
@@ -536,34 +567,64 @@ function DesignCanvas({
 				</div>
 			))}
 			{/* Button nodes (on top) */}
-			{buttons.map((btn) => (
-				<div
-					key={btn.id}
-					className={`scene-canvas__node ${
-						defaultButtonId === btn.id ? 'scene-canvas__node--default' : ''
-					} ${selectedNodeId === btn.id ? 'scene-canvas__node--selected' : ''}`}
-					style={{
-						left: `${(btn.bounds.x / MENU_WIDTH) * 100}%`,
-						top: `${(btn.bounds.y / canvasHeight) * 100}%`,
-						width: `${(btn.bounds.width / MENU_WIDTH) * 100}%`,
-						height: `${(btn.bounds.height / canvasHeight) * 100}%`,
-					}}
-					onClick={(e) => e.stopPropagation()}
-					onMouseDown={(e) => {
-						e.stopPropagation();
-						startDrag(e, btn, 'move');
-					}}
-				>
-					{btn.label}
-					{(['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'] as ResizeEdge[]).map((edge) => (
-						<div
-							key={edge}
-							className={`scene-canvas__resize-handle scene-canvas__resize-handle--${edge}`}
-							onMouseDown={(e) => startDrag(e, btn, edge)}
-						/>
-					))}
-				</div>
-			))}
+			{buttons.map((btn) => {
+				const buttonNode = buttonNodeMap.get(btn.id);
+				const buttonStyle = buttonNode?.buttonStyle?.normal;
+				const labelStyle = buttonNode?.labelStyle;
+
+				return (
+					<div
+						key={btn.id}
+						className={`scene-canvas__node ${
+							defaultButtonId === btn.id ? 'scene-canvas__node--default' : ''
+						} ${selectedNodeId === btn.id ? 'scene-canvas__node--selected' : ''}`}
+						style={{
+							left: `${(btn.bounds.x / MENU_WIDTH) * 100}%`,
+							top: `${(btn.bounds.y / canvasHeight) * 100}%`,
+							width: `${(btn.bounds.width / MENU_WIDTH) * 100}%`,
+							height: `${(btn.bounds.height / canvasHeight) * 100}%`,
+							...(buttonStyle
+								? {
+										background: buttonStyle.bgFill,
+										borderColor: buttonStyle.borderColour,
+										borderWidth: `${buttonStyle.borderWidth}px`,
+										borderRadius: `${buttonStyle.borderRadius}px`,
+										paddingInline: `${buttonStyle.paddingH}px`,
+										paddingBlock: `${buttonStyle.paddingV}px`,
+										boxShadow: buttonShadowCss(buttonStyle),
+								  }
+								: {}),
+							...(labelStyle
+								? {
+										fontFamily: labelStyle.fontFamily,
+										fontSize: `${labelStyle.fontSize}px`,
+										fontWeight: labelStyle.fontWeight === 'bold' ? 700 : 400,
+										fontStyle: labelStyle.fontItalic ? 'italic' : 'normal',
+										textDecoration: labelStyle.textDecoration,
+										textAlign: labelStyle.textAlign,
+										color: labelStyle.colour,
+										lineHeight: labelStyle.lineHeight,
+										letterSpacing: `${labelStyle.letterSpacing}px`,
+								  }
+								: {}),
+						}}
+						onClick={(e) => e.stopPropagation()}
+						onMouseDown={(e) => {
+							e.stopPropagation();
+							startDrag(e, btn, 'move');
+						}}
+					>
+						{btn.label}
+						{(['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'] as ResizeEdge[]).map((edge) => (
+							<div
+								key={edge}
+								className={`scene-canvas__resize-handle scene-canvas__resize-handle--${edge}`}
+								onMouseDown={(e) => startDrag(e, btn, edge)}
+							/>
+						))}
+					</div>
+				);
+			})}
 		</div>
 	);
 }
@@ -703,6 +764,14 @@ function NavigationPreview({
 			})}
 		</div>
 	);
+}
+
+function buttonShadowCss(style: ButtonStateStyle): string {
+	if (style.shadowType === 'none') return 'none';
+	if (style.shadowType === 'inner-glow') {
+		return `inset 0 0 ${style.shadowBlur}px ${style.shadowSpread}px ${style.shadowColour}`;
+	}
+	return `0 0 ${style.shadowBlur}px ${style.shadowSpread}px ${style.shadowColour}`;
 }
 
 // ── Nav Lines SVG ──────────────────────────────────────────────────────────
