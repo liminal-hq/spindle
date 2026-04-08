@@ -95,7 +95,7 @@
 				gap: var(--space-2);
 				align-items: center;
 			}
-			
+
 			.canvas-label {
 				font-family: var(--font-mono);
 				font-size: 11px;
@@ -140,10 +140,14 @@
 			}
 
 			.authored-node--active {
-				background: linear-gradient(90deg, rgba(244, 63, 94, 0.4) 0%, rgba(167, 139, 250, 0.4) 100%);
+				background: linear-gradient(
+					90deg,
+					rgba(244, 63, 94, 0.4) 0%,
+					rgba(167, 139, 250, 0.4) 100%
+				);
 				border-color: var(--brand-pink);
 				box-shadow: 0 0 12px rgba(244, 63, 94, 0.4);
-				text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+				text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
 			}
 
 			/* DVD Compiled Nodes (Honest Preview) */
@@ -152,7 +156,7 @@
 				inset: 0;
 				background: linear-gradient(135deg, #161622 0%, #232336 100%);
 				/* Simulating baked MPEG-2 base */
-				filter: blur(0.5px) contrast(1.1); 
+				filter: blur(0.5px) contrast(1.1);
 			}
 
 			.dvd-node {
@@ -212,13 +216,13 @@
 			.downgrade-card__content {
 				font-size: var(--text-sm);
 			}
-			
+
 			.downgrade-card__title {
 				font-weight: 600;
 				color: var(--text-primary);
 				margin-bottom: 4px;
 			}
-			
+
 			.downgrade-card__desc {
 				color: var(--text-secondary);
 				font-size: var(--text-xs);
@@ -230,7 +234,7 @@
 				display: inline-flex;
 				align-items: center;
 				padding: 2px 6px;
-				background: rgba(255,255,255,0.1);
+				background: rgba(255, 255, 255, 0.1);
 				border-radius: 4px;
 				font-family: var(--font-mono);
 				font-size: 9px;
@@ -253,88 +257,170 @@
 				<div class="canvas-header">
 					<div class="mode-toggle">
 						<div class="mode-toggle__option">
-							<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+							<svg
+								width="14"
+								height="14"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+							>
+								<path d="M12 20h9" />
+								<path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+							</svg>
 							Design
 						</div>
 						<div class="mode-toggle__option mode-toggle__option--active">
-							<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+							<svg
+								width="14"
+								height="14"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+							>
+								<path
+									d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"
+								/>
+							</svg>
 							Compile Preview
 						</div>
 					</div>
 				</div>
 
 				<div class="canvas-viewport">
-					
 					<!-- Left: Authored Intent -->
 					<div class="canvas-container">
 						<div class="canvas-label">Authored Scene Intent</div>
 						<div class="menu-canvas">
 							<div class="menu-canvas__title">Wedding Highlights</div>
-							
-							<div class="authored-node authored-node--active" style="left: 120px; top: 120px; width: 240px; height: 36px;">
+
+							<div
+								class="authored-node authored-node--active"
+								style="left: 120px; top: 120px; width: 240px; height: 36px"
+							>
 								▶ Play Ceremony
 							</div>
-							<div class="authored-node" style="left: 120px; top: 170px; width: 240px; height: 36px;">
+							<div
+								class="authored-node"
+								style="left: 120px; top: 170px; width: 240px; height: 36px"
+							>
 								▶ Play Reception
 							</div>
-							<div class="authored-node" style="left: 120px; top: 220px; width: 240px; height: 36px;">
+							<div
+								class="authored-node"
+								style="left: 120px; top: 220px; width: 240px; height: 36px"
+							>
 								◆ Chapter Select
 							</div>
 						</div>
 					</div>
 
-					<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+					<svg
+						width="24"
+						height="24"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="var(--text-muted)"
+						stroke-width="2"
+					>
+						<line x1="5" y1="12" x2="19" y2="12" />
+						<polyline points="12 5 19 12 12 19" />
+					</svg>
 
 					<!-- Right: DVD Compiled Output -->
 					<div class="canvas-container">
-						<div class="canvas-label" style="color: var(--brand-pink);">DVD Compiled Output</div>
+						<div class="canvas-label" style="color: var(--brand-pink)">DVD Compiled Output</div>
 						<div class="menu-canvas">
 							<div class="dvd-compiled-bg"></div>
 							<!-- Title and inactive buttons are baked into the background -->
-							<div class="menu-canvas__title" style="text-shadow: 0 2px 2px #000;">Wedding Highlights</div>
-							
-							<div class="dvd-node" style="left: 120px; top: 120px; width: 240px; height: 36px;">
+							<div class="menu-canvas__title" style="text-shadow: 0 2px 2px #000">
+								Wedding Highlights
+							</div>
+
+							<div class="dvd-node" style="left: 120px; top: 120px; width: 240px; height: 36px">
 								<div class="dvd-node--active-overlay"></div>
 								▶ Play Ceremony
 							</div>
-							<div class="dvd-node" style="left: 120px; top: 170px; width: 240px; height: 36px;">
+							<div class="dvd-node" style="left: 120px; top: 170px; width: 240px; height: 36px">
 								▶ Play Reception
 							</div>
-							<div class="dvd-node" style="left: 120px; top: 220px; width: 240px; height: 36px;">
+							<div class="dvd-node" style="left: 120px; top: 220px; width: 240px; height: 36px">
 								◆ Chapter Select
 							</div>
 						</div>
 					</div>
-
 				</div>
 			</div>
 
 			<!-- Diagnostics Panel -->
 			<div class="diagnostics-panel">
 				<div class="panel-header">Compile Downgrade Report</div>
-				
+
 				<div class="downgrade-card">
-					<svg class="downgrade-card__icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2.69l5.66 4.2c.2.15.52.15.72 0l5.66-4.2a1 1 0 0 0-.25-1.78L12 1.34 2.21.91a1 1 0 0 0-.25 1.78z"/><path d="M2.21 23.09l9.54-7.57a1 1 0 0 1 1.22 0l9.54 7.57a1 1 0 0 1-1.22 1.78L12 18.66l-9.25 6.21a1 1 0 0 1-1.22-1.78z"/></svg>
+					<svg
+						class="downgrade-card__icon"
+						width="16"
+						height="16"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+					>
+						<path
+							d="M12 2.69l5.66 4.2c.2.15.52.15.72 0l5.66-4.2a1 1 0 0 0-.25-1.78L12 1.34 2.21.91a1 1 0 0 0-.25 1.78z"
+						/>
+						<path
+							d="M2.21 23.09l9.54-7.57a1 1 0 0 1 1.22 0l9.54 7.57a1 1 0 0 1-1.22 1.78L12 18.66l-9.25 6.21a1 1 0 0 1-1.22-1.78z"
+						/>
+					</svg>
 					<div class="downgrade-card__content">
 						<div class="downgrade-card__title">Highlight Gradient Lost</div>
-						<div class="downgrade-card__desc">The authored scene uses a complex gradient for the button highlight. DVD overlays only support a strict 4-color palette. The highlight has been flattened to a solid color block.</div>
+						<div class="downgrade-card__desc">
+							The authored scene uses a complex gradient for the button highlight. DVD overlays only
+							support a strict 4-color palette. The highlight has been flattened to a solid color
+							block.
+						</div>
 						<div class="dvd-spec-badge">DVD Subpicture Limit</div>
 					</div>
 				</div>
 
 				<div class="downgrade-card">
-					<svg class="downgrade-card__icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/></svg>
+					<svg
+						class="downgrade-card__icon"
+						width="16"
+						height="16"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+					>
+						<rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+					</svg>
 					<div class="downgrade-card__content">
 						<div class="downgrade-card__title">Geometry Simplification</div>
-						<div class="downgrade-card__desc">The rounded corners and drop shadows of the highlight state cannot be represented in a DVD subpicture overlay. They have been converted to hard rectangular bounds.</div>
+						<div class="downgrade-card__desc">
+							The rounded corners and drop shadows of the highlight state cannot be represented in a
+							DVD subpicture overlay. They have been converted to hard rectangular bounds.
+						</div>
 						<div class="dvd-spec-badge">DVD Geometry Constraint</div>
 					</div>
 				</div>
-				
-				<div style="margin-top: var(--space-6); padding: var(--space-4); background: rgba(255,255,255,0.02); border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
-					<div style="font-size: var(--text-xs); color: var(--text-secondary); line-height: 1.6;">
-						<strong>Why does this happen?</strong><br>
-						Spindle lets you author scenes with rich, modern graphics. However, when compiling for a target like DVD, the format's legacy hardware constraints apply. This honest preview ensures you know exactly how the final disc will look before you build.
+
+				<div
+					style="
+						margin-top: var(--space-6);
+						padding: var(--space-4);
+						background: rgba(255, 255, 255, 0.02);
+						border-radius: var(--radius-md);
+						border: 1px solid var(--border-subtle);
+					"
+				>
+					<div style="font-size: var(--text-xs); color: var(--text-secondary); line-height: 1.6">
+						<strong>Why does this happen?</strong><br />
+						Spindle lets you author scenes with rich, modern graphics. However, when compiling for a
+						target like DVD, the format's legacy hardware constraints apply. This honest preview
+						ensures you know exactly how the final disc will look before you build.
 					</div>
 				</div>
 			</div>

@@ -43,7 +43,7 @@
 				color: var(--text-secondary);
 				margin-top: var(--space-4);
 				padding: var(--space-3) var(--space-4);
-				background: rgba(255,255,255,0.02);
+				background: rgba(255, 255, 255, 0.02);
 				border: 1px solid var(--border-subtle);
 				border-radius: var(--radius-md);
 				display: inline-block;
@@ -86,19 +86,43 @@
 				font-size: var(--text-xs);
 				padding: 3px 10px;
 				border-radius: 12px;
-				background: rgba(255,255,255,0.04);
+				background: rgba(255, 255, 255, 0.04);
 				border: 1px solid var(--border-subtle);
 				color: var(--text-secondary);
 			}
-			.feature-tag--scene { background: rgba(255,170,64,0.08); border-color: rgba(255,170,64,0.2); color: var(--brand-orange); }
-			.feature-tag--interact { background: rgba(167,139,250,0.08); border-color: rgba(167,139,250,0.2); color: var(--brand-purple); }
-			.feature-tag--theme { background: rgba(34,211,238,0.08); border-color: rgba(34,211,238,0.2); color: var(--brand-cyan); }
-			.feature-tag--compile { background: rgba(244,63,94,0.08); border-color: rgba(244,63,94,0.2); color: var(--brand-pink); }
-			.feature-tag--motion { background: rgba(96,165,250,0.08); border-color: rgba(96,165,250,0.2); color: var(--brand-blue); }
-			.feature-tag--gen { background: rgba(46,198,106,0.08); border-color: rgba(46,198,106,0.2); color: var(--brand-green); }
+			.feature-tag--scene {
+				background: rgba(255, 170, 64, 0.08);
+				border-color: rgba(255, 170, 64, 0.2);
+				color: var(--brand-orange);
+			}
+			.feature-tag--interact {
+				background: rgba(167, 139, 250, 0.08);
+				border-color: rgba(167, 139, 250, 0.2);
+				color: var(--brand-purple);
+			}
+			.feature-tag--theme {
+				background: rgba(34, 211, 238, 0.08);
+				border-color: rgba(34, 211, 238, 0.2);
+				color: var(--brand-cyan);
+			}
+			.feature-tag--compile {
+				background: rgba(244, 63, 94, 0.08);
+				border-color: rgba(244, 63, 94, 0.2);
+				color: var(--brand-pink);
+			}
+			.feature-tag--motion {
+				background: rgba(96, 165, 250, 0.08);
+				border-color: rgba(96, 165, 250, 0.2);
+				color: var(--brand-blue);
+			}
+			.feature-tag--gen {
+				background: rgba(46, 198, 106, 0.08);
+				border-color: rgba(46, 198, 106, 0.2);
+				color: var(--brand-green);
+			}
 			.blend-callout {
-				background: linear-gradient(135deg, rgba(46,198,106,0.06), rgba(34,211,238,0.06));
-				border: 1px solid rgba(46,198,106,0.15);
+				background: linear-gradient(135deg, rgba(46, 198, 106, 0.06), rgba(34, 211, 238, 0.06));
+				border: 1px solid rgba(46, 198, 106, 0.15);
 				border-radius: var(--radius-md);
 				padding: var(--space-4);
 				margin-bottom: var(--space-6);
@@ -106,7 +130,9 @@
 				color: var(--text-secondary);
 				line-height: 1.6;
 			}
-			.blend-callout strong { color: var(--text-primary); }
+			.blend-callout strong {
+				color: var(--text-primary);
+			}
 			.back-link {
 				display: inline-flex;
 				align-items: center;
@@ -115,7 +141,9 @@
 				font-size: var(--text-sm);
 				margin-bottom: var(--space-6);
 			}
-			.back-link:hover { color: var(--text-primary); }
+			.back-link:hover {
+				color: var(--text-primary);
+			}
 			.sources {
 				display: flex;
 				gap: var(--space-3);
@@ -127,27 +155,53 @@
 				border-radius: 14px;
 				font-weight: 600;
 			}
-			.source-badge--greenhouse { background: rgba(46,198,106,0.1); color: var(--brand-green); border: 1px solid rgba(46,198,106,0.2); }
-			.source-badge--cartographer { background: rgba(34,211,238,0.1); color: var(--brand-cyan); border: 1px solid rgba(34,211,238,0.2); }
+			.source-badge--greenhouse {
+				background: rgba(46, 198, 106, 0.1);
+				color: var(--brand-green);
+				border: 1px solid rgba(46, 198, 106, 0.2);
+			}
+			.source-badge--cartographer {
+				background: rgba(34, 211, 238, 0.1);
+				color: var(--brand-cyan);
+				border: 1px solid rgba(34, 211, 238, 0.2);
+			}
 		</style>
 	</head>
 	<body>
 		<div class="container">
 			<a href="../set-2/index.html" class="back-link">
-				<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+				<svg
+					width="14"
+					height="14"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+				>
+					<polyline points="15 18 9 12 15 6" />
+				</svg>
 				Back to Set 2
 			</a>
 
 			<div class="header">
 				<h1>Spindle Menu Editor — Set 2a</h1>
-				<p>A blended concept that takes the best ideas from Set 2's Greenhouse and Cartographer and merges them into a single, interactive content-area editor. Designed to sit inside the existing Spindle app shell.</p>
+				<p>
+					A blended concept that takes the best ideas from Set 2's Greenhouse and Cartographer and
+					merges them into a single, interactive content-area editor. Designed to sit inside the
+					existing Spindle app shell.
+				</p>
 				<div class="set-note">
-					Content-area mockup only — no app chrome. Fits inside <code>&lt;main class="main-content"&gt;</code> in the Spindle UI.
+					Content-area mockup only — no app chrome. Fits inside
+					<code>&lt;main class="main-content"&gt;</code> in the Spindle UI.
 				</div>
 			</div>
 
 			<div class="blend-callout">
-				<strong>Blending philosophy:</strong> The Greenhouse's template-first onboarding and progressive customisation is preserved as an optional, collapsible panel — but the editor gives users full creative control from the start. The Cartographer's bird's-eye navigation map becomes a persistent mini-map in the left panel, showing how all menus connect and allowing quick jumps between them.
+				<strong>Blending philosophy:</strong> The Greenhouse's template-first onboarding and
+				progressive customisation is preserved as an optional, collapsible panel — but the editor
+				gives users full creative control from the start. The Cartographer's bird's-eye navigation
+				map becomes a persistent mini-map in the left panel, showing how all menus connect and
+				allowing quick jumps between them.
 			</div>
 
 			<div class="concept-card">
@@ -156,11 +210,21 @@
 					<div class="badge badge--neutral">Blended Workspace</div>
 				</div>
 				<div class="sources">
-					<span class="source-badge source-badge--greenhouse">From Greenhouse: Templates + Progressive Disclosure</span>
-					<span class="source-badge source-badge--cartographer">From Cartographer: Navigation Map + Menu Jumping</span>
+					<span class="source-badge source-badge--greenhouse"
+						>From Greenhouse: Templates + Progressive Disclosure</span
+					>
+					<span class="source-badge source-badge--cartographer"
+						>From Cartographer: Navigation Map + Menu Jumping</span
+					>
 				</div>
 				<div class="concept-desc">
-					A unified menu editor content area with three zones: a left panel showing all menus grouped by scope (VMGM / VTS) with thumbnails, a persistent mini navigation map, and a collapsible template picker; a central canvas with a floating tool palette and draggable button nodes; and a toggleable inspector for transform, visual states, action binding, navigation, and diagnostics. Four editor modes (Design, Bind, Route, Compile) change the canvas overlay and inspector context. Fully interactive with drag-to-move, live inspector sync, keyboard shortcuts, and mode-sensitive overlays.
+					A unified menu editor content area with three zones: a left panel showing all menus
+					grouped by scope (VMGM / VTS) with thumbnails, a persistent mini navigation map, and a
+					collapsible template picker; a central canvas with a floating tool palette and draggable
+					button nodes; and a toggleable inspector for transform, visual states, action binding,
+					navigation, and diagnostics. Four editor modes (Design, Bind, Route, Compile) change the
+					canvas overlay and inspector context. Fully interactive with drag-to-move, live inspector
+					sync, keyboard shortcuts, and mode-sensitive overlays.
 				</div>
 				<div class="concept-features">
 					<span class="feature-tag feature-tag--scene">Scope-Grouped Menu List</span>

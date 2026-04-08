@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: MIT
  */
 
-@import url("../set-2/design-system.css");
+@import url('../set-2/design-system.css');
 
 html,
 body {
@@ -486,8 +486,7 @@ body {
 	border: 1px solid var(--border-subtle);
 	background:
 		radial-gradient(circle at 30% 40%, rgba(34, 211, 238, 0.04) 0%, transparent 40%),
-		radial-gradient(circle at 70% 60%, rgba(167, 139, 250, 0.04) 0%, transparent 40%),
-		#09090e;
+		radial-gradient(circle at 70% 60%, rgba(167, 139, 250, 0.04) 0%, transparent 40%), #09090e;
 	overflow: hidden;
 }
 

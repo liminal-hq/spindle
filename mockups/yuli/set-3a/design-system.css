@@ -4,15 +4,14 @@
  * SPDX-License-Identifier: MIT
  */
 
-@import url("../../../apps/spindle/src/design-system.css");
+@import url('../../../apps/spindle/src/design-system.css');
 
 html,
 body {
 	overflow: auto;
 	background:
 		radial-gradient(circle at top right, rgba(167, 139, 250, 0.08), transparent 20%),
-		radial-gradient(circle at top left, rgba(255, 170, 64, 0.08), transparent 24%),
-		var(--bg-app);
+		radial-gradient(circle at top left, rgba(255, 170, 64, 0.08), transparent 24%), var(--bg-app);
 }
 
 body {
@@ -560,8 +559,7 @@ body {
 	border: 1px solid var(--border-subtle);
 	background:
 		linear-gradient(135deg, rgba(96, 165, 250, 0.08), transparent 40%),
-		linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(0, 0, 0, 0.14)),
-		var(--bg-sidebar);
+		linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(0, 0, 0, 0.14)), var(--bg-sidebar);
 	overflow: hidden;
 	margin-top: var(--space-3);
 }

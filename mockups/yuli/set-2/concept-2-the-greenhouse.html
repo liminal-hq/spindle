@@ -93,7 +93,7 @@
 
 			/* Template seed cards */
 			.seed-card {
-				background: rgba(255,255,255,0.02);
+				background: rgba(255, 255, 255, 0.02);
 				border: 1px solid var(--border-subtle);
 				border-radius: var(--radius-lg);
 				padding: var(--space-3);
@@ -105,15 +105,15 @@
 			}
 
 			.seed-card:hover {
-				background: rgba(255,255,255,0.04);
+				background: rgba(255, 255, 255, 0.04);
 				border-color: var(--border-default);
 				transform: translateY(-1px);
 			}
 
 			.seed-card--active {
-				background: rgba(255,170,64,0.06);
-				border-color: rgba(255,170,64,0.3);
-				box-shadow: 0 0 12px rgba(255,170,64,0.08);
+				background: rgba(255, 170, 64, 0.06);
+				border-color: rgba(255, 170, 64, 0.3);
+				box-shadow: 0 0 12px rgba(255, 170, 64, 0.08);
 			}
 
 			.seed-preview {
@@ -134,7 +134,7 @@
 
 			.seed-preview__mini-btn {
 				position: absolute;
-				background: rgba(255,255,255,0.12);
+				background: rgba(255, 255, 255, 0.12);
 				border-radius: 1px;
 			}
 
@@ -167,12 +167,12 @@
 				font-size: 9px;
 				padding: 1px 6px;
 				border-radius: 8px;
-				background: rgba(255,255,255,0.05);
+				background: rgba(255, 255, 255, 0.05);
 				color: var(--text-muted);
 			}
 
 			.seed-tag--gen {
-				background: rgba(46,198,106,0.1);
+				background: rgba(46, 198, 106, 0.1);
 				color: var(--brand-green);
 			}
 
@@ -180,7 +180,7 @@
 			.growth-steps {
 				padding: var(--space-3) var(--space-4);
 				border-top: 1px solid var(--border-subtle);
-				background: rgba(0,0,0,0.15);
+				background: rgba(0, 0, 0, 0.15);
 			}
 
 			.growth-step {
@@ -212,15 +212,17 @@
 			.growth-dot--current {
 				background: var(--brand-orange);
 				color: var(--text-inverse);
-				box-shadow: 0 0 8px rgba(255,170,64,0.3);
+				box-shadow: 0 0 8px rgba(255, 170, 64, 0.3);
 			}
 
 			.growth-dot--pending {
-				background: rgba(255,255,255,0.08);
+				background: rgba(255, 255, 255, 0.08);
 				color: var(--text-muted);
 			}
 
-			.growth-step--done { color: var(--brand-green); }
+			.growth-step--done {
+				color: var(--brand-green);
+			}
 			.growth-step--current {
 				color: var(--text-primary);
 				font-weight: 500;
@@ -229,7 +231,7 @@
 			.growth-connector {
 				width: 1px;
 				height: 8px;
-				background: rgba(255,255,255,0.1);
+				background: rgba(255, 255, 255, 0.1);
 				margin-left: 9px;
 			}
 
@@ -258,16 +260,27 @@
 				color: var(--text-muted);
 			}
 
-			.breadcrumb span { cursor: pointer; }
-			.breadcrumb span:hover { color: var(--text-primary); }
-			.breadcrumb .bc-active { color: var(--text-primary); font-weight: 600; }
+			.breadcrumb span {
+				cursor: pointer;
+			}
+			.breadcrumb span:hover {
+				color: var(--text-primary);
+			}
+			.breadcrumb .bc-active {
+				color: var(--text-primary);
+				font-weight: 600;
+			}
 
 			.canvas-viewport {
 				flex: 1;
 				display: flex;
 				align-items: center;
 				justify-content: center;
-				background: radial-gradient(circle at 50% 50%, rgba(46,198,106,0.02) 0%, transparent 60%);
+				background: radial-gradient(
+					circle at 50% 50%,
+					rgba(46, 198, 106, 0.02) 0%,
+					transparent 60%
+				);
 				position: relative;
 			}
 
@@ -277,7 +290,7 @@
 				position: relative;
 				border-radius: 6px;
 				overflow: hidden;
-				box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+				box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6);
 				background: linear-gradient(160deg, #1a1828 0%, #0f0e1a 50%, #181520 100%);
 			}
 
@@ -289,8 +302,8 @@
 				display: flex;
 				align-items: center;
 				gap: 5px;
-				background: rgba(46,198,106,0.12);
-				border: 1px solid rgba(46,198,106,0.25);
+				background: rgba(46, 198, 106, 0.12);
+				border: 1px solid rgba(46, 198, 106, 0.25);
 				border-radius: 12px;
 				padding: 3px 10px;
 				font-size: 10px;
@@ -318,14 +331,14 @@
 				width: 100%;
 				text-align: center;
 				font-size: 12px;
-				color: rgba(255,255,255,0.4);
+				color: rgba(255, 255, 255, 0.4);
 				z-index: 2;
 			}
 
 			.canvas-btn {
 				position: absolute;
-				background: rgba(255,255,255,0.04);
-				border: 1.5px solid rgba(255,255,255,0.12);
+				background: rgba(255, 255, 255, 0.04);
+				border: 1.5px solid rgba(255, 255, 255, 0.12);
 				border-radius: 6px;
 				display: flex;
 				align-items: center;
@@ -338,12 +351,16 @@
 				gap: 8px;
 			}
 
-			.canvas-btn:hover { border-color: rgba(255,255,255,0.25); }
+			.canvas-btn:hover {
+				border-color: rgba(255, 255, 255, 0.25);
+			}
 
 			.canvas-btn--selected {
 				border-color: var(--brand-orange);
-				box-shadow: 0 0 0 1px var(--brand-orange), 0 0 16px rgba(255,170,64,0.12);
-				background: rgba(255,170,64,0.06);
+				box-shadow:
+					0 0 0 1px var(--brand-orange),
+					0 0 16px rgba(255, 170, 64, 0.12);
+				background: rgba(255, 170, 64, 0.06);
 			}
 
 			.canvas-btn__icon {
@@ -366,12 +383,12 @@
 				width: 8px;
 				height: 8px;
 				border-radius: 50%;
-				background: rgba(255,255,255,0.2);
+				background: rgba(255, 255, 255, 0.2);
 			}
 
 			.page-dot--active {
 				background: var(--brand-orange);
-				box-shadow: 0 0 6px rgba(255,170,64,0.4);
+				box-shadow: 0 0 6px rgba(255, 170, 64, 0.4);
 			}
 
 			/* Inline customisation prompts */
@@ -380,7 +397,7 @@
 				bottom: var(--space-6);
 				left: 50%;
 				transform: translateX(-50%);
-				background: rgba(20,20,28,0.9);
+				background: rgba(20, 20, 28, 0.9);
 				backdrop-filter: blur(16px);
 				border: 1px solid var(--border-default);
 				border-radius: 12px;
@@ -414,7 +431,7 @@
 			.gi-header {
 				padding: var(--space-3) var(--space-4);
 				border-bottom: 1px solid var(--border-subtle);
-				background: rgba(0,0,0,0.15);
+				background: rgba(0, 0, 0, 0.15);
 			}
 
 			.gi-header__title {
@@ -455,7 +472,7 @@
 
 			.cs-header {
 				padding: var(--space-2) var(--space-3);
-				background: rgba(0,0,0,0.15);
+				background: rgba(0, 0, 0, 0.15);
 				display: flex;
 				align-items: center;
 				gap: var(--space-2);
@@ -465,7 +482,9 @@
 				cursor: pointer;
 			}
 
-			.cs-header:hover { color: var(--text-primary); }
+			.cs-header:hover {
+				color: var(--text-primary);
+			}
 
 			.cs-header__icon {
 				width: 16px;
@@ -481,17 +500,17 @@
 			}
 
 			.cs-header__badge--done {
-				background: rgba(46,198,106,0.15);
+				background: rgba(46, 198, 106, 0.15);
 				color: var(--brand-green);
 			}
 
 			.cs-header__badge--active {
-				background: rgba(255,170,64,0.15);
+				background: rgba(255, 170, 64, 0.15);
 				color: var(--brand-orange);
 			}
 
 			.cs-header__badge--locked {
-				background: rgba(255,255,255,0.05);
+				background: rgba(255, 255, 255, 0.05);
 				color: var(--text-muted);
 			}
 
@@ -513,17 +532,19 @@
 				padding: 8px;
 				border-radius: var(--radius-md);
 				border: 1.5px solid var(--border-subtle);
-				background: rgba(255,255,255,0.02);
+				background: rgba(255, 255, 255, 0.02);
 				cursor: pointer;
 				text-align: center;
 				transition: all var(--transition-fast);
 			}
 
-			.theme-chip:hover { border-color: var(--border-default); }
+			.theme-chip:hover {
+				border-color: var(--border-default);
+			}
 
 			.theme-chip--selected {
 				border-color: var(--brand-orange);
-				background: rgba(255,170,64,0.05);
+				background: rgba(255, 170, 64, 0.05);
 			}
 
 			.theme-chip__swatch {
@@ -579,7 +600,7 @@
 				align-items: center;
 				gap: var(--space-2);
 				padding: var(--space-2) var(--space-3);
-				background: rgba(255,255,255,0.02);
+				background: rgba(255, 255, 255, 0.02);
 				border: 1px solid var(--border-subtle);
 				border-radius: var(--radius-sm);
 				font-size: var(--text-xs);
@@ -602,8 +623,8 @@
 
 			.bind-action-select {
 				padding: 3px 6px;
-				background: rgba(167,139,250,0.08);
-				border: 1px solid rgba(167,139,250,0.2);
+				background: rgba(167, 139, 250, 0.08);
+				border: 1px solid rgba(167, 139, 250, 0.2);
 				border-radius: var(--radius-sm);
 				color: var(--brand-purple);
 				font-size: var(--text-xs);
@@ -622,14 +643,14 @@
 			}
 
 			.diag-summary--ok {
-				background: rgba(46,198,106,0.06);
-				border: 1px solid rgba(46,198,106,0.15);
+				background: rgba(46, 198, 106, 0.06);
+				border: 1px solid rgba(46, 198, 106, 0.15);
 				color: var(--text-secondary);
 			}
 
 			.diag-summary--warn {
-				background: rgba(251,191,36,0.06);
-				border: 1px solid rgba(251,191,36,0.15);
+				background: rgba(251, 191, 36, 0.06);
+				border: 1px solid rgba(251, 191, 36, 0.15);
 				color: var(--text-secondary);
 			}
 
@@ -658,9 +679,11 @@
 		<!-- Top Bar -->
 		<div class="topbar">
 			<div class="topbar__logo">Spindle</div>
-			<div class="text-sm text-muted" style="margin-left: var(--space-4);">/ Nature Documentary / Main Menu</div>
+			<div class="text-sm text-muted" style="margin-left: var(--space-4)">
+				/ Nature Documentary / Main Menu
+			</div>
 			<div class="topbar__actions">
-				<span class="badge badge--remux" style="margin-right: 8px;">DVD Ready</span>
+				<span class="badge badge--remux" style="margin-right: 8px">DVD Ready</span>
 				<button class="btn btn--ghost btn--sm">Preview</button>
 				<button class="btn btn--sm btn--primary">Build ISO</button>
 			</div>
@@ -683,14 +706,25 @@
 						<div class="seed-card seed-card--active">
 							<div class="seed-preview">
 								<div class="seed-preview__canvas">
-									<div class="seed-preview__mini-btn" style="left: 15%; top: 55%; width: 70%; height: 8%;"></div>
-									<div class="seed-preview__mini-btn" style="left: 15%; top: 67%; width: 70%; height: 8%;"></div>
-									<div class="seed-preview__mini-btn" style="left: 15%; top: 79%; width: 70%; height: 8%;"></div>
+									<div
+										class="seed-preview__mini-btn"
+										style="left: 15%; top: 55%; width: 70%; height: 8%"
+									></div>
+									<div
+										class="seed-preview__mini-btn"
+										style="left: 15%; top: 67%; width: 70%; height: 8%"
+									></div>
+									<div
+										class="seed-preview__mini-btn"
+										style="left: 15%; top: 79%; width: 70%; height: 8%"
+									></div>
 								</div>
 							</div>
 							<div class="seed-info">
 								<div class="seed-name">Classic Main Menu</div>
-								<div class="seed-desc">Title, subtitle, and vertically stacked navigation buttons</div>
+								<div class="seed-desc">
+									Title, subtitle, and vertically stacked navigation buttons
+								</div>
 								<div class="seed-tags">
 									<span class="seed-tag">3-5 buttons</span>
 									<span class="seed-tag seed-tag--gen">Auto-wire</span>
@@ -701,12 +735,30 @@
 						<div class="seed-card">
 							<div class="seed-preview">
 								<div class="seed-preview__canvas">
-									<div class="seed-preview__mini-btn" style="left: 5%; top: 30%; width: 28%; height: 35%;"></div>
-									<div class="seed-preview__mini-btn" style="left: 36%; top: 30%; width: 28%; height: 35%;"></div>
-									<div class="seed-preview__mini-btn" style="left: 67%; top: 30%; width: 28%; height: 35%;"></div>
-									<div class="seed-preview__mini-btn" style="left: 5%; top: 70%; width: 28%; height: 35%; opacity: 0.5;"></div>
-									<div class="seed-preview__mini-btn" style="left: 36%; top: 70%; width: 28%; height: 35%; opacity: 0.5;"></div>
-									<div class="seed-preview__mini-btn" style="left: 67%; top: 70%; width: 28%; height: 35%; opacity: 0.5;"></div>
+									<div
+										class="seed-preview__mini-btn"
+										style="left: 5%; top: 30%; width: 28%; height: 35%"
+									></div>
+									<div
+										class="seed-preview__mini-btn"
+										style="left: 36%; top: 30%; width: 28%; height: 35%"
+									></div>
+									<div
+										class="seed-preview__mini-btn"
+										style="left: 67%; top: 30%; width: 28%; height: 35%"
+									></div>
+									<div
+										class="seed-preview__mini-btn"
+										style="left: 5%; top: 70%; width: 28%; height: 35%; opacity: 0.5"
+									></div>
+									<div
+										class="seed-preview__mini-btn"
+										style="left: 36%; top: 70%; width: 28%; height: 35%; opacity: 0.5"
+									></div>
+									<div
+										class="seed-preview__mini-btn"
+										style="left: 67%; top: 70%; width: 28%; height: 35%; opacity: 0.5"
+									></div>
 								</div>
 							</div>
 							<div class="seed-info">
@@ -722,8 +774,14 @@
 						<div class="seed-card">
 							<div class="seed-preview">
 								<div class="seed-preview__canvas">
-									<div class="seed-preview__mini-btn" style="left: 10%; top: 40%; width: 80%; height: 10%;"></div>
-									<div class="seed-preview__mini-btn" style="left: 10%; top: 55%; width: 80%; height: 10%;"></div>
+									<div
+										class="seed-preview__mini-btn"
+										style="left: 10%; top: 40%; width: 80%; height: 10%"
+									></div>
+									<div
+										class="seed-preview__mini-btn"
+										style="left: 10%; top: 55%; width: 80%; height: 10%"
+									></div>
 								</div>
 							</div>
 							<div class="seed-info">
@@ -743,10 +801,22 @@
 						<div class="seed-card">
 							<div class="seed-preview">
 								<div class="seed-preview__canvas">
-									<div class="seed-preview__mini-btn" style="left: 10%; top: 15%; width: 80%; height: 25%;"></div>
-									<div class="seed-preview__mini-btn" style="left: 10%; top: 50%; width: 38%; height: 12%;"></div>
-									<div class="seed-preview__mini-btn" style="left: 52%; top: 50%; width: 38%; height: 12%;"></div>
-									<div class="seed-preview__mini-btn" style="left: 10%; top: 70%; width: 80%; height: 12%;"></div>
+									<div
+										class="seed-preview__mini-btn"
+										style="left: 10%; top: 15%; width: 80%; height: 25%"
+									></div>
+									<div
+										class="seed-preview__mini-btn"
+										style="left: 10%; top: 50%; width: 38%; height: 12%"
+									></div>
+									<div
+										class="seed-preview__mini-btn"
+										style="left: 52%; top: 50%; width: 38%; height: 12%"
+									></div>
+									<div
+										class="seed-preview__mini-btn"
+										style="left: 10%; top: 70%; width: 80%; height: 12%"
+									></div>
 								</div>
 							</div>
 							<div class="seed-info">
@@ -761,8 +831,23 @@
 
 						<div class="seed-card">
 							<div class="seed-preview">
-								<div class="seed-preview__canvas" style="background: linear-gradient(135deg, #1c1c2e, #0d0d1a);">
-									<div style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.15); font-size: 18px;">+</div>
+								<div
+									class="seed-preview__canvas"
+									style="background: linear-gradient(135deg, #1c1c2e, #0d0d1a)"
+								>
+									<div
+										style="
+											position: absolute;
+											inset: 0;
+											display: flex;
+											align-items: center;
+											justify-content: center;
+											color: rgba(255, 255, 255, 0.15);
+											font-size: 18px;
+										"
+									>
+										+
+									</div>
 								</div>
 							</div>
 							<div class="seed-info">
@@ -810,17 +895,44 @@
 				<div class="canvas-toolbar">
 					<div class="breadcrumb">
 						<span>All Menus</span>
-						<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+						<svg
+							width="10"
+							height="10"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+						>
+							<polyline points="9 18 15 12 9 6" />
+						</svg>
 						<span class="bc-active">Main Menu</span>
 					</div>
-					<div style="flex: 1;"></div>
+					<div style="flex: 1"></div>
 					<span class="text-xs text-muted">Menu 1 of 4</span>
-					<div style="display: flex; gap: 4px; margin-left: 8px;">
-						<button class="btn btn--ghost btn--sm" style="padding: 2px 6px;">
-							<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+					<div style="display: flex; gap: 4px; margin-left: 8px">
+						<button class="btn btn--ghost btn--sm" style="padding: 2px 6px">
+							<svg
+								width="12"
+								height="12"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+							>
+								<polyline points="15 18 9 12 15 6" />
+							</svg>
 						</button>
-						<button class="btn btn--ghost btn--sm" style="padding: 2px 6px;">
-							<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+						<button class="btn btn--ghost btn--sm" style="padding: 2px 6px">
+							<svg
+								width="12"
+								height="12"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+							>
+								<polyline points="9 18 15 12 9 6" />
+							</svg>
 						</button>
 					</div>
 				</div>
@@ -828,33 +940,58 @@
 				<div class="canvas-viewport">
 					<div class="menu-canvas">
 						<div class="gen-badge">
-							<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+							<svg
+								width="12"
+								height="12"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+							>
+								<path d="M12 2L2 7l10 5 10-5-10-5z" />
+								<path d="M2 17l10 5 10-5" />
+								<path d="M2 12l10 5 10-5" />
+							</svg>
 							Generated — Editable
 						</div>
 
 						<!-- Background decoration -->
-						<div style="position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 30%, rgba(167,139,250,0.06) 0%, transparent 60%); pointer-events: none;"></div>
+						<div
+							style="
+								position: absolute;
+								inset: 0;
+								background: radial-gradient(
+									ellipse at 50% 30%,
+									rgba(167, 139, 250, 0.06) 0%,
+									transparent 60%
+								);
+								pointer-events: none;
+							"
+						></div>
 
 						<div class="canvas-title">Nature Documentary</div>
 						<div class="canvas-subtitle">A Journey Through the Wild</div>
 
 						<!-- Generated buttons -->
-						<div class="canvas-btn canvas-btn--selected" style="left: 200px; top: 160px; width: 320px; height: 48px;">
+						<div
+							class="canvas-btn canvas-btn--selected"
+							style="left: 200px; top: 160px; width: 320px; height: 48px"
+						>
 							<span class="canvas-btn__icon">&#9654;</span>
 							Play Film
 						</div>
 
-						<div class="canvas-btn" style="left: 200px; top: 222px; width: 320px; height: 48px;">
+						<div class="canvas-btn" style="left: 200px; top: 222px; width: 320px; height: 48px">
 							<span class="canvas-btn__icon">&#9670;</span>
 							Select Chapter
 						</div>
 
-						<div class="canvas-btn" style="left: 200px; top: 284px; width: 320px; height: 48px;">
+						<div class="canvas-btn" style="left: 200px; top: 284px; width: 320px; height: 48px">
 							<span class="canvas-btn__icon">&#9835;</span>
 							Audio & Subtitles
 						</div>
 
-						<div class="canvas-btn" style="left: 200px; top: 346px; width: 320px; height: 48px;">
+						<div class="canvas-btn" style="left: 200px; top: 346px; width: 320px; height: 48px">
 							<span class="canvas-btn__icon">&#9733;</span>
 							Special Features
 						</div>
@@ -866,11 +1003,25 @@
 
 					<!-- Inline customisation prompt -->
 					<div class="inline-prompt">
-						<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--brand-green)" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+						<svg
+							width="16"
+							height="16"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="var(--brand-green)"
+							stroke-width="2"
+						>
+							<path d="M12 2L2 7l10 5 10-5-10-5z" />
+							<path d="M2 17l10 5 10-5" />
+							<path d="M2 12l10 5 10-5" />
+						</svg>
 						<div class="inline-prompt__text">
-							<strong>Template applied.</strong> Click any element to customise, or drag to reposition.
+							<strong>Template applied.</strong> Click any element to customise, or drag to
+							reposition.
 						</div>
-						<button class="btn btn--ghost btn--sm" style="color: var(--brand-orange);">Detach from Template</button>
+						<button class="btn btn--ghost btn--sm" style="color: var(--brand-orange)">
+							Detach from Template
+						</button>
 					</div>
 				</div>
 			</div>
@@ -879,32 +1030,60 @@
 			<div class="growth-inspector">
 				<div class="gi-header">
 					<div class="gi-header__title">
-						<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--brand-green)" stroke-width="2"><path d="M12 22c6-3 10-9 10-16-3 0-6 1-10 4C8 7 5 6 2 6c0 7 4 13 10 16z"/></svg>
+						<svg
+							width="16"
+							height="16"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="var(--brand-green)"
+							stroke-width="2"
+						>
+							<path d="M12 22c6-3 10-9 10-16-3 0-6 1-10 4C8 7 5 6 2 6c0 7 4 13 10 16z" />
+						</svg>
 						Grow Your Menu
 					</div>
-					<div class="gi-header__subtitle">Each step unlocks new options as your design evolves</div>
+					<div class="gi-header__subtitle">
+						Each step unlocks new options as your design evolves
+					</div>
 				</div>
 
 				<div class="gi-body">
 					<!-- Step 1: Theme (Done) -->
 					<div class="customise-section">
 						<div class="cs-header">
-							<svg class="cs-header__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>
+							<svg
+								class="cs-header__icon"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+							>
+								<circle cx="12" cy="12" r="10" />
+							</svg>
 							Theme
 							<span class="cs-header__badge cs-header__badge--done">Applied</span>
 						</div>
 						<div class="cs-body">
 							<div class="theme-row">
 								<div class="theme-chip theme-chip--selected">
-									<div class="theme-chip__swatch" style="background: linear-gradient(135deg, #1a1828, #0f0e1a);"></div>
+									<div
+										class="theme-chip__swatch"
+										style="background: linear-gradient(135deg, #1a1828, #0f0e1a)"
+									></div>
 									<div class="theme-chip__name">Cinematic Dark</div>
 								</div>
 								<div class="theme-chip">
-									<div class="theme-chip__swatch" style="background: linear-gradient(135deg, #f5f0e8, #e8e0d0);"></div>
+									<div
+										class="theme-chip__swatch"
+										style="background: linear-gradient(135deg, #f5f0e8, #e8e0d0)"
+									></div>
 									<div class="theme-chip__name">Warm Light</div>
 								</div>
 								<div class="theme-chip">
-									<div class="theme-chip__swatch" style="background: linear-gradient(135deg, #0a1628, #162040);"></div>
+									<div
+										class="theme-chip__swatch"
+										style="background: linear-gradient(135deg, #0a1628, #162040)"
+									></div>
 									<div class="theme-chip__name">Ocean Blue</div>
 								</div>
 							</div>
@@ -914,7 +1093,16 @@
 					<!-- Step 2: Layout (Active) -->
 					<div class="customise-section">
 						<div class="cs-header">
-							<svg class="cs-header__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/></svg>
+							<svg
+								class="cs-header__icon"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+							>
+								<rect x="3" y="3" width="18" height="18" rx="2" />
+								<line x1="3" y1="9" x2="21" y2="9" />
+							</svg>
 							Layout & Content
 							<span class="cs-header__badge cs-header__badge--active">Editing</span>
 						</div>
@@ -929,15 +1117,25 @@
 							</div>
 							<div class="prop-row">
 								<span class="prop-label">Background</span>
-								<div style="flex: 1; display: flex; gap: 6px; align-items: center;">
-									<div style="width: 40px; height: 28px; border-radius: 4px; background: linear-gradient(135deg, #1a1828, #0f0e1a); border: 1px solid var(--border-subtle);"></div>
-									<button class="btn btn--ghost btn--sm" style="font-size: 10px;">Choose Asset</button>
+								<div style="flex: 1; display: flex; gap: 6px; align-items: center">
+									<div
+										style="
+											width: 40px;
+											height: 28px;
+											border-radius: 4px;
+											background: linear-gradient(135deg, #1a1828, #0f0e1a);
+											border: 1px solid var(--border-subtle);
+										"
+									></div>
+									<button class="btn btn--ghost btn--sm" style="font-size: 10px">
+										Choose Asset
+									</button>
 								</div>
 							</div>
 							<div class="prop-row">
 								<span class="prop-label">Button Count</span>
-								<div style="flex: 1; display: flex; align-items: center; gap: 8px;">
-									<input class="prop-input" value="4" style="width: 40px; text-align: center;" />
+								<div style="flex: 1; display: flex; align-items: center; gap: 8px">
+									<input class="prop-input" value="4" style="width: 40px; text-align: center" />
 									<span class="text-xs text-muted">Max 36 (DVD limit)</span>
 								</div>
 							</div>
@@ -947,7 +1145,16 @@
 					<!-- Step 3: Action Binding (Next) -->
 					<div class="customise-section">
 						<div class="cs-header">
-							<svg class="cs-header__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
+							<svg
+								class="cs-header__icon"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+							>
+								<path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71" />
+								<path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71" />
+							</svg>
 							Bind Actions
 							<span class="cs-header__badge cs-header__badge--active">Next</span>
 						</div>
@@ -988,7 +1195,15 @@
 					<!-- Step 4: Motion (Locked) -->
 					<div class="customise-section customise-section--locked">
 						<div class="cs-header">
-							<svg class="cs-header__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21"/></svg>
+							<svg
+								class="cs-header__icon"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+							>
+								<polygon points="5 3 19 12 5 21" />
+							</svg>
 							Motion & Timing
 							<span class="cs-header__badge cs-header__badge--locked">Optional</span>
 						</div>
@@ -997,7 +1212,17 @@
 					<!-- Step 5: Compile (Locked) -->
 					<div class="customise-section customise-section--locked">
 						<div class="cs-header">
-							<svg class="cs-header__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg>
+							<svg
+								class="cs-header__icon"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+							>
+								<path
+									d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"
+								/>
+							</svg>
 							Compile Settings
 							<span class="cs-header__badge cs-header__badge--locked">Optional</span>
 						</div>
@@ -1005,13 +1230,40 @@
 
 					<!-- Diagnostic summary -->
 					<div class="diag-summary diag-summary--ok">
-						<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--colour-success)" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-						<span>4 buttons, all actions bound. Navigation auto-generated. No DVD constraint warnings.</span>
+						<svg
+							width="14"
+							height="14"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="var(--colour-success)"
+							stroke-width="2"
+						>
+							<path d="M22 11.08V12a10 10 0 11-5.93-9.14" />
+							<polyline points="22 4 12 14.01 9 11.01" />
+						</svg>
+						<span
+							>4 buttons, all actions bound. Navigation auto-generated. No DVD constraint
+							warnings.</span
+						>
 					</div>
 
 					<div class="diag-summary diag-summary--warn">
-						<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--colour-warning)" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-						<span>No background asset selected. A solid-colour background will be used during compilation.</span>
+						<svg
+							width="14"
+							height="14"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="var(--colour-warning)"
+							stroke-width="2"
+						>
+							<circle cx="12" cy="12" r="10" />
+							<line x1="12" y1="8" x2="12" y2="12" />
+							<line x1="12" y1="16" x2="12.01" y2="16" />
+						</svg>
+						<span
+							>No background asset selected. A solid-colour background will be used during
+							compilation.</span
+						>
 					</div>
 				</div>
 			</div>
@@ -1024,7 +1276,7 @@
 			<span>Theme: Cinematic Dark</span>
 			<span>|</span>
 			<span>Step 3 of 5: Customise Layout</span>
-			<span style="flex: 1;"></span>
+			<span style="flex: 1"></span>
 			<span>720 x 480 NTSC</span>
 		</div>
 	</body>

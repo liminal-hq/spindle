@@ -61,10 +61,12 @@
 				margin-bottom: 2px;
 			}
 
-			.btn-item:hover { background: rgba(255,255,255,0.04); }
+			.btn-item:hover {
+				background: rgba(255, 255, 255, 0.04);
+			}
 
 			.btn-item--selected {
-				background: rgba(255,170,64,0.1);
+				background: rgba(255, 170, 64, 0.1);
 			}
 
 			.btn-item__focus-dot {
@@ -95,7 +97,7 @@
 				font-size: 9px;
 				padding: 1px 5px;
 				border-radius: 6px;
-				background: rgba(255,170,64,0.12);
+				background: rgba(255, 170, 64, 0.12);
 				color: var(--brand-orange);
 			}
 
@@ -143,13 +145,15 @@
 				transition: border-color var(--transition-fast);
 			}
 
-			.palette-slot__swatch:hover { border-color: var(--border-strong); }
+			.palette-slot__swatch:hover {
+				border-color: var(--border-strong);
+			}
 
 			.palette-note {
 				margin-top: var(--space-3);
 				padding: var(--space-2) var(--space-3);
-				background: rgba(251,191,36,0.06);
-				border: 1px solid rgba(251,191,36,0.12);
+				background: rgba(251, 191, 36, 0.06);
+				border: 1px solid rgba(251, 191, 36, 0.12);
 				border-radius: var(--radius-sm);
 				font-size: 10px;
 				color: var(--text-secondary);
@@ -174,7 +178,7 @@
 
 			.state-tabs {
 				display: flex;
-				background: rgba(0,0,0,0.3);
+				background: rgba(0, 0, 0, 0.3);
 				border: 1px solid var(--border-subtle);
 				border-radius: 16px;
 				padding: 2px;
@@ -196,8 +200,13 @@
 				gap: 5px;
 			}
 
-			.state-tab:hover { color: var(--text-primary); }
-			.state-tab--all { background: rgba(255,255,255,0.08); color: var(--text-primary); }
+			.state-tab:hover {
+				color: var(--text-primary);
+			}
+			.state-tab--all {
+				background: rgba(255, 255, 255, 0.08);
+				color: var(--text-primary);
+			}
 
 			.state-dot {
 				width: 8px;
@@ -205,9 +214,15 @@
 				border-radius: 50%;
 			}
 
-			.state-dot--normal { background: rgba(255,255,255,0.2); }
-			.state-dot--focus { background: var(--brand-orange); }
-			.state-dot--activate { background: var(--brand-green); }
+			.state-dot--normal {
+				background: rgba(255, 255, 255, 0.2);
+			}
+			.state-dot--focus {
+				background: var(--brand-orange);
+			}
+			.state-dot--activate {
+				background: var(--brand-green);
+			}
 
 			.canvas-viewport {
 				flex: 1;
@@ -237,17 +252,17 @@
 
 			.state-label--normal {
 				color: var(--text-muted);
-				background: rgba(255,255,255,0.05);
+				background: rgba(255, 255, 255, 0.05);
 			}
 
 			.state-label--focus {
 				color: var(--brand-orange);
-				background: rgba(255,170,64,0.1);
+				background: rgba(255, 170, 64, 0.1);
 			}
 
 			.state-label--activate {
 				color: var(--brand-green);
-				background: rgba(46,198,106,0.1);
+				background: rgba(46, 198, 106, 0.1);
 			}
 
 			.state-canvas {
@@ -256,7 +271,7 @@
 				position: relative;
 				border-radius: 6px;
 				overflow: hidden;
-				box-shadow: 0 4px 24px rgba(0,0,0,0.5);
+				box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
 				background: linear-gradient(160deg, #1a1828 0%, #0f0e1a 50%, #181520 100%);
 			}
 
@@ -268,42 +283,42 @@
 				font-family: var(--font-heading);
 				font-size: 16px;
 				font-weight: 700;
-				color: rgba(255,255,255,0.8);
+				color: rgba(255, 255, 255, 0.8);
 			}
 
 			.state-btn {
 				position: absolute;
-				background: rgba(255,255,255,0.04);
-				border: 1.5px solid rgba(255,255,255,0.1);
+				background: rgba(255, 255, 255, 0.04);
+				border: 1.5px solid rgba(255, 255, 255, 0.1);
 				border-radius: 4px;
 				display: flex;
 				align-items: center;
 				padding: 0 10px;
 				font-size: 11px;
-				color: rgba(255,255,255,0.7);
+				color: rgba(255, 255, 255, 0.7);
 				transition: all var(--transition-fast);
 			}
 
 			/* Normal state — subtle default appearance */
 			.state-btn--normal-selected {
-				border-color: rgba(255,255,255,0.2);
-				background: rgba(255,255,255,0.06);
+				border-color: rgba(255, 255, 255, 0.2);
+				background: rgba(255, 255, 255, 0.06);
 			}
 
 			/* Focus state — highlight overlay simulation */
 			.state-btn--focus-selected {
 				border: 2px solid var(--brand-orange);
-				background: rgba(255,170,64,0.12);
+				background: rgba(255, 170, 64, 0.12);
 				color: #fff;
-				box-shadow: 0 0 12px rgba(255,170,64,0.2);
+				box-shadow: 0 0 12px rgba(255, 170, 64, 0.2);
 			}
 
 			/* Activate state — pressed/confirm simulation */
 			.state-btn--activate-selected {
 				border: 2px solid var(--brand-green);
-				background: rgba(46,198,106,0.15);
+				background: rgba(46, 198, 106, 0.15);
 				color: #fff;
-				box-shadow: 0 0 12px rgba(46,198,106,0.2);
+				box-shadow: 0 0 12px rgba(46, 198, 106, 0.2);
 			}
 
 			/* DVD overlay simulation */
@@ -321,12 +336,12 @@
 
 			.dvd-overlay-rect--focus {
 				border-color: #ff4444;
-				background: rgba(255,68,68,0.08);
+				background: rgba(255, 68, 68, 0.08);
 			}
 
 			.dvd-overlay-rect--activate {
 				border-color: #44ff44;
-				background: rgba(68,255,68,0.08);
+				background: rgba(68, 255, 68, 0.08);
 			}
 
 			/* Arrow indicators between states */
@@ -356,7 +371,7 @@
 			.rp-header {
 				padding: var(--space-3) var(--space-4);
 				border-bottom: 1px solid var(--border-subtle);
-				background: rgba(0,0,0,0.15);
+				background: rgba(0, 0, 0, 0.15);
 			}
 
 			.rp-header__name {
@@ -396,7 +411,7 @@
 
 			.ssc-header {
 				padding: var(--space-2) var(--space-3);
-				background: rgba(0,0,0,0.15);
+				background: rgba(0, 0, 0, 0.15);
 				display: flex;
 				align-items: center;
 				gap: var(--space-2);
@@ -404,9 +419,15 @@
 				font-weight: 600;
 			}
 
-			.ssc-header--normal { color: var(--text-secondary); }
-			.ssc-header--focus { color: var(--brand-orange); }
-			.ssc-header--activate { color: var(--brand-green); }
+			.ssc-header--normal {
+				color: var(--text-secondary);
+			}
+			.ssc-header--focus {
+				color: var(--brand-orange);
+			}
+			.ssc-header--activate {
+				color: var(--brand-green);
+			}
 
 			.ssc-body {
 				padding: var(--space-3);
@@ -454,8 +475,8 @@
 
 			/* DVD compile mapping */
 			.compile-map {
-				background: rgba(244,63,94,0.04);
-				border: 1px solid rgba(244,63,94,0.12);
+				background: rgba(244, 63, 94, 0.04);
+				border: 1px solid rgba(244, 63, 94, 0.12);
 				border-radius: var(--radius-md);
 				padding: var(--space-3);
 			}
@@ -490,8 +511,8 @@
 
 			/* Highlight animation (motion) */
 			.anim-section {
-				background: rgba(167,139,250,0.04);
-				border: 1px solid rgba(167,139,250,0.12);
+				background: rgba(167, 139, 250, 0.04);
+				border: 1px solid rgba(167, 139, 250, 0.12);
 				border-radius: var(--radius-md);
 				padding: var(--space-3);
 			}
@@ -508,9 +529,9 @@
 
 			.keyframe-track {
 				height: 28px;
-				background: rgba(0,0,0,0.2);
+				background: rgba(0, 0, 0, 0.2);
 				border-radius: var(--radius-sm);
-				border: 1px solid rgba(167,139,250,0.15);
+				border: 1px solid rgba(167, 139, 250, 0.15);
 				position: relative;
 				margin-top: var(--space-2);
 			}
@@ -528,7 +549,7 @@
 			}
 
 			.keyframe-dot:hover {
-				box-shadow: 0 0 6px rgba(167,139,250,0.4);
+				box-shadow: 0 0 6px rgba(167, 139, 250, 0.4);
 			}
 
 			.keyframe-label {
@@ -552,14 +573,14 @@
 			}
 
 			.diag-chip--ok {
-				background: rgba(46,198,106,0.06);
-				border: 1px solid rgba(46,198,106,0.12);
+				background: rgba(46, 198, 106, 0.06);
+				border: 1px solid rgba(46, 198, 106, 0.12);
 				color: var(--text-secondary);
 			}
 
 			.diag-chip--warn {
-				background: rgba(251,191,36,0.06);
-				border: 1px solid rgba(251,191,36,0.12);
+				background: rgba(251, 191, 36, 0.06);
+				border: 1px solid rgba(251, 191, 36, 0.12);
 				color: var(--text-secondary);
 			}
 
@@ -581,9 +602,11 @@
 		<!-- Top Bar -->
 		<div class="topbar">
 			<div class="topbar__logo">Spindle</div>
-			<div class="text-sm text-muted" style="margin-left: var(--space-4);">/ Wedding Highlights / Main Menu</div>
+			<div class="text-sm text-muted" style="margin-left: var(--space-4)">
+				/ Wedding Highlights / Main Menu
+			</div>
 			<div class="topbar__actions">
-				<span class="text-xs text-muted" style="margin-right: 8px;">DVD 4-colour palette</span>
+				<span class="text-xs text-muted" style="margin-right: 8px">DVD 4-colour palette</span>
 				<button class="btn btn--ghost btn--sm">Preview</button>
 				<button class="btn btn--sm btn--primary">Build ISO</button>
 			</div>
@@ -623,24 +646,45 @@
 					<div class="palette-grid">
 						<div class="palette-slot">
 							<div class="palette-slot__label">Focus Colour</div>
-							<div class="palette-slot__swatch" style="background: rgba(255,68,68,0.6); color: #fff;">#FF4444</div>
+							<div
+								class="palette-slot__swatch"
+								style="background: rgba(255, 68, 68, 0.6); color: #fff"
+							>
+								#FF4444
+							</div>
 						</div>
 						<div class="palette-slot">
 							<div class="palette-slot__label">Focus Opacity</div>
-							<div class="palette-slot__swatch" style="background: rgba(255,255,255,0.08); color: var(--text-secondary);">60%</div>
+							<div
+								class="palette-slot__swatch"
+								style="background: rgba(255, 255, 255, 0.08); color: var(--text-secondary)"
+							>
+								60%
+							</div>
 						</div>
 						<div class="palette-slot">
 							<div class="palette-slot__label">Activate Colour</div>
-							<div class="palette-slot__swatch" style="background: rgba(68,255,68,0.6); color: #fff;">#44FF44</div>
+							<div
+								class="palette-slot__swatch"
+								style="background: rgba(68, 255, 68, 0.6); color: #fff"
+							>
+								#44FF44
+							</div>
 						</div>
 						<div class="palette-slot">
 							<div class="palette-slot__label">Activate Opacity</div>
-							<div class="palette-slot__swatch" style="background: rgba(255,255,255,0.08); color: var(--text-secondary);">80%</div>
+							<div
+								class="palette-slot__swatch"
+								style="background: rgba(255, 255, 255, 0.08); color: var(--text-secondary)"
+							>
+								80%
+							</div>
 						</div>
 					</div>
 
 					<div class="palette-note">
-						<strong>DVD limit:</strong> Subpicture overlays use a strict 4-colour CLUT. These colours apply to all buttons simultaneously.
+						<strong>DVD limit:</strong> Subpicture overlays use a strict 4-colour CLUT. These
+						colours apply to all buttons simultaneously.
 					</div>
 				</div>
 			</div>
@@ -649,9 +693,7 @@
 			<div class="canvas-area">
 				<div class="canvas-toolbar">
 					<div class="state-tabs">
-						<button class="state-tab state-tab--all">
-							All States
-						</button>
+						<button class="state-tab state-tab--all">All States</button>
 						<button class="state-tab">
 							<div class="state-dot state-dot--normal"></div>
 							Normal
@@ -666,7 +708,7 @@
 						</button>
 					</div>
 
-					<span style="flex: 1;"></span>
+					<span style="flex: 1"></span>
 					<span class="text-xs text-muted">Viewing: Play Ceremony in all states</span>
 				</div>
 
@@ -677,16 +719,19 @@
 						<div class="state-canvas">
 							<div class="state-canvas__title">Wedding Highlights</div>
 
-							<div class="state-btn state-btn--normal-selected" style="left: 80px; top: 95px; width: 200px; height: 30px;">
+							<div
+								class="state-btn state-btn--normal-selected"
+								style="left: 80px; top: 95px; width: 200px; height: 30px"
+							>
 								&#9654; Play Ceremony
 							</div>
-							<div class="state-btn" style="left: 80px; top: 133px; width: 200px; height: 30px;">
+							<div class="state-btn" style="left: 80px; top: 133px; width: 200px; height: 30px">
 								&#9654; Play Reception
 							</div>
-							<div class="state-btn" style="left: 80px; top: 171px; width: 200px; height: 30px;">
+							<div class="state-btn" style="left: 80px; top: 171px; width: 200px; height: 30px">
 								&#9670; Chapter Select
 							</div>
-							<div class="state-btn" style="left: 80px; top: 209px; width: 200px; height: 30px;">
+							<div class="state-btn" style="left: 80px; top: 209px; width: 200px; height: 30px">
 								&#9835; Audio Setup
 							</div>
 						</div>
@@ -694,7 +739,17 @@
 
 					<!-- Arrow -->
 					<div class="state-arrow">
-						<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+						<svg
+							width="24"
+							height="24"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+						>
+							<line x1="5" y1="12" x2="19" y2="12" />
+							<polyline points="12 5 19 12 12 19" />
+						</svg>
 						<div class="state-arrow__label">Remote Focus</div>
 					</div>
 
@@ -706,19 +761,25 @@
 
 							<!-- DVD overlay simulation -->
 							<div class="dvd-overlay-sim">
-								<div class="dvd-overlay-rect dvd-overlay-rect--focus" style="left: 78px; top: 93px; width: 204px; height: 34px;"></div>
+								<div
+									class="dvd-overlay-rect dvd-overlay-rect--focus"
+									style="left: 78px; top: 93px; width: 204px; height: 34px"
+								></div>
 							</div>
 
-							<div class="state-btn state-btn--focus-selected" style="left: 80px; top: 95px; width: 200px; height: 30px;">
+							<div
+								class="state-btn state-btn--focus-selected"
+								style="left: 80px; top: 95px; width: 200px; height: 30px"
+							>
 								&#9654; Play Ceremony
 							</div>
-							<div class="state-btn" style="left: 80px; top: 133px; width: 200px; height: 30px;">
+							<div class="state-btn" style="left: 80px; top: 133px; width: 200px; height: 30px">
 								&#9654; Play Reception
 							</div>
-							<div class="state-btn" style="left: 80px; top: 171px; width: 200px; height: 30px;">
+							<div class="state-btn" style="left: 80px; top: 171px; width: 200px; height: 30px">
 								&#9670; Chapter Select
 							</div>
-							<div class="state-btn" style="left: 80px; top: 209px; width: 200px; height: 30px;">
+							<div class="state-btn" style="left: 80px; top: 209px; width: 200px; height: 30px">
 								&#9835; Audio Setup
 							</div>
 						</div>
@@ -726,7 +787,17 @@
 
 					<!-- Arrow -->
 					<div class="state-arrow">
-						<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+						<svg
+							width="24"
+							height="24"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+						>
+							<line x1="5" y1="12" x2="19" y2="12" />
+							<polyline points="12 5 19 12 12 19" />
+						</svg>
 						<div class="state-arrow__label">Enter / OK</div>
 					</div>
 
@@ -738,19 +809,25 @@
 
 							<!-- DVD overlay simulation -->
 							<div class="dvd-overlay-sim">
-								<div class="dvd-overlay-rect dvd-overlay-rect--activate" style="left: 78px; top: 93px; width: 204px; height: 34px;"></div>
+								<div
+									class="dvd-overlay-rect dvd-overlay-rect--activate"
+									style="left: 78px; top: 93px; width: 204px; height: 34px"
+								></div>
 							</div>
 
-							<div class="state-btn state-btn--activate-selected" style="left: 80px; top: 95px; width: 200px; height: 30px;">
+							<div
+								class="state-btn state-btn--activate-selected"
+								style="left: 80px; top: 95px; width: 200px; height: 30px"
+							>
 								&#9654; Play Ceremony
 							</div>
-							<div class="state-btn" style="left: 80px; top: 133px; width: 200px; height: 30px;">
+							<div class="state-btn" style="left: 80px; top: 133px; width: 200px; height: 30px">
 								&#9654; Play Reception
 							</div>
-							<div class="state-btn" style="left: 80px; top: 171px; width: 200px; height: 30px;">
+							<div class="state-btn" style="left: 80px; top: 171px; width: 200px; height: 30px">
 								&#9670; Chapter Select
 							</div>
-							<div class="state-btn" style="left: 80px; top: 209px; width: 200px; height: 30px;">
+							<div class="state-btn" style="left: 80px; top: 209px; width: 200px; height: 30px">
 								&#9835; Audio Setup
 							</div>
 						</div>
@@ -768,7 +845,16 @@
 				<!-- Per-State Styles -->
 				<div class="rp-section">
 					<div class="rp-section__title">
-						<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>
+						<svg
+							width="12"
+							height="12"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+						>
+							<circle cx="12" cy="12" r="10" />
+						</svg>
 						Authored Appearance per State
 					</div>
 
@@ -780,17 +866,17 @@
 						<div class="ssc-body">
 							<div class="style-row">
 								<span class="style-label">Border</span>
-								<div class="style-swatch" style="background: rgba(255,255,255,0.12);"></div>
+								<div class="style-swatch" style="background: rgba(255, 255, 255, 0.12)"></div>
 								<input class="style-input" value="rgba(255,255,255,0.12)" />
 							</div>
 							<div class="style-row">
 								<span class="style-label">Fill</span>
-								<div class="style-swatch" style="background: rgba(255,255,255,0.04);"></div>
+								<div class="style-swatch" style="background: rgba(255, 255, 255, 0.04)"></div>
 								<input class="style-input" value="rgba(255,255,255,0.04)" />
 							</div>
 							<div class="style-row">
 								<span class="style-label">Text</span>
-								<div class="style-swatch" style="background: rgba(255,255,255,0.7);"></div>
+								<div class="style-swatch" style="background: rgba(255, 255, 255, 0.7)"></div>
 								<input class="style-input" value="rgba(255,255,255,0.7)" />
 							</div>
 						</div>
@@ -804,17 +890,17 @@
 						<div class="ssc-body">
 							<div class="style-row">
 								<span class="style-label">Border</span>
-								<div class="style-swatch" style="background: var(--brand-orange);"></div>
+								<div class="style-swatch" style="background: var(--brand-orange)"></div>
 								<input class="style-input" value="#ffaa40" />
 							</div>
 							<div class="style-row">
 								<span class="style-label">Fill</span>
-								<div class="style-swatch" style="background: rgba(255,170,64,0.12);"></div>
+								<div class="style-swatch" style="background: rgba(255, 170, 64, 0.12)"></div>
 								<input class="style-input" value="rgba(255,170,64,0.12)" />
 							</div>
 							<div class="style-row">
 								<span class="style-label">Glow</span>
-								<div class="style-swatch" style="background: rgba(255,170,64,0.2);"></div>
+								<div class="style-swatch" style="background: rgba(255, 170, 64, 0.2)"></div>
 								<input class="style-input" value="12px blur" />
 							</div>
 						</div>
@@ -828,12 +914,12 @@
 						<div class="ssc-body">
 							<div class="style-row">
 								<span class="style-label">Border</span>
-								<div class="style-swatch" style="background: var(--brand-green);"></div>
+								<div class="style-swatch" style="background: var(--brand-green)"></div>
 								<input class="style-input" value="#2ec66a" />
 							</div>
 							<div class="style-row">
 								<span class="style-label">Fill</span>
-								<div class="style-swatch" style="background: rgba(46,198,106,0.15);"></div>
+								<div class="style-swatch" style="background: rgba(46, 198, 106, 0.15)"></div>
 								<input class="style-input" value="rgba(46,198,106,0.15)" />
 							</div>
 						</div>
@@ -844,7 +930,18 @@
 				<div class="rp-section">
 					<div class="compile-map">
 						<div class="compile-map__title">
-							<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg>
+							<svg
+								width="12"
+								height="12"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+							>
+								<path
+									d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"
+								/>
+							</svg>
 							DVD Overlay Mapping
 						</div>
 						<div class="compile-map__row">
@@ -869,18 +966,29 @@
 				<div class="rp-section">
 					<div class="anim-section">
 						<div class="anim-section__title">
-							<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+							<svg
+								width="12"
+								height="12"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+							>
+								<polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+							</svg>
 							Highlight Animation
-							<span class="badge badge--neutral" style="margin-left: auto; font-size: 8px;">Motion Only</span>
+							<span class="badge badge--neutral" style="margin-left: auto; font-size: 8px"
+								>Motion Only</span
+							>
 						</div>
-						<div style="font-size: 10px; color: var(--text-secondary); margin-bottom: 4px;">
+						<div style="font-size: 10px; color: var(--text-secondary); margin-bottom: 4px">
 							Keyframes define how highlight colour changes over the motion loop
 						</div>
 						<div class="keyframe-track">
-							<div class="keyframe-dot" style="left: 0%;"></div>
-							<div class="keyframe-dot" style="left: 33%;"></div>
-							<div class="keyframe-dot" style="left: 66%;"></div>
-							<div class="keyframe-dot" style="left: 100%;"></div>
+							<div class="keyframe-dot" style="left: 0%"></div>
+							<div class="keyframe-dot" style="left: 33%"></div>
+							<div class="keyframe-dot" style="left: 66%"></div>
+							<div class="keyframe-dot" style="left: 100%"></div>
 						</div>
 						<div class="keyframe-label">
 							<span>0s</span>
@@ -894,25 +1002,49 @@
 				<!-- Diagnostics -->
 				<div class="rp-section">
 					<div class="diag-chip diag-chip--ok">
-						<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--colour-success)" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+						<svg
+							width="12"
+							height="12"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="var(--colour-success)"
+							stroke-width="2"
+						>
+							<path d="M22 11.08V12a10 10 0 11-5.93-9.14" />
+							<polyline points="22 4 12 14.01 9 11.01" />
+						</svg>
 						<span>All three states compile cleanly into DVD subpicture overlays.</span>
 					</div>
-					<div class="diag-chip diag-chip--warn" style="margin-top: var(--space-2);">
-						<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--colour-warning)" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-						<span>Authored glow effect will be dropped in DVD output. The subpicture overlay uses a solid rectangle instead.</span>
+					<div class="diag-chip diag-chip--warn" style="margin-top: var(--space-2)">
+						<svg
+							width="12"
+							height="12"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="var(--colour-warning)"
+							stroke-width="2"
+						>
+							<circle cx="12" cy="12" r="10" />
+							<line x1="12" y1="8" x2="12" y2="12" />
+							<line x1="12" y1="16" x2="12.01" y2="16" />
+						</svg>
+						<span
+							>Authored glow effect will be dropped in DVD output. The subpicture overlay uses a
+							solid rectangle instead.</span
+						>
 					</div>
 				</div>
 			</div>
 		</div>
 
 		<div class="status-bar">
-			<span style="color: var(--brand-orange);">&#9679;</span>
+			<span style="color: var(--brand-orange)">&#9679;</span>
 			<span>State Editor</span>
 			<span>|</span>
 			<span>Viewing: Play Ceremony</span>
 			<span>|</span>
 			<span>4 buttons, 3 states each</span>
-			<span style="flex: 1;"></span>
+			<span style="flex: 1"></span>
 			<span>720 x 480 NTSC | 4-colour CLUT</span>
 		</div>
 	</body>

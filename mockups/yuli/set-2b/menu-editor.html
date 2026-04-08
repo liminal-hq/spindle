@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="en-CA">
-<!--
+	<!--
 	SPINDLE MENU EDITOR MOCKUP — Set 2b (Revised)
 	===============================================
 	Content-area-only mockup for the Spindle menu editor.
@@ -81,7 +81,6 @@
 	</head>
 	<body>
 		<div class="menus-content">
-
 			<!-- ═══════════════════════════════════════════════════
 			     LEFT NAV — Menu Navigator
 			     ─────────────────────────────────────────────────
@@ -94,19 +93,25 @@
 			     appears in the right-side editor area.
 			     ═══════════════════════════════════════════════════ -->
 			<div class="menu-nav">
-
 				<!-- Nav header: title + view toggle -->
 				<div class="menu-nav__header">
 					<span class="menu-nav__title">Menus</span>
 					<div class="menu-nav__view-toggle">
-						<button class="nav-view-btn nav-view-btn--active" data-nav-view="editor" title="Edit selected menu">Editor</button>
-						<button class="nav-view-btn" data-nav-view="map" title="Navigation map overview">Map</button>
+						<button
+							class="nav-view-btn nav-view-btn--active"
+							data-nav-view="editor"
+							title="Edit selected menu"
+						>
+							Editor
+						</button>
+						<button class="nav-view-btn" data-nav-view="map" title="Navigation map overview">
+							Map
+						</button>
 					</div>
 				</div>
 
 				<!-- ── Menu list (scrollable) ─────────────────── -->
 				<div class="menu-nav__body" id="menuNavBody">
-
 					<!-- Global menus (VMGM domain) -->
 					<div class="scope-group">
 						<div class="scope-header">
@@ -126,9 +131,9 @@
 						-->
 						<div class="menu-item menu-item--selected" data-menu="main-menu">
 							<div class="menu-item__preview">
-								<div class="menu-item__mini-btn" style="left: 15%; top: 50%; width: 70%;"></div>
-								<div class="menu-item__mini-btn" style="left: 15%; top: 62%; width: 70%;"></div>
-								<div class="menu-item__mini-btn" style="left: 15%; top: 74%; width: 70%;"></div>
+								<div class="menu-item__mini-btn" style="left: 15%; top: 50%; width: 70%"></div>
+								<div class="menu-item__mini-btn" style="left: 15%; top: 62%; width: 70%"></div>
+								<div class="menu-item__mini-btn" style="left: 15%; top: 74%; width: 70%"></div>
 							</div>
 							<div class="menu-item__info">
 								<div class="menu-item__name">Main Menu</div>
@@ -138,8 +143,12 @@
 									<span>Still</span>
 									<span>&middot;</span>
 									<div class="menu-item__conns">
-										<span class="conn-indicator conn-indicator--out" title="2 outgoing connections">&#8594;2</span>
-										<span class="conn-indicator conn-indicator--in" title="1 incoming connection">&#8592;1</span>
+										<span class="conn-indicator conn-indicator--out" title="2 outgoing connections"
+											>&#8594;2</span
+										>
+										<span class="conn-indicator conn-indicator--in" title="1 incoming connection"
+											>&#8592;1</span
+										>
 									</div>
 								</div>
 							</div>
@@ -165,9 +174,18 @@
 						-->
 						<div class="menu-item" data-menu="chapter-select">
 							<div class="menu-item__preview">
-								<div class="menu-item__mini-btn" style="left: 5%; top: 30%; width: 28%; height: 30%;"></div>
-								<div class="menu-item__mini-btn" style="left: 36%; top: 30%; width: 28%; height: 30%;"></div>
-								<div class="menu-item__mini-btn" style="left: 67%; top: 30%; width: 28%; height: 30%;"></div>
+								<div
+									class="menu-item__mini-btn"
+									style="left: 5%; top: 30%; width: 28%; height: 30%"
+								></div>
+								<div
+									class="menu-item__mini-btn"
+									style="left: 36%; top: 30%; width: 28%; height: 30%"
+								></div>
+								<div
+									class="menu-item__mini-btn"
+									style="left: 67%; top: 30%; width: 28%; height: 30%"
+								></div>
 							</div>
 							<div class="menu-item__info">
 								<div class="menu-item__name">Chapter Select</div>
@@ -194,8 +212,8 @@
 						-->
 						<div class="menu-item" data-menu="audio-setup">
 							<div class="menu-item__preview">
-								<div class="menu-item__mini-btn" style="left: 10%; top: 40%; width: 80%;"></div>
-								<div class="menu-item__mini-btn" style="left: 10%; top: 55%; width: 80%;"></div>
+								<div class="menu-item__mini-btn" style="left: 10%; top: 40%; width: 80%"></div>
+								<div class="menu-item__mini-btn" style="left: 10%; top: 55%; width: 80%"></div>
 							</div>
 							<div class="menu-item__info">
 								<div class="menu-item__name">Audio Setup</div>
@@ -221,8 +239,8 @@
 						-->
 						<div class="menu-item" data-menu="subtitle-setup">
 							<div class="menu-item__preview">
-								<div class="menu-item__mini-btn" style="left: 10%; top: 40%; width: 80%;"></div>
-								<div class="menu-item__mini-btn" style="left: 10%; top: 55%; width: 80%;"></div>
+								<div class="menu-item__mini-btn" style="left: 10%; top: 40%; width: 80%"></div>
+								<div class="menu-item__mini-btn" style="left: 10%; top: 55%; width: 80%"></div>
 							</div>
 							<div class="menu-item__info">
 								<div class="menu-item__name">Subtitle Setup</div>
@@ -267,7 +285,9 @@
 				<div class="map-mini" id="mapMini">
 					<div class="map-mini__header">
 						<span>Navigation Map</span>
-						<button class="map-mini__expand-btn" id="expandMapBtn" title="Switch to full map view">Expand</button>
+						<button class="map-mini__expand-btn" id="expandMapBtn" title="Switch to full map view">
+							Expand
+						</button>
 					</div>
 					<div class="map-mini__canvas">
 						<!-- SVG connection lines (drawn first, behind nodes) -->
@@ -283,12 +303,36 @@
 						</svg>
 
 						<!-- Menu nodes -->
-						<div class="map-node map-node--selected" style="left: 10px; top: 24px;" data-menu="main-menu">Main Menu</div>
-						<div class="map-node" style="left: 130px; top: 14px;" data-menu="chapter-select">Ch. Select</div>
-						<div class="map-node" style="left: 130px; top: 58px;" data-menu="audio-setup">Audio Setup</div>
-						<div class="map-node" style="left: 130px; top: 88px;" data-menu="subtitle-setup">Sub. Setup</div>
+						<div
+							class="map-node map-node--selected"
+							style="left: 10px; top: 24px"
+							data-menu="main-menu"
+						>
+							Main Menu
+						</div>
+						<div class="map-node" style="left: 130px; top: 14px" data-menu="chapter-select">
+							Ch. Select
+						</div>
+						<div class="map-node" style="left: 130px; top: 58px" data-menu="audio-setup">
+							Audio Setup
+						</div>
+						<div class="map-node" style="left: 130px; top: 88px" data-menu="subtitle-setup">
+							Sub. Setup
+						</div>
 						<!-- Non-menu target (dashed border style) -->
-						<div class="map-node" style="left: 60px; top: 96px; font-size: 7px; border-style: dashed; color: var(--text-muted);" data-menu="title-1">Title 1</div>
+						<div
+							class="map-node"
+							style="
+								left: 60px;
+								top: 96px;
+								font-size: 7px;
+								border-style: dashed;
+								color: var(--text-muted);
+							"
+							data-menu="title-1"
+						>
+							Title 1
+						</div>
 					</div>
 				</div>
 
@@ -301,10 +345,31 @@
 				<div class="template-section">
 					<div class="template-toggle" id="templateToggle">
 						<span class="template-toggle__label">
-							<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/></svg>
+							<svg
+								width="12"
+								height="12"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+							>
+								<path d="M12 2L2 7l10 5 10-5-10-5z" />
+								<path d="M2 17l10 5 10-5" />
+							</svg>
 							Templates
 						</span>
-						<svg class="template-toggle__chevron" id="templateChevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+						<svg
+							class="template-toggle__chevron"
+							id="templateChevron"
+							width="12"
+							height="12"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+						>
+							<polyline points="6 9 12 15 18 9" />
+						</svg>
 					</div>
 					<div class="template-list" id="templateList">
 						<div class="template-option" data-template="classic">
@@ -324,7 +389,18 @@
 							Poster Shelf
 						</div>
 						<div class="template-option" data-template="blank">
-							<div class="template-option__icon" style="display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.15); font-size: 10px;">+</div>
+							<div
+								class="template-option__icon"
+								style="
+									display: flex;
+									align-items: center;
+									justify-content: center;
+									color: rgba(255, 255, 255, 0.15);
+									font-size: 10px;
+								"
+							>
+								+
+							</div>
 							Blank Canvas
 						</div>
 					</div>
@@ -340,7 +416,18 @@
 				     ────────────────────────────────────────────── -->
 				<div class="generate-section" id="generateSection">
 					<div class="generate-section__header">
-						<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4m0 12v4m-6-10H2m20 0h-4m-1.343-5.657l-2.828-2.828m9.9 9.9l-2.83-2.83M4.93 4.93l2.83 2.83m-5.66 5.66l2.83-2.83"/></svg>
+						<svg
+							width="12"
+							height="12"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+						>
+							<path
+								d="M12 2v4m0 12v4m-6-10H2m20 0h-4m-1.343-5.657l-2.828-2.828m9.9 9.9l-2.83-2.83M4.93 4.93l2.83 2.83m-5.66 5.66l2.83-2.83"
+							/>
+						</svg>
 						Generate Menus
 					</div>
 
@@ -365,8 +452,8 @@
 						<span class="generate-btn__detail">2 streams</span>
 					</button>
 				</div>
-			</div><!-- /menu-nav -->
-
+			</div>
+			<!-- /menu-nav -->
 
 			<!-- ═══════════════════════════════════════════════════
 			     EDITOR AREA — Right side of the grid
@@ -386,10 +473,8 @@
 			        - Inspector: connection details for selected menu
 			     ═══════════════════════════════════════════════════ -->
 			<div class="editor-area">
-
 				<!-- ── EDITOR VIEW ────────────────────────────── -->
 				<div id="editorView">
-
 					<!-- Editor toolbar -->
 					<div class="editor-toolbar">
 						<!-- Editable menu name -->
@@ -422,61 +507,171 @@
 						  Mirrors the autoNav feature in the current Spindle codebase.
 						  Keyboard shortcut: A
 						-->
-						<button class="auto-nav-btn" id="autoNavAllBtn" title="Auto-calculate navigation for all buttons (A)">
-							<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
+						<button
+							class="auto-nav-btn"
+							id="autoNavAllBtn"
+							title="Auto-calculate navigation for all buttons (A)"
+						>
+							<svg
+								width="12"
+								height="12"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+							>
+								<polygon points="3 11 22 2 13 21 11 13 3 11" />
+							</svg>
 							Auto Nav
 						</button>
 
 						<!-- Toggle inspector panel visibility -->
 						<button class="btn btn--ghost btn--sm" id="toggleInspectorBtn" title="Toggle Inspector">
-							<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
+							<svg
+								width="14"
+								height="14"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+							>
+								<rect x="3" y="3" width="18" height="18" rx="2" />
+								<line x1="15" y1="3" x2="15" y2="21" />
+							</svg>
 						</button>
 					</div>
 
 					<!-- Editor body: canvas + inspector -->
 					<div class="editor-body" id="editorBody">
-
 						<!-- ── Canvas viewport ─────────────────── -->
 						<div class="canvas-viewport" id="canvasViewport">
-
 							<!-- Floating tool palette (top-left of viewport) -->
 							<div class="canvas-tools-floating" id="canvasTools">
-								<button class="canvas-tool-btn canvas-tool-btn--active" data-tool="select" title="Select (V)">
-									<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/></svg>
+								<button
+									class="canvas-tool-btn canvas-tool-btn--active"
+									data-tool="select"
+									title="Select (V)"
+								>
+									<svg
+										width="14"
+										height="14"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="2"
+									>
+										<path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z" />
+									</svg>
 								</button>
 								<button class="canvas-tool-btn" data-tool="text" title="Text (T)">
-									<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>
+									<svg
+										width="14"
+										height="14"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="2"
+									>
+										<polyline points="4 7 4 4 20 4 20 7" />
+										<line x1="9" y1="20" x2="15" y2="20" />
+										<line x1="12" y1="4" x2="12" y2="20" />
+									</svg>
 								</button>
 								<button class="canvas-tool-btn" data-tool="button" title="Button (B)">
-									<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="8" width="18" height="8" rx="2"/></svg>
+									<svg
+										width="14"
+										height="14"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="2"
+									>
+										<rect x="3" y="8" width="18" height="8" rx="2" />
+									</svg>
 								</button>
 								<button class="canvas-tool-btn" data-tool="image" title="Image (I)">
-									<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+									<svg
+										width="14"
+										height="14"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="2"
+									>
+										<rect x="3" y="3" width="18" height="18" rx="2" />
+										<circle cx="8.5" cy="8.5" r="1.5" />
+										<polyline points="21 15 16 10 5 21" />
+									</svg>
 								</button>
 								<button class="canvas-tool-btn" data-tool="shape" title="Shape (R)">
-									<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+									<svg
+										width="14"
+										height="14"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="2"
+									>
+										<rect x="3" y="3" width="18" height="18" rx="2" />
+									</svg>
 								</button>
 								<div class="tool-sep"></div>
 								<button class="canvas-tool-btn" id="toggleSafeBtn" title="Toggle Safe Areas (S)">
-									<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><rect x="7" y="7" width="10" height="10" rx="1" opacity="0.4"/></svg>
+									<svg
+										width="14"
+										height="14"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="2"
+									>
+										<rect x="3" y="3" width="18" height="18" rx="2" />
+										<rect x="7" y="7" width="10" height="10" rx="1" opacity="0.4" />
+									</svg>
 								</button>
-								<button class="canvas-tool-btn" id="toggleNavArrows" title="Show Navigation Arrows (N)">
-									<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
+								<button
+									class="canvas-tool-btn"
+									id="toggleNavArrows"
+									title="Show Navigation Arrows (N)"
+								>
+									<svg
+										width="14"
+										height="14"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="2"
+									>
+										<polygon points="3 11 22 2 13 21 11 13 3 11" />
+									</svg>
 								</button>
 							</div>
 
 							<!-- ── Menu Canvas (720×480 NTSC) ──── -->
 							<div class="menu-canvas" id="menuCanvas">
 								<!-- Background layer (decorative gradient) -->
-								<div class="canvas-bg-layer" style="background: radial-gradient(ellipse at 30% 20%, rgba(167,139,250,0.06) 0%, transparent 50%);"></div>
+								<div
+									class="canvas-bg-layer"
+									style="
+										background: radial-gradient(
+											ellipse at 30% 20%,
+											rgba(167, 139, 250, 0.06) 0%,
+											transparent 50%
+										);
+									"
+								></div>
 
 								<!-- Safe area guides (hidden by default) -->
 								<div class="safe-guide safe-guide--action" id="safeAction"></div>
 								<div class="safe-guide safe-guide--title" id="safeTitle"></div>
 
 								<!-- ── Scene text nodes ────────── -->
-								<div class="scene-text scene-text--title" style="left: 72px; top: 50px;">Wedding Highlights</div>
-								<div class="scene-text scene-text--subtitle" style="left: 74px; top: 90px;">Emily &amp; James — June 2025</div>
+								<div class="scene-text scene-text--title" style="left: 72px; top: 50px">
+									Wedding Highlights
+								</div>
+								<div class="scene-text scene-text--subtitle" style="left: 74px; top: 90px">
+									Emily &amp; James — June 2025
+								</div>
 
 								<!-- ── Scene button nodes ──────────
 								     Each button has:
@@ -489,11 +684,13 @@
 								     ────────────────────────────────── -->
 
 								<!-- Button 1: Play Ceremony (default button) -->
-								<div class="scene-btn scene-btn--selected scene-btn--default"
+								<div
+									class="scene-btn scene-btn--selected scene-btn--default"
 									data-btn="btn-1"
 									data-action="playTitle"
 									data-target="Ceremony"
-									style="left: 72px; top: 160px; width: 280px; height: 44px;">
+									style="left: 72px; top: 160px; width: 280px; height: 44px"
+								>
 									<div class="scene-btn__default-marker"></div>
 									<div class="resize-handle resize-handle--tl"></div>
 									<div class="resize-handle resize-handle--tr"></div>
@@ -508,11 +705,13 @@
 								</div>
 
 								<!-- Button 2: Play Reception -->
-								<div class="scene-btn"
+								<div
+									class="scene-btn"
 									data-btn="btn-2"
 									data-action="playTitle"
 									data-target="Reception"
-									style="left: 72px; top: 218px; width: 280px; height: 44px;">
+									style="left: 72px; top: 218px; width: 280px; height: 44px"
+								>
 									<div class="resize-handle resize-handle--tl"></div>
 									<div class="resize-handle resize-handle--tr"></div>
 									<div class="resize-handle resize-handle--bl"></div>
@@ -526,11 +725,13 @@
 								</div>
 
 								<!-- Button 3: Chapter Select (showMenu) -->
-								<div class="scene-btn"
+								<div
+									class="scene-btn"
 									data-btn="btn-3"
 									data-action="showMenu"
 									data-target="Chapter Select"
-									style="left: 72px; top: 276px; width: 280px; height: 44px;">
+									style="left: 72px; top: 276px; width: 280px; height: 44px"
+								>
 									<div class="resize-handle resize-handle--tl"></div>
 									<div class="resize-handle resize-handle--tr"></div>
 									<div class="resize-handle resize-handle--bl"></div>
@@ -544,11 +745,13 @@
 								</div>
 
 								<!-- Button 4: Audio Setup (showMenu) -->
-								<div class="scene-btn"
+								<div
+									class="scene-btn"
 									data-btn="btn-4"
 									data-action="showMenu"
 									data-target="Audio Setup"
-									style="left: 72px; top: 334px; width: 280px; height: 44px;">
+									style="left: 72px; top: 334px; width: 280px; height: 44px"
+								>
 									<div class="resize-handle resize-handle--tl"></div>
 									<div class="resize-handle resize-handle--tr"></div>
 									<div class="resize-handle resize-handle--bl"></div>
@@ -569,18 +772,67 @@
 								     ─────────────────────────────────── -->
 								<svg class="nav-arrows-overlay" id="navArrowsOverlay" viewBox="0 0 720 480">
 									<defs>
-										<marker id="arrow-nav" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+										<marker
+											id="arrow-nav"
+											markerWidth="8"
+											markerHeight="8"
+											refX="7"
+											refY="4"
+											orient="auto"
+										>
 											<path d="M0,1 L0,7 L7,4 z" fill="var(--brand-blue)" opacity="0.6" />
 										</marker>
 									</defs>
 									<!-- Down arrows (btn-1→2, btn-2→3, btn-3→4) -->
-									<path d="M 212 204 L 212 216" stroke="var(--brand-blue)" stroke-width="1.5" fill="none" opacity="0.4" marker-end="url(#arrow-nav)" />
-									<path d="M 212 262 L 212 274" stroke="var(--brand-blue)" stroke-width="1.5" fill="none" opacity="0.4" marker-end="url(#arrow-nav)" />
-									<path d="M 212 320 L 212 332" stroke="var(--brand-blue)" stroke-width="1.5" fill="none" opacity="0.4" marker-end="url(#arrow-nav)" />
+									<path
+										d="M 212 204 L 212 216"
+										stroke="var(--brand-blue)"
+										stroke-width="1.5"
+										fill="none"
+										opacity="0.4"
+										marker-end="url(#arrow-nav)"
+									/>
+									<path
+										d="M 212 262 L 212 274"
+										stroke="var(--brand-blue)"
+										stroke-width="1.5"
+										fill="none"
+										opacity="0.4"
+										marker-end="url(#arrow-nav)"
+									/>
+									<path
+										d="M 212 320 L 212 332"
+										stroke="var(--brand-blue)"
+										stroke-width="1.5"
+										fill="none"
+										opacity="0.4"
+										marker-end="url(#arrow-nav)"
+									/>
 									<!-- Up arrows (btn-2→1, btn-3→2, btn-4→3) -->
-									<path d="M 228 218 L 228 206" stroke="var(--brand-blue)" stroke-width="1.5" fill="none" opacity="0.25" marker-end="url(#arrow-nav)" />
-									<path d="M 228 276 L 228 264" stroke="var(--brand-blue)" stroke-width="1.5" fill="none" opacity="0.25" marker-end="url(#arrow-nav)" />
-									<path d="M 228 334 L 228 322" stroke="var(--brand-blue)" stroke-width="1.5" fill="none" opacity="0.25" marker-end="url(#arrow-nav)" />
+									<path
+										d="M 228 218 L 228 206"
+										stroke="var(--brand-blue)"
+										stroke-width="1.5"
+										fill="none"
+										opacity="0.25"
+										marker-end="url(#arrow-nav)"
+									/>
+									<path
+										d="M 228 276 L 228 264"
+										stroke="var(--brand-blue)"
+										stroke-width="1.5"
+										fill="none"
+										opacity="0.25"
+										marker-end="url(#arrow-nav)"
+									/>
+									<path
+										d="M 228 334 L 228 322"
+										stroke="var(--brand-blue)"
+										stroke-width="1.5"
+										fill="none"
+										opacity="0.25"
+										marker-end="url(#arrow-nav)"
+									/>
 								</svg>
 
 								<!-- ── Compile preview overlay ─────
@@ -589,7 +841,18 @@
 								     ─────────────────────────────────── -->
 								<div class="compile-overlay" id="compileOverlay">
 									<div class="compile-banner">
-										<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg>
+										<svg
+											width="10"
+											height="10"
+											viewBox="0 0 24 24"
+											fill="none"
+											stroke="currentColor"
+											stroke-width="2"
+										>
+											<path
+												d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"
+											/>
+										</svg>
 										Compile Preview — DVD output simulation
 									</div>
 									<div class="compile-info">
@@ -615,10 +878,12 @@
 										</div>
 									</div>
 								</div>
-							</div><!-- /menu-canvas -->
+							</div>
+							<!-- /menu-canvas -->
 
 							<div class="zoom-info">100%</div>
-						</div><!-- /canvas-viewport -->
+						</div>
+						<!-- /canvas-viewport -->
 
 						<!-- ═══════════════════════════════════════
 						     INSPECTOR PANEL
@@ -646,18 +911,35 @@
 							<div class="inspector__header">
 								<span class="inspector__selected-name" id="inspectorName">Play Ceremony</span>
 								<button class="inspector__close" id="closeInspectorBtn">
-									<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+									<svg
+										width="14"
+										height="14"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="2"
+									>
+										<line x1="18" y1="6" x2="6" y2="18" />
+										<line x1="6" y1="6" x2="18" y2="18" />
+									</svg>
 								</button>
 							</div>
 
 							<!-- Expand/Collapse all sections -->
 							<div class="inspector__actions">
-								<button class="inspector__action-btn" id="expandAllBtn" title="Expand all sections">Expand All</button>
-								<button class="inspector__action-btn" id="collapseAllBtn" title="Collapse all sections">Collapse All</button>
+								<button class="inspector__action-btn" id="expandAllBtn" title="Expand all sections">
+									Expand All
+								</button>
+								<button
+									class="inspector__action-btn"
+									id="collapseAllBtn"
+									title="Collapse all sections"
+								>
+									Collapse All
+								</button>
 							</div>
 
 							<div class="inspector__body" id="inspectorBody">
-
 								<!-- 0. Background — menu-level property
 								     ─────────────────────────────────────
 								     Controls the menu canvas background:
@@ -670,13 +952,27 @@
 								     ─────────────────────────────────────  -->
 								<div class="insp-section insp-section--open" id="bgSection">
 									<div class="insp-section__header">
-										<svg class="insp-section__chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+										<svg
+											class="insp-section__chevron"
+											width="12"
+											height="12"
+											viewBox="0 0 24 24"
+											fill="none"
+											stroke="currentColor"
+											stroke-width="2"
+										>
+											<polyline points="6 9 12 15 18 9" />
+										</svg>
 										<span class="insp-section__title">Background</span>
-										<span class="badge badge--neutral" style="font-size: 8px;" id="bgModeBadge">Solid</span>
+										<span class="badge badge--neutral" style="font-size: 8px" id="bgModeBadge"
+											>Solid</span
+										>
 									</div>
 									<div class="insp-section__body">
 										<div class="bg-mode-row">
-											<div class="bg-mode-chip bg-mode-chip--active" data-bg-mode="solid">Solid</div>
+											<div class="bg-mode-chip bg-mode-chip--active" data-bg-mode="solid">
+												Solid
+											</div>
 											<div class="bg-mode-chip" data-bg-mode="image">Image</div>
 											<div class="bg-mode-chip" data-bg-mode="video">Video</div>
 											<div class="bg-mode-chip" data-bg-mode="audio">Audio</div>
@@ -684,12 +980,22 @@
 										<!-- Solid colour controls -->
 										<div id="bgSolidControls">
 											<div class="bg-colour-row">
-												<div class="bg-colour-swatch" id="bgColourSwatch" style="background: linear-gradient(160deg, #1a1828, #0f0e1a);" title="Click to change"></div>
-												<input class="insp-input" value="#0f0e1a" id="bgColourInput" style="flex: 1;" />
+												<div
+													class="bg-colour-swatch"
+													id="bgColourSwatch"
+													style="background: linear-gradient(160deg, #1a1828, #0f0e1a)"
+													title="Click to change"
+												></div>
+												<input
+													class="insp-input"
+													value="#0f0e1a"
+													id="bgColourInput"
+													style="flex: 1"
+												/>
 											</div>
 										</div>
 										<!-- Image controls (hidden by default) -->
-										<div id="bgImageControls" style="display: none;">
+										<div id="bgImageControls" style="display: none">
 											<div class="insp-row">
 												<span class="insp-label">Asset</span>
 												<select class="insp-select" id="bgImageSelect">
@@ -731,7 +1037,7 @@
 										     `motionDurationSecs`, `motionAudioAssetId`,
 										     and `motionLoopCount` in the spec.
 										     ─────────────────────────────────────  -->
-										<div id="bgVideoControls" style="display: none;">
+										<div id="bgVideoControls" style="display: none">
 											<div class="insp-row">
 												<span class="insp-label">Asset</span>
 												<select class="insp-select" id="bgVideoSelect">
@@ -743,13 +1049,19 @@
 											<div class="insp-row">
 												<span class="insp-label">Duration</span>
 												<input class="insp-input insp-input--sm" value="30" id="bgDuration" />
-												<span style="font-size: 9px; color: var(--text-muted);">sec</span>
+												<span style="font-size: 9px; color: var(--text-muted)">sec</span>
 											</div>
 											<!-- Intro/Loop segment markers -->
 											<div class="insp-sub-label">Segments</div>
 											<div class="marker-bar" title="Purple = intro, Green = loop">
-												<div class="marker-segment marker-segment--intro" style="left: 0; width: 20%;"></div>
-												<div class="marker-segment marker-segment--loop" style="left: 20%; right: 0;"></div>
+												<div
+													class="marker-segment marker-segment--intro"
+													style="left: 0; width: 20%"
+												></div>
+												<div
+													class="marker-segment marker-segment--loop"
+													style="left: 20%; right: 0"
+												></div>
 											</div>
 											<div class="marker-labels">
 												<span>0:00</span>
@@ -759,24 +1071,40 @@
 											<div class="insp-grid-2">
 												<div class="insp-row">
 													<span class="insp-label">Intro</span>
-													<input class="insp-input insp-input--sm" value="0:00" title="Intro start timecode" />
+													<input
+														class="insp-input insp-input--sm"
+														value="0:00"
+														title="Intro start timecode"
+													/>
 												</div>
 												<div class="insp-row">
 													<span class="insp-label">Dur</span>
-													<input class="insp-input insp-input--sm" value="6.0" title="Intro duration (seconds)" />
-													<span style="font-size:9px;color:var(--text-muted);">s</span>
+													<input
+														class="insp-input insp-input--sm"
+														value="6.0"
+														title="Intro duration (seconds)"
+													/>
+													<span style="font-size: 9px; color: var(--text-muted)">s</span>
 												</div>
 											</div>
 											<div class="insp-grid-2">
 												<div class="insp-row">
 													<span class="insp-label">Loop</span>
-													<input class="insp-input insp-input--sm" value="6.0" title="Loop start (seconds from beginning)" />
-													<span style="font-size:9px;color:var(--text-muted);">s</span>
+													<input
+														class="insp-input insp-input--sm"
+														value="6.0"
+														title="Loop start (seconds from beginning)"
+													/>
+													<span style="font-size: 9px; color: var(--text-muted)">s</span>
 												</div>
 												<div class="insp-row">
 													<span class="insp-label">Dur</span>
-													<input class="insp-input insp-input--sm" value="24.0" title="Loop duration (seconds)" />
-													<span style="font-size:9px;color:var(--text-muted);">s</span>
+													<input
+														class="insp-input insp-input--sm"
+														value="24.0"
+														title="Loop duration (seconds)"
+													/>
+													<span style="font-size: 9px; color: var(--text-muted)">s</span>
 												</div>
 											</div>
 											<div class="insp-row">
@@ -803,7 +1131,7 @@
 										     without a video background. The menu becomes
 										     an MPEG-2 stream with still frame + AC3 audio.
 										     ─────────────────────────────────────  -->
-										<div id="bgAudioControls" style="display: none;">
+										<div id="bgAudioControls" style="display: none">
 											<div class="insp-row">
 												<span class="insp-label">Asset</span>
 												<select class="insp-select" id="bgAudioSelect">
@@ -816,7 +1144,7 @@
 											<div class="insp-row">
 												<span class="insp-label">Duration</span>
 												<input class="insp-input insp-input--sm" value="30" />
-												<span style="font-size:9px;color:var(--text-muted);">sec</span>
+												<span style="font-size: 9px; color: var(--text-muted)">sec</span>
 											</div>
 											<div class="insp-row">
 												<span class="insp-label">Loop</span>
@@ -852,7 +1180,17 @@
 								     ─────────────────────────────────────  -->
 								<div class="insp-section insp-section--open">
 									<div class="insp-section__header">
-										<svg class="insp-section__chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+										<svg
+											class="insp-section__chevron"
+											width="12"
+											height="12"
+											viewBox="0 0 24 24"
+											fill="none"
+											stroke="currentColor"
+											stroke-width="2"
+										>
+											<polyline points="6 9 12 15 18 9" />
+										</svg>
 										<span class="insp-section__title">Transform</span>
 									</div>
 									<div class="insp-section__body">
@@ -874,14 +1212,31 @@
 								<!-- 2. Visual States — DVD highlight states -->
 								<div class="insp-section insp-section--open">
 									<div class="insp-section__header">
-										<svg class="insp-section__chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+										<svg
+											class="insp-section__chevron"
+											width="12"
+											height="12"
+											viewBox="0 0 24 24"
+											fill="none"
+											stroke="currentColor"
+											stroke-width="2"
+										>
+											<polyline points="6 9 12 15 18 9" />
+										</svg>
 										<span class="insp-section__title">Visual States</span>
 									</div>
 									<div class="insp-section__body">
 										<div class="state-row">
 											<div class="state-chip state-chip--normal" data-state="normal">Normal</div>
-											<div class="state-chip state-chip--focus state-chip--active" data-state="focus">Focus</div>
-											<div class="state-chip state-chip--activate" data-state="activate">Activate</div>
+											<div
+												class="state-chip state-chip--focus state-chip--active"
+												data-state="focus"
+											>
+												Focus
+											</div>
+											<div class="state-chip state-chip--activate" data-state="activate">
+												Activate
+											</div>
 										</div>
 									</div>
 								</div>
@@ -900,13 +1255,28 @@
 								     ─────────────────────────────────────  -->
 								<div class="insp-section insp-section--open">
 									<div class="insp-section__header">
-										<svg class="insp-section__chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+										<svg
+											class="insp-section__chevron"
+											width="12"
+											height="12"
+											viewBox="0 0 24 24"
+											fill="none"
+											stroke="currentColor"
+											stroke-width="2"
+										>
+											<polyline points="6 9 12 15 18 9" />
+										</svg>
 										<span class="insp-section__title">Button Style</span>
 									</div>
 									<div class="insp-section__body">
 										<!-- State sub-tabs (edit one state at a time) -->
 										<div class="style-state-tabs">
-											<div class="style-state-tab style-state-tab--active" data-style-state="normal">Normal</div>
+											<div
+												class="style-state-tab style-state-tab--active"
+												data-style-state="normal"
+											>
+												Normal
+											</div>
 											<div class="style-state-tab" data-style-state="focus">Focus</div>
 											<div class="style-state-tab" data-style-state="activate">Activate</div>
 										</div>
@@ -915,9 +1285,12 @@
 										<div class="insp-sub-label">Background</div>
 										<div class="insp-row">
 											<span class="insp-label">Fill</span>
-											<div class="colour-pair" style="flex:1;">
-												<div class="colour-swatch" style="background: rgba(255,255,255,0.04);"></div>
-												<input class="insp-input" value="rgba(255,255,255,0.04)" style="flex:1;" />
+											<div class="colour-pair" style="flex: 1">
+												<div
+													class="colour-swatch"
+													style="background: rgba(255, 255, 255, 0.04)"
+												></div>
+												<input class="insp-input" value="rgba(255,255,255,0.04)" style="flex: 1" />
 											</div>
 										</div>
 
@@ -926,21 +1299,24 @@
 										<div class="insp-grid-2">
 											<div class="insp-row">
 												<span class="insp-label">Color</span>
-												<div class="colour-pair" style="flex:1;">
-													<div class="colour-swatch" style="background: rgba(255,255,255,0.12);"></div>
+												<div class="colour-pair" style="flex: 1">
+													<div
+														class="colour-swatch"
+														style="background: rgba(255, 255, 255, 0.12)"
+													></div>
 													<input class="insp-input insp-input--sm" value="#ffffff1f" />
 												</div>
 											</div>
 											<div class="insp-row">
 												<span class="insp-label">Width</span>
 												<input class="insp-input insp-input--sm" value="1.5" />
-												<span style="font-size:9px;color:var(--text-muted);">px</span>
+												<span style="font-size: 9px; color: var(--text-muted)">px</span>
 											</div>
 										</div>
 										<div class="insp-row">
 											<span class="insp-label">Radius</span>
 											<input class="insp-input insp-input--sm" value="6" />
-											<span style="font-size:9px;color:var(--text-muted);">px</span>
+											<span style="font-size: 9px; color: var(--text-muted)">px</span>
 										</div>
 
 										<!-- Padding -->
@@ -950,7 +1326,7 @@
 											<input class="insp-input insp-input--sm" value="16" />
 											<span class="insp-label">V</span>
 											<input class="insp-input insp-input--sm" value="0" />
-											<span style="font-size:9px;color:var(--text-muted);">px</span>
+											<span style="font-size: 9px; color: var(--text-muted)">px</span>
 										</div>
 
 										<!-- Shadow / Glow -->
@@ -966,8 +1342,11 @@
 										</div>
 										<div class="insp-row">
 											<span class="insp-label">Color</span>
-											<div class="colour-pair" style="flex:1;">
-												<div class="colour-swatch" style="background: rgba(255,170,64,0.12);"></div>
+											<div class="colour-pair" style="flex: 1">
+												<div
+													class="colour-swatch"
+													style="background: rgba(255, 170, 64, 0.12)"
+												></div>
 												<input class="insp-input insp-input--sm" value="#ffa84020" />
 											</div>
 										</div>
@@ -994,7 +1373,17 @@
 								     ─────────────────────────────────────  -->
 								<div class="insp-section insp-section--open">
 									<div class="insp-section__header">
-										<svg class="insp-section__chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+										<svg
+											class="insp-section__chevron"
+											width="12"
+											height="12"
+											viewBox="0 0 24 24"
+											fill="none"
+											stroke="currentColor"
+											stroke-width="2"
+										>
+											<polyline points="6 9 12 15 18 9" />
+										</svg>
 										<span class="insp-section__title">Text Style</span>
 									</div>
 									<div class="insp-section__body">
@@ -1012,7 +1401,7 @@
 											<div class="insp-row">
 												<span class="insp-label">Size</span>
 												<input class="insp-input insp-input--sm" value="14" id="inspFontSize" />
-												<span style="font-size:9px;color:var(--text-muted);">px</span>
+												<span style="font-size: 9px; color: var(--text-muted)">px</span>
 											</div>
 											<div class="insp-row">
 												<span class="insp-label">Height</span>
@@ -1022,32 +1411,82 @@
 										<!-- Weight + Italic toggles -->
 										<div class="insp-row">
 											<span class="insp-label">Style</span>
-											<div class="style-pill-row" style="flex:1;">
+											<div class="style-pill-row" style="flex: 1">
 												<div class="style-pill style-pill--bold" data-style-toggle="bold">B</div>
-												<div class="style-pill style-pill--italic" data-style-toggle="italic">I</div>
-												<div class="style-pill" data-style-toggle="underline" style="text-decoration:underline;">U</div>
+												<div class="style-pill style-pill--italic" data-style-toggle="italic">
+													I
+												</div>
+												<div
+													class="style-pill"
+													data-style-toggle="underline"
+													style="text-decoration: underline"
+												>
+													U
+												</div>
 											</div>
 										</div>
 										<!-- Colour -->
 										<div class="insp-row">
 											<span class="insp-label">Colour</span>
-											<div class="colour-pair" style="flex:1;">
-												<div class="colour-swatch" style="background: #ffffff;" id="inspTextColourSwatch"></div>
-												<input class="insp-input" value="#ffffff" id="inspTextColour" style="flex:1;" />
+											<div class="colour-pair" style="flex: 1">
+												<div
+													class="colour-swatch"
+													style="background: #ffffff"
+													id="inspTextColourSwatch"
+												></div>
+												<input
+													class="insp-input"
+													value="#ffffff"
+													id="inspTextColour"
+													style="flex: 1"
+												/>
 											</div>
 										</div>
 										<!-- Alignment -->
 										<div class="insp-row">
 											<span class="insp-label">Align</span>
-											<div class="align-row" style="flex:1;">
+											<div class="align-row" style="flex: 1">
 												<button class="align-btn align-btn--active" data-align="left" title="Left">
-													<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="15" y2="12"/><line x1="3" y1="18" x2="18" y2="18"/></svg>
+													<svg
+														width="12"
+														height="12"
+														viewBox="0 0 24 24"
+														fill="none"
+														stroke="currentColor"
+														stroke-width="2"
+													>
+														<line x1="3" y1="6" x2="21" y2="6" />
+														<line x1="3" y1="12" x2="15" y2="12" />
+														<line x1="3" y1="18" x2="18" y2="18" />
+													</svg>
 												</button>
 												<button class="align-btn" data-align="center" title="Centre">
-													<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
+													<svg
+														width="12"
+														height="12"
+														viewBox="0 0 24 24"
+														fill="none"
+														stroke="currentColor"
+														stroke-width="2"
+													>
+														<line x1="3" y1="6" x2="21" y2="6" />
+														<line x1="6" y1="12" x2="18" y2="12" />
+														<line x1="4" y1="18" x2="20" y2="18" />
+													</svg>
 												</button>
 												<button class="align-btn" data-align="right" title="Right">
-													<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="9" y1="12" x2="21" y2="12"/><line x1="6" y1="18" x2="21" y2="18"/></svg>
+													<svg
+														width="12"
+														height="12"
+														viewBox="0 0 24 24"
+														fill="none"
+														stroke="currentColor"
+														stroke-width="2"
+													>
+														<line x1="3" y1="6" x2="21" y2="6" />
+														<line x1="9" y1="12" x2="21" y2="12" />
+														<line x1="6" y1="18" x2="21" y2="18" />
+													</svg>
 												</button>
 											</div>
 										</div>
@@ -1055,7 +1494,7 @@
 										<div class="insp-row">
 											<span class="insp-label">Spacing</span>
 											<input class="insp-input insp-input--sm" value="0" id="inspLetterSpacing" />
-											<span style="font-size:9px;color:var(--text-muted);">em</span>
+											<span style="font-size: 9px; color: var(--text-muted)">em</span>
 										</div>
 										<!-- Text shadow -->
 										<div class="insp-row">
@@ -1074,9 +1513,21 @@
 								<!-- 5. Action — inline binding (no separate mode) -->
 								<div class="insp-section insp-section--open">
 									<div class="insp-section__header">
-										<svg class="insp-section__chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+										<svg
+											class="insp-section__chevron"
+											width="12"
+											height="12"
+											viewBox="0 0 24 24"
+											fill="none"
+											stroke="currentColor"
+											stroke-width="2"
+										>
+											<polyline points="6 9 12 15 18 9" />
+										</svg>
 										<span class="insp-section__title">Action</span>
-										<span class="badge badge--neutral" style="font-size: 8px;" id="actionBadge">playTitle</span>
+										<span class="badge badge--neutral" style="font-size: 8px" id="actionBadge"
+											>playTitle</span
+										>
 									</div>
 									<div class="insp-section__body">
 										<div class="insp-row">
@@ -1103,7 +1554,17 @@
 										</div>
 										<!-- Action summary chip -->
 										<div class="action-row">
-											<svg class="action-row__icon" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21"/></svg>
+											<svg
+												class="action-row__icon"
+												width="10"
+												height="10"
+												viewBox="0 0 24 24"
+												fill="none"
+												stroke="currentColor"
+												stroke-width="2"
+											>
+												<polygon points="5 3 19 12 5 21" />
+											</svg>
 											<span class="action-row__text" id="actionSummary">playTitle: "Ceremony"</span>
 										</div>
 									</div>
@@ -1121,26 +1582,65 @@
 								     ─────────────────────────────────────  -->
 								<div class="insp-section insp-section--open">
 									<div class="insp-section__header">
-										<svg class="insp-section__chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+										<svg
+											class="insp-section__chevron"
+											width="12"
+											height="12"
+											viewBox="0 0 24 24"
+											fill="none"
+											stroke="currentColor"
+											stroke-width="2"
+										>
+											<polyline points="6 9 12 15 18 9" />
+										</svg>
 										<span class="insp-section__title">Navigation</span>
-										<span class="auto-badge auto-badge--on" id="autoNavBadge" title="Click to toggle Auto/Manual navigation">Auto</span>
+										<span
+											class="auto-badge auto-badge--on"
+											id="autoNavBadge"
+											title="Click to toggle Auto/Manual navigation"
+											>Auto</span
+										>
 									</div>
 									<div class="insp-section__body">
 										<!-- Directional pad grid -->
 										<div class="nav-grid">
 											<div class="nav-grid__cell"></div>
-											<div class="nav-grid__cell"><button class="nav-grid__btn" data-dir="up">(none)</button></div>
+											<div class="nav-grid__cell">
+												<button class="nav-grid__btn" data-dir="up">(none)</button>
+											</div>
 											<div class="nav-grid__cell"></div>
-											<div class="nav-grid__cell"><button class="nav-grid__btn" data-dir="left">(none)</button></div>
-											<div class="nav-grid__cell"><div class="nav-grid__center" id="navGridCenter">btn-1</div></div>
-											<div class="nav-grid__cell"><button class="nav-grid__btn" data-dir="right">(none)</button></div>
+											<div class="nav-grid__cell">
+												<button class="nav-grid__btn" data-dir="left">(none)</button>
+											</div>
+											<div class="nav-grid__cell">
+												<div class="nav-grid__center" id="navGridCenter">btn-1</div>
+											</div>
+											<div class="nav-grid__cell">
+												<button class="nav-grid__btn" data-dir="right">(none)</button>
+											</div>
 											<div class="nav-grid__cell"></div>
-											<div class="nav-grid__cell"><button class="nav-grid__btn" data-dir="down">Play Recep...</button></div>
+											<div class="nav-grid__cell">
+												<button class="nav-grid__btn" data-dir="down">Play Recep...</button>
+											</div>
 											<div class="nav-grid__cell"></div>
 										</div>
 										<!-- Recalculate button -->
-										<button class="recalc-btn" id="recalcNavBtn" title="Recalculate navigation from button positions">
-											<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
+										<button
+											class="recalc-btn"
+											id="recalcNavBtn"
+											title="Recalculate navigation from button positions"
+										>
+											<svg
+												width="10"
+												height="10"
+												viewBox="0 0 24 24"
+												fill="none"
+												stroke="currentColor"
+												stroke-width="2"
+											>
+												<polyline points="23 4 23 10 17 10" />
+												<path d="M20.49 15a9 9 0 11-2.12-9.36L23 10" />
+											</svg>
 											Recalculate from positions
 										</button>
 									</div>
@@ -1154,9 +1654,19 @@
 								     ─────────────────────────────────────  -->
 								<div class="insp-section insp-section--open">
 									<div class="insp-section__header">
-										<svg class="insp-section__chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+										<svg
+											class="insp-section__chevron"
+											width="12"
+											height="12"
+											viewBox="0 0 24 24"
+											fill="none"
+											stroke="currentColor"
+											stroke-width="2"
+										>
+											<polyline points="6 9 12 15 18 9" />
+										</svg>
 										<span class="insp-section__title">Connections</span>
-										<span class="badge badge--neutral" style="font-size: 8px;">Menu</span>
+										<span class="badge badge--neutral" style="font-size: 8px">Menu</span>
 									</div>
 									<div class="insp-section__body">
 										<div class="conn-list" id="connList">
@@ -1193,31 +1703,45 @@
 								     ─────────────────────────────────────  -->
 								<div class="insp-section insp-section--open">
 									<div class="insp-section__header">
-										<svg class="insp-section__chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+										<svg
+											class="insp-section__chevron"
+											width="12"
+											height="12"
+											viewBox="0 0 24 24"
+											fill="none"
+											stroke="currentColor"
+											stroke-width="2"
+										>
+											<polyline points="6 9 12 15 18 9" />
+										</svg>
 										<span class="insp-section__title">CLUT Palette</span>
-										<span class="badge badge--neutral" style="font-size: 8px;">DVD</span>
+										<span class="badge badge--neutral" style="font-size: 8px">DVD</span>
 									</div>
 									<div class="insp-section__body">
 										<div class="clut-grid">
 											<div class="clut-cell">
-												<div class="clut-swatch" style="background: transparent; border-style: dashed;"></div>
+												<div
+													class="clut-swatch"
+													style="background: transparent; border-style: dashed"
+												></div>
 												<span class="clut-label">BG</span>
 											</div>
 											<div class="clut-cell">
-												<div class="clut-swatch" style="background: #ffa840;"></div>
+												<div class="clut-swatch" style="background: #ffa840"></div>
 												<span class="clut-label">E1</span>
 											</div>
 											<div class="clut-cell">
-												<div class="clut-swatch" style="background: #ffffff;"></div>
+												<div class="clut-swatch" style="background: #ffffff"></div>
 												<span class="clut-label">E2</span>
 											</div>
 											<div class="clut-cell">
-												<div class="clut-swatch" style="background: #2ec66a;"></div>
+												<div class="clut-swatch" style="background: #2ec66a"></div>
 												<span class="clut-label">Anti</span>
 											</div>
 										</div>
-										<div style="font-size:9px;color:var(--text-muted);margin-top:4px;">
-											BG = transparent background, E1/E2 = emphasis, Anti = anti-alias. DVD allows 4 colours per subpicture.
+										<div style="font-size: 9px; color: var(--text-muted); margin-top: 4px">
+											BG = transparent background, E1/E2 = emphasis, Anti = anti-alias. DVD allows 4
+											colours per subpicture.
 										</div>
 									</div>
 								</div>
@@ -1233,7 +1757,17 @@
 								     ─────────────────────────────────────  -->
 								<div class="insp-section insp-section--open">
 									<div class="insp-section__header">
-										<svg class="insp-section__chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+										<svg
+											class="insp-section__chevron"
+											width="12"
+											height="12"
+											viewBox="0 0 24 24"
+											fill="none"
+											stroke="currentColor"
+											stroke-width="2"
+										>
+											<polyline points="6 9 12 15 18 9" />
+										</svg>
 										<span class="insp-section__title">Highlight Mode</span>
 									</div>
 									<div class="insp-section__body">
@@ -1244,7 +1778,7 @@
 												<option>Animated</option>
 											</select>
 										</div>
-										<div id="highlightAnimControls" style="display:none;">
+										<div id="highlightAnimControls" style="display: none">
 											<div class="insp-row">
 												<span class="insp-label">Frames</span>
 												<input class="insp-input insp-input--sm" value="15" />
@@ -1257,8 +1791,9 @@
 													<option>Step</option>
 												</select>
 											</div>
-											<div style="font-size:9px;color:var(--text-muted);margin-top:4px;">
-												Animated highlights require a motion menu background. Keyframes control how the highlight overlay transitions between states.
+											<div style="font-size: 9px; color: var(--text-muted); margin-top: 4px">
+												Animated highlights require a motion menu background. Keyframes control how
+												the highlight overlay transitions between states.
 											</div>
 										</div>
 									</div>
@@ -1272,9 +1807,19 @@
 								     ─────────────────────────────────────  -->
 								<div class="insp-section insp-section--open">
 									<div class="insp-section__header">
-										<svg class="insp-section__chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+										<svg
+											class="insp-section__chevron"
+											width="12"
+											height="12"
+											viewBox="0 0 24 24"
+											fill="none"
+											stroke="currentColor"
+											stroke-width="2"
+										>
+											<polyline points="6 9 12 15 18 9" />
+										</svg>
 										<span class="insp-section__title">Layers</span>
-										<span class="badge badge--neutral" style="font-size: 8px;">6</span>
+										<span class="badge badge--neutral" style="font-size: 8px">6</span>
 									</div>
 									<div class="insp-section__body">
 										<div class="layer-list">
@@ -1282,42 +1827,102 @@
 												<span class="layer-item__icon">&#9632;</span>
 												<span class="layer-item__name">Play Ceremony</span>
 												<span class="layer-item__visibility" title="Toggle visibility">
-													<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+													<svg
+														width="12"
+														height="12"
+														viewBox="0 0 24 24"
+														fill="none"
+														stroke="currentColor"
+														stroke-width="2"
+													>
+														<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+														<circle cx="12" cy="12" r="3" />
+													</svg>
 												</span>
 											</div>
 											<div class="layer-item">
 												<span class="layer-item__icon">&#9632;</span>
 												<span class="layer-item__name">Play Reception</span>
 												<span class="layer-item__visibility">
-													<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+													<svg
+														width="12"
+														height="12"
+														viewBox="0 0 24 24"
+														fill="none"
+														stroke="currentColor"
+														stroke-width="2"
+													>
+														<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+														<circle cx="12" cy="12" r="3" />
+													</svg>
 												</span>
 											</div>
 											<div class="layer-item">
 												<span class="layer-item__icon">&#9632;</span>
 												<span class="layer-item__name">Chapter Select</span>
 												<span class="layer-item__visibility">
-													<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+													<svg
+														width="12"
+														height="12"
+														viewBox="0 0 24 24"
+														fill="none"
+														stroke="currentColor"
+														stroke-width="2"
+													>
+														<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+														<circle cx="12" cy="12" r="3" />
+													</svg>
 												</span>
 											</div>
 											<div class="layer-item">
 												<span class="layer-item__icon">&#9632;</span>
 												<span class="layer-item__name">Audio Setup</span>
 												<span class="layer-item__visibility">
-													<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+													<svg
+														width="12"
+														height="12"
+														viewBox="0 0 24 24"
+														fill="none"
+														stroke="currentColor"
+														stroke-width="2"
+													>
+														<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+														<circle cx="12" cy="12" r="3" />
+													</svg>
 												</span>
 											</div>
 											<div class="layer-item">
 												<span class="layer-item__icon">T</span>
 												<span class="layer-item__name">Wedding Highlights</span>
 												<span class="layer-item__visibility">
-													<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+													<svg
+														width="12"
+														height="12"
+														viewBox="0 0 24 24"
+														fill="none"
+														stroke="currentColor"
+														stroke-width="2"
+													>
+														<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+														<circle cx="12" cy="12" r="3" />
+													</svg>
 												</span>
 											</div>
 											<div class="layer-item">
 												<span class="layer-item__icon">T</span>
 												<span class="layer-item__name">Emily &amp; James</span>
 												<span class="layer-item__visibility">
-													<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+													<svg
+														width="12"
+														height="12"
+														viewBox="0 0 24 24"
+														fill="none"
+														stroke="currentColor"
+														stroke-width="2"
+													>
+														<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+														<circle cx="12" cy="12" r="3" />
+													</svg>
 												</span>
 											</div>
 										</div>
@@ -1326,14 +1931,26 @@
 
 								<!-- 12. Diagnostics -->
 								<div class="diag-chip diag-chip--ok">
-									<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--colour-success)" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+									<svg
+										width="12"
+										height="12"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="var(--colour-success)"
+										stroke-width="2"
+									>
+										<path d="M22 11.08V12a10 10 0 11-5.93-9.14" />
+										<polyline points="22 4 12 14.01 9 11.01" />
+									</svg>
 									<span>Navigation valid. All actions resolved. Within button limits.</span>
 								</div>
 							</div>
-						</div><!-- /inspector -->
-					</div><!-- /editor-body -->
-				</div><!-- /editorView -->
-
+						</div>
+						<!-- /inspector -->
+					</div>
+					<!-- /editor-body -->
+				</div>
+				<!-- /editorView -->
 
 				<!-- ═══════════════════════════════════════════════
 				     NAVIGATION MAP VIEW
@@ -1357,13 +1974,36 @@
 					<div class="map-toolbar">
 						<span class="map-toolbar__title">Navigation Map</span>
 						<div class="map-legend">
-							<div class="legend-item"><div class="legend-line legend-line--show"></div>showMenu</div>
-							<div class="legend-item"><div class="legend-line legend-line--play"></div>playTitle</div>
-							<div class="legend-item"><div class="legend-line legend-line--return"></div>return</div>
+							<div class="legend-item">
+								<div class="legend-line legend-line--show"></div>
+								showMenu
+							</div>
+							<div class="legend-item">
+								<div class="legend-line legend-line--play"></div>
+								playTitle
+							</div>
+							<div class="legend-item">
+								<div class="legend-line legend-line--return"></div>
+								return
+							</div>
 						</div>
 						<!-- Inspector toggle (matches editor toolbar) -->
-						<button class="btn btn--ghost btn--sm" id="toggleMapInspectorBtn" title="Toggle Inspector">
-							<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
+						<button
+							class="btn btn--ghost btn--sm"
+							id="toggleMapInspectorBtn"
+							title="Toggle Inspector"
+						>
+							<svg
+								width="14"
+								height="14"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+							>
+								<rect x="3" y="3" width="18" height="18" rx="2" />
+								<line x1="15" y1="3" x2="15" y2="21" />
+							</svg>
 						</button>
 					</div>
 
@@ -1406,13 +2046,34 @@
 							-->
 							<svg class="map-connections" id="mapConnSvg">
 								<defs>
-									<marker id="arrow-show" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+									<marker
+										id="arrow-show"
+										markerWidth="8"
+										markerHeight="6"
+										refX="8"
+										refY="3"
+										orient="auto"
+									>
 										<path d="M0,0 L0,6 L8,3 z" fill="var(--brand-cyan)" opacity="0.7" />
 									</marker>
-									<marker id="arrow-play" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+									<marker
+										id="arrow-play"
+										markerWidth="8"
+										markerHeight="6"
+										refX="8"
+										refY="3"
+										orient="auto"
+									>
 										<path d="M0,0 L0,6 L8,3 z" fill="var(--brand-green)" opacity="0.7" />
 									</marker>
-									<marker id="arrow-return" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+									<marker
+										id="arrow-return"
+										markerWidth="8"
+										markerHeight="6"
+										refX="8"
+										refY="3"
+										orient="auto"
+									>
 										<path d="M0,0 L0,6 L8,3 z" fill="var(--brand-purple)" opacity="0.7" />
 									</marker>
 								</defs>
@@ -1425,64 +2086,127 @@
 							     ─────────────────────────────────── -->
 
 							<!-- Main Menu (VMGM — left column) -->
-							<div class="map-menu-card map-menu-card--selected" data-map-menu="main-menu" style="left: 50px; top: 90px;">
+							<div
+								class="map-menu-card map-menu-card--selected"
+								data-map-menu="main-menu"
+								style="left: 50px; top: 90px"
+							>
 								<div class="map-card__scope scope-badge scope-badge--vmgm">VMGM</div>
 								<div class="map-card__name">Main Menu</div>
 								<div class="map-card__preview">
-									<div class="map-card__preview-btn" style="left: 10%; top: 50%; width: 80%; height: 8%;"></div>
-									<div class="map-card__preview-btn" style="left: 10%; top: 62%; width: 80%; height: 8%;"></div>
-									<div class="map-card__preview-btn" style="left: 10%; top: 74%; width: 80%; height: 8%;"></div>
+									<div
+										class="map-card__preview-btn"
+										style="left: 10%; top: 50%; width: 80%; height: 8%"
+									></div>
+									<div
+										class="map-card__preview-btn"
+										style="left: 10%; top: 62%; width: 80%; height: 8%"
+									></div>
+									<div
+										class="map-card__preview-btn"
+										style="left: 10%; top: 74%; width: 80%; height: 8%"
+									></div>
 								</div>
 								<div class="map-card__btns">4 buttons &middot; Still</div>
 							</div>
 
 							<!-- Chapter Select (VTS 1 — right column, top) -->
-							<div class="map-menu-card" data-map-menu="chapter-select" style="left: 420px; top: 30px;">
+							<div
+								class="map-menu-card"
+								data-map-menu="chapter-select"
+								style="left: 420px; top: 30px"
+							>
 								<div class="map-card__scope scope-badge scope-badge--vts">VTS 1</div>
 								<div class="map-card__name">Chapter Select</div>
 								<div class="map-card__preview">
-									<div class="map-card__preview-btn" style="left: 5%; top: 30%; width: 28%; height: 35%;"></div>
-									<div class="map-card__preview-btn" style="left: 36%; top: 30%; width: 28%; height: 35%;"></div>
-									<div class="map-card__preview-btn" style="left: 67%; top: 30%; width: 28%; height: 35%;"></div>
+									<div
+										class="map-card__preview-btn"
+										style="left: 5%; top: 30%; width: 28%; height: 35%"
+									></div>
+									<div
+										class="map-card__preview-btn"
+										style="left: 36%; top: 30%; width: 28%; height: 35%"
+									></div>
+									<div
+										class="map-card__preview-btn"
+										style="left: 67%; top: 30%; width: 28%; height: 35%"
+									></div>
 								</div>
 								<div class="map-card__btns">6 + nav &middot; Motion</div>
 							</div>
 
 							<!-- Audio Setup (VTS 1 — right column, middle) -->
-							<div class="map-menu-card" data-map-menu="audio-setup" style="left: 420px; top: 200px;">
+							<div
+								class="map-menu-card"
+								data-map-menu="audio-setup"
+								style="left: 420px; top: 200px"
+							>
 								<div class="map-card__scope scope-badge scope-badge--vts">VTS 1</div>
 								<div class="map-card__name">Audio Setup</div>
 								<div class="map-card__preview">
-									<div class="map-card__preview-btn" style="left: 10%; top: 40%; width: 80%; height: 10%;"></div>
-									<div class="map-card__preview-btn" style="left: 10%; top: 55%; width: 80%; height: 10%;"></div>
+									<div
+										class="map-card__preview-btn"
+										style="left: 10%; top: 40%; width: 80%; height: 10%"
+									></div>
+									<div
+										class="map-card__preview-btn"
+										style="left: 10%; top: 55%; width: 80%; height: 10%"
+									></div>
 								</div>
 								<div class="map-card__btns">3 buttons &middot; setAudio</div>
 							</div>
 
 							<!-- Subtitle Setup (VTS 1 — right column, bottom) -->
-							<div class="map-menu-card" data-map-menu="subtitle-setup" style="left: 420px; top: 360px;">
+							<div
+								class="map-menu-card"
+								data-map-menu="subtitle-setup"
+								style="left: 420px; top: 360px"
+							>
 								<div class="map-card__scope scope-badge scope-badge--vts">VTS 1</div>
 								<div class="map-card__name">Subtitle Setup</div>
 								<div class="map-card__preview">
-									<div class="map-card__preview-btn" style="left: 10%; top: 40%; width: 80%; height: 10%;"></div>
-									<div class="map-card__preview-btn" style="left: 10%; top: 55%; width: 80%; height: 10%;"></div>
+									<div
+										class="map-card__preview-btn"
+										style="left: 10%; top: 40%; width: 80%; height: 10%"
+									></div>
+									<div
+										class="map-card__preview-btn"
+										style="left: 10%; top: 55%; width: 80%; height: 10%"
+									></div>
 								</div>
 								<div class="map-card__btns">2 buttons &middot; setSub</div>
 							</div>
 
 							<!-- Title 1 (non-menu target — dashed border) -->
-							<div class="map-menu-card map-menu-card--target" data-map-menu="title-1" style="left: 190px; top: 420px;">
-								<div class="map-card__name" style="font-size: 11px; color: var(--text-muted);">Title 1: Feature Film</div>
+							<div
+								class="map-menu-card map-menu-card--target"
+								data-map-menu="title-1"
+								style="left: 190px; top: 420px"
+							>
+								<div class="map-card__name" style="font-size: 11px; color: var(--text-muted)">
+									Title 1: Feature Film
+								</div>
 								<div class="map-card__btns">12 chapters</div>
 							</div>
-						</div><!-- /map-canvas-wrap -->
+						</div>
+						<!-- /map-canvas-wrap -->
 
 						<!-- ── Map inspector ───────────────────── -->
 						<div class="inspector" id="mapInspector">
 							<div class="inspector__header">
 								<span class="inspector__selected-name" id="mapInspectorName">Main Menu</span>
 								<button class="inspector__close" id="closeMapInspectorBtn">
-									<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+									<svg
+										width="14"
+										height="14"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="2"
+									>
+										<line x1="18" y1="6" x2="6" y2="18" />
+										<line x1="6" y1="6" x2="18" y2="18" />
+									</svg>
 								</button>
 							</div>
 							<div class="inspector__body" id="mapInspectorBody">
@@ -1502,9 +2226,19 @@
 								<!-- Outgoing connections from this menu -->
 								<div class="insp-section insp-section--open">
 									<div class="insp-section__header">
-										<svg class="insp-section__chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+										<svg
+											class="insp-section__chevron"
+											width="12"
+											height="12"
+											viewBox="0 0 24 24"
+											fill="none"
+											stroke="currentColor"
+											stroke-width="2"
+										>
+											<polyline points="6 9 12 15 18 9" />
+										</svg>
 										<span class="insp-section__title">Outgoing</span>
-										<span class="badge badge--neutral" style="font-size: 8px;">2</span>
+										<span class="badge badge--neutral" style="font-size: 8px">2</span>
 									</div>
 									<div class="insp-section__body">
 										<div class="conn-list">
@@ -1525,9 +2259,19 @@
 								<!-- Incoming connections to this menu -->
 								<div class="insp-section insp-section--open">
 									<div class="insp-section__header">
-										<svg class="insp-section__chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+										<svg
+											class="insp-section__chevron"
+											width="12"
+											height="12"
+											viewBox="0 0 24 24"
+											fill="none"
+											stroke="currentColor"
+											stroke-width="2"
+										>
+											<polyline points="6 9 12 15 18 9" />
+										</svg>
 										<span class="insp-section__title">Incoming</span>
-										<span class="badge badge--neutral" style="font-size: 8px;">1</span>
+										<span class="badge badge--neutral" style="font-size: 8px">1</span>
 									</div>
 									<div class="insp-section__body">
 										<div class="conn-list">
@@ -1543,9 +2287,19 @@
 								<!-- Titles played from this menu -->
 								<div class="insp-section insp-section--open">
 									<div class="insp-section__header">
-										<svg class="insp-section__chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+										<svg
+											class="insp-section__chevron"
+											width="12"
+											height="12"
+											viewBox="0 0 24 24"
+											fill="none"
+											stroke="currentColor"
+											stroke-width="2"
+										>
+											<polyline points="6 9 12 15 18 9" />
+										</svg>
 										<span class="insp-section__title">Titles Played</span>
-										<span class="badge badge--neutral" style="font-size: 8px;">2</span>
+										<span class="badge badge--neutral" style="font-size: 8px">2</span>
 									</div>
 									<div class="insp-section__body">
 										<div class="conn-list">
@@ -1565,16 +2319,30 @@
 
 								<!-- Diagnostics -->
 								<div class="diag-chip diag-chip--ok">
-									<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--colour-success)" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+									<svg
+										width="12"
+										height="12"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="var(--colour-success)"
+										stroke-width="2"
+									>
+										<path d="M22 11.08V12a10 10 0 11-5.93-9.14" />
+										<polyline points="22 4 12 14.01 9 11.01" />
+									</svg>
 									<span>All connections resolved. Navigation complete.</span>
 								</div>
 							</div>
-						</div><!-- /map-inspector -->
-					</div><!-- /map editor-body -->
-				</div><!-- /navMapView -->
-
-			</div><!-- /editor-area -->
-		</div><!-- /menus-content -->
+						</div>
+						<!-- /map-inspector -->
+					</div>
+					<!-- /map editor-body -->
+				</div>
+				<!-- /navMapView -->
+			</div>
+			<!-- /editor-area -->
+		</div>
+		<!-- /menus-content -->
 
 		<script src="menu-editor.js"></script>
 	</body>
