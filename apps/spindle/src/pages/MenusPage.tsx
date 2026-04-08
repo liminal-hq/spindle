@@ -18,6 +18,7 @@ import { DEFAULT_HIGHLIGHT_COLOURS } from '../types/project';
 import { SceneCanvas } from '../components/menus/SceneCanvas';
 import { LayersPanel } from '../components/menus/LayersPanel';
 import { InspectorPanel } from '../components/menus/InspectorPanel';
+import { MiniMenuMap, FullMenuMap } from '../components/menus/MenuMap';
 import '../components/menus/SceneEditor.css';
 
 import './MenusPage.css';
@@ -31,6 +32,7 @@ export function MenusPage() {
 	const autoGenerateMenuNav = useProjectStore((s) => s.autoGenerateMenuNav);
 	const selectedMenuId = useProjectStore((s) => s.selectedMenuId);
 	const setSelectedMenuId = useProjectStore((s) => s.setSelectedMenuId);
+	const setMenuEditorMode = useProjectStore((s) => s.setMenuEditorMode);
 	const { consumePendingEntityId } = useNavigation();
 
 	// Consume navigation target from validation issue click
@@ -215,6 +217,14 @@ export function MenusPage() {
 						))}
 					</div>
 
+					{/* Mini navigation map — persistent in left rail */}
+					<MiniMenuMap
+						project={project}
+						selectedMenuId={selectedMenuId}
+						onSelect={setSelectedMenuId}
+						onExpand={() => setMenuEditorMode('map')}
+					/>
+
 					{/* Unified editor workspace */}
 					{selectedEntry && (
 						<MenuEditor
@@ -316,6 +326,7 @@ function MenuEditor({
 	// ── Workspace view: 'editor' or 'map'
 	const menuEditorMode = useProjectStore((s) => s.menuEditorMode);
 	const setMenuEditorMode = useProjectStore((s) => s.setMenuEditorMode);
+	const setSelectedMenuId = useProjectStore((s) => s.setSelectedMenuId);
 	// Treat any legacy mode value as 'editor'
 	const activeView = menuEditorMode === 'map' ? 'map' : 'editor';
 
@@ -905,12 +916,16 @@ function MenuEditor({
 					</div>
 				</div>
 			) : (
-				/* Map view — planned for Phase 2 */
-				<div className="menus__map-placeholder">
-					<p className="text-muted">
-						Navigation map view is planned for Phase 2. Switch back to Editor to author this menu.
-					</p>
-				</div>
+				/* Map view — full navigation graph */
+				<FullMenuMap
+					project={project}
+					selectedMenuId={menu.id}
+					onSelectMenu={setSelectedMenuId}
+					onOpenInEditor={(id) => {
+						setSelectedMenuId(id);
+						setMenuEditorMode('editor');
+					}}
+				/>
 			)}
 		</div>
 	);
