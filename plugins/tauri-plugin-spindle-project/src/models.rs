@@ -428,6 +428,8 @@ impl Menu {
                     highlight_mode: b.highlight_mode,
                     highlight_keyframes: b.highlight_keyframes.clone(),
                     video_asset_id: b.video_asset_id.clone(),
+                    button_style: None,
+                    label_style: None,
                 })
                 .collect(),
             guides: Vec::new(),
@@ -544,8 +546,22 @@ pub enum SceneNode {
         height: f64,
         #[serde(default, alias = "font_size")]
         font_size: Option<f64>,
+        #[serde(default, alias = "font_family")]
+        font_family: Option<String>,
+        #[serde(default, alias = "font_weight")]
+        font_weight: Option<FontWeight>,
+        #[serde(default, alias = "font_italic")]
+        font_italic: Option<bool>,
+        #[serde(default, alias = "text_decoration")]
+        text_decoration: Option<TextDecoration>,
+        #[serde(default, alias = "text_align")]
+        text_align: Option<TextAlign>,
         #[serde(default)]
         colour: Option<String>,
+        #[serde(default, alias = "line_height")]
+        line_height: Option<f64>,
+        #[serde(default, alias = "letter_spacing")]
+        letter_spacing: Option<f64>,
     },
     Image {
         id: String,
@@ -585,6 +601,10 @@ pub enum SceneNode {
         highlight_keyframes: Vec<HighlightKeyframe>,
         #[serde(default, alias = "video_asset_id")]
         video_asset_id: Option<String>,
+        #[serde(default, alias = "button_style")]
+        button_style: Option<ButtonStyleMap>,
+        #[serde(default, alias = "label_style")]
+        label_style: Option<TextStyle>,
     },
     ComponentInstance {
         id: String,
@@ -1621,6 +1641,134 @@ mod tests {
                 assert_eq!(*highlight_mode, HighlightMode::Static);
                 assert!(highlight_keyframes.is_empty());
                 assert!(video_asset_id.is_none());
+            }
+            other => panic!("expected button node, found {other:?}"),
+        }
+    }
+
+    #[test]
+    fn styled_scene_nodes_round_trip_through_json() {
+        let project = SpindleProjectFile {
+            disc: Disc {
+                titlesets: vec![Titleset {
+                    menus: vec![Menu {
+                        id: "menu-1".to_string(),
+                        name: "Styled Menu".to_string(),
+                        authored_document: Some(MenuDocument {
+                            id: "menu-1".to_string(),
+                            name: "Styled Menu".to_string(),
+                            domain: MenuDomain::Titleset,
+                            scene: MenuScene {
+                                design_size: MenuSize {
+                                    width: 720.0,
+                                    height: 480.0,
+                                },
+                                background: SceneBackground {
+                                    asset_id: None,
+                                    colour: Some("#101014".to_string()),
+                                },
+                                nodes: vec![
+                                    SceneNode::Text {
+                                        id: "text-1".to_string(),
+                                        content: "Hello".to_string(),
+                                        x: 24.0,
+                                        y: 36.0,
+                                        width: 320.0,
+                                        height: 64.0,
+                                        font_size: Some(28.0),
+                                        font_family: Some("Aptos".to_string()),
+                                        font_weight: Some(FontWeight::Bold),
+                                        font_italic: Some(true),
+                                        text_decoration: Some(TextDecoration::Underline),
+                                        text_align: Some(TextAlign::Center),
+                                        colour: Some("#ffeeaa".to_string()),
+                                        line_height: Some(1.2),
+                                        letter_spacing: Some(0.5),
+                                    },
+                                    SceneNode::Button {
+                                        id: "button-1".to_string(),
+                                        label: "Play".to_string(),
+                                        x: 96.0,
+                                        y: 192.0,
+                                        width: 220.0,
+                                        height: 52.0,
+                                        highlight_mode: HighlightMode::Animated,
+                                        highlight_keyframes: vec![HighlightKeyframe {
+                                            timestamp_secs: 0.25,
+                                            select_colour: Some("#ffaa40".to_string()),
+                                            select_opacity: Some(0.8),
+                                            activate_colour: None,
+                                            activate_opacity: None,
+                                        }],
+                                        video_asset_id: Some("asset-1".to_string()),
+                                        button_style: Some(ButtonStyleMap::default()),
+                                        label_style: Some(TextStyle::default()),
+                                    },
+                                ],
+                                guides: vec![],
+                            },
+                            interaction: MenuInteractionGraph {
+                                default_focus_id: Some("button-1".to_string()),
+                                nodes: vec![],
+                                timeout_action: None,
+                            },
+                            timing: MenuTiming::default(),
+                            highlight_colours: MenuHighlightColours::default(),
+                            background_mode: BackgroundMode::Still,
+                            theme_ref: None,
+                            generation_meta: None,
+                            compile_policy: MenuCompilePolicy::default(),
+                        }),
+                        ..Menu::default()
+                    }],
+                    ..Titleset::default()
+                }],
+                ..Disc::default()
+            },
+            ..SpindleProjectFile::default()
+        };
+
+        let json = serde_json::to_string(&project).unwrap();
+        let parsed: SpindleProjectFile = serde_json::from_str(&json).unwrap();
+        let doc = parsed.disc.titlesets[0].menus[0]
+            .authored_document
+            .as_ref()
+            .expect("styled document should persist");
+
+        match &doc.scene.nodes[0] {
+            SceneNode::Text {
+                font_family,
+                font_weight,
+                font_italic,
+                text_decoration,
+                text_align,
+                line_height,
+                letter_spacing,
+                ..
+            } => {
+                assert_eq!(font_family.as_deref(), Some("Aptos"));
+                assert_eq!(*font_weight, Some(FontWeight::Bold));
+                assert_eq!(*font_italic, Some(true));
+                assert_eq!(*text_decoration, Some(TextDecoration::Underline));
+                assert_eq!(*text_align, Some(TextAlign::Center));
+                assert_eq!(*line_height, Some(1.2));
+                assert_eq!(*letter_spacing, Some(0.5));
+            }
+            other => panic!("expected text node, found {other:?}"),
+        }
+
+        match &doc.scene.nodes[1] {
+            SceneNode::Button {
+                button_style,
+                label_style,
+                highlight_mode,
+                video_asset_id,
+                ..
+            } => {
+                assert!(button_style.is_some());
+                assert!(label_style.is_some());
+                assert_eq!(*highlight_mode, HighlightMode::Animated);
+                assert_eq!(video_asset_id.as_deref(), Some("asset-1"));
             }
             other => panic!("expected button node, found {other:?}"),
         }
