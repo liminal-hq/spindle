@@ -912,7 +912,7 @@ fn validate_action(
                 );
             }
         }
-        PlaybackAction::Stop => {}
+        PlaybackAction::Stop | PlaybackAction::Return => {}
     }
 }
 

@@ -31,7 +31,8 @@ export type PlaybackAction =
 	| { type: 'setAudioStream'; streamIndex: number }
 	| { type: 'setSubtitleStream'; streamIndex: number | null }
 	| { type: 'sequence'; actions: PlaybackAction[] }
-	| { type: 'stop' };
+	| { type: 'stop' }
+	| { type: 'return' };
 
 // ── Top-Level Project ───────────────────────────────────────────────────────
 

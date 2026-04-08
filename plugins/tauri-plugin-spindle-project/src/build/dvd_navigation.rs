@@ -240,6 +240,7 @@ pub(crate) fn playback_action_to_dvd_command_in_context(
             }
         }
         PlaybackAction::Stop => Ok("exit".to_string()),
+        PlaybackAction::Return => Ok("resume".to_string()),
     }
 }
 
@@ -538,5 +539,19 @@ mod tests {
             &project.disc,
         );
         assert_eq!(command, "subtitle = 0");
+    }
+
+    #[test]
+    fn stop_action_emits_exit() {
+        let project = test_project();
+        let command = playback_action_to_dvd_command(&PlaybackAction::Stop, &project.disc);
+        assert_eq!(command, "exit");
+    }
+
+    #[test]
+    fn return_action_emits_resume() {
+        let project = test_project();
+        let command = playback_action_to_dvd_command(&PlaybackAction::Return, &project.disc);
+        assert_eq!(command, "resume");
     }
 }

@@ -841,6 +841,7 @@ pub enum PlaybackAction {
         actions: Vec<PlaybackAction>,
     },
     Stop,
+    Return,
 }
 
 // ── Assets ──────────────────────────────────────────────────────────────────
@@ -1225,6 +1226,13 @@ mod tests {
         let json = serde_json::to_string(&action).unwrap();
         assert!(json.contains("\"type\":\"playTitle\""));
         assert!(json.contains("\"titleId\":\"t1\""));
+    }
+
+    #[test]
+    fn return_action_serialises_as_unit_variant() {
+        let action = PlaybackAction::Return;
+        let json = serde_json::to_string(&action).unwrap();
+        assert_eq!(json, "{\"type\":\"return\"}");
     }
 
     #[test]
