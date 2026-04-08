@@ -18,7 +18,14 @@ This work is isolated on the `feat/menu-workspace-upgrade` branch.
 - **Backend Infrastructure**: COMPLETED & SEALED. Kyle has verified Jullian's schema synchronization and stream index validation (commit e80ccc2).
 - **Unified Workstation Shell**: COMPLETED. Tristan has refactored `MenusPage.tsx` into the Set 2b full-height workstation grid (commit ef56faa). Mini-map is correctly nested in the sidebar rail.
 - **Visual Polish & Premium Composition**: COMPLETED. Nicholas has ported the workstation-level CSS, premium sidebar cards, and refined the integrated toolbar aesthetics (commit b7d6297, bea442a).
-- **Final Sign-off**: IN PROGRESS. Yuli is performing the final spatial and journey verification.
+- **Project File Compatibility Hardening**: COMPLETED. Franklin patched the Rust project loader to accept legacy authored menu document fields and missing timing start offsets so pre-upgrade `.spindle` files can open again (commit 773e4b0).
+- **Menu Schema Alignment**: COMPLETED. Franklin extended the Rust `SceneNode` model to preserve the upgraded editor's optional text and button styling fields across open/save cycles (commit ad2a08c).
+- **Final Sign-off**: IN PROGRESS. Yuli is performing the final spatial and journey verification against the unified workspace with legacy-project reopening now covered.
+
+### Verification Snapshot
+- **Rust plugin verification**: confirmed through `ghcr.io/liminal-hq/tauri-dev-desktop:latest` with `cargo test -p tauri-plugin-spindle-project -- --nocapture`.
+- **Frontend store verification**: confirmed with `pnpm --filter @liminal-hq/spindle test -- src/store/project-store.test.ts`.
+- **Regression coverage**: Rust tests now explicitly cover legacy authored menu document deserialisation and styled scene-node round-tripping.
 
 ## Roster & Handoff Order
 1. **Jullian:** Backend multiplexing (BOV) and SPRM compiler updates.

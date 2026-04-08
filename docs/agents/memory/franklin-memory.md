@@ -36,6 +36,9 @@ Prefer durable, reusable context over narration.
 - The current laptop environment should be treated as container-first for verification work: when Rust tooling or mixed workspace validation is needed, prefer `ghcr.io/liminal-hq/tauri-dev-desktop:latest` rather than assuming host-installed Rust tools are available.
 - We have adopted Yuli's Set 2b unified menu editor design, establishing Blu-ray (HDMV/IG) as the primary authoring ceiling and DVD/VCD as a graceful degradation floor managed via the Compile Preview overlay.
 - Seamless branching (multiplexed BOV) for UI states and SPRM manipulation (`setAudioStream`, `setSubtitleStream`) are now confirmed backend requirements that the compiler and multiplexer must support reliably.
+- During the Set 2b menu-editor finish, old `.spindle` files were blocked by authored menu document drift rather than by top-level project metadata. Compatibility fixes belong at the Rust schema boundary first, especially for mixed `camelCase` and legacy `snake_case` node fields plus newly added timing defaults.
+- The upgraded menu inspector now persists optional scene-node styling data for text and button nodes, so the Rust `SceneNode` model must stay aligned with the frontend editor types or those style-only edits will be silently dropped on open/save.
+- For menu-editor hardening, the most useful verification pair was containerised Rust plugin coverage (`cargo test -p tauri-plugin-spindle-project`) plus targeted frontend store tests (`pnpm --filter @liminal-hq/spindle test -- src/store/project-store.test.ts`) rather than broader UI-only smoke passes.
 
 ## Open Questions
 
