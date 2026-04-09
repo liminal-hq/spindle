@@ -651,7 +651,7 @@ pub enum SceneNode {
     },
     Image {
         id: String,
-        #[serde(alias = "asset_id")]
+        #[serde(rename = "assetId", alias = "asset_id")]
         asset_id: String,
         x: f64,
         y: f64,
@@ -669,7 +669,7 @@ pub enum SceneNode {
     },
     Video {
         id: String,
-        #[serde(alias = "asset_id")]
+        #[serde(rename = "assetId", alias = "asset_id")]
         asset_id: String,
         x: f64,
         y: f64,
@@ -1801,6 +1801,14 @@ mod tests {
                                         button_style: Some(ButtonStyleMap::default()),
                                         label_style: Some(TextStyle::default()),
                                     },
+                                    SceneNode::Image {
+                                        id: "image-1".to_string(),
+                                        asset_id: "asset-image".to_string(),
+                                        x: 420.0,
+                                        y: 72.0,
+                                        width: 180.0,
+                                        height: 120.0,
+                                    },
                                 ],
                                 guides: vec![],
                             },
@@ -1868,6 +1876,79 @@ mod tests {
                 assert_eq!(video_asset_id.as_deref(), Some("asset-1"));
             }
             other => panic!("expected button node, found {other:?}"),
+        }
+
+        match &doc.scene.nodes[2] {
+            SceneNode::Image { asset_id, .. } => {
+                assert_eq!(asset_id, "asset-image");
+            }
+            other => panic!("expected image node, found {other:?}"),
+        }
+    }
+
+    #[test]
+    fn scene_image_nodes_accept_camel_case_asset_id() {
+        let mut project = SpindleProjectFile::default();
+        project.project.id = "project-1".to_string();
+        project.project.name = "Image Menu".to_string();
+        project.disc.global_menus.push(Menu {
+            id: "menu-1".to_string(),
+            name: "Main Menu".to_string(),
+            authored_document: Some(MenuDocument {
+                id: "menu-1".to_string(),
+                name: "Main Menu".to_string(),
+                domain: MenuDomain::Vmgm,
+                scene: MenuScene {
+                    design_size: MenuSize {
+                        width: 720.0,
+                        height: 480.0,
+                    },
+                    background: SceneBackground {
+                        asset_id: None,
+                        colour: Some("#101014".to_string()),
+                    },
+                    nodes: vec![],
+                    guides: vec![],
+                },
+                interaction: MenuInteractionGraph {
+                    default_focus_id: None,
+                    nodes: vec![],
+                    timeout_action: None,
+                },
+                timing: MenuTiming::default(),
+                highlight_colours: MenuHighlightColours::default(),
+                background_mode: BackgroundMode::Still,
+                theme_ref: None,
+                generation_meta: None,
+                compile_policy: MenuCompilePolicy::default(),
+            }),
+            ..Menu::default()
+        });
+
+        let mut value = serde_json::to_value(&project).unwrap();
+        value["disc"]["globalMenus"][0]["authoredDocument"]["scene"]["nodes"] = serde_json::json!([
+          {
+            "type": "image",
+            "id": "image-1",
+            "assetId": "asset-image",
+            "x": 96.0,
+            "y": 72.0,
+            "width": 180.0,
+            "height": 120.0
+          }
+        ]);
+
+        let parsed: SpindleProjectFile = serde_json::from_value(value).unwrap();
+
+        match &parsed.disc.global_menus[0]
+            .authored_document
+            .as_ref()
+            .expect("authored document should load")
+            .scene
+            .nodes[0]
+        {
+            SceneNode::Image { asset_id, .. } => assert_eq!(asset_id, "asset-image"),
+            other => panic!("expected image node, found {other:?}"),
         }
     }
 

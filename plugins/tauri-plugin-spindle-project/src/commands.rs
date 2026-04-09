@@ -10,6 +10,51 @@ use crate::models::*;
 use crate::Result;
 use crate::SpindleProjectExt;
 
+fn trace_project_summary(project: &SpindleProjectFile) -> String {
+    let titleset_titles: usize = project
+        .disc
+        .titlesets
+        .iter()
+        .map(|titleset| titleset.titles.len())
+        .sum();
+    let titleset_menus: usize = project
+        .disc
+        .titlesets
+        .iter()
+        .map(|titleset| titleset.menus.len())
+        .sum();
+    let image_nodes: usize = project
+        .disc
+        .global_menus
+        .iter()
+        .chain(
+            project
+                .disc
+                .titlesets
+                .iter()
+                .flat_map(|titleset| titleset.menus.iter()),
+        )
+        .filter_map(|menu| menu.authored_document.as_ref())
+        .map(|document| {
+            document
+                .scene
+                .nodes
+                .iter()
+                .filter(|node| matches!(node, SceneNode::Image { .. }))
+                .count()
+        })
+        .sum();
+
+    format!(
+        "name={} assets={} titles={} menus={} image_nodes={}",
+        project.project.name,
+        project.assets.len(),
+        titleset_titles,
+        project.disc.global_menus.len() + titleset_menus,
+        image_nodes
+    )
+}
+
 /// Create a new default project with the given settings.
 #[command]
 pub(crate) async fn create_project<R: Runtime>(
@@ -25,6 +70,10 @@ pub(crate) async fn parse_project<R: Runtime>(
     app: AppHandle<R>,
     json: String,
 ) -> Result<SpindleProjectFile> {
+    eprintln!(
+        "[spindle-project] parse_project starting json_bytes={}",
+        json.len()
+    );
     app.spindle_project().parse_project(&json)
 }
 
@@ -34,6 +83,10 @@ pub(crate) async fn serialise_project<R: Runtime>(
     app: AppHandle<R>,
     project: SpindleProjectFile,
 ) -> Result<String> {
+    eprintln!(
+        "[spindle-project] serialise_project {}",
+        trace_project_summary(&project)
+    );
     app.spindle_project().serialise_project(&project)
 }
 
@@ -74,6 +127,13 @@ pub(crate) async fn generate_build_plan<R: Runtime>(
     skip_sidecar: bool,
     skip_unsupported_streams: bool,
 ) -> Result<BuildPlan> {
+    eprintln!(
+        "[spindle-project] generate_build_plan output_directory={} skip_sidecar={} skip_unsupported_streams={} {}",
+        output_directory,
+        skip_sidecar,
+        skip_unsupported_streams,
+        trace_project_summary(&project)
+    );
     build::generate_build_plan_with_options(
         &project,
         &output_directory,

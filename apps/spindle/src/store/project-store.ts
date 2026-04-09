@@ -95,6 +95,32 @@ function parentDir(filePath: string): string {
 	return filePath.replace(/[/\\][^/\\]+$/, '') || filePath;
 }
 
+function countImageSceneNodes(project: SpindleProjectFile): number {
+	const menus = [
+		...project.disc.globalMenus,
+		...project.disc.titlesets.flatMap((titleset) => titleset.menus),
+	];
+	return menus.reduce((count, menu) => {
+		const nodes = menu.authoredDocument?.scene.nodes ?? [];
+		return count + nodes.filter((node) => node.type === 'image').length;
+	}, 0);
+}
+
+function projectTraceSummary(project: SpindleProjectFile) {
+	return {
+		name: project.project.name,
+		assetCount: project.assets.length,
+		titleCount: project.disc.titlesets.reduce(
+			(count, titleset) => count + titleset.titles.length,
+			0,
+		),
+		menuCount:
+			project.disc.globalMenus.length +
+			project.disc.titlesets.reduce((count, titleset) => count + titleset.menus.length, 0),
+		imageNodeCount: countImageSceneNodes(project),
+	};
+}
+
 const IMPORTABLE_MEDIA_EXTENSIONS = [
 	'mpg',
 	'mpeg',
@@ -379,9 +405,14 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 		useAppSettingsStore.getState().setLastProjectDir(parentDir(selected));
 		set({ isLoading: true });
 		try {
+			console.info('[project-store] Opening project', { path: selected });
 			const json = await invoke<string>('read_text_file', { path: selected });
 			const project = await invoke<SpindleProjectFile>('plugin:spindle-project|parse_project', {
 				json,
+			});
+			console.info('[project-store] Opened project', {
+				path: selected,
+				...projectTraceSummary(project),
 			});
 			set({
 				project,
@@ -412,11 +443,26 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 				...project,
 				project: { ...project.project, modifiedAt: new Date().toISOString() },
 			};
+			console.info('[project-store] Saving project', {
+				path: filePath,
+				...projectTraceSummary(updated),
+			});
 			const json = await invoke<string>('plugin:spindle-project|serialise_project', {
 				project: updated,
 			});
 			await invoke('write_text_file', { path: filePath, contents: json });
 			set({ project: updated, isDirty: false });
+			console.info('[project-store] Saved project', {
+				path: filePath,
+				jsonLength: typeof json === 'string' ? json.length : null,
+			});
+		} catch (error) {
+			console.error('[project-store] Save failed', {
+				path: filePath,
+				error,
+				...projectTraceSummary(project),
+			});
+			throw error;
 		} finally {
 			set({ isLoading: false });
 		}
@@ -444,11 +490,26 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 				...project,
 				project: { ...project.project, modifiedAt: new Date().toISOString() },
 			};
+			console.info('[project-store] Saving project as', {
+				path: selected,
+				...projectTraceSummary(updated),
+			});
 			const json = await invoke<string>('plugin:spindle-project|serialise_project', {
 				project: updated,
 			});
 			await invoke('write_text_file', { path: selected, contents: json });
 			set({ project: updated, filePath: selected, isDirty: false });
+			console.info('[project-store] Saved project as', {
+				path: selected,
+				jsonLength: typeof json === 'string' ? json.length : null,
+			});
+		} catch (error) {
+			console.error('[project-store] Save-as failed', {
+				path: selected,
+				error,
+				...projectTraceSummary(project),
+			});
+			throw error;
 		} finally {
 			set({ isLoading: false });
 		}
@@ -698,6 +759,12 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 		const skipUnsupportedStreams = useAppSettingsStore.getState().devSkipUnsupportedStreams;
 		set({ buildStatus: 'planning' });
 		try {
+			console.info('[project-store] Generating build plan', {
+				outputDir,
+				skipSidecar,
+				skipUnsupportedStreams,
+				...projectTraceSummary(project),
+			});
 			const plan = await invoke<BuildPlan>('plugin:spindle-project|generate_build_plan', {
 				project,
 				outputDirectory: outputDir,
@@ -706,6 +773,11 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 			});
 			set({ buildPlan: plan, buildStatus: 'idle' });
 		} catch (e) {
+			console.error('[project-store] Build plan generation failed', {
+				error: e,
+				outputDir,
+				...projectTraceSummary(project),
+			});
 			set({
 				buildStatus: 'error',
 				buildLog: [`Build plan generation failed: ${e}`],
