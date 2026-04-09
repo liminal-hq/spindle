@@ -3,6 +3,7 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: MIT
 
+import { readFile } from '@tauri-apps/plugin-fs';
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import type {
 	MenuButton,
@@ -11,6 +12,7 @@ import type {
 	SceneNode,
 	ButtonStateStyle,
 	AspectMode,
+	Asset,
 } from '../../types/project';
 
 // DVD menu canvas dimensions
@@ -36,6 +38,7 @@ const NAV_COLOURS: Record<string, string> = {
 
 export interface SceneCanvasProps {
 	buttons: MenuButton[];
+	assets?: Asset[];
 	/** All scene nodes (text, image, shape, etc.) for rendering non-button elements. */
 	sceneNodes: SceneNode[];
 	canvasHeight: number;
@@ -66,6 +69,7 @@ export interface SceneCanvasProps {
 
 export function SceneCanvas({
 	buttons,
+	assets = [],
 	sceneNodes,
 	canvasHeight,
 	onUpdateButton,
@@ -87,6 +91,7 @@ export function SceneCanvas({
 		return (
 			<NavigationPreview
 				buttons={buttons}
+				assets={assets}
 				sceneNodes={sceneNodes}
 				canvasHeight={canvasHeight}
 				showSafeArea={showSafeArea}
@@ -103,6 +108,7 @@ export function SceneCanvas({
 	return (
 		<DesignCanvas
 			buttons={buttons}
+			assets={assets}
 			sceneNodes={sceneNodes}
 			canvasHeight={canvasHeight}
 			onUpdateButton={onUpdateButton}
@@ -125,6 +131,7 @@ export function SceneCanvas({
 
 function DesignCanvas({
 	buttons,
+	assets,
 	sceneNodes,
 	canvasHeight,
 	onUpdateButton,
@@ -141,6 +148,7 @@ function DesignCanvas({
 	displayAspect,
 }: {
 	buttons: MenuButton[];
+	assets: Asset[];
 	sceneNodes: SceneNode[];
 	canvasHeight: number;
 	onUpdateButton: (buttonId: string, updates: Partial<MenuButton>) => void;
@@ -165,6 +173,7 @@ function DesignCanvas({
 			),
 		[sceneNodes],
 	);
+	const assetMap = useMemo(() => new Map(assets.map((asset) => [asset.id, asset])), [assets]);
 	const positionedNodes = useMemo(
 		() =>
 			sceneNodes.filter(
@@ -525,6 +534,7 @@ function DesignCanvas({
 				<RenderedSceneNode
 					key={node.id}
 					node={node}
+					asset={node.type === 'image' ? (assetMap.get(node.assetId) ?? null) : null}
 					canvasHeight={canvasHeight}
 					isSelected={selectedNodeId === node.id}
 					interactive={true}
@@ -604,6 +614,7 @@ function DesignCanvas({
 
 function NavigationPreview({
 	buttons,
+	assets,
 	sceneNodes,
 	canvasHeight,
 	showSafeArea,
@@ -615,6 +626,7 @@ function NavigationPreview({
 	displayAspect,
 }: {
 	buttons: MenuButton[];
+	assets: Asset[];
 	sceneNodes: SceneNode[];
 	canvasHeight: number;
 	showSafeArea: boolean;
@@ -643,6 +655,7 @@ function NavigationPreview({
 			),
 		[sceneNodes],
 	);
+	const assetMap = useMemo(() => new Map(assets.map((asset) => [asset.id, asset])), [assets]);
 	const positionedNodes = useMemo(
 		() =>
 			sceneNodes.filter(
@@ -771,7 +784,12 @@ function NavigationPreview({
 			</div>
 			<NavLines buttons={buttons} canvasWidth={MENU_WIDTH} canvasHeight={canvasHeight} />
 			{positionedNodes.map((node) => (
-				<RenderedSceneNode key={node.id} node={node} canvasHeight={canvasHeight} />
+				<RenderedSceneNode
+					key={node.id}
+					node={node}
+					asset={node.type === 'image' ? (assetMap.get(node.assetId) ?? null) : null}
+					canvasHeight={canvasHeight}
+				/>
 			))}
 			{buttons.map((btn) => {
 				const isFocused = btn.id === focusedId;
@@ -846,6 +864,7 @@ function NavigationPreview({
 
 function RenderedSceneNode({
 	node,
+	asset = null,
 	canvasHeight,
 	isSelected = false,
 	interactive = false,
@@ -853,12 +872,16 @@ function RenderedSceneNode({
 	onResizeStart,
 }: {
 	node: PositionedSceneNode;
+	asset?: Asset | null;
 	canvasHeight: number;
 	isSelected?: boolean;
 	interactive?: boolean;
 	onMouseDown?: (event: React.MouseEvent<HTMLDivElement>) => void;
 	onResizeStart?: (edge: ResizeEdge, event: React.MouseEvent<HTMLDivElement>) => void;
 }) {
+	const imageLabel =
+		node.type === 'image' ? (asset?.fileName ?? ('assetId' in node ? node.assetId : '')) : null;
+
 	return (
 		<div
 			key={node.id}
@@ -903,7 +926,7 @@ function RenderedSceneNode({
 			onMouseDown={onMouseDown}
 		>
 			{node.type === 'text' && 'content' in node ? node.content : null}
-			{node.type === 'image' ? <span className="scene-canvas__scene-node-badge">Image</span> : null}
+			{node.type === 'image' ? <ImageNodeArtwork asset={asset} label={imageLabel} /> : null}
 			{interactive && onResizeStart
 				? (['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'] as ResizeEdge[]).map((edge) => (
 						<div
@@ -915,6 +938,76 @@ function RenderedSceneNode({
 				: null}
 		</div>
 	);
+}
+
+function ImageNodeArtwork({ asset, label }: { asset?: Asset | null; label: string | null }) {
+	const [imageSrc, setImageSrc] = useState<string | null>(null);
+
+	useEffect(() => {
+		let revokedUrl: string | null = null;
+		let cancelled = false;
+
+		async function loadImage() {
+			if (!asset) {
+				setImageSrc(null);
+				return;
+			}
+
+			try {
+				const bytes = await readFile(asset.sourcePath);
+				if (cancelled) {
+					return;
+				}
+				const blob = new Blob([bytes], { type: mimeTypeForImageAsset(asset.fileName) });
+				const objectUrl = URL.createObjectURL(blob);
+				revokedUrl = objectUrl;
+				setImageSrc(objectUrl);
+			} catch {
+				if (!cancelled) {
+					setImageSrc(asset.sourcePath);
+				}
+			}
+		}
+
+		void loadImage();
+
+		return () => {
+			cancelled = true;
+			if (revokedUrl) {
+				URL.revokeObjectURL(revokedUrl);
+			}
+		};
+	}, [asset]);
+
+	return (
+		<>
+			{imageSrc ? (
+				<img
+					className="scene-canvas__image-artwork"
+					src={imageSrc}
+					alt={label ?? 'Menu image'}
+					draggable={false}
+				/>
+			) : (
+				<div className="scene-canvas__image-placeholder" aria-hidden="true">
+					<div className="scene-canvas__image-placeholder-sun" />
+					<div className="scene-canvas__image-placeholder-horizon" />
+				</div>
+			)}
+			<div className="scene-canvas__image-overlay">
+				<span className="scene-canvas__image-kicker">Image</span>
+				<span className="scene-canvas__image-caption">{label || 'Assign an image asset'}</span>
+			</div>
+		</>
+	);
+}
+
+function mimeTypeForImageAsset(fileName: string): string {
+	if (/\.png$/i.test(fileName)) return 'image/png';
+	if (/\.jpe?g$/i.test(fileName)) return 'image/jpeg';
+	if (/\.bmp$/i.test(fileName)) return 'image/bmp';
+	if (/\.tiff?$/i.test(fileName)) return 'image/tiff';
+	return 'application/octet-stream';
 }
 
 function buttonShadowCss(style: ButtonStateStyle): string {

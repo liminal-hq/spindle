@@ -142,7 +142,7 @@ Someone who understands FFmpeg and DVD authoring basics and wants a better front
 
 ### 8.2 Media import and inspection
 
-- Import local media files.
+- Import local video, audio, subtitle, and still-image files.
 - Inspect container metadata and stream metadata, including the container-level title tag where present.
 - Detect video properties such as resolution, interlacing, frame rate, aspect ratio, and duration.
 - Detect audio streams, codecs, channel layouts, sample rates, and language tags where available.
@@ -180,6 +180,7 @@ Someone who understands FFmpeg and DVD authoring basics and wants a better front
 ### 8.6 Menus
 
 - **Scene-Driven Authoring**: Support for a full scene graph with layers, groups, and non-interactive nodes (Text, Image, Shape, Video).
+- **Still-Image Authoring Assets**: Imported still-image assets can be used in menu backgrounds and image nodes without being exposed as valid title-source selections.
 - **Integrated Motion Model**: Menus support an authored timing model (intro, loop, timeout) and background audio from day one.
 - **Semantic Interaction**: Explicit focus routing and navigation mapping with remote simulation.
 - **Advanced Action Model**: Support for stream selection (audio/subtitle) and action sequencing.

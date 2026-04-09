@@ -95,6 +95,35 @@ function parentDir(filePath: string): string {
 	return filePath.replace(/[/\\][^/\\]+$/, '') || filePath;
 }
 
+const IMPORTABLE_MEDIA_EXTENSIONS = [
+	'mpg',
+	'mpeg',
+	'vob',
+	'm2v',
+	'mp4',
+	'mkv',
+	'avi',
+	'mov',
+	'ts',
+	'ac3',
+	'dts',
+	'lpcm',
+	'wav',
+	'mp2',
+	'mp3',
+	'aac',
+	'sub',
+	'idx',
+	'srt',
+	'sup',
+	'png',
+	'jpg',
+	'jpeg',
+	'bmp',
+	'tif',
+	'tiff',
+] as const;
+
 function mergeInspectedAsset(existingAsset: Asset, inspected: Asset): Asset {
 	return {
 		...inspected,
@@ -472,28 +501,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 			filters: [
 				{
 					name: 'Media Files',
-					extensions: [
-						'mpg',
-						'mpeg',
-						'vob',
-						'm2v',
-						'mp4',
-						'mkv',
-						'avi',
-						'mov',
-						'ts',
-						'ac3',
-						'dts',
-						'lpcm',
-						'wav',
-						'mp2',
-						'mp3',
-						'aac',
-						'sub',
-						'idx',
-						'srt',
-						'sup',
-					],
+					extensions: [...IMPORTABLE_MEDIA_EXTENSIONS],
 				},
 			],
 		});
@@ -614,28 +622,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 			filters: [
 				{
 					name: 'Media Files',
-					extensions: [
-						'mpg',
-						'mpeg',
-						'vob',
-						'm2v',
-						'mp4',
-						'mkv',
-						'avi',
-						'mov',
-						'ts',
-						'ac3',
-						'dts',
-						'lpcm',
-						'wav',
-						'mp2',
-						'mp3',
-						'aac',
-						'sub',
-						'idx',
-						'srt',
-						'sup',
-					],
+					extensions: [...IMPORTABLE_MEDIA_EXTENSIONS],
 				},
 			],
 		});

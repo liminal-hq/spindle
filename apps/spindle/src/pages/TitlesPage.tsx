@@ -486,6 +486,12 @@ function TitleEditor({
 	allMenus: { id: string; name: string }[];
 	onUpdate: (title: Title) => void;
 }) {
+	const titleSourceAssets = assets.filter(
+		(asset) =>
+			asset.videoStreams.length > 0 ||
+			asset.audioStreams.length > 0 ||
+			asset.subtitleStreams.length > 0,
+	);
 	const selectedAsset = assets.find((a) => a.id === title.sourceAssetId) ?? null;
 
 	const handleAssetChange = (assetId: string) => {
@@ -569,7 +575,7 @@ function TitleEditor({
 					onChange={(e) => e.target.value && handleAssetChange(e.target.value)}
 				>
 					<option value="">Select an asset…</option>
-					{assets.map((a) => (
+					{titleSourceAssets.map((a) => (
 						<option key={a.id} value={a.id}>
 							{a.fileName}
 						</option>

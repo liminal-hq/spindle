@@ -1395,6 +1395,7 @@ function MenuEditor({
 						>
 							<SceneCanvas
 								buttons={currentButtons}
+								assets={project.assets}
 								sceneNodes={sceneNodes}
 								canvasHeight={canvasHeight}
 								onUpdateButton={handleUpdateButton}

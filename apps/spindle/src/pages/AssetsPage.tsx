@@ -84,8 +84,8 @@ function EmptyAssetsView({ onImport }: { onImport: () => void }) {
 			</svg>
 			<h2>No assets imported</h2>
 			<p className="text-muted">
-				Import video, audio, or subtitle files to get started. Spindle will inspect each file and
-				check DVD compatibility.
+				Import video, audio, subtitle, or still-image files to get started. Spindle will inspect
+				each file and check where it fits into DVD authoring.
 			</p>
 			<button className="btn btn--primary" onClick={onImport}>
 				Import Media
@@ -103,6 +103,8 @@ function AssetRow({
 	isSelected: boolean;
 	onSelect: () => void;
 }) {
+	const isStillImageAsset = /\.(png|jpe?g|bmp|tiff?)$/i.test(asset.fileName);
+
 	return (
 		<div
 			className={`assets__row card ${isSelected ? 'assets__row--selected' : ''}`}
@@ -124,6 +126,7 @@ function AssetRow({
 				)}
 			</div>
 			<div className="assets__row-badges">
+				{isStillImageAsset && <span className="badge badge--neutral">image</span>}
 				{asset.videoStreams.length > 0 && (
 					<span className="badge badge--neutral">{asset.videoStreams.length} video</span>
 				)}
@@ -264,6 +267,7 @@ function AssetDetail({
 function AssetThumbnail({ asset, variant }: { asset: Asset; variant: 'row' | 'detail' }) {
 	const [loadFailed, setLoadFailed] = useState(false);
 	const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
+	const isStillImageAsset = /\.(png|jpe?g|bmp|tiff?)$/i.test(asset.fileName);
 
 	useEffect(() => {
 		setLoadFailed(false);
@@ -274,6 +278,26 @@ function AssetThumbnail({ asset, variant }: { asset: Asset; variant: 'row' | 'de
 		let cancelled = false;
 
 		async function loadThumbnail() {
+			if (isStillImageAsset) {
+				try {
+					const bytes = await readFile(asset.sourcePath);
+					if (cancelled) {
+						return;
+					}
+					const blob = new Blob([bytes], { type: mimeTypeForImageAsset(asset.fileName) });
+					const objectUrl = URL.createObjectURL(blob);
+					revokedUrl = objectUrl;
+					setThumbnailUrl(objectUrl);
+					setLoadFailed(false);
+				} catch {
+					if (!cancelled) {
+						setThumbnailUrl(asset.sourcePath);
+						setLoadFailed(false);
+					}
+				}
+				return;
+			}
+
 			if (!asset.thumbnailPath) {
 				setThumbnailUrl(null);
 				return;
@@ -321,7 +345,7 @@ function AssetThumbnail({ asset, variant }: { asset: Asset; variant: 'row' | 'de
 				URL.revokeObjectURL(revokedUrl);
 			}
 		};
-	}, [asset.thumbnailPath]);
+	}, [asset.sourcePath, asset.thumbnailPath, isStillImageAsset]);
 
 	const className = variant === 'row' ? 'assets__row-thumb' : 'assets__detail-thumb';
 	const canShowImage = Boolean(thumbnailUrl) && !loadFailed;
@@ -355,6 +379,14 @@ function AssetThumbnail({ asset, variant }: { asset: Asset; variant: 'row' | 'de
 			</div>
 		</div>
 	);
+}
+
+function mimeTypeForImageAsset(fileName: string): string {
+	if (/\.png$/i.test(fileName)) return 'image/png';
+	if (/\.jpe?g$/i.test(fileName)) return 'image/jpeg';
+	if (/\.bmp$/i.test(fileName)) return 'image/bmp';
+	if (/\.tiff?$/i.test(fileName)) return 'image/tiff';
+	return 'application/octet-stream';
 }
 
 function CompatibilityBadge({ compat }: { compat: CompatibilityAssessment | null }) {

@@ -8,7 +8,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { LayersPanel } from './LayersPanel';
 import { InspectorPanel } from './InspectorPanel';
 import { SceneCanvas } from './SceneCanvas';
-import type { SceneNode, MenuButton, MenuHighlightColours } from '../../types/project';
+import type { SceneNode, MenuButton, MenuHighlightColours, Asset } from '../../types/project';
 import { DEFAULT_HIGHLIGHT_COLOURS, createDefaultMenuCompilePolicy } from '../../types/project';
 import {
 	buildAudioSetupMenu,
@@ -279,6 +279,25 @@ describe('SceneCanvas', () => {
 			videoAssetId: null,
 		},
 	];
+	const imageAsset: Asset = {
+		id: 'asset-image-1',
+		fileName: 'chapter-card.png',
+		sourcePath: '/tmp/chapter-card.png',
+		fileSizeBytes: 1024,
+		durationSecs: null,
+		containerFormat: null,
+		videoStreams: [],
+		audioStreams: [],
+		subtitleStreams: [],
+		compatibility: null,
+		fingerprint: null,
+		compatibilityDetail: null,
+		warnings: [],
+		thumbnailPath: null,
+		thumbnailError: null,
+		sourceChapters: [],
+		formatTitle: null,
+	};
 
 	it('renders button nodes on the canvas', () => {
 		render(
@@ -495,6 +514,42 @@ describe('SceneCanvas', () => {
 		);
 
 		expect(screen.getByText('Menu Title')).toBeTruthy();
+	});
+
+	it('renders imported image artwork for image nodes', async () => {
+		render(
+			<SceneCanvas
+				buttons={buttons}
+				assets={[imageAsset]}
+				canvasHeight={480}
+				sceneNodes={[
+					{
+						type: 'image',
+						id: 'image-1',
+						assetId: 'asset-image-1',
+						x: 96,
+						y: 72,
+						width: 240,
+						height: 160,
+					},
+				]}
+				onUpdateButton={vi.fn()}
+				onUpdateSceneNode={vi.fn()}
+				showSafeArea={false}
+				backgroundLabel={null}
+				backgroundColour={null}
+				defaultButtonId={null}
+				previewMode={false}
+				highlightColours={DEFAULT_HIGHLIGHT_COLOURS}
+				honestPreview={false}
+				showNavLines={false}
+				selectedNodeId={null}
+				onSelectNode={vi.fn()}
+			/>,
+		);
+
+		expect(await screen.findByAltText('chapter-card.png')).toBeTruthy();
+		expect(screen.getByText('chapter-card.png')).toBeTruthy();
 	});
 
 	it('resets preview focus when the active menu changes', () => {
