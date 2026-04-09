@@ -20,7 +20,7 @@ pub(crate) fn generate_dvdauthor_xml(
     project: &SpindleProjectFile,
     titles_dir: &Path,
     menus_dir: &Path,
-    video_ts_dir: &Path,
+    output_dir: &Path,
 ) -> crate::Result<String> {
     let format_str = match project.disc.standard {
         VideoStandard::Ntsc => "ntsc",
@@ -32,7 +32,7 @@ pub(crate) fn generate_dvdauthor_xml(
     xml.push_str("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
     xml.push_str(&format!(
         "<dvdauthor dest=\"{}\">\n",
-        xml_escape(&video_ts_dir.display().to_string())
+        xml_escape(&output_dir.display().to_string())
     ));
 
     let has_global_menus = !project.disc.global_menus.is_empty();
@@ -487,6 +487,19 @@ mod tests {
         assert!(
             plan.dvdauthor_xml.contains("aspect=\"16:9\""),
             "dvdauthor XML must declare aspect ratio\n{}",
+            plan.dvdauthor_xml
+        );
+    }
+
+    #[test]
+    fn dvdauthor_xml_targets_disc_output_root() {
+        let project = test_project();
+        let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+
+        assert!(
+            plan.dvdauthor_xml
+                .contains("<dvdauthor dest=\"/tmp/dvd_output\">"),
+            "dvdauthor XML should target the disc output root, not a nested VIDEO_TS directory\n{}",
             plan.dvdauthor_xml
         );
     }

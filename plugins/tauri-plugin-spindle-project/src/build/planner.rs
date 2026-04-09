@@ -424,13 +424,13 @@ pub fn generate_build_plan_with_options(
         project,
         &paths.titles_dir,
         &paths.menus_dir,
-        &paths.video_ts_dir,
+        &paths.output_dir,
     )?;
     let xml_path = paths.dvdauthor_xml_path();
 
     jobs.push(BuildJob::AuthorDvd {
         xml_path: xml_path.display().to_string(),
-        output_path: paths.video_ts_dir.display().to_string(),
+        output_path: paths.output_dir.display().to_string(),
         command: vec![
             tools.dvdauthor,
             "-x".to_string(),
