@@ -10,7 +10,7 @@ import { InspectorPanel } from './InspectorPanel';
 import { SceneCanvas } from './SceneCanvas';
 import type { SceneNode, MenuButton, MenuHighlightColours } from '../../types/project';
 import { DEFAULT_HIGHLIGHT_COLOURS, createDefaultMenuCompilePolicy } from '../../types/project';
-import { createGeneratedMenuFromButtons } from '../../pages/MenusPage';
+import { buildSubtitleSetupMenu, createGeneratedMenuFromButtons } from '../../pages/MenusPage';
 
 // ── LayersPanel ────────────────────────────────────────────────────────────
 
@@ -553,6 +553,35 @@ describe('SceneCanvas', () => {
 		expect(container.querySelector('.scene-canvas__node--focused')).toHaveTextContent('Setup');
 	});
 
+	it('preserves keyboard-moved focus while previewing the current menu', () => {
+		const { container } = render(
+			<SceneCanvas
+				buttons={buttons}
+				canvasHeight={480}
+				sceneNodes={[]}
+				onUpdateButton={vi.fn()}
+				onUpdateSceneNode={vi.fn()}
+				showSafeArea={false}
+				backgroundLabel={null}
+				backgroundColour={null}
+				defaultButtonId="btn-1"
+				previewMode={true}
+				highlightColours={DEFAULT_HIGHLIGHT_COLOURS}
+				honestPreview={false}
+				showNavLines={true}
+				selectedNodeId={null}
+				onSelectNode={vi.fn()}
+			/>,
+		);
+
+		const viewport = container.querySelector('.scene-canvas__viewport--preview');
+		expect(viewport).toBeTruthy();
+
+		fireEvent.keyDown(viewport!, { key: 'ArrowDown' });
+
+		expect(container.querySelector('.scene-canvas__node--focused')).toHaveTextContent('Chapters');
+	});
+
 	it('applies the selected button preview state on the design canvas', () => {
 		const styledNode: SceneNode = {
 			type: 'button',
@@ -706,5 +735,74 @@ describe('SceneCanvas', () => {
 		);
 
 		expect(menu.authoredDocument?.scene.designSize).toEqual({ width: 720, height: 576 });
+	});
+
+	it('builds subtitle setup choices from the titleset-wide subtitle union', () => {
+		const menu = buildSubtitleSetupMenu(
+			{
+				id: 'titleset-1',
+				name: 'Feature',
+				menus: [],
+				titles: [
+					{
+						id: 'title-1',
+						name: 'Feature A',
+						sourceAssetId: null,
+						videoMapping: null,
+						videoOutputProfile: { raster: 'full-d1', aspect: 'four-by-three' },
+						audioMappings: [],
+						subtitleMappings: [
+							{
+								id: 'sub-1',
+								sourceStreamIndex: 0,
+								label: 'English',
+								language: 'en',
+								orderIndex: 0,
+								isDefault: true,
+								isForced: false,
+							},
+						],
+						chapters: [],
+						endAction: null,
+						orderIndex: 0,
+					},
+					{
+						id: 'title-2',
+						name: 'Feature B',
+						sourceAssetId: null,
+						videoMapping: null,
+						videoOutputProfile: { raster: 'full-d1', aspect: 'four-by-three' },
+						audioMappings: [],
+						subtitleMappings: [
+							{
+								id: 'sub-2',
+								sourceStreamIndex: 1,
+								label: 'Spanish',
+								language: 'es',
+								orderIndex: 1,
+								isDefault: false,
+								isForced: false,
+							},
+						],
+						chapters: [],
+						endAction: null,
+						orderIndex: 1,
+					},
+				],
+			},
+			'NTSC',
+			null,
+		);
+
+		expect(menu).not.toBeNull();
+		expect(menu?.buttons.map((button) => button.label)).toEqual([
+			'English',
+			'Spanish',
+			'Subtitles Off',
+		]);
+		expect(menu?.buttons[1]?.action).toEqual({
+			type: 'sequence',
+			actions: [{ type: 'setSubtitleStream', streamIndex: 1 }],
+		});
 	});
 });

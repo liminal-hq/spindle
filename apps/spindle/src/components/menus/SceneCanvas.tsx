@@ -630,6 +630,10 @@ function NavigationPreview({
 	);
 	const [activatedId, setActivatedId] = useState<string | null>(null);
 	const containerRef = useRef<HTMLDivElement>(null);
+	const previousPreviewTargetsRef = useRef<{
+		buttonIdsKey: string;
+		defaultButtonId: string | null;
+	} | null>(null);
 	const buttonNodeMap = useMemo(
 		() =>
 			new Map(
@@ -661,15 +665,28 @@ function NavigationPreview({
 	useEffect(() => {
 		if (buttons.length === 0) {
 			setFocusedId(null);
+			previousPreviewTargetsRef.current = null;
 			return;
 		}
 
+		const buttonIdsKey = buttons.map((button) => button.id).join('|');
 		const preferredFocusId = defaultButtonId ?? buttons[0]?.id ?? null;
 		const focusStillExists =
 			focusedId !== null && buttons.some((button) => button.id === focusedId);
-		if (!focusStillExists || focusedId !== preferredFocusId) {
+		const previousTargets = previousPreviewTargetsRef.current;
+		const menuTargetsChanged =
+			previousTargets === null || previousTargets.buttonIdsKey !== buttonIdsKey;
+		const defaultFocusChanged =
+			previousTargets !== null && previousTargets.defaultButtonId !== defaultButtonId;
+
+		if (!focusStillExists || menuTargetsChanged || defaultFocusChanged) {
 			setFocusedId(preferredFocusId);
 		}
+
+		previousPreviewTargetsRef.current = {
+			buttonIdsKey,
+			defaultButtonId,
+		};
 	}, [buttons, defaultButtonId, focusedId]);
 
 	const handleKeyDown = useCallback(
