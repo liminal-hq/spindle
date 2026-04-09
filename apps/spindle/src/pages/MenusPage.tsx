@@ -1595,23 +1595,38 @@ function buildChapterMenusForTitleset(
 	});
 }
 
-function buildAudioSetupMenu(
+export function buildAudioSetupMenu(
 	titleset: SpindleProjectFile['disc']['titlesets'][number],
 	standard: VideoStandard,
 	returnMenuId: string | null,
 ): Menu | null {
-	const title = titleset.titles.find((candidate) => candidate.audioMappings.length > 0);
-	if (!title) return null;
+	const audioChoices = Array.from(
+		titleset.titles.reduce((choices, title) => {
+			title.audioMappings.forEach((mapping) => {
+				const streamIndex = mapping.orderIndex;
+				if (!choices.has(streamIndex)) {
+					choices.set(streamIndex, {
+						index: streamIndex,
+						label: mapping.label || `Audio ${streamIndex + 1}`,
+					});
+				}
+			});
+			return choices;
+		}, new Map<number, { index: number; label: string }>()),
+	)
+		.sort(([leftIndex], [rightIndex]) => leftIndex - rightIndex)
+		.map(([, choice]) => choice);
+	if (audioChoices.length === 0) return null;
 
 	const id = crypto.randomUUID();
-	const buttons: MenuButton[] = title.audioMappings.map((mapping, index) => ({
+	const buttons: MenuButton[] = audioChoices.map((choice) => ({
 		id: crypto.randomUUID(),
-		label: mapping.label || `Audio ${index + 1}`,
-		bounds: { x: 120, y: 132 + index * 72, width: 480, height: 48 },
+		label: choice.label,
+		bounds: { x: 120, y: 132 + choice.index * 72, width: 480, height: 48 },
 		action: {
 			type: 'sequence' as const,
 			actions: [
-				{ type: 'setAudioStream' as const, streamIndex: index },
+				{ type: 'setAudioStream' as const, streamIndex: choice.index },
 				...(returnMenuId
 					? ([{ type: 'showMenu', menuId: returnMenuId }] satisfies PlaybackAction[])
 					: []),

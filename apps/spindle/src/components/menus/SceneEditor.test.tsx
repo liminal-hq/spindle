@@ -10,7 +10,11 @@ import { InspectorPanel } from './InspectorPanel';
 import { SceneCanvas } from './SceneCanvas';
 import type { SceneNode, MenuButton, MenuHighlightColours } from '../../types/project';
 import { DEFAULT_HIGHLIGHT_COLOURS, createDefaultMenuCompilePolicy } from '../../types/project';
-import { buildSubtitleSetupMenu, createGeneratedMenuFromButtons } from '../../pages/MenusPage';
+import {
+	buildAudioSetupMenu,
+	buildSubtitleSetupMenu,
+	createGeneratedMenuFromButtons,
+} from '../../pages/MenusPage';
 
 // ── LayersPanel ────────────────────────────────────────────────────────────
 
@@ -735,6 +739,73 @@ describe('SceneCanvas', () => {
 		);
 
 		expect(menu.authoredDocument?.scene.designSize).toEqual({ width: 720, height: 576 });
+	});
+
+	it('builds audio setup choices from the titleset-wide audio union', () => {
+		const menu = buildAudioSetupMenu(
+			{
+				id: 'titleset-1',
+				name: 'Feature',
+				menus: [],
+				titles: [
+					{
+						id: 'title-1',
+						name: 'Feature A',
+						sourceAssetId: null,
+						videoMapping: null,
+						videoOutputProfile: { raster: 'full-d1', aspect: 'four-by-three' },
+						audioMappings: [
+							{
+								id: 'audio-1',
+								sourceStreamIndex: 0,
+								outputTarget: 'AC3',
+								copyMode: 'copy',
+								label: 'English 2.0',
+								language: 'en',
+								orderIndex: 0,
+								isDefault: true,
+							},
+						],
+						subtitleMappings: [],
+						chapters: [],
+						endAction: null,
+						orderIndex: 0,
+					},
+					{
+						id: 'title-2',
+						name: 'Feature B',
+						sourceAssetId: null,
+						videoMapping: null,
+						videoOutputProfile: { raster: 'full-d1', aspect: 'four-by-three' },
+						audioMappings: [
+							{
+								id: 'audio-2',
+								sourceStreamIndex: 1,
+								outputTarget: 'AC3',
+								copyMode: 'copy',
+								label: 'Commentary',
+								language: 'en',
+								orderIndex: 1,
+								isDefault: false,
+							},
+						],
+						subtitleMappings: [],
+						chapters: [],
+						endAction: null,
+						orderIndex: 1,
+					},
+				],
+			},
+			'NTSC',
+			null,
+		);
+
+		expect(menu).not.toBeNull();
+		expect(menu?.buttons.map((button) => button.label)).toEqual(['English 2.0', 'Commentary']);
+		expect(menu?.buttons[1]?.action).toEqual({
+			type: 'sequence',
+			actions: [{ type: 'setAudioStream', streamIndex: 1 }],
+		});
 	});
 
 	it('builds subtitle setup choices from the titleset-wide subtitle union', () => {
