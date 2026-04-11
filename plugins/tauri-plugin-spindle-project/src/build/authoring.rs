@@ -492,14 +492,14 @@ mod tests {
     }
 
     #[test]
-    fn dvdauthor_xml_targets_disc_output_root() {
+    fn dvdauthor_xml_targets_named_disc_output_directory() {
         let project = test_project();
         let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
 
         assert!(
             plan.dvdauthor_xml
-                .contains("<dvdauthor dest=\"/tmp/dvd_output\">"),
-            "dvdauthor XML should target the disc output root, not a nested VIDEO_TS directory\n{}",
+                .contains("<dvdauthor dest=\"/tmp/dvd_output/DVD_DISC\">"),
+            "dvdauthor XML should target the named authored disc directory, not the raw output root or a nested VIDEO_TS directory\n{}",
             plan.dvdauthor_xml
         );
     }

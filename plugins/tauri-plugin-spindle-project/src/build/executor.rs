@@ -972,11 +972,11 @@ mod tests {
         }
 
         assert!(
-            output_dir.join("VIDEO_TS/VIDEO_TS.IFO").exists(),
+            output_dir.join("DVD_DISC/VIDEO_TS/VIDEO_TS.IFO").exists(),
             "expected VIDEO_TS.IFO in authored output"
         );
         assert!(
-            output_dir.join("VIDEO_TS/VTS_01_0.IFO").exists(),
+            output_dir.join("DVD_DISC/VIDEO_TS/VTS_01_0.IFO").exists(),
             "expected first titleset IFO in authored output"
         );
 

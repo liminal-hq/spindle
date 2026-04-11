@@ -17,6 +17,7 @@ use super::util::{sanitise_filename, xml_escape};
 struct BuildPaths {
     output_dir: PathBuf,
     work_dir: PathBuf,
+    dvd_root_dir: PathBuf,
     titles_dir: PathBuf,
     subtitles_dir: PathBuf,
     menus_dir: PathBuf,
@@ -39,14 +40,16 @@ impl BuildPaths {
     fn new(output_dir: &str) -> Self {
         let output_dir = PathBuf::from(output_dir);
         let work_dir = output_dir.join("_spindle_work");
+        let dvd_root_dir = output_dir.join("DVD_DISC");
         let titles_dir = work_dir.join("titles");
         let subtitles_dir = work_dir.join("subtitles");
         let menus_dir = work_dir.join("menus");
-        let video_ts_dir = output_dir.join("VIDEO_TS");
+        let video_ts_dir = dvd_root_dir.join("VIDEO_TS");
 
         Self {
             output_dir,
             work_dir,
+            dvd_root_dir,
             titles_dir,
             subtitles_dir,
             menus_dir,
@@ -60,6 +63,7 @@ impl BuildPaths {
             self.titles_dir.display().to_string(),
             self.subtitles_dir.display().to_string(),
             self.menus_dir.display().to_string(),
+            self.dvd_root_dir.display().to_string(),
             self.video_ts_dir.display().to_string(),
         ]
     }
@@ -67,7 +71,7 @@ impl BuildPaths {
     fn reset_directories(&self) -> Vec<String> {
         vec![
             self.work_dir.display().to_string(),
-            self.video_ts_dir.display().to_string(),
+            self.dvd_root_dir.display().to_string(),
         ]
     }
 
@@ -424,13 +428,13 @@ pub fn generate_build_plan_with_options(
         project,
         &paths.titles_dir,
         &paths.menus_dir,
-        &paths.output_dir,
+        &paths.dvd_root_dir,
     )?;
     let xml_path = paths.dvdauthor_xml_path();
 
     jobs.push(BuildJob::AuthorDvd {
         xml_path: xml_path.display().to_string(),
-        output_path: paths.output_dir.display().to_string(),
+        output_path: paths.dvd_root_dir.display().to_string(),
         command: vec![
             tools.dvdauthor,
             "-x".to_string(),
@@ -450,7 +454,7 @@ pub fn generate_build_plan_with_options(
             .to_uppercase();
 
         jobs.push(BuildJob::CreateIso {
-            source_path: paths.output_dir.display().to_string(),
+            source_path: paths.dvd_root_dir.display().to_string(),
             output_path: iso_path.display().to_string(),
             command: vec![
                 tools.iso_authoring,
@@ -459,7 +463,7 @@ pub fn generate_build_plan_with_options(
                 volume_id,
                 "-o".to_string(),
                 iso_path.display().to_string(),
-                paths.output_dir.display().to_string(),
+                paths.dvd_root_dir.display().to_string(),
             ],
             label: "Create ISO image".to_string(),
         });
