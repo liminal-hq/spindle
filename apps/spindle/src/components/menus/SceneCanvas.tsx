@@ -942,6 +942,7 @@ function RenderedSceneNode({
 
 function ImageNodeArtwork({ asset, label }: { asset?: Asset | null; label: string | null }) {
 	const [imageSrc, setImageSrc] = useState<string | null>(null);
+	const [loadFailed, setLoadFailed] = useState(false);
 
 	useEffect(() => {
 		let revokedUrl: string | null = null;
@@ -950,6 +951,7 @@ function ImageNodeArtwork({ asset, label }: { asset?: Asset | null; label: strin
 		async function loadImage() {
 			if (!asset) {
 				setImageSrc(null);
+				setLoadFailed(false);
 				return;
 			}
 
@@ -962,9 +964,11 @@ function ImageNodeArtwork({ asset, label }: { asset?: Asset | null; label: strin
 				const objectUrl = URL.createObjectURL(blob);
 				revokedUrl = objectUrl;
 				setImageSrc(objectUrl);
+				setLoadFailed(false);
 			} catch {
 				if (!cancelled) {
-					setImageSrc(asset.sourcePath);
+					setImageSrc(null);
+					setLoadFailed(true);
 				}
 			}
 		}
@@ -996,7 +1000,9 @@ function ImageNodeArtwork({ asset, label }: { asset?: Asset | null; label: strin
 			)}
 			<div className="scene-canvas__image-overlay">
 				<span className="scene-canvas__image-kicker">Image</span>
-				<span className="scene-canvas__image-caption">{label || 'Assign an image asset'}</span>
+				<span className="scene-canvas__image-caption">
+					{loadFailed ? 'Preview unavailable' : label || 'Assign an image asset'}
+				</span>
 			</div>
 		</>
 	);

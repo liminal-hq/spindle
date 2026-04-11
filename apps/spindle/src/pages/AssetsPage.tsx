@@ -291,8 +291,8 @@ function AssetThumbnail({ asset, variant }: { asset: Asset; variant: 'row' | 'de
 					setLoadFailed(false);
 				} catch {
 					if (!cancelled) {
-						setThumbnailUrl(asset.sourcePath);
-						setLoadFailed(false);
+						setThumbnailUrl(null);
+						setLoadFailed(true);
 					}
 				}
 				return;
