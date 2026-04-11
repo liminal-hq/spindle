@@ -250,9 +250,8 @@
 	gap: var(--space-2);
 	font-size: var(--text-xs);
 	font-weight: 700;
-	letter-spacing: 0.06em;
+	letter-spacing: 0.03em;
 	color: var(--text-muted);
-	text-transform: uppercase;
 }
 
 .menus__scope-badge {
@@ -944,9 +943,8 @@
 .menu-map__conn-type {
 	font-size: 10px;
 	font-weight: 700;
-	letter-spacing: 0.04em;
+	letter-spacing: 0.02em;
 	min-width: 40px;
-	text-transform: uppercase;
 }
 
 .menu-map__legend {
