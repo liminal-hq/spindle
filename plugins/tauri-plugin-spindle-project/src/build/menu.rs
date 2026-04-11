@@ -213,10 +213,11 @@ pub(crate) fn build_ffmpeg_menu_command(
     let fps = fps_rational_str(standard.frame_rate());
 
     let mut cmd = vec![ffmpeg_bin.to_string(), "-y".to_string()];
-    let mut vf_parts = Vec::new();
-    let mut image_inputs = Vec::new();
+    let mut filter_complex_parts = Vec::new();
+    let mut draw_filters = Vec::new();
+    let mut next_input_index;
+    let background_label = "canvas0".to_string();
 
-    // 1. Base input (background)
     if let Some(background_asset_id) = menu_ref.background_asset_id() {
         let asset = assets.get(background_asset_id).ok_or_else(|| {
             crate::Error::Build(format!(
@@ -224,16 +225,35 @@ pub(crate) fn build_ffmpeg_menu_command(
                 menu_ref.name()
             ))
         })?;
-        cmd.extend(["-i".to_string(), asset.source_path.clone()]);
-        vf_parts.push(format!("fps={fps}"));
-        vf_parts.push(format!(
-            "scale={width}:{height}:force_original_aspect_ratio=decrease,pad={width}:{height}:(ow-iw)/2:(oh-ih)/2"
-        ));
-        vf_parts.push("trim=start_frame=0:end_frame=1".to_string());
-        vf_parts.push(format!(
-            "loop=loop={}:size=1:start=0",
-            menu_loop_frame_count(standard).saturating_sub(1)
-        ));
+
+        if asset.is_still_image() {
+            cmd.extend([
+                "-f".to_string(),
+                "lavfi".to_string(),
+                "-i".to_string(),
+                format!("color=c=#101014:s={}x{}:d=1", width, height),
+            ]);
+            cmd.extend([
+                "-loop".to_string(),
+                "1".to_string(),
+                "-i".to_string(),
+                asset.source_path.clone(),
+            ]);
+            filter_complex_parts.push(format!(
+                "[1:v]scale={width}:{height}:force_original_aspect_ratio=decrease,pad={width}:{height}:(ow-iw)/2:(oh-ih)/2[background_fill]"
+            ));
+            filter_complex_parts.push(format!(
+                "[0:v][background_fill]overlay=0:0[{background_label}]"
+            ));
+            next_input_index = 2;
+        } else {
+            cmd.extend(["-i".to_string(), asset.source_path.clone()]);
+            filter_complex_parts.push(format!(
+                "[0:v]fps={fps},scale={width}:{height}:force_original_aspect_ratio=decrease,pad={width}:{height}:(ow-iw)/2:(oh-ih)/2,trim=start_frame=0:end_frame=1,loop=loop={}:size=1:start=0[{background_label}]",
+                menu_loop_frame_count(standard).saturating_sub(1)
+            ));
+            next_input_index = 1;
+        }
     } else {
         cmd.extend([
             "-f".to_string(),
@@ -241,27 +261,70 @@ pub(crate) fn build_ffmpeg_menu_command(
             "-i".to_string(),
             format!("color=c=#101014:s={}x{}:d=1", width, height),
         ]);
-        vf_parts.push(format!("fps={fps}"));
+        filter_complex_parts.push(format!("[0:v]fps={fps}[{background_label}]"));
+        next_input_index = 1;
     }
 
-    // 2. Additional image inputs for scene nodes
-    for node in menu_ref.scene_nodes() {
-        if let SceneNode::Image { id, asset_id, .. } = node {
-            let asset = assets.get(asset_id.as_str()).ok_or_else(|| {
-                crate::Error::Build(format!(
-                    "Image asset \"{}\" not found for node \"{}\" in menu \"{}\"",
-                    asset_id,
-                    id,
-                    menu_ref.name()
-                ))
-            })?;
+    let mut current_label = background_label;
+
+    for (image_index, node) in menu_ref
+        .scene_nodes()
+        .iter()
+        .filter_map(|node| match node {
+            SceneNode::Image {
+                id,
+                asset_id,
+                x,
+                y,
+                width,
+                height,
+            } => Some((id, asset_id, *x, *y, *width, *height)),
+            _ => None,
+        })
+        .enumerate()
+    {
+        let (id, asset_id, x, y, overlay_width, overlay_height) = node;
+        let asset = assets.get(asset_id.as_str()).ok_or_else(|| {
+            crate::Error::Build(format!(
+                "Image asset \"{}\" not found for node \"{}\" in menu \"{}\"",
+                asset_id,
+                id,
+                menu_ref.name()
+            ))
+        })?;
+
+        if asset.is_still_image() {
+            cmd.extend([
+                "-loop".to_string(),
+                "1".to_string(),
+                "-i".to_string(),
+                asset.source_path.clone(),
+            ]);
+            filter_complex_parts.push(format!(
+                "[{next_input_index}:v]scale={overlay_width}:{overlay_height}:force_original_aspect_ratio=decrease,pad={overlay_width}:{overlay_height}:(ow-iw)/2:(oh-ih)/2[overlay_src_{image_index}]",
+                overlay_width = overlay_width.round() as i32,
+                overlay_height = overlay_height.round() as i32,
+            ));
+        } else {
             cmd.extend(["-i".to_string(), asset.source_path.clone()]);
-            image_inputs.push(node);
+            filter_complex_parts.push(format!(
+                "[{next_input_index}:v]fps={fps},scale={overlay_width}:{overlay_height}:force_original_aspect_ratio=decrease,pad={overlay_width}:{overlay_height}:(ow-iw)/2:(oh-ih)/2,trim=start_frame=0:end_frame=1,loop=loop={}:size=1:start=0[overlay_src_{image_index}]",
+                menu_loop_frame_count(standard).saturating_sub(1),
+                overlay_width = overlay_width.round() as i32,
+                overlay_height = overlay_height.round() as i32,
+            ));
         }
+
+        let next_label = format!("canvas_overlay_{image_index}");
+        filter_complex_parts.push(format!(
+            "[{current_label}][overlay_src_{image_index}]overlay=x={}:y={}[{next_label}]",
+            x.round() as i32,
+            y.round() as i32,
+        ));
+        current_label = next_label;
+        next_input_index += 1;
     }
 
-    // 3. Scene node rendering (non-buttons)
-    // Render shapes and images first as they are often backgrounds
     for node in menu_ref.scene_nodes() {
         if let SceneNode::Shape {
             x,
@@ -273,7 +336,7 @@ pub(crate) fn build_ffmpeg_menu_command(
         } = node
         {
             let fill = fill.as_deref().unwrap_or("#333333");
-            vf_parts.push(format!(
+            draw_filters.push(format!(
                 "drawbox=x={}:y={}:w={}:h={}:color={}:t=fill",
                 x.round() as i32,
                 y.round() as i32,
@@ -284,35 +347,6 @@ pub(crate) fn build_ffmpeg_menu_command(
         }
     }
 
-    /*
-    // Overlay images
-    for (idx, node) in image_inputs.iter().enumerate() {
-        if let SceneNode::Image { x, y, width, height, .. } = node {
-            // Index starts at 1 because 0 is the background
-            let input_idx = idx + 1;
-            // Scale the image input to its authored size
-            // We use [v:input_idx] and overlay it
-            let _overlay_filter = format!(
-                "[{input_idx}:v]scale={w}:{h}:force_original_aspect_ratio=decrease,pad={w}:{h}:(ow-iw)/2:(oh-ih)/2[ovl{idx}];[v][ovl{idx}]overlay=x={x}:y={y}[v]",
-                input_idx = input_idx,
-                idx = idx,
-                w = width.round() as i32,
-                h = height.round() as i32,
-                x = x.round() as i32,
-                y = y.round() as i32
-            );
-            // This requires a complex filtergraph, but for now we'll try to stick to vf if possible
-            // Actually, overlay is better in filter_complex.
-            // But let's see if we can use a simpler approach for now.
-        }
-    }
-    */
-
-    // For now, let's keep it simple: Text and Buttons only for the "Full Loop" test
-    // to avoid complex filtergraph logic until we really need it.
-    // (Wait, the directive said verify it produces valid MPEG. If I skip images it's still "valid" but incomplete).
-
-    // 4. Render text nodes
     for node in menu_ref.scene_nodes() {
         if let SceneNode::Text {
             content,
@@ -328,7 +362,7 @@ pub(crate) fn build_ffmpeg_menu_command(
             let font_size = font_size.unwrap_or(24.0);
             let colour = colour.as_deref().unwrap_or("white");
             let escaped_text = escape_drawtext_text(content);
-            vf_parts.push(format!(
+            draw_filters.push(format!(
                 "drawtext=text='{escaped_text}':fontcolor={colour}:fontsize={font_size}:shadowcolor=black@0.6:shadowx=2:shadowy=2:x={x}+(({width}-text_w)/2):y={y}+(({height}-text_h)/2)",
                 escaped_text = escaped_text,
                 colour = colour,
@@ -341,16 +375,22 @@ pub(crate) fn build_ffmpeg_menu_command(
         }
     }
 
-    // 5. Button overlays and labels (on top)
-    vf_parts.push(menu_button_overlay_filter(menu_ref));
+    draw_filters.push(menu_button_overlay_filter(menu_ref));
     if let Some(label_filter) = menu_button_label_filter(menu_ref) {
-        vf_parts.push(label_filter);
+        draw_filters.push(label_filter);
     }
-    vf_parts.push(format!("setsar={sar}"));
+    draw_filters.push(format!("setsar={sar}"));
+
+    filter_complex_parts.push(format!(
+        "[{current_label}]{}[menuout]",
+        draw_filters.join(",")
+    ));
 
     cmd.extend([
-        "-vf".to_string(),
-        vf_parts.join(","),
+        "-filter_complex".to_string(),
+        filter_complex_parts.join(";"),
+        "-map".to_string(),
+        "[menuout]".to_string(),
         "-r".to_string(),
         fps.to_string(),
         "-c:v".to_string(),
@@ -801,5 +841,71 @@ mod tests {
         // Check for button (overlay box)
         assert!(cmd_str.contains("drawbox=x=100:y=150:w=200:h=40"));
         assert!(cmd_str.contains("-aspect 16:9"));
+        assert!(cmd_str.contains("-filter_complex"));
+        assert!(cmd_str.contains("-map [menuout]"));
+    }
+
+    #[test]
+    fn build_ffmpeg_menu_command_scales_still_image_backgrounds_into_dvd_raster() {
+        let mut menu = Menu::default();
+        menu.id = "menu-1".to_string();
+        menu.name = "Image Menu".to_string();
+        menu.authored_document = Some(MenuDocument {
+            id: "menu-1".to_string(),
+            name: "Image Menu".to_string(),
+            domain: crate::models::MenuDomain::Vmgm,
+            scene: MenuScene {
+                design_size: MenuSize {
+                    width: 720.0,
+                    height: 480.0,
+                },
+                background: SceneBackground {
+                    asset_id: Some("asset-image".to_string()),
+                    colour: Some("#101014".to_string()),
+                },
+                nodes: vec![],
+                guides: vec![],
+            },
+            interaction: MenuInteractionGraph {
+                default_focus_id: None,
+                nodes: vec![],
+                timeout_action: None,
+            },
+            timing: MenuTiming::default(),
+            highlight_colours: MenuHighlightColours::default(),
+            background_mode: BackgroundMode::Still,
+            theme_ref: None,
+            generation_meta: None,
+            compile_policy: MenuCompilePolicy::default(),
+        });
+
+        let project = SpindleProjectFile::default();
+        let menu_ref = AuthorableMenuRef {
+            menu: &menu,
+            domain: super::MenuDomain::Vmgm,
+        };
+        let mut assets = std::collections::HashMap::new();
+        let mut image_asset = Asset::new(
+            "background.png".to_string(),
+            "/tmp/background.png".to_string(),
+        );
+        image_asset.container_format = Some("png_pipe".to_string());
+        assets.insert("asset-image", &image_asset);
+
+        let cmd = super::build_ffmpeg_menu_command(
+            "ffmpeg",
+            &menu_ref,
+            &assets,
+            &project,
+            VideoStandard::Ntsc,
+            std::path::Path::new("/tmp/output.mpg"),
+        )
+        .unwrap();
+
+        let cmd_str = cmd.join(" ");
+
+        assert!(cmd_str.contains("-loop 1 -i /tmp/background.png"));
+        assert!(cmd_str.contains("[1:v]scale=720:480:force_original_aspect_ratio=decrease,pad=720:480:(ow-iw)/2:(oh-ih)/2[background_fill]"));
+        assert!(cmd_str.contains("[0:v][background_fill]overlay=0:0[canvas0]"));
     }
 }

@@ -1124,6 +1124,24 @@ impl Asset {
             format_title: None,
         }
     }
+
+    pub fn is_still_image(&self) -> bool {
+        let extension = std::path::Path::new(&self.file_name)
+            .extension()
+            .and_then(|ext| ext.to_str())
+            .map(|ext| ext.to_ascii_lowercase());
+
+        if let Some(extension) = extension.as_deref() {
+            if matches!(extension, "png" | "jpg" | "jpeg" | "bmp" | "tif" | "tiff") {
+                return true;
+            }
+        }
+
+        self.container_format
+            .as_deref()
+            .map(|format| matches!(format, "png_pipe" | "image2"))
+            .unwrap_or(false)
+    }
 }
 
 /// Detected video stream metadata.
