@@ -1003,12 +1003,14 @@ function ImageNodeArtwork({ asset, label }: { asset?: Asset | null; label: strin
 					<div className="scene-canvas__image-placeholder-horizon" />
 				</div>
 			)}
-			<div className="scene-canvas__image-overlay">
-				<span className="scene-canvas__image-kicker">Image</span>
-				<span className="scene-canvas__image-caption">
-					{loadFailed ? 'Preview unavailable' : label || 'Assign an image asset'}
-				</span>
-			</div>
+			{!imageSrc ? (
+				<div className="scene-canvas__image-overlay">
+					<span className="scene-canvas__image-kicker">Image</span>
+					<span className="scene-canvas__image-caption">
+						{loadFailed ? 'Preview unavailable' : label || 'Assign an image asset'}
+					</span>
+				</div>
+			) : null}
 		</>
 	);
 }
