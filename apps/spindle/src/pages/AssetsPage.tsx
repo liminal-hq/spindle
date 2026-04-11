@@ -289,8 +289,13 @@ function AssetThumbnail({ asset, variant }: { asset: Asset; variant: 'row' | 'de
 					revokedUrl = objectUrl;
 					setThumbnailUrl(objectUrl);
 					setLoadFailed(false);
-				} catch {
+				} catch (error) {
 					if (!cancelled) {
+						console.warn('[assets] Still-image preview load failed', {
+							assetId: asset.id,
+							sourcePath: asset.sourcePath,
+							error,
+						});
 						setThumbnailUrl(null);
 						setLoadFailed(true);
 					}

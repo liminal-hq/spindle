@@ -965,8 +965,13 @@ function ImageNodeArtwork({ asset, label }: { asset?: Asset | null; label: strin
 				revokedUrl = objectUrl;
 				setImageSrc(objectUrl);
 				setLoadFailed(false);
-			} catch {
+			} catch (error) {
 				if (!cancelled) {
+					console.warn('[scene-canvas] Image node preview load failed', {
+						assetId: asset.id,
+						sourcePath: asset.sourcePath,
+						error,
+					});
 					setImageSrc(null);
 					setLoadFailed(true);
 				}
