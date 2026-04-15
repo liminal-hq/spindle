@@ -36,12 +36,14 @@ impl SpindleProjectFile {
         for menu in &mut self.disc.global_menus {
             menu.migrate_to_document(MenuDomain::Vmgm, standard, global_display_aspect);
             menu.ensure_authored_compile_defaults(global_display_aspect);
+            menu.backfill_design_size_aspect(global_display_aspect);
         }
         for (titleset_index, titleset) in self.disc.titlesets.iter_mut().enumerate() {
             let display_aspect = titleset_display_aspects[titleset_index];
             for menu in &mut titleset.menus {
                 menu.migrate_to_document(MenuDomain::Titleset, standard, display_aspect);
                 menu.ensure_authored_compile_defaults(display_aspect);
+                menu.backfill_design_size_aspect(display_aspect);
             }
         }
     }
@@ -130,11 +132,22 @@ impl Default for Disc {
     }
 }
 
-/// Supported disc format families. DVD in v1, BD planned for future.
+/// Supported disc format families. DVD in v1; BD, SVCD, VCD are model-only for now.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum DiscFamily {
     DvdVideo,
+    BluRay,
+    Svcd,
+    Vcd,
+}
+
+impl DiscFamily {
+    /// Returns `true` only for formats that are fully supported in the UI.
+    /// New variants are model-only until their authoring and render pipelines are complete.
+    pub fn is_ui_supported(&self) -> bool {
+        matches!(self, DiscFamily::DvdVideo)
+    }
 }
 
 /// Video standard (affects resolution profiles, frame rates, timing).
@@ -332,11 +345,106 @@ impl VideoRaster {
 }
 
 /// Aspect ratio presentation mode.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum AspectMode {
     FourByThree,
+    #[default]
     SixteenByNine,
+}
+
+/// Derived render target for a disc build job. Not stored in the project file;
+/// computed once from `Disc` settings and passed through the build pipeline.
+#[derive(Debug, Clone, Copy)]
+pub struct RenderTarget {
+    pub family: DiscFamily,
+    /// `None` for Blu-ray (no NTSC/PAL distinction at this level).
+    pub standard: Option<VideoStandard>,
+    pub raster_width: u32,
+    pub raster_height: u32,
+    pub sar_num: u32,
+    pub sar_den: u32,
+}
+
+impl RenderTarget {
+    /// Derive a render target from the disc's family, video standard, and display aspect.
+    pub fn from_disc(disc: &Disc, aspect: AspectMode) -> Self {
+        match disc.family {
+            DiscFamily::DvdVideo => {
+                let (width, height) = VideoRaster::FullD1.resolution(disc.standard);
+                let (dar_num, dar_den) = match aspect {
+                    AspectMode::FourByThree => (4u64, 3u64),
+                    AspectMode::SixteenByNine => (16u64, 9u64),
+                };
+                // SAR = (DAR_num * height) / (DAR_den * width), reduced by GCD.
+                let mut num = dar_num * height as u64;
+                let mut den = dar_den * width as u64;
+                let g = gcd_u64(num, den);
+                num /= g;
+                den /= g;
+                Self {
+                    family: DiscFamily::DvdVideo,
+                    standard: Some(disc.standard),
+                    raster_width: width,
+                    raster_height: height,
+                    sar_num: num as u32,
+                    sar_den: den as u32,
+                }
+            }
+            DiscFamily::BluRay => Self {
+                family: DiscFamily::BluRay,
+                standard: None,
+                raster_width: 1920,
+                raster_height: 1080,
+                sar_num: 1,
+                sar_den: 1,
+            },
+            DiscFamily::Svcd => {
+                let (width, height) = match disc.standard {
+                    VideoStandard::Ntsc => (480u32, 480u32),
+                    VideoStandard::Pal => (480u32, 576u32),
+                };
+                // SVCD SAR (4:3 only): 15:11
+                Self {
+                    family: DiscFamily::Svcd,
+                    standard: Some(disc.standard),
+                    raster_width: width,
+                    raster_height: height,
+                    sar_num: 15,
+                    sar_den: 11,
+                }
+            }
+            DiscFamily::Vcd => {
+                let (width, height) = match disc.standard {
+                    VideoStandard::Ntsc => (352u32, 240u32),
+                    VideoStandard::Pal => (352u32, 288u32),
+                };
+                // VCD SAR (4:3 only): 10:11
+                Self {
+                    family: DiscFamily::Vcd,
+                    standard: Some(disc.standard),
+                    raster_width: width,
+                    raster_height: height,
+                    sar_num: 10,
+                    sar_den: 11,
+                }
+            }
+        }
+    }
+
+    /// SAR as an ffmpeg `setsar` string (e.g. `"10/11"`).
+    pub fn sar_string(&self) -> String {
+        format!("{}/{}", self.sar_num, self.sar_den)
+    }
+}
+
+fn gcd_u64(mut a: u64, mut b: u64) -> u64 {
+    while b != 0 {
+        let tmp = b;
+        b = a % b;
+        a = tmp;
+    }
+    a.max(1)
 }
 
 /// DVD-legal audio output targets.
@@ -444,6 +552,7 @@ impl Menu {
             design_size: MenuSize {
                 width: res_w,
                 height: res_h,
+                aspect: display_aspect,
             },
             background: SceneBackground {
                 asset_id: self.background_asset_id.clone(),
@@ -517,6 +626,19 @@ impl Menu {
         if let Some(doc) = &mut self.authored_document {
             if doc.compile_policy.display_aspect.is_none() {
                 doc.compile_policy.display_aspect = Some(display_aspect);
+            }
+        }
+    }
+
+    /// Back-fill `design_size.aspect` on existing authored documents where the field
+    /// was absent (old project files deserialise it as the default `SixteenByNine`).
+    /// We overwrite only when the compile policy has an explicit display aspect that
+    /// differs, so we don't clobber intentionally authored values.
+    pub fn backfill_design_size_aspect(&mut self, display_aspect: AspectMode) {
+        if let Some(doc) = &mut self.authored_document {
+            let policy_aspect = doc.compile_policy.display_aspect.unwrap_or(display_aspect);
+            if doc.scene.design_size.aspect != policy_aspect {
+                doc.scene.design_size.aspect = policy_aspect;
             }
         }
     }
@@ -604,6 +726,31 @@ pub struct MenuScene {
 pub struct MenuSize {
     pub width: f64,
     pub height: f64,
+    /// Display aspect for this design canvas. Defaults to `SixteenByNine` for
+    /// compatibility with project files written before this field existed.
+    #[serde(default)]
+    pub aspect: AspectMode,
+}
+
+
+impl Default for MenuSize {
+    fn default() -> Self {
+        Self::default_for(DiscFamily::DvdVideo, AspectMode::SixteenByNine)
+    }
+}
+
+impl MenuSize {
+    /// Default design-space canvas dimensions for a given disc family and aspect mode.
+    pub fn default_for(family: DiscFamily, aspect: AspectMode) -> Self {
+        let (width, height) = match (family, aspect) {
+            (DiscFamily::DvdVideo, AspectMode::FourByThree) => (1024.0, 768.0),
+            (DiscFamily::DvdVideo, AspectMode::SixteenByNine) => (1024.0, 576.0),
+            (DiscFamily::BluRay, _) => (1920.0, 1080.0),
+            (DiscFamily::Svcd, _) => (800.0, 600.0),
+            (DiscFamily::Vcd, _) => (704.0, 528.0),
+        };
+        Self { width, height, aspect }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1777,6 +1924,7 @@ mod tests {
                                 design_size: MenuSize {
                                     width: 720.0,
                                     height: 480.0,
+                                    aspect: AspectMode::SixteenByNine,
                                 },
                                 background: SceneBackground {
                                     asset_id: None,
@@ -1920,6 +2068,7 @@ mod tests {
                     design_size: MenuSize {
                         width: 720.0,
                         height: 480.0,
+                        aspect: AspectMode::SixteenByNine,
                     },
                     background: SceneBackground {
                         asset_id: None,
@@ -1971,6 +2120,101 @@ mod tests {
     }
 
     #[test]
+    fn disc_family_ui_support_gating() {
+        assert!(DiscFamily::DvdVideo.is_ui_supported());
+        assert!(!DiscFamily::BluRay.is_ui_supported());
+        assert!(!DiscFamily::Svcd.is_ui_supported());
+        assert!(!DiscFamily::Vcd.is_ui_supported());
+    }
+
+    #[test]
+    fn render_target_dvd_ntsc_4by3() {
+        // 720×480 raster, 4:3 DAR → SAR = (4×480)/(3×720) = 1920/2160 = 8/9
+        let disc = Disc { family: DiscFamily::DvdVideo, standard: VideoStandard::Ntsc, ..Disc::default() };
+        let target = RenderTarget::from_disc(&disc, AspectMode::FourByThree);
+        assert_eq!(target.raster_width, 720);
+        assert_eq!(target.raster_height, 480);
+        assert_eq!((target.sar_num, target.sar_den), (8, 9));
+    }
+
+    #[test]
+    fn render_target_dvd_ntsc_16by9() {
+        // 720×480 raster, 16:9 DAR → SAR = (16×480)/(9×720) = 7680/6480 = 32/27
+        let disc = Disc { family: DiscFamily::DvdVideo, standard: VideoStandard::Ntsc, ..Disc::default() };
+        let target = RenderTarget::from_disc(&disc, AspectMode::SixteenByNine);
+        assert_eq!(target.raster_width, 720);
+        assert_eq!(target.raster_height, 480);
+        assert_eq!((target.sar_num, target.sar_den), (32, 27));
+    }
+
+    #[test]
+    fn render_target_dvd_pal_4by3() {
+        // 720×576 raster, 4:3 DAR → SAR = (4×576)/(3×720) = 2304/2160 = 16/15
+        let disc = Disc { family: DiscFamily::DvdVideo, standard: VideoStandard::Pal, ..Disc::default() };
+        let target = RenderTarget::from_disc(&disc, AspectMode::FourByThree);
+        assert_eq!(target.raster_width, 720);
+        assert_eq!(target.raster_height, 576);
+        assert_eq!((target.sar_num, target.sar_den), (16, 15));
+    }
+
+    #[test]
+    fn render_target_bluray_is_square_pixels() {
+        let disc = Disc { family: DiscFamily::BluRay, standard: VideoStandard::Ntsc, ..Disc::default() };
+        let target = RenderTarget::from_disc(&disc, AspectMode::SixteenByNine);
+        assert_eq!(target.raster_width, 1920);
+        assert_eq!(target.raster_height, 1080);
+        assert_eq!((target.sar_num, target.sar_den), (1, 1));
+        assert!(target.standard.is_none());
+    }
+
+    #[test]
+    fn menu_size_default_for_dvd_ntsc_4by3() {
+        let size = MenuSize::default_for(DiscFamily::DvdVideo, AspectMode::FourByThree);
+        assert_eq!(size.width, 1024.0);
+        assert_eq!(size.height, 768.0);
+        assert_eq!(size.aspect, AspectMode::FourByThree);
+    }
+
+    #[test]
+    fn menu_size_default_for_dvd_ntsc_16by9() {
+        let size = MenuSize::default_for(DiscFamily::DvdVideo, AspectMode::SixteenByNine);
+        assert_eq!(size.width, 1024.0);
+        assert_eq!(size.height, 576.0);
+    }
+
+    #[test]
+    fn menu_size_default_for_bluray() {
+        let size = MenuSize::default_for(DiscFamily::BluRay, AspectMode::SixteenByNine);
+        assert_eq!(size.width, 1920.0);
+        assert_eq!(size.height, 1080.0);
+    }
+
+    #[test]
+    fn design_to_raster_scale_dvd_ntsc_16by9() {
+        // MenuSize 1024×576 + DVD NTSC 16:9 → scale_x ≈ 0.703, scale_y ≈ 0.833
+        let disc = Disc { family: DiscFamily::DvdVideo, standard: VideoStandard::Ntsc, ..Disc::default() };
+        let target = RenderTarget::from_disc(&disc, AspectMode::SixteenByNine);
+        let scale_x = target.raster_width as f64 / 1024.0;
+        let scale_y = target.raster_height as f64 / 576.0;
+        assert!((scale_x - 720.0 / 1024.0).abs() < 1e-9, "scale_x should be 720/1024, got {scale_x}");
+        assert!((scale_y - 480.0 / 576.0).abs() < 1e-9, "scale_y should be 480/576, got {scale_y}");
+
+        // A shape at design (100, 100) should map to raster (70, 83)
+        let rx = (100.0 * scale_x).round() as i32;
+        let ry = (100.0 * scale_y).round() as i32;
+        assert_eq!(rx, 70);
+        assert_eq!(ry, 83);
+    }
+
+    #[test]
+    fn menu_size_aspect_defaults_to_sixteen_by_nine_on_deserialise() {
+        // Old project files have no "aspect" field in designSize — should default to SixteenByNine.
+        let json = r#"{"width": 720.0, "height": 480.0}"#;
+        let size: MenuSize = serde_json::from_str(json).unwrap();
+        assert_eq!(size.aspect, AspectMode::SixteenByNine);
+    }
+
+    #[test]
     fn migrate_all_menus_backfills_display_aspect_on_legacy_authored_documents() {
         let mut project = SpindleProjectFile::default();
         project.disc.titlesets[0].titles.push(Title {
@@ -1999,6 +2243,7 @@ mod tests {
                     design_size: MenuSize {
                         width: 720.0,
                         height: 480.0,
+                        aspect: AspectMode::SixteenByNine,
                     },
                     background: SceneBackground {
                         asset_id: None,
