@@ -381,6 +381,22 @@ pub fn generate_build_plan_with_options(
             &menu_paths.base_video_path,
         )?;
 
+        let menu_aspect = menu_ref.display_aspect(project);
+        let target = RenderTarget::from_disc(&project.disc, menu_aspect);
+        let design_size = menu_ref
+            .menu
+            .authored_document
+            .as_ref()
+            .map(|doc| &doc.scene.design_size);
+        let (scale_x, scale_y) = if let Some(ds) = design_size {
+            (
+                target.raster_width as f64 / ds.width,
+                target.raster_height as f64 / ds.height,
+            )
+        } else {
+            (1.0, 1.0)
+        };
+
         jobs.push(BuildJob::RenderMenu {
             menu_id: menu_ref.menu.id.clone(),
             menu_name: menu_ref.name().to_string(),
@@ -396,15 +412,17 @@ pub fn generate_build_plan_with_options(
                 .buttons()
                 .iter()
                 .map(|button| MenuOverlayButton {
-                    x0: button.x.round() as i32,
-                    y0: button.y.round() as i32,
-                    x1: (button.x + button.width).round() as i32,
-                    y1: (button.y + button.height).round() as i32,
+                    x0: (button.x * scale_x).round() as i32,
+                    y0: (button.y * scale_y).round() as i32,
+                    x1: ((button.x + button.width) * scale_x).round() as i32,
+                    y1: ((button.y + button.height) * scale_y).round() as i32,
                 })
                 .collect(),
+            raster_width: target.raster_width,
+            raster_height: target.raster_height,
         });
 
-        let spumux_xml = generate_spumux_xml(&menu_ref, project.disc.standard, &paths.menus_dir);
+        let spumux_xml = generate_spumux_xml(&menu_ref, project.disc.standard, &paths.menus_dir, scale_x, scale_y);
         jobs.push(BuildJob::ComposeMenuHighlights {
             menu_id: menu_ref.menu.id.clone(),
             menu_name: menu_ref.menu.name.clone(),

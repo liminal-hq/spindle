@@ -8,7 +8,7 @@ use std::path::Path;
 
 use crate::models::*;
 
-use super::ffmpeg::{dvd_sample_aspect_ratio, fps_rational_str, output_display_aspect_ratio_parts};
+use super::ffmpeg::fps_rational_str;
 use super::types::MenuOverlayButton;
 use super::util::{sanitise_filename, xml_escape};
 
@@ -202,10 +202,26 @@ pub(crate) fn build_ffmpeg_menu_command(
     standard: VideoStandard,
     output_path: &Path,
 ) -> crate::Result<Vec<String>> {
-    let (width, height) = VideoRaster::FullD1.resolution(standard);
     let aspect = menu_ref.display_aspect(project);
-    let (display_num, display_den) = output_display_aspect_ratio_parts(aspect);
-    let sar = dvd_sample_aspect_ratio(width, height, display_num, display_den);
+    let target = RenderTarget::from_disc(&project.disc, aspect);
+    let width = target.raster_width;
+    let height = target.raster_height;
+    let sar = target.sar_string();
+
+    let design_size = menu_ref
+        .menu
+        .authored_document
+        .as_ref()
+        .map(|doc| &doc.scene.design_size);
+    let (scale_x, scale_y) = if let Some(ds) = design_size {
+        (
+            width as f64 / ds.width,
+            height as f64 / ds.height,
+        )
+    } else {
+        (1.0, 1.0)
+    };
+
     let aspect_str = match aspect {
         AspectMode::FourByThree => "4:3",
         AspectMode::SixteenByNine => "16:9",
@@ -293,6 +309,11 @@ pub(crate) fn build_ffmpeg_menu_command(
             ))
         })?;
 
+        let scaled_overlay_width = (overlay_width * scale_x).round() as i32;
+        let scaled_overlay_height = (overlay_height * scale_y).round() as i32;
+        let scaled_x = (x * scale_x).round() as i32;
+        let scaled_y = (y * scale_y).round() as i32;
+
         if asset.is_still_image() {
             cmd.extend([
                 "-loop".to_string(),
@@ -301,25 +322,19 @@ pub(crate) fn build_ffmpeg_menu_command(
                 asset.source_path.clone(),
             ]);
             filter_complex_parts.push(format!(
-                "[{next_input_index}:v]scale={overlay_width}:{overlay_height}:force_original_aspect_ratio=decrease,pad={overlay_width}:{overlay_height}:(ow-iw)/2:(oh-ih)/2[overlay_src_{image_index}]",
-                overlay_width = overlay_width.round() as i32,
-                overlay_height = overlay_height.round() as i32,
+                "[{next_input_index}:v]scale={scaled_overlay_width}:{scaled_overlay_height}:force_original_aspect_ratio=decrease,pad={scaled_overlay_width}:{scaled_overlay_height}:(ow-iw)/2:(oh-ih)/2[overlay_src_{image_index}]",
             ));
         } else {
             cmd.extend(["-i".to_string(), asset.source_path.clone()]);
             filter_complex_parts.push(format!(
-                "[{next_input_index}:v]fps={fps},scale={overlay_width}:{overlay_height}:force_original_aspect_ratio=decrease,pad={overlay_width}:{overlay_height}:(ow-iw)/2:(oh-ih)/2,trim=start_frame=0:end_frame=1,loop=loop={}:size=1:start=0[overlay_src_{image_index}]",
+                "[{next_input_index}:v]fps={fps},scale={scaled_overlay_width}:{scaled_overlay_height}:force_original_aspect_ratio=decrease,pad={scaled_overlay_width}:{scaled_overlay_height}:(ow-iw)/2:(oh-ih)/2,trim=start_frame=0:end_frame=1,loop=loop={}:size=1:start=0[overlay_src_{image_index}]",
                 menu_loop_frame_count(standard).saturating_sub(1),
-                overlay_width = overlay_width.round() as i32,
-                overlay_height = overlay_height.round() as i32,
             ));
         }
 
         let next_label = format!("canvas_overlay_{image_index}");
         filter_complex_parts.push(format!(
-            "[{current_label}][overlay_src_{image_index}]overlay=x={}:y={}[{next_label}]",
-            x.round() as i32,
-            y.round() as i32,
+            "[{current_label}][overlay_src_{image_index}]overlay=x={scaled_x}:y={scaled_y}[{next_label}]",
         ));
         current_label = next_label;
         next_input_index += 1;
@@ -338,10 +353,10 @@ pub(crate) fn build_ffmpeg_menu_command(
             let fill = fill.as_deref().unwrap_or("#333333");
             draw_filters.push(format!(
                 "drawbox=x={}:y={}:w={}:h={}:color={}:t=fill",
-                x.round() as i32,
-                y.round() as i32,
-                width.round() as i32,
-                height.round() as i32,
+                (x * scale_x).round() as i32,
+                (y * scale_y).round() as i32,
+                (width * scale_x).round() as i32,
+                (height * scale_y).round() as i32,
                 fill
             ));
         }
@@ -359,24 +374,21 @@ pub(crate) fn build_ffmpeg_menu_command(
             ..
         } = node
         {
-            let font_size = font_size.unwrap_or(24.0);
+            let font_size = font_size.unwrap_or(24.0) * scale_y;
             let colour = colour.as_deref().unwrap_or("white");
             let escaped_text = escape_drawtext_text(content);
+            let sx = (x * scale_x).round() as i32;
+            let sy = (y * scale_y).round() as i32;
+            let sw = (width * scale_x).round() as i32;
+            let sh = (height * scale_y).round() as i32;
             draw_filters.push(format!(
-                "drawtext=text='{escaped_text}':fontcolor={colour}:fontsize={font_size}:shadowcolor=black@0.6:shadowx=2:shadowy=2:x={x}+(({width}-text_w)/2):y={y}+(({height}-text_h)/2)",
-                escaped_text = escaped_text,
-                colour = colour,
-                font_size = font_size,
-                x = x.round() as i32,
-                y = y.round() as i32,
-                width = width.round() as i32,
-                height = height.round() as i32
+                "drawtext=text='{escaped_text}':fontcolor={colour}:fontsize={font_size:.1}:shadowcolor=black@0.6:shadowx=2:shadowy=2:x={sx}+(({sw}-text_w)/2):y={sy}+(({sh}-text_h)/2)",
             ));
         }
     }
 
-    draw_filters.push(menu_button_overlay_filter(menu_ref));
-    if let Some(label_filter) = menu_button_label_filter(menu_ref) {
+    draw_filters.push(menu_button_overlay_filter(menu_ref, scale_x, scale_y));
+    if let Some(label_filter) = menu_button_label_filter(menu_ref, scale_x, scale_y) {
         draw_filters.push(label_filter);
     }
     draw_filters.push(format!("setsar={sar}"));
@@ -430,7 +442,11 @@ fn menu_loop_frame_count(standard: VideoStandard) -> u32 {
     }
 }
 
-fn menu_button_overlay_filter(menu_ref: &AuthorableMenuRef<'_>) -> String {
+fn menu_button_overlay_filter(
+    menu_ref: &AuthorableMenuRef<'_>,
+    scale_x: f64,
+    scale_y: f64,
+) -> String {
     let buttons = menu_ref.buttons();
     if buttons.is_empty() {
         return "null".to_string();
@@ -450,10 +466,10 @@ fn menu_button_overlay_filter(menu_ref: &AuthorableMenuRef<'_>) -> String {
         };
         filters.push(format!(
             "drawbox=x={}:y={}:w={}:h={}:color={}:t=2",
-            button.x.round() as i32,
-            button.y.round() as i32,
-            button.width.round() as i32,
-            button.height.round() as i32,
+            (button.x * scale_x).round() as i32,
+            (button.y * scale_y).round() as i32,
+            (button.width * scale_x).round() as i32,
+            (button.height * scale_y).round() as i32,
             colour
         ));
     }
@@ -461,7 +477,11 @@ fn menu_button_overlay_filter(menu_ref: &AuthorableMenuRef<'_>) -> String {
     filters.join(",")
 }
 
-fn menu_button_label_filter(menu_ref: &AuthorableMenuRef<'_>) -> Option<String> {
+fn menu_button_label_filter(
+    menu_ref: &AuthorableMenuRef<'_>,
+    scale_x: f64,
+    scale_y: f64,
+) -> Option<String> {
     let buttons = menu_ref.buttons();
     let filters = buttons
         .iter()
@@ -471,11 +491,11 @@ fn menu_button_label_filter(menu_ref: &AuthorableMenuRef<'_>) -> Option<String> 
                 return None;
             }
 
-            let width = button.width.round().max(1.0) as i32;
-            let height = button.height.round().max(1.0) as i32;
+            let width = (button.width * scale_x).round().max(1.0) as i32;
+            let height = (button.height * scale_y).round().max(1.0) as i32;
             let font_size = (height as f64 * 0.34).round().clamp(14.0, 30.0) as i32;
-            let x = button.x.round() as i32;
-            let y = button.y.round() as i32;
+            let x = (button.x * scale_x).round() as i32;
+            let y = (button.y * scale_y).round() as i32;
             let escaped_label = escape_drawtext_text(label);
 
             Some(format!(
@@ -511,6 +531,8 @@ pub(crate) fn generate_spumux_xml(
     menu_ref: &AuthorableMenuRef<'_>,
     standard: VideoStandard,
     menus_dir: &Path,
+    scale_x: f64,
+    scale_y: f64,
 ) -> String {
     let format_str = match standard {
         VideoStandard::Ntsc => "NTSC",
@@ -537,10 +559,10 @@ pub(crate) fn generate_spumux_xml(
         xml.push_str(&format!(
             "      <button name=\"{}\" x0=\"{}\" y0=\"{}\" x1=\"{}\" y1=\"{}\"{}{}{}{} />\n",
             name,
-            button.x.round() as i32,
-            button.y.round() as i32,
-            (button.x + button.width).round() as i32,
-            (button.y + button.height).round() as i32,
+            (button.x * scale_x).round() as i32,
+            (button.y * scale_y).round() as i32,
+            ((button.x + button.width) * scale_x).round() as i32,
+            ((button.y + button.height) * scale_y).round() as i32,
             button_nav_attr("up", button.nav_up, &buttons),
             button_nav_attr("down", button.nav_down, &buttons),
             button_nav_attr("left", button.nav_left, &buttons),
@@ -595,9 +617,9 @@ pub(crate) fn generate_menu_overlay_images(
 
 pub(crate) struct MenuOverlayRender<'a> {
     pub(crate) ffmpeg_bin: &'a str,
-    pub(crate) standard: VideoStandard,
     pub(crate) menu_id: &'a str,
     pub(crate) button_bounds: &'a [MenuOverlayButton],
+    pub(crate) target: RenderTarget,
 }
 
 pub(crate) struct MenuOverlayImages<'a> {
@@ -614,7 +636,8 @@ fn render_menu_overlay_image(
     kind: &str,
     run_command: &impl Fn(&[String]) -> std::result::Result<String, String>,
 ) -> std::result::Result<(), String> {
-    let (width, height) = VideoRaster::FullD1.resolution(render.standard);
+    let width = render.target.raster_width;
+    let height = render.target.raster_height;
     let mut vf_parts = vec!["format=rgba".to_string()];
     for button in render.button_bounds {
         let width = (button.x1 - button.x0).max(1);
@@ -678,6 +701,7 @@ mod tests {
                     design_size: MenuSize {
                         width: 720.0,
                         height: 480.0,
+                        aspect: AspectMode::SixteenByNine,
                     },
                     background: SceneBackground {
                         asset_id: Some("asset-authored".to_string()),
@@ -748,6 +772,7 @@ mod tests {
                     design_size: MenuSize {
                         width: 720.0,
                         height: 480.0,
+                        aspect: AspectMode::SixteenByNine,
                     },
                     background: SceneBackground {
                         asset_id: None,
@@ -846,6 +871,79 @@ mod tests {
     }
 
     #[test]
+    fn build_ffmpeg_menu_command_scales_coordinates_for_design_space() {
+        // DVD NTSC 16:9 with 1024×576 design space.
+        // scale_x = 720/1024 ≈ 0.703125, scale_y = 480/576 ≈ 0.8333
+        // Shape at design (100, 100) → raster (70, 83)
+        let menu = Menu {
+            id: "menu-scale".to_string(),
+            authored_document: Some(MenuDocument {
+                id: "menu-scale".to_string(),
+                name: "Scale Test Menu".to_string(),
+                domain: crate::models::MenuDomain::Vmgm,
+                scene: MenuScene {
+                    design_size: MenuSize {
+                        width: 1024.0,
+                        height: 576.0,
+                        aspect: AspectMode::SixteenByNine,
+                    },
+                    background: SceneBackground {
+                        asset_id: None,
+                        colour: Some("#000000".to_string()),
+                    },
+                    nodes: vec![SceneNode::Shape {
+                        id: "shape-1".to_string(),
+                        x: 100.0,
+                        y: 100.0,
+                        width: 200.0,
+                        height: 50.0,
+                        fill: Some("#ff0000".to_string()),
+                    }],
+                    guides: vec![],
+                },
+                interaction: MenuInteractionGraph {
+                    default_focus_id: None,
+                    nodes: vec![],
+                    timeout_action: None,
+                },
+                timing: MenuTiming::default(),
+                highlight_colours: MenuHighlightColours::default(),
+                background_mode: BackgroundMode::Still,
+                theme_ref: None,
+                generation_meta: None,
+                compile_policy: MenuCompilePolicy {
+                    display_aspect: Some(AspectMode::SixteenByNine),
+                    ..MenuCompilePolicy::default()
+                },
+            }),
+            ..Menu::default()
+        };
+
+        let project = SpindleProjectFile::default();
+        let menu_ref = AuthorableMenuRef {
+            menu: &menu,
+            domain: super::MenuDomain::Vmgm,
+        };
+        let assets = std::collections::HashMap::new();
+        let cmd = super::build_ffmpeg_menu_command(
+            "ffmpeg",
+            &menu_ref,
+            &assets,
+            &project,
+            VideoStandard::Ntsc,
+            std::path::Path::new("/tmp/output.mpg"),
+        )
+        .unwrap();
+
+        let cmd_str = cmd.join(" ");
+        // Shape at design (100, 100) scaled by (720/1024, 480/576) → (70, 83)
+        assert!(
+            cmd_str.contains("drawbox=x=70:y=83:"),
+            "expected scaled coords x=70:y=83, got: {cmd_str}"
+        );
+    }
+
+    #[test]
     fn build_ffmpeg_menu_command_scales_still_image_backgrounds_into_dvd_raster() {
         let mut menu = Menu::default();
         menu.id = "menu-1".to_string();
@@ -858,6 +956,7 @@ mod tests {
                 design_size: MenuSize {
                     width: 720.0,
                     height: 480.0,
+                    aspect: AspectMode::SixteenByNine,
                 },
                 background: SceneBackground {
                     asset_id: Some("asset-image".to_string()),

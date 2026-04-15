@@ -10,6 +10,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Instant;
 
 use super::ffmpeg_progress;
+use crate::models::{DiscFamily, RenderTarget};
 use super::menu::{generate_menu_overlay_images, MenuOverlayImages, MenuOverlayRender};
 use super::types::{BuildJob, BuildJobStatus, BuildPlan, BuildProgress, BuildResult};
 
@@ -114,13 +115,23 @@ where
                 highlight_colour,
                 select_colour,
                 button_bounds,
+                raster_width,
+                raster_height,
                 ..
             } => {
+                let overlay_target = RenderTarget {
+                    family: DiscFamily::DvdVideo,
+                    standard: Some(*standard),
+                    raster_width: *raster_width,
+                    raster_height: *raster_height,
+                    sar_num: 1,
+                    sar_den: 1,
+                };
                 let render = MenuOverlayRender {
                     ffmpeg_bin: &command[0],
-                    standard: *standard,
                     menu_id,
                     button_bounds,
+                    target: overlay_target,
                 };
                 let images = MenuOverlayImages {
                     highlight_image_path,

@@ -63,6 +63,9 @@ pub enum BuildJob {
         highlight_colour: String,
         select_colour: String,
         button_bounds: Vec<MenuOverlayButton>,
+        /// Raster dimensions used for overlay image canvas.
+        raster_width: u32,
+        raster_height: u32,
     },
     /// Generate spumux XML and overlay subtitles/highlights on a menu.
     ComposeMenuHighlights {
