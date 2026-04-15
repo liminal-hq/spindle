@@ -11,7 +11,9 @@ mod ffmpeg_progress;
 mod menu;
 mod navigation;
 mod planner;
-pub(crate) mod skia;
+mod skia;
+
+pub use skia::{enumerate_fonts, FontEntry};
 #[cfg(test)]
 mod test_support;
 mod types;

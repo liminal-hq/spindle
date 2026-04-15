@@ -261,9 +261,9 @@ pub(crate) async fn export_menu_render_preview<R: Runtime>(
 pub(crate) async fn list_available_fonts<R: Runtime>(
     _app: AppHandle<R>,
     project: SpindleProjectFile,
-) -> Result<Vec<crate::build::skia::FontEntry>> {
+) -> Result<Vec<build::FontEntry>> {
     let asset_refs: Vec<&Asset> = project.assets.iter().collect();
-    Ok(crate::build::skia::enumerate_fonts(&asset_refs))
+    Ok(build::enumerate_fonts(&asset_refs))
 }
 
 /// Return the application cache directory for storing thumbnails and other transient data.
