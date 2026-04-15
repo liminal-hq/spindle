@@ -11,6 +11,7 @@ mod ffmpeg_progress;
 mod menu;
 mod navigation;
 mod planner;
+mod skia;
 #[cfg(test)]
 mod test_support;
 mod types;
