@@ -131,6 +131,8 @@ export interface InspectorPanelProps {
 	onUpdateMotionLoopCount?: (count: number) => void;
 	/** Run automatic navigation generation for the current menu. */
 	onAutoNav?: () => void;
+	/** Export a DAR-corrected render preview PNG for the current menu. */
+	onExportRenderPreview?: () => void;
 	/** Canvas preview state for the selected button. */
 	buttonPreviewState?: 'normal' | 'focus' | 'activate';
 	/** Update the canvas preview state for the selected button. */
@@ -171,6 +173,7 @@ export function InspectorPanel({
 	onUpdateMotionDurationSecs,
 	onUpdateMotionLoopCount,
 	onAutoNav,
+	onExportRenderPreview,
 	buttonPreviewState,
 	onButtonPreviewStateChange,
 	displayAspect,
@@ -224,6 +227,7 @@ export function InspectorPanel({
 							onUpdateMotionDurationSecs={onUpdateMotionDurationSecs}
 							onUpdateMotionLoopCount={onUpdateMotionLoopCount}
 							onAutoNav={onAutoNav}
+							onExportRenderPreview={onExportRenderPreview}
 							displayAspect={displayAspect ?? 'four-by-three'}
 							onDisplayAspectChange={onDisplayAspectChange}
 						/>
@@ -302,6 +306,7 @@ function MenuLevelInspector({
 	onUpdateMotionDurationSecs,
 	onUpdateMotionLoopCount,
 	onAutoNav,
+	onExportRenderPreview,
 	displayAspect,
 	onDisplayAspectChange,
 }: {
@@ -326,6 +331,7 @@ function MenuLevelInspector({
 	onUpdateMotionDurationSecs?: (secs: number | null) => void;
 	onUpdateMotionLoopCount?: (count: number) => void;
 	onAutoNav?: () => void;
+	onExportRenderPreview?: () => void;
 	displayAspect: AspectMode;
 	onDisplayAspectChange?: (aspect: AspectMode) => void;
 }) {
@@ -656,6 +662,24 @@ function MenuLevelInspector({
 					<div className="inspector-panel__actions-row">
 						<button className="btn btn--sm btn--ghost" type="button" onClick={onAutoNav}>
 							Auto Nav
+						</button>
+					</div>
+				</CollapsibleSection>
+			)}
+
+			{onExportRenderPreview && document && (
+				<CollapsibleSection title="Render Preview" defaultOpen>
+					<p className="inspector-panel__hint text-muted">
+						Export a DAR-corrected PNG showing what this menu will look like after encode, without
+						running a full build.
+					</p>
+					<div className="inspector-panel__actions-row">
+						<button
+							className="btn btn--sm btn--ghost"
+							type="button"
+							onClick={onExportRenderPreview}
+						>
+							Export Render Preview
 						</button>
 					</div>
 				</CollapsibleSection>

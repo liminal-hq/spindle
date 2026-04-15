@@ -3,8 +3,10 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: MIT
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import type { CSSProperties } from 'react';
+import { invoke } from '@tauri-apps/api/core';
+import { save } from '@tauri-apps/plugin-dialog';
 import { useProjectStore } from '../store/project-store';
 import { useNavigation } from '../App';
 import type {
@@ -647,6 +649,23 @@ function MenuEditor({
 	onRemove: () => void;
 	onAutoNav: () => void;
 }) {
+	const handleExportRenderPreview = useCallback(async () => {
+		const outputPath = await save({
+			title: 'Export Render Preview',
+			filters: [{ name: 'PNG Image', extensions: ['png'] }],
+			defaultPath: `${menu.name.replace(/[^a-z0-9_-]/gi, '_')}_preview.png`,
+		});
+		if (!outputPath) return;
+		try {
+			await invoke('plugin:spindle-project|export_menu_render_preview', {
+				project,
+				menuId: menu.id,
+				outputPath,
+			});
+		} catch (err) {
+			console.error('[MenusPage] export_menu_render_preview failed', err);
+		}
+	}, [menu.id, menu.name, project]);
 	const allTitles = project.disc.titlesets.flatMap((ts) => ts.titles);
 	const allMenus = [
 		...project.disc.globalMenus,
@@ -1447,6 +1466,9 @@ function MenuEditor({
 							onUpdateMotionDurationSecs={handleMotionDurationChange}
 							onUpdateMotionLoopCount={handleMotionLoopCountChange}
 							onAutoNav={onAutoNav}
+							onExportRenderPreview={
+								menu.authoredDocument ? handleExportRenderPreview : undefined
+							}
 							buttonPreviewState={buttonPreviewState}
 							onButtonPreviewStateChange={setButtonPreviewState}
 							displayAspect={displayAspect}

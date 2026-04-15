@@ -236,6 +236,22 @@ fn detect_tool_version(path: &std::path::Path) -> Option<String> {
     None
 }
 
+/// Export a DAR-corrected render preview PNG for the given menu.
+///
+/// Renders the menu scene at raster resolution and scales to display-aspect
+/// dimensions so the preview reflects what a player would show, without
+/// running a full build.
+#[command]
+pub(crate) async fn export_menu_render_preview<R: Runtime>(
+    _app: AppHandle<R>,
+    project: SpindleProjectFile,
+    menu_id: String,
+    output_path: String,
+) -> Result<()> {
+    let path = std::path::Path::new(&output_path);
+    build::export_menu_render_preview(&project, &menu_id, path)
+}
+
 /// Return the application cache directory for storing thumbnails and other transient data.
 #[command]
 pub(crate) async fn get_cache_dir<R: Runtime>(app: AppHandle<R>) -> Result<String> {
