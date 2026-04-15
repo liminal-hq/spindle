@@ -66,6 +66,12 @@ pub enum BuildJob {
         /// Raster dimensions used for overlay image canvas.
         raster_width: u32,
         raster_height: u32,
+        /// Path where the Skia scene PNG will be rendered before the ffmpeg encode.
+        scene_png_path: String,
+        /// JSON-encoded `MenuDocument` used to drive Skia scene rendering.
+        menu_document_json: String,
+        /// JSON-encoded map of `asset_id -> source_path` for image assets in the scene.
+        scene_assets_json: String,
     },
     /// Generate spumux XML and overlay subtitles/highlights on a menu.
     ComposeMenuHighlights {

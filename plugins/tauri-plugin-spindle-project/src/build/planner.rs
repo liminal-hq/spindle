@@ -10,7 +10,7 @@ use crate::models::*;
 
 use super::authoring::generate_dvdauthor_xml;
 use super::ffmpeg::{build_ffmpeg_text_subtitle_prepare_command, build_ffmpeg_transcode_command};
-use super::menu::{authorable_menus, build_ffmpeg_menu_command, generate_spumux_xml};
+use super::menu::{authorable_menus, build_ffmpeg_menu_command, generate_spumux_xml, menu_scene_png_path};
 use super::types::{BuildJob, BuildPlan, BuildSummary, MenuOverlayButton};
 use super::util::{sanitise_filename, xml_escape};
 
@@ -372,6 +372,7 @@ pub fn generate_build_plan_with_options(
 
     for menu_ref in authorable_menus(project) {
         let menu_paths = paths.menu_paths(&menu_ref.menu.id);
+        let scene_png_path = menu_scene_png_path(&menu_paths.base_video_path);
         let render_command = build_ffmpeg_menu_command(
             &tools.ffmpeg,
             &menu_ref,
@@ -379,6 +380,7 @@ pub fn generate_build_plan_with_options(
             project,
             project.disc.standard,
             &menu_paths.base_video_path,
+            &scene_png_path,
         )?;
 
         let menu_aspect = menu_ref.display_aspect(project);
@@ -396,6 +398,35 @@ pub fn generate_build_plan_with_options(
         } else {
             (1.0, 1.0)
         };
+
+        // Serialise the MenuDocument and the image assets it references so the
+        // executor can reconstruct them when calling render_menu_scene_to_png.
+        let menu_document_json = menu_ref
+            .menu
+            .authored_document
+            .as_ref()
+            .and_then(|doc| serde_json::to_string(doc).ok())
+            .unwrap_or_default();
+
+        // Collect only the assets referenced by SceneNode::Image nodes.
+        let scene_image_asset_ids: Vec<String> = menu_ref
+            .scene_nodes()
+            .iter()
+            .filter_map(|node| {
+                if let SceneNode::Image { asset_id, .. } = node {
+                    Some(asset_id.clone())
+                } else {
+                    None
+                }
+            })
+            .collect();
+        let mut scene_assets_map: HashMap<String, String> = HashMap::new();
+        for asset_id in &scene_image_asset_ids {
+            if let Some(asset) = assets.get(asset_id.as_str()) {
+                scene_assets_map.insert(asset_id.clone(), asset.source_path.clone());
+            }
+        }
+        let scene_assets_json = serde_json::to_string(&scene_assets_map).unwrap_or_default();
 
         jobs.push(BuildJob::RenderMenu {
             menu_id: menu_ref.menu.id.clone(),
@@ -420,6 +451,9 @@ pub fn generate_build_plan_with_options(
                 .collect(),
             raster_width: target.raster_width,
             raster_height: target.raster_height,
+            scene_png_path: scene_png_path.display().to_string(),
+            menu_document_json,
+            scene_assets_json,
         });
 
         let spumux_xml = generate_spumux_xml(&menu_ref, project.disc.standard, &paths.menus_dir, scale_x, scale_y);
