@@ -8,7 +8,7 @@ use std::path::Path;
 
 use skia_safe::{
     self as skia, surfaces, AlphaType, Canvas, Color, ColorType, Data, EncodedImageFormat,
-    Font, FontMgr, FontStyle, ISize, ImageInfo, Paint, PaintStyle, Point, Rect, Typeface,
+    Font, FontMgr, FontStyle, ISize, ImageInfo, Paint, PaintStyle, Point, RRect, Rect, Typeface,
 };
 
 use crate::models::{Asset, DiscFamily, FontWeight, RenderTarget, SceneNode, TextDecoration};
@@ -227,22 +227,53 @@ pub(crate) fn min_font_size_pt(family: DiscFamily) -> f32 {
 
 // ── Colour parsing ────────────────────────────────────────────────────────────
 
-/// Parse a CSS hex colour string (`#rrggbb` or `#rrggbbaa`) into a Skia `Color`.
+/// Parse a CSS colour string into a Skia `Color`.
+///
+/// Supported formats:
+/// - `#rrggbb` — six-digit hex, opaque
+/// - `#rrggbbaa` — eight-digit hex, with alpha
+/// - `rgba(r, g, b, a)` — CSS rgba() with float alpha in [0, 1]
+/// - `rgb(r, g, b)` — CSS rgb(), opaque
+///
 /// Returns opaque black on parse failure.
 pub(crate) fn parse_colour(s: &str) -> Color {
-    let s = s.trim().trim_start_matches('#');
-    match s.len() {
+    let s = s.trim();
+
+    // rgba(...) / rgb(...)
+    if let Some(inner) = s.strip_prefix("rgba(").and_then(|s| s.strip_suffix(')')) {
+        let parts: Vec<&str> = inner.splitn(4, ',').collect();
+        if parts.len() == 4 {
+            let r = parts[0].trim().parse::<f32>().unwrap_or(0.0).clamp(0.0, 255.0) as u8;
+            let g = parts[1].trim().parse::<f32>().unwrap_or(0.0).clamp(0.0, 255.0) as u8;
+            let b = parts[2].trim().parse::<f32>().unwrap_or(0.0).clamp(0.0, 255.0) as u8;
+            let a = (parts[3].trim().parse::<f32>().unwrap_or(1.0).clamp(0.0, 1.0) * 255.0).round() as u8;
+            return Color::from_argb(a, r, g, b);
+        }
+    }
+    if let Some(inner) = s.strip_prefix("rgb(").and_then(|s| s.strip_suffix(')')) {
+        let parts: Vec<&str> = inner.splitn(3, ',').collect();
+        if parts.len() == 3 {
+            let r = parts[0].trim().parse::<f32>().unwrap_or(0.0).clamp(0.0, 255.0) as u8;
+            let g = parts[1].trim().parse::<f32>().unwrap_or(0.0).clamp(0.0, 255.0) as u8;
+            let b = parts[2].trim().parse::<f32>().unwrap_or(0.0).clamp(0.0, 255.0) as u8;
+            return Color::from_argb(255, r, g, b);
+        }
+    }
+
+    // Hex formats
+    let hex = s.trim_start_matches('#');
+    match hex.len() {
         6 => {
-            let r = u8::from_str_radix(&s[0..2], 16).unwrap_or(0);
-            let g = u8::from_str_radix(&s[2..4], 16).unwrap_or(0);
-            let b = u8::from_str_radix(&s[4..6], 16).unwrap_or(0);
+            let r = u8::from_str_radix(&hex[0..2], 16).unwrap_or(0);
+            let g = u8::from_str_radix(&hex[2..4], 16).unwrap_or(0);
+            let b = u8::from_str_radix(&hex[4..6], 16).unwrap_or(0);
             Color::from_argb(255, r, g, b)
         }
         8 => {
-            let r = u8::from_str_radix(&s[0..2], 16).unwrap_or(0);
-            let g = u8::from_str_radix(&s[2..4], 16).unwrap_or(0);
-            let b = u8::from_str_radix(&s[4..6], 16).unwrap_or(0);
-            let a = u8::from_str_radix(&s[6..8], 16).unwrap_or(255);
+            let r = u8::from_str_radix(&hex[0..2], 16).unwrap_or(0);
+            let g = u8::from_str_radix(&hex[2..4], 16).unwrap_or(0);
+            let b = u8::from_str_radix(&hex[4..6], 16).unwrap_or(0);
+            let a = u8::from_str_radix(&hex[6..8], 16).unwrap_or(255);
             Color::from_argb(a, r, g, b)
         }
         _ => Color::BLACK,
@@ -301,8 +332,8 @@ pub(crate) fn render_menu_scene_to_png(
         draw_scene_node(canvas, node, assets, &font_cache, target, scale_x, scale_y)?;
     }
 
-    // Draw button outlines and labels (preview hint layer).
-    draw_button_hints(canvas, menu_ref, scale_x, scale_y);
+    // Draw focus indicator on the default button (preview hint only — not present in final DVD).
+    draw_default_button_hint(canvas, menu_ref, scale_x, scale_y);
 
     // Encode and write.
     let image = surface.image_snapshot();
@@ -451,7 +482,118 @@ fn draw_scene_node(
             }
         }
 
-        // Button nodes are rendered separately as hint outlines.
+        SceneNode::Button {
+            id: _,
+            label,
+            x,
+            y,
+            width,
+            height,
+            button_style,
+            label_style,
+            ..
+        } => {
+            let style = button_style
+                .as_ref()
+                .map(|bsm| &bsm.normal)
+                .cloned()
+                .unwrap_or_default();
+
+            let scaled_x = (x * scale_x) as f32;
+            let scaled_y = (y * scale_y) as f32;
+            let scaled_w = (width * scale_x) as f32;
+            let scaled_h = (height * scale_y) as f32;
+
+            let radius = (style.border_radius * scale_x.min(scale_y)) as f32;
+            let rect = Rect::from_xywh(scaled_x, scaled_y, scaled_w, scaled_h);
+            let rrect = if radius > 0.0 {
+                RRect::new_rect_xy(&rect, radius, radius)
+            } else {
+                RRect::new_rect(&rect)
+            };
+
+            // Background fill.
+            let fill_colour = parse_colour_name_or_hex(&style.bg_fill);
+            if fill_colour.a() > 0 {
+                let mut fill_paint = Paint::default();
+                fill_paint.set_color(fill_colour);
+                fill_paint.set_anti_alias(true);
+                fill_paint.set_style(PaintStyle::Fill);
+                canvas.draw_rrect(&rrect, &fill_paint);
+            }
+
+            // Border stroke.
+            let border_colour = parse_colour_name_or_hex(&style.border_colour);
+            if style.border_width > 0.0 && border_colour.a() > 0 {
+                let mut stroke_paint = Paint::default();
+                stroke_paint.set_color(border_colour);
+                stroke_paint.set_anti_alias(true);
+                stroke_paint.set_style(PaintStyle::Stroke);
+                stroke_paint.set_stroke_width((style.border_width * scale_x.min(scale_y)) as f32);
+                canvas.draw_rrect(&rrect, &stroke_paint);
+            }
+
+            // Label text.
+            let label = label.trim();
+            if !label.is_empty() {
+                let (fam, raw_size, weight, italic, spacing, text_colour) =
+                    if let Some(ls) = label_style {
+                        (
+                            Some(ls.font_family.as_str()),
+                            ls.font_size as f32,
+                            ls.font_weight,
+                            ls.font_italic,
+                            ls.letter_spacing as f32,
+                            parse_colour_name_or_hex(&ls.colour),
+                        )
+                    } else {
+                        (None, 14.0_f32, FontWeight::Normal, false, 0.0_f32, Color::WHITE)
+                    };
+
+                let min_size = min_font_size_pt(target.family);
+                let clamped = raw_size.max(min_size);
+                let scaled_size = (clamped as f64 * scale_y) as f32;
+
+                let font = font_cache.resolve(fam, weight, italic, scaled_size);
+
+                let mut text_paint = Paint::default();
+                text_paint.set_color(text_colour);
+                text_paint.set_anti_alias(true);
+
+                let mut shadow_paint = Paint::default();
+                shadow_paint.set_color(Color::from_argb(153, 0, 0, 0));
+                shadow_paint.set_anti_alias(true);
+
+                let text_width = measure_text_with_spacing(label, &font, &text_paint, spacing);
+                let (_, metrics) = font.metrics();
+                let text_height = metrics.descent - metrics.ascent;
+                let text_x = scaled_x + (scaled_w - text_width) / 2.0;
+                let text_y = scaled_y + (scaled_h - text_height) / 2.0 - metrics.ascent;
+
+                if spacing.abs() > f32::EPSILON {
+                    draw_text_with_spacing(
+                        canvas,
+                        label,
+                        &font,
+                        Point::new(text_x + 2.0, text_y + 2.0),
+                        spacing,
+                        &shadow_paint,
+                    );
+                    draw_text_with_spacing(
+                        canvas,
+                        label,
+                        &font,
+                        Point::new(text_x, text_y),
+                        spacing,
+                        &text_paint,
+                    );
+                } else {
+                    canvas.draw_str(label, Point::new(text_x + 2.0, text_y + 2.0), &font, &shadow_paint);
+                    canvas.draw_str(label, Point::new(text_x, text_y), &font, &text_paint);
+                }
+            }
+        }
+
         // Group, Video, ComponentInstance, GeneratedCollection → skip.
         _ => {}
     }
@@ -514,81 +656,42 @@ fn draw_image_asset(
     canvas.draw_image_rect(&image, None, dst, &paint);
 }
 
-/// Draw button outline hints on the scene PNG (mirrors the static preview
-/// produced by the old `menu_button_overlay_filter` and `menu_button_label_filter`).
-fn draw_button_hints(
+/// Draw a focus indicator outline on the default (initially focused) button.
+///
+/// Buttons are already fully rendered by `draw_scene_node`. This layer adds a
+/// subtle highlight ring over the default button so designers can tell at a
+/// glance which button receives focus on disc load.
+fn draw_default_button_hint(
     canvas: &Canvas,
     menu_ref: &AuthorableMenuRef<'_>,
     scale_x: f64,
     scale_y: f64,
 ) {
-    let buttons = menu_ref.buttons();
-    if buttons.is_empty() {
-        return;
-    }
-
     let default_button_id = menu_ref.default_button_id();
+    let Some(default_id) = default_button_id else { return };
+
     let highlight_colours = menu_ref.highlight_colours();
+    let buttons = menu_ref.buttons();
 
-    for button in &buttons {
-        let is_default = default_button_id == Some(button.id);
+    let Some(button) = buttons.iter().find(|b| b.id == default_id) else { return };
 
-        // Outline colour: select colour at 50% alpha for default, neutral hint otherwise.
-        let outline_colour = if is_default {
-            let mut c = parse_colour(&highlight_colours.select_colour);
-            c = Color::from_argb(128, c.r(), c.g(), c.b()); // ~50% alpha
-            c
-        } else {
-            Color::from_argb(71, 255, 255, 255) // white@0.28
-        };
+    let c = parse_colour(&highlight_colours.select_colour);
+    let outline_colour = Color::from_argb(180, c.r(), c.g(), c.b());
 
-        let rect = Rect::from_xywh(
-            (button.x * scale_x) as f32,
-            (button.y * scale_y) as f32,
-            (button.width * scale_x) as f32,
-            (button.height * scale_y) as f32,
-        );
+    let rect = Rect::from_xywh(
+        (button.x * scale_x) as f32,
+        (button.y * scale_y) as f32,
+        (button.width * scale_x) as f32,
+        (button.height * scale_y) as f32,
+    );
 
-        let mut paint = Paint::default();
-        paint.set_color(outline_colour);
-        paint.set_style(PaintStyle::Stroke);
-        paint.set_stroke_width(2.0);
-        paint.set_anti_alias(true);
+    let mut paint = Paint::default();
+    paint.set_color(outline_colour);
+    paint.set_style(PaintStyle::Stroke);
+    paint.set_stroke_width(2.5);
+    paint.set_anti_alias(true);
 
-        canvas.draw_rect(rect, &paint);
-
-        // Button label
-        let label = button.label.trim();
-        if !label.is_empty() {
-            let btn_h = (button.height * scale_y) as f32;
-            let font_size = (btn_h * 0.34).clamp(14.0, 30.0);
-            let typeface = FontMgr::new()
-                .legacy_make_typeface(None, FontStyle::normal())
-                .expect("default typeface should always be available");
-            let font = Font::new(typeface, font_size);
-
-            let mut text_paint = Paint::default();
-            text_paint.set_color(Color::WHITE);
-            text_paint.set_anti_alias(true);
-
-            let mut shadow_paint = Paint::default();
-            shadow_paint.set_color(Color::BLACK);
-            shadow_paint.set_anti_alias(true);
-
-            let btn_x = (button.x * scale_x) as f32;
-            let btn_y = (button.y * scale_y) as f32;
-            let btn_w = (button.width * scale_x) as f32;
-
-            let (text_width, _) = font.measure_str(label, Some(&text_paint));
-            let text_x = btn_x + (btn_w - text_width) / 2.0;
-            let (_, metrics) = font.metrics();
-            let text_height = metrics.descent - metrics.ascent;
-            let text_y = btn_y + (btn_h - text_height) / 2.0 - metrics.ascent;
-
-            canvas.draw_str(label, Point::new(text_x + 2.0, text_y + 2.0), &font, &shadow_paint);
-            canvas.draw_str(label, Point::new(text_x, text_y), &font, &text_paint);
-        }
-    }
+    canvas.draw_rect(rect, &paint);
 }
 
 // ── Overlay renderer ──────────────────────────────────────────────────────────
@@ -793,6 +896,31 @@ mod tests {
     fn parse_colour_invalid_falls_back_to_black() {
         let c = parse_colour("notacolour");
         assert_eq!(c, Color::BLACK);
+    }
+
+    #[test]
+    fn parse_colour_rgba_with_fractional_alpha() {
+        // rgba(255, 128, 64, 0.5) → a ≈ 128
+        let c = parse_colour("rgba(255, 128, 64, 0.5)");
+        assert_eq!(c.r(), 255);
+        assert_eq!(c.g(), 128);
+        assert_eq!(c.b(), 64);
+        assert_eq!(c.a(), 128); // round(0.5 × 255) = 128
+    }
+
+    #[test]
+    fn parse_colour_rgba_fully_transparent() {
+        let c = parse_colour("rgba(255, 255, 255, 0.0)");
+        assert_eq!(c.a(), 0);
+    }
+
+    #[test]
+    fn parse_colour_rgb_is_opaque() {
+        let c = parse_colour("rgb(100, 200, 50)");
+        assert_eq!(c.r(), 100);
+        assert_eq!(c.g(), 200);
+        assert_eq!(c.b(), 50);
+        assert_eq!(c.a(), 255);
     }
 
     #[test]
@@ -1120,5 +1248,174 @@ mod tests {
                 entry.family
             );
         }
+    }
+
+    // ── Button rendering tests ─────────────────────────────────────────────────
+
+    /// A menu with a styled button should produce a PNG that differs from an
+    /// identical menu without the button — proving the button body is drawn.
+    #[test]
+    fn render_button_node_affects_scene_output() {
+        fn make_menu_with_button(include_button: bool) -> Menu {
+            let nodes = if include_button {
+                vec![SceneNode::Button {
+                    id: "btn-test".to_string(),
+                    label: "Play".to_string(),
+                    x: 200.0,
+                    y: 200.0,
+                    width: 200.0,
+                    height: 50.0,
+                    highlight_mode: HighlightMode::Static,
+                    highlight_keyframes: vec![],
+                    video_asset_id: None,
+                    button_style: Some(ButtonStyleMap {
+                        normal: ButtonStateStyle {
+                            bg_fill: "#ff0000".to_string(),
+                            border_colour: "#ffffff".to_string(),
+                            border_width: 2.0,
+                            border_radius: 0.0,
+                            ..ButtonStateStyle::default()
+                        },
+                        ..ButtonStyleMap::default()
+                    }),
+                    label_style: None,
+                }]
+            } else {
+                vec![]
+            };
+
+            Menu {
+                id: "btn-test-menu".to_string(),
+                authored_document: Some(MenuDocument {
+                    id: "btn-test-menu".to_string(),
+                    name: "Button Test".to_string(),
+                    domain: crate::models::MenuDomain::Vmgm,
+                    scene: MenuScene {
+                        design_size: MenuSize {
+                            width: 720.0,
+                            height: 480.0,
+                            aspect: AspectMode::SixteenByNine,
+                        },
+                        background: SceneBackground {
+                            asset_id: None,
+                            colour: Some("#000000".to_string()),
+                        },
+                        nodes,
+                        guides: vec![],
+                    },
+                    interaction: MenuInteractionGraph {
+                        default_focus_id: None,
+                        nodes: vec![],
+                        timeout_action: None,
+                    },
+                    timing: MenuTiming::default(),
+                    highlight_colours: MenuHighlightColours::default(),
+                    background_mode: BackgroundMode::Still,
+                    theme_ref: None,
+                    generation_meta: None,
+                    compile_policy: MenuCompilePolicy::default(),
+                }),
+                ..Menu::default()
+            }
+        }
+
+        let with_button = make_menu_with_button(true);
+        let without_button = make_menu_with_button(false);
+
+        let ref_with = AuthorableMenuRef { menu: &with_button, domain: MenuDomain::Vmgm };
+        let ref_without = AuthorableMenuRef { menu: &without_button, domain: MenuDomain::Vmgm };
+
+        let assets: HashMap<&str, &Asset> = HashMap::new();
+        let target = dvd_ntsc_target();
+
+        let tmp_with = std::env::temp_dir().join("spindle_test_btn_with.png");
+        let tmp_without = std::env::temp_dir().join("spindle_test_btn_without.png");
+
+        render_menu_scene_to_png(&ref_with, &assets, target, &tmp_with)
+            .expect("render with button should succeed");
+        render_menu_scene_to_png(&ref_without, &assets, target, &tmp_without)
+            .expect("render without button should succeed");
+
+        let bytes_with = std::fs::read(&tmp_with).unwrap();
+        let bytes_without = std::fs::read(&tmp_without).unwrap();
+
+        assert_ne!(
+            bytes_with, bytes_without,
+            "scene PNG with a styled button must differ from scene PNG without one"
+        );
+
+        let _ = std::fs::remove_file(&tmp_with);
+        let _ = std::fs::remove_file(&tmp_without);
+    }
+
+    /// A button with an rgba() bg_fill should render without panicking and
+    /// produce a valid PNG.
+    #[test]
+    fn render_button_with_rgba_fill_produces_valid_png() {
+
+        let menu = Menu {
+            id: "rgba-btn-menu".to_string(),
+            authored_document: Some(MenuDocument {
+                id: "rgba-btn-menu".to_string(),
+                name: "RGBA Fill Test".to_string(),
+                domain: crate::models::MenuDomain::Vmgm,
+                scene: MenuScene {
+                    design_size: MenuSize {
+                        width: 720.0,
+                        height: 480.0,
+                        aspect: AspectMode::SixteenByNine,
+                    },
+                    background: SceneBackground { asset_id: None, colour: None },
+                    nodes: vec![SceneNode::Button {
+                        id: "rgba-btn".to_string(),
+                        label: "OK".to_string(),
+                        x: 100.0,
+                        y: 100.0,
+                        width: 200.0,
+                        height: 50.0,
+                        highlight_mode: HighlightMode::Static,
+                        highlight_keyframes: vec![],
+                        video_asset_id: None,
+                        button_style: Some(ButtonStyleMap {
+                            normal: ButtonStateStyle {
+                                bg_fill: "rgba(255, 255, 255, 0.04)".to_string(),
+                                border_colour: "rgba(255, 255, 255, 0.12)".to_string(),
+                                border_width: 1.5,
+                                border_radius: 4.0,
+                                ..ButtonStateStyle::default()
+                            },
+                            ..ButtonStyleMap::default()
+                        }),
+                        label_style: None,
+                    }],
+                    guides: vec![],
+                },
+                interaction: MenuInteractionGraph {
+                    default_focus_id: None,
+                    nodes: vec![],
+                    timeout_action: None,
+                },
+                timing: MenuTiming::default(),
+                highlight_colours: MenuHighlightColours::default(),
+                background_mode: BackgroundMode::Still,
+                theme_ref: None,
+                generation_meta: None,
+                compile_policy: MenuCompilePolicy::default(),
+            }),
+            ..Menu::default()
+        };
+
+        let menu_ref = AuthorableMenuRef { menu: &menu, domain: MenuDomain::Vmgm };
+        let assets: HashMap<&str, &Asset> = HashMap::new();
+        let target = dvd_ntsc_target();
+        let tmp = std::env::temp_dir().join("spindle_test_rgba_btn.png");
+
+        render_menu_scene_to_png(&menu_ref, &assets, target, &tmp)
+            .expect("render with rgba fill should succeed without panic");
+
+        let bytes = std::fs::read(&tmp).expect("output PNG should exist");
+        assert!(is_valid_png(&bytes), "output should be a valid PNG");
+
+        let _ = std::fs::remove_file(&tmp);
     }
 }
