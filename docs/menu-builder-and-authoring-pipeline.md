@@ -446,6 +446,58 @@ The recent audit work added more routing tests specifically to reduce the last c
 - routing logic is now covered by a denser Rust test matrix
 - menu rendering is decomposed into stages that are easier to debug
 
+## Font Resolution
+
+### Priority order
+
+The Skia renderer resolves font families in the following priority order for every text node:
+
+1. **Project asset fonts** — font files (`.ttf`, `.otf`, `.woff`, `.woff2`) registered in `SpindleProjectFile.assets`. These are loaded by Skia at render time from their `source_path`.
+2. **Application sidecar fonts** — fonts bundled alongside the app binary in `src-tauri/fonts/`. This tier is reserved for future use; no fonts are bundled in the current release. The directory is tracked as an empty stub (`src-tauri/fonts/.gitkeep`).
+3. **System fonts** — discovered via Skia's `FontMgr` on the build host. On the canonical `ghcr.io/liminal-hq/tauri-dev-desktop` container, the available system families are: **DejaVu Sans**, **DejaVu Sans Mono**, **DejaVu Serif**, and **Noto Color Emoji**.
+
+If no match is found for a given family name, Skia falls back to its default typeface.
+
+### `enumerate_fonts` helper
+
+The font enumeration logic lives in `build/skia.rs` as the public `enumerate_fonts` function:
+
+```rust
+pub fn enumerate_fonts(assets: &[&Asset]) -> Vec<FontEntry>
+```
+
+It returns a deduplicated list of `FontEntry` values in priority order. `FontEntry` carries:
+
+- **`family`** — the display name shown in the UI (e.g. `"DejaVu Sans"`)
+- **`source`** — one of `project-asset`, `app-sidecar`, or `system`
+
+`FontCache::new()` is built on the same project-asset scan as `enumerate_fonts`, so both paths share the same font-loading logic.
+
+### `list_available_fonts` command
+
+The `list_available_fonts` Tauri command exposes font enumeration to the frontend:
+
+```
+plugin:spindle-project|list_available_fonts
+```
+
+**Payload:** `{ project: SpindleProjectFile }`  
+**Response:** `FontEntry[]`
+
+The UI calls this command once when a menu is selected (or when `project.assets` changes) and uses the result to populate the font-family dropdown in the inspector panel.
+
+### UI dropdown
+
+`TextStyleSection` in `InspectorPanel.tsx` accepts an optional `availableFonts?: FontEntry[]` prop. When provided, the dropdown renders `<optgroup>` sections:
+
+- **Project fonts** — entries with `source === 'project-asset'`
+- **Application fonts** — entries with `source === 'app-sidecar'`
+- **System fonts** — entries with `source === 'system'`
+
+Empty tiers are omitted. When `availableFonts` is `undefined` (command not yet resolved or failed), the dropdown falls back to the hardcoded list (`Space Grotesk`, `Inter`, `System UI`, `Georgia`, `Courier New`).
+
+The load is best-effort: if `list_available_fonts` fails (e.g. during development without a project loaded), the error is logged and the hardcoded fallback is used.
+
 ## Render Preview
 
 The `export_menu_render_preview` command lets designers export a preview PNG during authoring — without running a full build.

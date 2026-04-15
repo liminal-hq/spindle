@@ -12,6 +12,7 @@ import { useNavigation } from '../App';
 import type {
 	AspectMode,
 	ButtonStyleMap,
+	FontEntry,
 	Menu,
 	MenuButton,
 	MenuHighlightColours,
@@ -696,6 +697,23 @@ function MenuEditor({
 	const [activeTool, setActiveTool] = useState<'select' | 'button' | 'text' | 'image' | 'shape'>(
 		'select',
 	);
+	const [availableFonts, setAvailableFonts] = useState<FontEntry[] | undefined>(undefined);
+
+	// Load available fonts once when the menu is selected or when project assets change.
+	// Best-effort: if the command fails, fall back to the hardcoded list (undefined).
+	useEffect(() => {
+		let cancelled = false;
+		invoke<FontEntry[]>('plugin:spindle-project|list_available_fonts', { project })
+			.then((fonts) => {
+				if (!cancelled) setAvailableFonts(fonts);
+			})
+			.catch((err) => {
+				console.error('[MenusPage] list_available_fonts failed', err);
+			});
+		return () => {
+			cancelled = true;
+		};
+	}, [menu.id, project.assets]);
 
 	const undo = useProjectStore((s) => s.undo);
 	const redo = useProjectStore((s) => s.redo);
@@ -1473,6 +1491,7 @@ function MenuEditor({
 							onButtonPreviewStateChange={setButtonPreviewState}
 							displayAspect={displayAspect}
 							onDisplayAspectChange={handleDisplayAspectChange}
+							availableFonts={availableFonts}
 						/>
 					</div>
 				</div>

@@ -637,6 +637,19 @@ export interface ToolchainStatus {
 	version: string | null;
 }
 
+// ── Font Enumeration ────────────────────────────────────────────────────────
+
+/** Where a font family came from in the Skia renderer's resolution priority chain. */
+export type FontSource = 'project-asset' | 'app-sidecar' | 'system';
+
+/** A font family available to the Skia renderer, with its source tier. */
+export interface FontEntry {
+	/** Display name shown in the UI (e.g. "DejaVu Sans"). */
+	family: string;
+	/** Where this font came from. */
+	source: FontSource;
+}
+
 // ── Command Payloads ────────────────────────────────────────────────────────
 
 export interface CreateProjectRequest {

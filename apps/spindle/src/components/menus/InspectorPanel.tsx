@@ -18,6 +18,7 @@ import type {
 	ButtonStateStyle,
 	TextStyle,
 	AspectMode,
+	FontEntry,
 } from '../../types/project';
 import { LayersPanel } from './LayersPanel';
 
@@ -141,6 +142,8 @@ export interface InspectorPanelProps {
 	displayAspect?: AspectMode;
 	/** Update the authored DVD display aspect for the current menu. */
 	onDisplayAspectChange?: (aspect: AspectMode) => void;
+	/** Fonts available to the Skia renderer for this project, from `list_available_fonts`. */
+	availableFonts?: FontEntry[];
 }
 
 export function InspectorPanel({
@@ -178,6 +181,7 @@ export function InspectorPanel({
 	onButtonPreviewStateChange,
 	displayAspect,
 	onDisplayAspectChange,
+	availableFonts,
 }: InspectorPanelProps) {
 	const inspectorTitle = getInspectorTitle(selectedNode, selectedButton);
 	const inspectorSubtitle = getInspectorSubtitle(selectedNode, selectedButton, buttons);
@@ -253,12 +257,14 @@ export function InspectorPanel({
 						onUpdateSceneNode={onUpdateSceneNode}
 						buttonPreviewState={buttonPreviewState ?? 'normal'}
 						onButtonPreviewStateChange={onButtonPreviewStateChange}
+						availableFonts={availableFonts}
 					/>
 				) : selectedNode.type === 'text' ? (
 					<TextNodeInspector
 						node={selectedNode}
 						onUpdate={onUpdateSceneNode}
 						onRemove={onRemoveNode}
+						availableFonts={availableFonts}
 					/>
 				) : selectedNode.type === 'image' ? (
 					<ImageNodeInspector
@@ -706,6 +712,7 @@ function ButtonInspector({
 	onUpdateSceneNode,
 	buttonPreviewState,
 	onButtonPreviewStateChange,
+	availableFonts,
 }: {
 	button: MenuButton;
 	buttonNode: Extract<SceneNode, { type: 'button' }>;
@@ -722,6 +729,7 @@ function ButtonInspector({
 	onUpdateSceneNode?: (nodeId: string, updates: Record<string, unknown>) => void;
 	buttonPreviewState: 'normal' | 'focus' | 'activate';
 	onButtonPreviewStateChange?: (state: 'normal' | 'focus' | 'activate') => void;
+	availableFonts?: FontEntry[];
 }) {
 	const isDefault = defaultFocusId === button.id;
 
@@ -901,6 +909,7 @@ function ButtonInspector({
 						onColourChange={(v) => update({ colour: v })}
 						onLineHeightChange={(v) => update({ lineHeight: v })}
 						onLetterSpacingChange={(v) => update({ letterSpacing: v })}
+						availableFonts={availableFonts}
 					/>
 				);
 			})()}
@@ -1009,10 +1018,12 @@ function TextNodeInspector({
 	node,
 	onUpdate,
 	onRemove,
+	availableFonts,
 }: {
 	node: Extract<SceneNode, { type: 'text' }>;
 	onUpdate?: (nodeId: string, updates: Record<string, unknown>) => void;
 	onRemove?: (nodeId: string) => void;
+	availableFonts?: FontEntry[];
 }) {
 	return (
 		<div className="inspector-panel__section-group">
@@ -1086,6 +1097,7 @@ function TextNodeInspector({
 				onColourChange={(colour) => onUpdate?.(node.id, { colour })}
 				onLineHeightChange={(lineHeight) => onUpdate?.(node.id, { lineHeight })}
 				onLetterSpacingChange={(letterSpacing) => onUpdate?.(node.id, { letterSpacing })}
+				availableFonts={availableFonts}
 			/>
 			{onRemove && (
 				<div className="inspector-panel__section">
@@ -1510,6 +1522,7 @@ function TextStyleSection({
 	onColourChange,
 	onLineHeightChange,
 	onLetterSpacingChange,
+	availableFonts,
 }: {
 	fontFamily?: string;
 	fontSize?: number;
@@ -1529,11 +1542,16 @@ function TextStyleSection({
 	onColourChange?: (v: string) => void;
 	onLineHeightChange?: (v: number) => void;
 	onLetterSpacingChange?: (v: number) => void;
+	availableFonts?: FontEntry[];
 }) {
 	const bold = fontWeight === 'bold';
 	const italic = fontItalic ?? false;
 	const underline = textDecoration === 'underline';
 	const align = textAlign ?? 'left';
+
+	const projectFonts = availableFonts?.filter((f) => f.source === 'project-asset') ?? [];
+	const sidecarFonts = availableFonts?.filter((f) => f.source === 'app-sidecar') ?? [];
+	const systemFonts = availableFonts?.filter((f) => f.source === 'system') ?? [];
 
 	return (
 		<CollapsibleSection title="Text Style">
@@ -1544,11 +1562,45 @@ function TextStyleSection({
 					value={fontFamily ?? 'Space Grotesk'}
 					onChange={(e) => onFontFamilyChange?.(e.target.value)}
 				>
-					<option value="Space Grotesk">Space Grotesk</option>
-					<option value="Inter">Inter</option>
-					<option value="System UI">System UI</option>
-					<option value="Georgia">Georgia</option>
-					<option value="Courier New">Courier New</option>
+					{availableFonts ? (
+						<>
+							{projectFonts.length > 0 && (
+								<optgroup label="Project fonts">
+									{projectFonts.map((f) => (
+										<option key={f.family} value={f.family}>
+											{f.family}
+										</option>
+									))}
+								</optgroup>
+							)}
+							{sidecarFonts.length > 0 && (
+								<optgroup label="Application fonts">
+									{sidecarFonts.map((f) => (
+										<option key={f.family} value={f.family}>
+											{f.family}
+										</option>
+									))}
+								</optgroup>
+							)}
+							{systemFonts.length > 0 && (
+								<optgroup label="System fonts">
+									{systemFonts.map((f) => (
+										<option key={f.family} value={f.family}>
+											{f.family}
+										</option>
+									))}
+								</optgroup>
+							)}
+						</>
+					) : (
+						<>
+							<option value="Space Grotesk">Space Grotesk</option>
+							<option value="Inter">Inter</option>
+							<option value="System UI">System UI</option>
+							<option value="Georgia">Georgia</option>
+							<option value="Courier New">Courier New</option>
+						</>
+					)}
 				</select>
 			</label>
 			<div className="inspector-panel__grid-2">
