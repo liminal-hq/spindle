@@ -120,14 +120,18 @@ Those layers behave differently:
 
 ### 3. Menu actions are stored as playback actions
 
-Each button has an optional `PlaybackAction`:
+Each button has an optional `PlaybackAction`. The full set of variants is:
 
-- `playTitle`
-- `playChapter`
-- `showMenu`
-- `stop`
+- `playTitle` — jump to a title by ID
+- `playChapter` — jump to a specific chapter within a title
+- `showMenu` — navigate to another menu by ID
+- `setAudioStream` — switch the active audio stream
+- `setSubtitleStream` — switch the active subtitle stream (or disable)
+- `sequence` — compose multiple actions in order
+- `stop` — stop playback
+- `return` — return to the calling context
 
-This is important architecturally because the menu editor is not hard-coded to DVD command strings. It stays at the level of authoring intent, and the Rust build pipeline translates that intent into DVD VM commands later.
+This is important architecturally because the menu editor is not hard-coded to DVD command strings. It stays at the level of authoring intent, and the Rust build pipeline translates that intent into DVD VM commands later. Note that not all variants have a direct DVD VM equivalent — `setAudioStream`, `setSubtitleStream`, and `sequence` are richer than what DVD menus natively support, and translation rules continue to evolve.
 
 ### 4. Navigation is geometric plus editable
 
