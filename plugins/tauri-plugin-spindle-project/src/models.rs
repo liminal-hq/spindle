@@ -132,13 +132,21 @@ impl Default for Disc {
     }
 }
 
-/// Supported disc format families. DVD in v1; BD, SVCD, VCD are model-only for now.
+/// Disc format family. Controls raster dimensions, SAR, overlay mechanism, and minimum font size.
+///
+/// `DvdVideo` is fully supported end-to-end. `BluRay`, `Svcd`, and `Vcd` are wired in the model
+/// and Skia render pipeline but are not exposed in the UI format picker — use
+/// `is_ui_supported()` to gate UI controls.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum DiscFamily {
+    /// DVD-Video: MPEG-2 encode, spumux subpicture overlays. Fully supported.
     DvdVideo,
+    /// Blu-ray Disc: square-pixel 1920×1080, full-colour PNG IG streams. Model and render only.
     BluRay,
+    /// Super Video CD: limited overlay support. Model and render only.
     Svcd,
+    /// Video CD: no standardised overlay. Model and render only.
     Vcd,
 }
 
@@ -353,8 +361,13 @@ pub enum AspectMode {
     SixteenByNine,
 }
 
-/// Derived render target for a disc build job. Not stored in the project file;
-/// computed once from `Disc` settings and passed through the build pipeline.
+/// Render-time parameters derived from project disc settings. Not stored in the project file.
+///
+/// `RenderTarget` is computed once via `from_disc()` and threaded through the Skia renderer and
+/// ffmpeg pipeline. It captures everything the renderer needs: raster dimensions, SAR, disc family
+/// (which determines overlay strategy and minimum font size), and video standard.
+///
+/// Display width for DAR-corrected output = `raster_width × sar_num / sar_den`.
 #[derive(Debug, Clone, Copy)]
 pub struct RenderTarget {
     pub family: DiscFamily,
@@ -721,6 +734,12 @@ pub struct MenuScene {
     pub guides: Vec<SceneGuide>,
 }
 
+/// Design-space canvas size for a menu, expressed in square-pixel display-aspect coordinates.
+///
+/// The Skia renderer scales these dimensions to the raster target at build time:
+/// `scale_x = raster_width / width`, `scale_y = raster_height / height`.
+/// All scene node coordinates are stored in this space and are only rounded to integers
+/// at render time.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MenuSize {
