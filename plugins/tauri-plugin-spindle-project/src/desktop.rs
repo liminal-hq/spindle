@@ -1604,6 +1604,7 @@ mod tests {
                     design_size: MenuSize {
                         width: 720.0,
                         height: 480.0,
+                        aspect: AspectMode::FourByThree,
                     },
                     background: SceneBackground {
                         asset_id: None,
@@ -1640,6 +1641,7 @@ mod tests {
                     design_size: MenuSize {
                         width: 720.0,
                         height: 480.0,
+                        aspect: AspectMode::SixteenByNine,
                     },
                     background: SceneBackground {
                         asset_id: None,
@@ -1692,6 +1694,7 @@ mod tests {
                     design_size: MenuSize {
                         width: 720.0,
                         height: 480.0,
+                        aspect: AspectMode::SixteenByNine,
                     },
                     background: SceneBackground {
                         asset_id: Some("asset-1".to_string()),
