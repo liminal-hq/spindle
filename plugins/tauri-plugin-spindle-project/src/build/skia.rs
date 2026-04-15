@@ -8,13 +8,129 @@ use std::path::Path;
 
 use skia_safe::{
     self as skia, surfaces, AlphaType, Canvas, Color, ColorType, Data, EncodedImageFormat,
-    Font, FontMgr, FontStyle, ISize, ImageInfo, Paint, PaintStyle, Point, Rect,
+    Font, FontMgr, FontStyle, ISize, ImageInfo, Paint, PaintStyle, Point, Rect, Typeface,
 };
 
-use crate::models::{Asset, RenderTarget, SceneNode};
+use crate::models::{Asset, DiscFamily, FontWeight, RenderTarget, SceneNode, TextDecoration};
 
 use super::menu::AuthorableMenuRef;
 use super::types::MenuOverlayButton;
+
+// ── Font cache ────────────────────────────────────────────────────────────────
+
+/// Per-render cache that maps font-family names to loaded `Typeface` handles.
+///
+/// On construction, `FontCache` scans the project `Asset` slice for files with
+/// font extensions (`.ttf`, `.otf`, `.woff`, `.woff2`) and registers them by
+/// their stem (filename without extension) as candidate family names.  Look-ups
+/// are case-insensitive.  If no match is found the Skia default typeface is
+/// returned.
+pub(crate) struct FontCache {
+    mgr: FontMgr,
+    /// Mapping of lower-cased family name → loaded typeface.
+    cache: HashMap<String, Typeface>,
+}
+
+impl FontCache {
+    /// Build a `FontCache` from the project asset list.
+    pub(crate) fn new(assets: &[&Asset]) -> Self {
+        let mgr = FontMgr::new();
+        let mut cache = HashMap::new();
+
+        for asset in assets {
+            let path = Path::new(&asset.source_path);
+            let ext = path
+                .extension()
+                .and_then(|e| e.to_str())
+                .unwrap_or("")
+                .to_ascii_lowercase();
+
+            if !matches!(ext.as_str(), "ttf" | "otf" | "woff" | "woff2") {
+                continue;
+            }
+
+            let Ok(bytes) = std::fs::read(path) else {
+                continue;
+            };
+
+            let data = Data::new_copy(&bytes);
+            let Some(tf) = mgr.new_from_data(&data, 0) else {
+                continue;
+            };
+
+            // Register under the asset file stem (e.g. "SpaceGrotesk-Regular" → "spacegrotesk-regular")
+            // and also under the typeface family name reported by Skia (e.g. "Space Grotesk").
+            let stem = path
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or("")
+                .to_ascii_lowercase();
+            if !stem.is_empty() {
+                cache.entry(stem).or_insert_with(|| tf.clone());
+            }
+
+            let family_name = tf.family_name().to_ascii_lowercase();
+            if !family_name.is_empty() {
+                cache.entry(family_name).or_insert(tf);
+            }
+        }
+
+        Self { mgr, cache }
+    }
+
+    /// Resolve a font-family name + style to a `Font` at the given size.
+    ///
+    /// Resolution order:
+    /// 1. Project-asset font whose family or stem matches `family` (case-insensitive)
+    /// 2. System font via the platform `FontMgr`
+    /// 3. Skia built-in default typeface
+    pub(crate) fn resolve(
+        &self,
+        family: Option<&str>,
+        weight: FontWeight,
+        italic: bool,
+        size: f32,
+    ) -> Font {
+        let skia_style = match (weight, italic) {
+            (FontWeight::Bold, true) => FontStyle::bold_italic(),
+            (FontWeight::Bold, false) => FontStyle::bold(),
+            (FontWeight::Normal, true) => FontStyle::italic(),
+            (FontWeight::Normal, false) => FontStyle::normal(),
+        };
+
+        let typeface = family
+            .and_then(|fam| {
+                // Try the asset cache first.
+                self.cache
+                    .get(&fam.to_ascii_lowercase())
+                    .cloned()
+                    // Then ask the platform font manager.
+                    .or_else(|| self.mgr.legacy_make_typeface(Some(fam), skia_style.clone()))
+            })
+            .or_else(|| {
+                // Fall back to any default typeface.
+                self.mgr.legacy_make_typeface(None, skia_style)
+            })
+            .expect("Skia must always be able to provide a fallback typeface");
+
+        Font::new(typeface, size)
+    }
+}
+
+// ── Minimum font size per disc format ─────────────────────────────────────────
+
+/// Per-format minimum font size (in design-space points, before scale is applied).
+///
+/// Very low-resolution formats compress text aggressively when scaling from
+/// design space to raster, so a floor is needed to keep text legible.
+pub(crate) fn min_font_size_pt(family: DiscFamily) -> f32 {
+    match family {
+        DiscFamily::Vcd => 18.0,
+        DiscFamily::Svcd => 16.0,
+        DiscFamily::DvdVideo => 12.0,
+        DiscFamily::BluRay => 10.0,
+    }
+}
 
 // ── Colour parsing ────────────────────────────────────────────────────────────
 
@@ -84,9 +200,12 @@ pub(crate) fn render_menu_scene_to_png(
         (1.0, 1.0)
     };
 
+    let asset_slice: Vec<&Asset> = assets.values().copied().collect();
+    let font_cache = FontCache::new(&asset_slice);
+
     // Draw scene nodes.
     for node in menu_ref.scene_nodes() {
-        draw_scene_node(canvas, node, assets, scale_x, scale_y)?;
+        draw_scene_node(canvas, node, assets, &font_cache, target, scale_x, scale_y)?;
     }
 
     // Draw button outlines and labels (preview hint layer).
@@ -106,6 +225,8 @@ fn draw_scene_node(
     canvas: &Canvas,
     node: &SceneNode,
     assets: &HashMap<&str, &Asset>,
+    font_cache: &FontCache,
+    target: RenderTarget,
     scale_x: f64,
     scale_y: f64,
 ) -> crate::Result<()> {
@@ -142,22 +263,31 @@ fn draw_scene_node(
             width,
             height,
             font_size,
+            font_family,
+            font_weight,
+            font_italic,
+            text_decoration,
+            letter_spacing,
             colour,
             ..
         } => {
             let colour = parse_colour_name_or_hex(colour.as_deref().unwrap_or("white"));
-            let size = (font_size.unwrap_or(24.0) * scale_y) as f32;
 
-            let typeface = FontMgr::new()
-                .legacy_make_typeface(None, FontStyle::normal())
-                .expect("default typeface should always be available");
-            let font = Font::new(typeface, size);
+            let weight = font_weight.unwrap_or(FontWeight::Normal);
+            let italic = font_italic.unwrap_or(false);
+
+            // Apply per-format minimum font size before scaling.
+            let raw_size = font_size.unwrap_or(24.0) as f32;
+            let min_size = min_font_size_pt(target.family);
+            let clamped_size = raw_size.max(min_size);
+            let scaled_size = (clamped_size as f64 * scale_y) as f32;
+
+            let font = font_cache.resolve(font_family.as_deref(), weight, italic, scaled_size);
 
             let mut paint = Paint::default();
             paint.set_color(colour);
             paint.set_anti_alias(true);
 
-            // Shadow pass
             let mut shadow_paint = Paint::default();
             shadow_paint.set_color(Color::from_argb(153, 0, 0, 0)); // black@0.6
             shadow_paint.set_anti_alias(true);
@@ -167,17 +297,52 @@ fn draw_scene_node(
             let scaled_w = (width * scale_x) as f32;
             let scaled_h = (height * scale_y) as f32;
 
-            // Measure for centring.
-            let (text_width, _) = font.measure_str(content.as_str(), Some(&paint));
+            let spacing = letter_spacing.unwrap_or(0.0) as f32;
+
+            // Measure text width accounting for letter-spacing.
+            let text_width = measure_text_with_spacing(content, &font, &paint, spacing);
+
             let text_x = scaled_x + (scaled_w - text_width) / 2.0;
-            // Skia text origin is baseline; approximate vertical centre.
             let (_, metrics) = font.metrics();
             let text_height = metrics.descent - metrics.ascent;
             let text_y = scaled_y + (scaled_h - text_height) / 2.0 - metrics.ascent;
 
-            // Draw shadow offset by 2px.
-            canvas.draw_str(content.as_str(), Point::new(text_x + 2.0, text_y + 2.0), &font, &shadow_paint);
-            canvas.draw_str(content.as_str(), Point::new(text_x, text_y), &font, &paint);
+            // Draw text — with manual letter-spacing if non-zero, otherwise use
+            // the faster single draw_str path.
+            if spacing.abs() > f32::EPSILON {
+                draw_text_with_spacing(
+                    canvas,
+                    content,
+                    &font,
+                    Point::new(text_x + 2.0, text_y + 2.0),
+                    spacing,
+                    &shadow_paint,
+                );
+                draw_text_with_spacing(
+                    canvas,
+                    content,
+                    &font,
+                    Point::new(text_x, text_y),
+                    spacing,
+                    &paint,
+                );
+            } else {
+                canvas.draw_str(content.as_str(), Point::new(text_x + 2.0, text_y + 2.0), &font, &shadow_paint);
+                canvas.draw_str(content.as_str(), Point::new(text_x, text_y), &font, &paint);
+            }
+
+            // Underline decoration: draw a line under the text bounds.
+            if text_decoration == &Some(TextDecoration::Underline) {
+                let underline_y = text_y + metrics.descent * 0.5;
+                let mut ul_paint = paint.clone();
+                ul_paint.set_stroke_width(1.5_f32.max(scaled_size * 0.05));
+                ul_paint.set_style(PaintStyle::Stroke);
+                canvas.draw_line(
+                    Point::new(text_x, underline_y),
+                    Point::new(text_x + text_width, underline_y),
+                    &ul_paint,
+                );
+            }
         }
 
         SceneNode::Image {
@@ -198,6 +363,35 @@ fn draw_scene_node(
         _ => {}
     }
     Ok(())
+}
+
+/// Measure the rendered width of `text` with extra letter-spacing applied.
+fn measure_text_with_spacing(text: &str, font: &Font, paint: &Paint, spacing: f32) -> f32 {
+    if text.is_empty() {
+        return 0.0;
+    }
+    let (base_width, _) = font.measure_str(text, Some(paint));
+    // Spacing is added between each pair of characters.
+    let char_count = text.chars().count() as f32;
+    base_width + spacing * (char_count - 1.0).max(0.0)
+}
+
+/// Draw `text` glyph-by-glyph, inserting `spacing` extra pixels between each character.
+fn draw_text_with_spacing(
+    canvas: &Canvas,
+    text: &str,
+    font: &Font,
+    origin: Point,
+    spacing: f32,
+    paint: &Paint,
+) {
+    let mut cursor_x = origin.x;
+    for ch in text.chars() {
+        let ch_str: &str = &ch.to_string();
+        canvas.draw_str(ch_str, Point::new(cursor_x, origin.y), font, paint);
+        let (advance, _) = font.measure_str(ch_str, Some(paint));
+        cursor_x += advance + spacing;
+    }
 }
 
 fn draw_image_asset(
@@ -559,5 +753,187 @@ mod tests {
         assert_eq!(png_height, 480);
 
         let _ = std::fs::remove_file(&tmp);
+    }
+
+    // ── Phase 4 typography tests ──────────────────────────────────────────────
+
+    /// Bold text should produce a visibly different raster from normal-weight text.
+    /// We render the same string twice and assert the PNGs differ.
+    #[test]
+    fn render_bold_text_differs_from_normal_weight() {
+        fn render_with_weight(weight: FontWeight, path: &std::path::Path) {
+            let menu = menu_with_text_node(weight, false, None, 24.0);
+            let menu_ref = AuthorableMenuRef {
+                menu: &menu,
+                domain: MenuDomain::Vmgm,
+            };
+            let assets: HashMap<&str, &Asset> = HashMap::new();
+            render_menu_scene_to_png(&menu_ref, &assets, dvd_ntsc_target(), path)
+                .expect("render should succeed");
+        }
+
+        let tmp_normal = std::env::temp_dir().join("spindle_test_normal.png");
+        let tmp_bold = std::env::temp_dir().join("spindle_test_bold.png");
+
+        render_with_weight(FontWeight::Normal, &tmp_normal);
+        render_with_weight(FontWeight::Bold, &tmp_bold);
+
+        let normal_bytes = std::fs::read(&tmp_normal).unwrap();
+        let bold_bytes = std::fs::read(&tmp_bold).unwrap();
+
+        assert_ne!(normal_bytes, bold_bytes, "bold render should differ from normal render");
+
+        let _ = std::fs::remove_file(&tmp_normal);
+        let _ = std::fs::remove_file(&tmp_bold);
+    }
+
+    /// Positive letter-spacing should produce a wider text rendering (different PNG).
+    #[test]
+    fn render_letter_spacing_affects_output() {
+        fn render_with_spacing(spacing: f64, path: &std::path::Path) {
+            let menu = menu_with_text_node(FontWeight::Normal, false, Some(spacing), 24.0);
+            let menu_ref = AuthorableMenuRef {
+                menu: &menu,
+                domain: MenuDomain::Vmgm,
+            };
+            let assets: HashMap<&str, &Asset> = HashMap::new();
+            render_menu_scene_to_png(&menu_ref, &assets, dvd_ntsc_target(), path)
+                .expect("render should succeed");
+        }
+
+        let tmp_no_spacing = std::env::temp_dir().join("spindle_test_no_spacing.png");
+        let tmp_with_spacing = std::env::temp_dir().join("spindle_test_with_spacing.png");
+
+        render_with_spacing(0.0, &tmp_no_spacing);
+        render_with_spacing(6.0, &tmp_with_spacing);
+
+        let no_spacing_bytes = std::fs::read(&tmp_no_spacing).unwrap();
+        let with_spacing_bytes = std::fs::read(&tmp_with_spacing).unwrap();
+
+        assert_ne!(
+            no_spacing_bytes, with_spacing_bytes,
+            "letter-spacing should change the rendered output"
+        );
+
+        let _ = std::fs::remove_file(&tmp_no_spacing);
+        let _ = std::fs::remove_file(&tmp_with_spacing);
+    }
+
+    /// A 10pt font on a VCD target should be clamped to the 18pt VCD minimum.
+    #[test]
+    fn font_size_clamped_to_vcd_minimum() {
+        let vcd_target = RenderTarget {
+            family: DiscFamily::Vcd,
+            standard: Some(VideoStandard::Ntsc),
+            raster_width: 352,
+            raster_height: 240,
+            sar_num: 10,
+            sar_den: 11,
+        };
+
+        // Render with a 10pt font on VCD — should be clamped to 18pt.
+        let menu = menu_with_text_node(FontWeight::Normal, false, None, 10.0);
+        let menu_ref = AuthorableMenuRef {
+            menu: &menu,
+            domain: MenuDomain::Vmgm,
+        };
+        let assets: HashMap<&str, &Asset> = HashMap::new();
+        let tmp = std::env::temp_dir().join("spindle_test_vcd_clamped.png");
+
+        render_menu_scene_to_png(&menu_ref, &assets, vcd_target, &tmp)
+            .expect("render should succeed with clamped font size");
+
+        assert!(tmp.exists(), "output PNG should be written");
+
+        // Render again with an 18pt font on VCD — should be identical (both clamped to 18pt).
+        let menu_18 = menu_with_text_node(FontWeight::Normal, false, None, 18.0);
+        let menu_ref_18 = AuthorableMenuRef {
+            menu: &menu_18,
+            domain: MenuDomain::Vmgm,
+        };
+        let tmp_18 = std::env::temp_dir().join("spindle_test_vcd_18pt.png");
+
+        render_menu_scene_to_png(&menu_ref_18, &assets, vcd_target, &tmp_18)
+            .expect("render should succeed at 18pt");
+
+        let clamped_bytes = std::fs::read(&tmp).unwrap();
+        let explicit_18_bytes = std::fs::read(&tmp_18).unwrap();
+
+        assert_eq!(
+            clamped_bytes, explicit_18_bytes,
+            "10pt clamped to VCD minimum should render identically to 18pt"
+        );
+
+        let _ = std::fs::remove_file(&tmp);
+        let _ = std::fs::remove_file(&tmp_18);
+    }
+
+    /// min_font_size_pt returns the correct minimum for each disc family.
+    #[test]
+    fn min_font_size_per_family() {
+        assert_eq!(min_font_size_pt(DiscFamily::Vcd), 18.0);
+        assert_eq!(min_font_size_pt(DiscFamily::Svcd), 16.0);
+        assert_eq!(min_font_size_pt(DiscFamily::DvdVideo), 12.0);
+        assert_eq!(min_font_size_pt(DiscFamily::BluRay), 10.0);
+    }
+
+    // ── Helpers for typography tests ──────────────────────────────────────────
+
+    fn menu_with_text_node(
+        weight: FontWeight,
+        italic: bool,
+        letter_spacing: Option<f64>,
+        font_size: f64,
+    ) -> Menu {
+        Menu {
+            id: "test-menu".to_string(),
+            name: "Test".to_string(),
+            authored_document: Some(MenuDocument {
+                id: "test-menu".to_string(),
+                name: "Test Menu".to_string(),
+                domain: crate::models::MenuDomain::Vmgm,
+                scene: MenuScene {
+                    design_size: MenuSize {
+                        width: 720.0,
+                        height: 480.0,
+                        aspect: AspectMode::SixteenByNine,
+                    },
+                    background: SceneBackground {
+                        asset_id: None,
+                        colour: Some("#000000".to_string()),
+                    },
+                    nodes: vec![SceneNode::Text {
+                        id: "t1".to_string(),
+                        content: "Typography".to_string(),
+                        x: 100.0,
+                        y: 200.0,
+                        width: 400.0,
+                        height: 80.0,
+                        font_size: Some(font_size),
+                        font_family: None,
+                        font_weight: Some(weight),
+                        font_italic: Some(italic),
+                        text_decoration: None,
+                        text_align: None,
+                        colour: Some("white".to_string()),
+                        line_height: None,
+                        letter_spacing,
+                    }],
+                    guides: vec![],
+                },
+                interaction: MenuInteractionGraph {
+                    default_focus_id: None,
+                    nodes: vec![],
+                    timeout_action: None,
+                },
+                timing: MenuTiming::default(),
+                highlight_colours: MenuHighlightColours::default(),
+                background_mode: BackgroundMode::Still,
+                theme_ref: None,
+                generation_meta: None,
+                compile_policy: MenuCompilePolicy::default(),
+            }),
+            ..Menu::default()
+        }
     }
 }
