@@ -58,6 +58,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::check_toolchain,
             commands::export_diagnostics,
             commands::export_menu_render_preview,
+            commands::list_available_fonts,
         ])
         .setup(|app, api| {
             #[cfg(mobile)]

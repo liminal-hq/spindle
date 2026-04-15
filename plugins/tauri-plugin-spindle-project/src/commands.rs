@@ -252,6 +252,20 @@ pub(crate) async fn export_menu_render_preview<R: Runtime>(
     build::export_menu_render_preview(&project, &menu_id, path)
 }
 
+/// List all font families available to the Skia renderer for the given project.
+///
+/// Returns entries in priority order: project-asset fonts first, then system
+/// fonts. The UI uses this to populate the font-family dropdown so that only
+/// fonts the renderer can actually use are offered.
+#[command]
+pub(crate) async fn list_available_fonts<R: Runtime>(
+    _app: AppHandle<R>,
+    project: SpindleProjectFile,
+) -> Result<Vec<crate::build::skia::FontEntry>> {
+    let asset_refs: Vec<&Asset> = project.assets.iter().collect();
+    Ok(crate::build::skia::enumerate_fonts(&asset_refs))
+}
+
 /// Return the application cache directory for storing thumbnails and other transient data.
 #[command]
 pub(crate) async fn get_cache_dir<R: Runtime>(app: AppHandle<R>) -> Result<String> {
