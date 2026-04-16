@@ -154,6 +154,8 @@ impl<'a> AuthorableMenuRef<'a> {
 
 pub(crate) struct AuthorableButtonRef<'a> {
     pub(crate) id: &'a str,
+    // Populated from scene data for future overlay-label rendering; not yet
+    // consumed in the Rust pipeline but needed structurally.
     #[allow(dead_code)]
     pub(crate) label: &'a str,
     pub(crate) x: f64,
