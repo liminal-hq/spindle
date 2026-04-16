@@ -3,7 +3,7 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: MIT
 
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { LayersPanel } from './LayersPanel';
 import { InspectorPanel } from './InspectorPanel';
@@ -250,7 +250,16 @@ describe('InspectorPanel', () => {
 
 // ── SceneCanvas ────────────────────────────────────────────────────────────
 
+vi.mock('@tauri-apps/plugin-fs', () => ({
+	readFile: vi.fn().mockResolvedValue(new Uint8Array([0xff, 0xd8, 0xff])),
+	BaseDirectory: { AppCache: 13 },
+}));
+
 describe('SceneCanvas', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
 	const buttons: MenuButton[] = [
 		{
 			id: 'btn-1',
@@ -293,7 +302,7 @@ describe('SceneCanvas', () => {
 		fingerprint: null,
 		compatibilityDetail: null,
 		warnings: [],
-		thumbnailPath: null,
+		thumbnailPath: '/app/cache/thumbnails/thumb_asset-image-1.jpg',
 		thumbnailError: null,
 		sourceChapters: [],
 		formatTitle: null,
@@ -548,8 +557,10 @@ describe('SceneCanvas', () => {
 			/>,
 		);
 
-		expect(await screen.findByAltText('chapter-card.png')).toBeTruthy();
-		expect(screen.getByText('chapter-card.png')).toBeTruthy();
+		// Once the thumbnail cache read resolves, the image element should appear
+		const img = await screen.findByAltText('chapter-card.png');
+		expect(img).toBeTruthy();
+		expect((img as HTMLImageElement).src).toBeTruthy();
 	});
 
 	it('resets preview focus when the active menu changes', () => {

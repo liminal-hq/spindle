@@ -18,10 +18,7 @@
 		"dialog:default",
 		{
 			"identifier": "fs:allow-read-file",
-			"allow": [
-				{ "path": "$APPCACHE/thumbnails/*" },
-				{ "path": "$HOME/**" }
-			]
+			"allow": [{ "path": "$APPCACHE/thumbnails/*" }]
 		},
 		"store:default",
 		"shell:default",

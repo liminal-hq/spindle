@@ -3,7 +3,7 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: MIT
 
-import { readFile } from '@tauri-apps/plugin-fs';
+import { readFile, BaseDirectory } from '@tauri-apps/plugin-fs';
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import type {
 	MenuButton,
@@ -959,10 +959,17 @@ function BackgroundImage({ asset }: { asset: Asset }) {
 		let cancelled = false;
 
 		async function load() {
+			if (!asset.thumbnailPath) return;
+
+			const fileName = asset.thumbnailPath.split(/[/\\]/).pop();
+			if (!fileName) return;
+
 			try {
-				const bytes = await readFile(asset.sourcePath);
+				const bytes = await readFile(`thumbnails/${fileName}`, {
+					baseDir: BaseDirectory.AppCache,
+				});
 				if (cancelled) return;
-				const blob = new Blob([bytes], { type: mimeTypeForImageAsset(asset.fileName) });
+				const blob = new Blob([bytes], { type: 'image/jpeg' });
 				const url = URL.createObjectURL(blob);
 				revokedUrl = url;
 				setImageSrc(url);
@@ -976,7 +983,7 @@ function BackgroundImage({ asset }: { asset: Asset }) {
 			cancelled = true;
 			if (revokedUrl) URL.revokeObjectURL(revokedUrl);
 		};
-	}, [asset.id, asset.sourcePath]);
+	}, [asset.id, asset.thumbnailPath]);
 
 	if (!imageSrc) return null;
 
@@ -999,18 +1006,27 @@ function ImageNodeArtwork({ asset, label }: { asset?: Asset | null; label: strin
 		let cancelled = false;
 
 		async function loadImage() {
-			if (!asset) {
+			if (!asset || !asset.thumbnailPath) {
+				setImageSrc(null);
+				setLoadFailed(false);
+				return;
+			}
+
+			const fileName = asset.thumbnailPath.split(/[/\\]/).pop();
+			if (!fileName) {
 				setImageSrc(null);
 				setLoadFailed(false);
 				return;
 			}
 
 			try {
-				const bytes = await readFile(asset.sourcePath);
+				const bytes = await readFile(`thumbnails/${fileName}`, {
+					baseDir: BaseDirectory.AppCache,
+				});
 				if (cancelled) {
 					return;
 				}
-				const blob = new Blob([bytes], { type: mimeTypeForImageAsset(asset.fileName) });
+				const blob = new Blob([bytes], { type: 'image/jpeg' });
 				const objectUrl = URL.createObjectURL(blob);
 				revokedUrl = objectUrl;
 				setImageSrc(objectUrl);
@@ -1019,7 +1035,7 @@ function ImageNodeArtwork({ asset, label }: { asset?: Asset | null; label: strin
 				if (!cancelled) {
 					console.warn('[scene-canvas] Image node preview load failed', {
 						assetId: asset.id,
-						sourcePath: asset.sourcePath,
+						thumbnailPath: asset.thumbnailPath,
 						error,
 					});
 					setImageSrc(null);
@@ -1036,7 +1052,7 @@ function ImageNodeArtwork({ asset, label }: { asset?: Asset | null; label: strin
 				URL.revokeObjectURL(revokedUrl);
 			}
 		};
-	}, [asset]);
+	}, [asset?.id, asset?.thumbnailPath]);
 
 	return (
 		<>
@@ -1063,14 +1079,6 @@ function ImageNodeArtwork({ asset, label }: { asset?: Asset | null; label: strin
 			) : null}
 		</>
 	);
-}
-
-function mimeTypeForImageAsset(fileName: string): string {
-	if (/\.png$/i.test(fileName)) return 'image/png';
-	if (/\.jpe?g$/i.test(fileName)) return 'image/jpeg';
-	if (/\.bmp$/i.test(fileName)) return 'image/bmp';
-	if (/\.tiff?$/i.test(fileName)) return 'image/tiff';
-	return 'application/octet-stream';
 }
 
 function buttonShadowCss(style: ButtonStateStyle): string {
