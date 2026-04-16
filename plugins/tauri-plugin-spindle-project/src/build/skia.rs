@@ -343,7 +343,10 @@ pub(crate) fn render_menu_scene_to_png(
     }
 
     // Draw focus indicator on the default button (preview hint only — not present in final DVD).
-    draw_default_button_hint(canvas, menu_ref, scale_x, scale_y);
+    // Skip in build mode (transparent_bg) since the DVD player draws its own subpicture highlight.
+    if !transparent_bg {
+        draw_default_button_hint(canvas, menu_ref, scale_x, scale_y);
+    }
 
     // Encode and write.
     let image = surface.image_snapshot();
