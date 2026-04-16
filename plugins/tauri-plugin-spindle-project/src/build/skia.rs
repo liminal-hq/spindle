@@ -11,7 +11,7 @@ use skia_safe::{
     Font, FontMgr, FontStyle, ISize, ImageInfo, Paint, PaintStyle, Point, RRect, Rect, Typeface,
 };
 
-use crate::models::{Asset, DiscFamily, FontWeight, RenderTarget, SceneNode, TextDecoration};
+use crate::models::{Asset, DiscFamily, FontWeight, RenderTarget, SceneNode, TextDecoration, TextStyle};
 
 use super::menu::AuthorableMenuRef;
 use super::types::MenuOverlayButton;
@@ -419,7 +419,9 @@ fn draw_scene_node(
             let clamped_size = raw_size.max(min_size);
             let scaled_size = (clamped_size as f64 * scale_y) as f32;
 
-            let font = font_cache.resolve(font_family.as_deref(), weight, italic, scaled_size);
+            let default_family = TextStyle::default().font_family;
+            let resolved_family = font_family.as_deref().unwrap_or(&default_family);
+            let font = font_cache.resolve(Some(resolved_family), weight, italic, scaled_size);
 
             let mut paint = Paint::default();
             paint.set_color(colour);
@@ -550,10 +552,11 @@ fn draw_scene_node(
             let label = label.trim();
             if !label.is_empty() {
                 let pad_h = style.padding_h as f32;
+                let defaults = TextStyle::default();
                 let (fam, raw_size, weight, italic, spacing, text_colour) =
                     if let Some(ls) = label_style {
                         (
-                            Some(ls.font_family.as_str()),
+                            ls.font_family.as_str(),
                             ls.font_size as f32,
                             ls.font_weight,
                             ls.font_italic,
@@ -561,7 +564,14 @@ fn draw_scene_node(
                             parse_colour_name_or_hex(&ls.colour),
                         )
                     } else {
-                        (None, 14.0_f32, FontWeight::Normal, false, 0.0_f32, Color::WHITE)
+                        (
+                            defaults.font_family.as_str(),
+                            defaults.font_size as f32,
+                            defaults.font_weight,
+                            defaults.font_italic,
+                            defaults.letter_spacing as f32,
+                            parse_colour_name_or_hex(&defaults.colour),
+                        )
                     };
 
                 let min_size = min_font_size_pt(target.family);
@@ -574,7 +584,7 @@ fn draw_scene_node(
                 // button area, so the full label is always readable (matching
                 // the front-end's visual shrink-to-fit behaviour).
                 let (font, text_width) = fit_font_to_width(
-                    font_cache, fam, weight, italic, scaled_size, label, spacing, inner_w,
+                    font_cache, Some(fam), weight, italic, scaled_size, label, spacing, inner_w,
                 );
 
                 let mut text_paint = Paint::default();

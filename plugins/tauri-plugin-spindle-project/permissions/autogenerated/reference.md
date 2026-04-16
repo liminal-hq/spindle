@@ -17,6 +17,8 @@ Default permissions for the spindle-project plugin
 - `allow-auto-generate-menu-nav`
 - `allow-check-toolchain`
 - `allow-export-diagnostics`
+- `allow-list-available-fonts`
+- `allow-export-menu-render-preview`
 
 ## Permission Table
 
@@ -186,6 +188,32 @@ Denies the export_diagnostics command without any pre-configured scope.
 <tr>
 <td>
 
+`spindle-project:allow-export-menu-render-preview`
+
+</td>
+<td>
+
+Enables the export_menu_render_preview command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`spindle-project:deny-export-menu-render-preview`
+
+</td>
+<td>
+
+Denies the export_menu_render_preview command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
 `spindle-project:allow-extract-thumbnail`
 
 </td>
@@ -283,6 +311,32 @@ Enables the inspect_asset command without any pre-configured scope.
 <td>
 
 Denies the inspect_asset command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`spindle-project:allow-list-available-fonts`
+
+</td>
+<td>
+
+Enables the list_available_fonts command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`spindle-project:deny-list-available-fonts`
+
+</td>
+<td>
+
+Denies the list_available_fonts command without any pre-configured scope.
 
 </td>
 </tr>
