@@ -546,9 +546,10 @@ fn draw_scene_node(
                 canvas.draw_rrect(&rrect, &stroke_paint);
             }
 
-            // Label text.
+            // Label text — centred within padded area, clipped to button bounds.
             let label = label.trim();
             if !label.is_empty() {
+                let pad_h = style.padding_h as f32;
                 let (fam, raw_size, weight, italic, spacing, text_colour) =
                     if let Some(ls) = label_style {
                         (
@@ -566,6 +567,7 @@ fn draw_scene_node(
                 let min_size = min_font_size_pt(target.family);
                 let clamped = raw_size.max(min_size);
                 let scaled_size = (clamped as f64 * scale_y) as f32;
+                let scaled_pad_h = (pad_h as f64 * scale_x) as f32;
 
                 let font = font_cache.resolve(fam, weight, italic, scaled_size);
 
@@ -580,8 +582,13 @@ fn draw_scene_node(
                 let text_width = measure_text_with_spacing(label, &font, &text_paint, spacing);
                 let (_, metrics) = font.metrics();
                 let text_height = metrics.descent - metrics.ascent;
-                let text_x = scaled_x + (scaled_w - text_width) / 2.0;
+                let inner_w = (scaled_w - scaled_pad_h * 2.0).max(0.0);
+                let text_x = scaled_x + scaled_pad_h + (inner_w - text_width) / 2.0;
                 let text_y = scaled_y + (scaled_h - text_height) / 2.0 - metrics.ascent;
+
+                // Clip label to button bounds so long text doesn't overflow.
+                canvas.save();
+                canvas.clip_rect(rect, None, Some(true));
 
                 if spacing.abs() > f32::EPSILON {
                     draw_text_with_spacing(
@@ -604,6 +611,8 @@ fn draw_scene_node(
                     canvas.draw_str(label, Point::new(text_x + 2.0, text_y + 2.0), &font, &shadow_paint);
                     canvas.draw_str(label, Point::new(text_x, text_y), &font, &text_paint);
                 }
+
+                canvas.restore();
             }
         }
 
