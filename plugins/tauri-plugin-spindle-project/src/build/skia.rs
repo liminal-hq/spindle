@@ -546,7 +546,7 @@ fn draw_scene_node(
                 canvas.draw_rrect(&rrect, &stroke_paint);
             }
 
-            // Label text — centred within padded area, clipped to button bounds.
+            // Label text — centred within padded area, scaled down to fit.
             let label = label.trim();
             if !label.is_empty() {
                 let pad_h = style.padding_h as f32;
@@ -568,8 +568,14 @@ fn draw_scene_node(
                 let clamped = raw_size.max(min_size);
                 let scaled_size = (clamped as f64 * scale_y) as f32;
                 let scaled_pad_h = (pad_h as f64 * scale_x) as f32;
+                let inner_w = (scaled_w - scaled_pad_h * 2.0).max(0.0);
 
-                let font = font_cache.resolve(fam, weight, italic, scaled_size);
+                // Scale the font down if the label text overflows the padded
+                // button area, so the full label is always readable (matching
+                // the front-end's visual shrink-to-fit behaviour).
+                let (font, text_width) = fit_font_to_width(
+                    font_cache, fam, weight, italic, scaled_size, label, spacing, inner_w,
+                );
 
                 let mut text_paint = Paint::default();
                 text_paint.set_color(text_colour);
@@ -579,16 +585,10 @@ fn draw_scene_node(
                 shadow_paint.set_color(Color::from_argb(153, 0, 0, 0));
                 shadow_paint.set_anti_alias(true);
 
-                let text_width = measure_text_with_spacing(label, &font, &text_paint, spacing);
                 let (_, metrics) = font.metrics();
                 let text_height = metrics.descent - metrics.ascent;
-                let inner_w = (scaled_w - scaled_pad_h * 2.0).max(0.0);
                 let text_x = scaled_x + scaled_pad_h + (inner_w - text_width) / 2.0;
                 let text_y = scaled_y + (scaled_h - text_height) / 2.0 - metrics.ascent;
-
-                // Clip label to button bounds so long text doesn't overflow.
-                canvas.save();
-                canvas.clip_rect(rect, None, Some(true));
 
                 if spacing.abs() > f32::EPSILON {
                     draw_text_with_spacing(
@@ -611,8 +611,6 @@ fn draw_scene_node(
                     canvas.draw_str(label, Point::new(text_x + 2.0, text_y + 2.0), &font, &shadow_paint);
                     canvas.draw_str(label, Point::new(text_x, text_y), &font, &text_paint);
                 }
-
-                canvas.restore();
             }
         }
 
@@ -649,6 +647,37 @@ fn draw_text_with_spacing(
         let (advance, _) = font.measure_str(ch_str, Some(paint));
         cursor_x += advance + spacing;
     }
+}
+
+/// Scale the font size down so that `text` fits within `max_width` pixels.
+///
+/// Returns the (possibly smaller) `Font` and the measured text width.
+/// If the text already fits at `size`, returns the font unchanged.
+fn fit_font_to_width(
+    font_cache: &FontCache,
+    family: Option<&str>,
+    weight: FontWeight,
+    italic: bool,
+    size: f32,
+    text: &str,
+    spacing: f32,
+    max_width: f32,
+) -> (Font, f32) {
+    let font = font_cache.resolve(family, weight, italic, size);
+    let paint = Paint::default();
+    let text_width = measure_text_with_spacing(text, &font, &paint, spacing);
+
+    if max_width <= 0.0 || text_width <= max_width {
+        return (font, text_width);
+    }
+
+    // Scale down proportionally so the text fits, with a floor of 4px to
+    // avoid degenerate zero-size fonts.
+    let ratio = max_width / text_width;
+    let new_size = (size * ratio).max(4.0);
+    let new_font = font_cache.resolve(family, weight, italic, new_size);
+    let new_width = measure_text_with_spacing(text, &new_font, &paint, spacing);
+    (new_font, new_width)
 }
 
 fn draw_image_asset(
