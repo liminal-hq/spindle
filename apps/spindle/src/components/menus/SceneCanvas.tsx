@@ -50,7 +50,7 @@ export interface SceneCanvasProps {
 	/** Solid background colour (CSS hex) when no asset is assigned. */
 	backgroundColour: string | null;
 	/** Background image asset to render behind scene nodes. */
-	backgroundAsset: Asset | null;
+	backgroundAsset?: Asset | null;
 	defaultButtonId: string | null;
 	/** When true, render in navigation preview mode with highlight colours. */
 	previewMode: boolean;
@@ -79,7 +79,7 @@ export function SceneCanvas({
 	showSafeArea,
 	backgroundLabel,
 	backgroundColour,
-	backgroundAsset,
+	backgroundAsset = null,
 	defaultButtonId,
 	previewMode,
 	highlightColours,
