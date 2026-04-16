@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-export-menu-render-preview"
+description = "Enables the export_menu_render_preview command without any pre-configured scope."
+commands.allow = ["export_menu_render_preview"]
+
+[[permission]]
+identifier = "deny-export-menu-render-preview"
+description = "Denies the export_menu_render_preview command without any pre-configured scope."
+commands.deny = ["export_menu_render_preview"]

@@ -14,4 +14,6 @@ permissions = [
   "allow-auto-generate-menu-nav",
   "allow-check-toolchain",
   "allow-export-diagnostics",
+  "allow-list-available-fonts",
+  "allow-export-menu-render-preview",
 ]
