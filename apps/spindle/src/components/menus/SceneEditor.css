@@ -529,7 +529,7 @@
 	position: absolute;
 	display: flex;
 	align-items: center;
-	justify-content: flex-start;
+	justify-content: center;
 	background: rgba(255, 170, 64, 0.15);
 	border: 1px solid var(--brand-orange);
 	border-radius: var(--radius-sm);
@@ -539,7 +539,7 @@
 	cursor: grab;
 	user-select: none;
 	z-index: 2;
-	overflow: hidden;
+	box-sizing: border-box;
 	transition:
 		background var(--transition-base),
 		box-shadow var(--transition-base);
@@ -550,8 +550,9 @@
 	align-items: center;
 	justify-content: center;
 	width: 100%;
+	height: 100%;
 	min-width: 0;
-	padding: 6px 10px;
+	overflow: hidden;
 }
 
 .scene-canvas__node-label {
