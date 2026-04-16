@@ -290,7 +290,7 @@ pub(crate) fn parse_colour(s: &str) -> Color {
 /// suitable for compositing over a separate background layer in the ffmpeg
 /// pipeline.  When `false` the PNG gets an opaque dark fill so it works as a
 /// standalone preview image.
-pub(crate) fn render_menu_scene_to_png(
+pub fn render_menu_scene_to_png(
     menu_ref: &AuthorableMenuRef<'_>,
     assets: &HashMap<&str, &Asset>,
     target: RenderTarget,

@@ -14,14 +14,14 @@ use super::types::MenuOverlayButton;
 use super::util::{sanitise_filename, xml_escape};
 
 #[derive(Clone, Copy)]
-pub(crate) enum MenuDomain {
+pub enum MenuDomain {
     Vmgm,
     Titleset(usize),
 }
 
-pub(crate) struct AuthorableMenuRef<'a> {
-    pub(crate) menu: &'a Menu,
-    pub(crate) domain: MenuDomain,
+pub struct AuthorableMenuRef<'a> {
+    pub menu: &'a Menu,
+    pub domain: MenuDomain,
 }
 
 impl<'a> AuthorableMenuRef<'a> {
@@ -169,7 +169,7 @@ pub(crate) struct AuthorableButtonRef<'a> {
     pub(crate) nav_right: Option<&'a str>,
 }
 
-pub(crate) fn authorable_menus(project: &SpindleProjectFile) -> Vec<AuthorableMenuRef<'_>> {
+pub fn authorable_menus(project: &SpindleProjectFile) -> Vec<AuthorableMenuRef<'_>> {
     let mut menus = Vec::new();
     for menu in &project.disc.global_menus {
         menus.push(AuthorableMenuRef {

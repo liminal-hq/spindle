@@ -13,7 +13,8 @@ mod navigation;
 mod planner;
 mod skia;
 
-pub use skia::{enumerate_fonts, FontEntry};
+pub use skia::{enumerate_fonts, render_menu_scene_to_png, FontEntry, FontSource};
+pub use menu::{authorable_menus, AuthorableMenuRef, MenuDomain};
 #[cfg(test)]
 mod test_support;
 mod types;

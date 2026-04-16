@@ -4025,6 +4025,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "spindle-menu-debug"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+ "tauri-plugin-spindle-project",
+]
+
+[[package]]
 name = "stable_deref_trait"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
