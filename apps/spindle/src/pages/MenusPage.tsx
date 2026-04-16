@@ -1440,6 +1440,7 @@ function MenuEditor({
 								showSafeArea={showSafeArea}
 								backgroundLabel={backgroundAssetLabel}
 								backgroundColour={menu.authoredDocument?.scene.background.colour ?? null}
+								backgroundAsset={backgroundAsset}
 								defaultButtonId={defaultFocusId}
 								previewMode={previewMode}
 								highlightColours={highlightColours}

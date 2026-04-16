@@ -49,6 +49,8 @@ export interface SceneCanvasProps {
 	backgroundLabel: string | null;
 	/** Solid background colour (CSS hex) when no asset is assigned. */
 	backgroundColour: string | null;
+	/** Background image asset to render behind scene nodes. */
+	backgroundAsset: Asset | null;
 	defaultButtonId: string | null;
 	/** When true, render in navigation preview mode with highlight colours. */
 	previewMode: boolean;
@@ -77,6 +79,7 @@ export function SceneCanvas({
 	showSafeArea,
 	backgroundLabel,
 	backgroundColour,
+	backgroundAsset,
 	defaultButtonId,
 	previewMode,
 	highlightColours,
@@ -97,6 +100,7 @@ export function SceneCanvas({
 				showSafeArea={showSafeArea}
 				backgroundLabel={backgroundLabel}
 				backgroundColour={backgroundColour}
+				backgroundAsset={backgroundAsset}
 				defaultButtonId={defaultButtonId}
 				highlightColours={highlightColours}
 				honestPreview={honestPreview}
@@ -116,6 +120,7 @@ export function SceneCanvas({
 			showSafeArea={showSafeArea}
 			backgroundLabel={backgroundLabel}
 			backgroundColour={backgroundColour}
+			backgroundAsset={backgroundAsset}
 			defaultButtonId={defaultButtonId}
 			honestPreview={honestPreview}
 			showNavLines={showNavLines}
@@ -139,6 +144,7 @@ function DesignCanvas({
 	showSafeArea,
 	backgroundLabel,
 	backgroundColour,
+	backgroundAsset,
 	defaultButtonId,
 	honestPreview,
 	showNavLines,
@@ -156,6 +162,7 @@ function DesignCanvas({
 	showSafeArea: boolean;
 	backgroundLabel: string | null;
 	backgroundColour: string | null;
+	backgroundAsset: Asset | null;
 	defaultButtonId: string | null;
 	honestPreview: boolean;
 	showNavLines: boolean;
@@ -477,10 +484,11 @@ function DesignCanvas({
 			ref={canvasRef}
 			style={{
 				aspectRatio: aspectRatioForDisplay(displayAspect),
-				...(backgroundColour && !backgroundLabel ? { backgroundColor: backgroundColour } : {}),
+				...(backgroundColour ? { backgroundColor: backgroundColour } : {}),
 			}}
 			onClick={() => onSelectNode(null)}
 		>
+			{backgroundAsset && <BackgroundImage asset={backgroundAsset} />}
 			{backgroundLabel && (
 				<div className="scene-canvas__bg-label text-muted">{backgroundLabel}</div>
 			)}
@@ -620,6 +628,7 @@ function NavigationPreview({
 	showSafeArea,
 	backgroundLabel,
 	backgroundColour,
+	backgroundAsset,
 	defaultButtonId,
 	highlightColours,
 	honestPreview,
@@ -632,6 +641,7 @@ function NavigationPreview({
 	showSafeArea: boolean;
 	backgroundLabel: string | null;
 	backgroundColour: string | null;
+	backgroundAsset: Asset | null;
 	defaultButtonId: string | null;
 	highlightColours: MenuHighlightColours;
 	honestPreview: boolean;
@@ -746,9 +756,10 @@ function NavigationPreview({
 			onFocus={() => containerRef.current?.focus()}
 			style={{
 				aspectRatio: aspectRatioForDisplay(displayAspect),
-				...(backgroundColour && !backgroundLabel ? { backgroundColor: backgroundColour } : {}),
+				...(backgroundColour ? { backgroundColor: backgroundColour } : {}),
 			}}
 		>
+			{backgroundAsset && <BackgroundImage asset={backgroundAsset} />}
 			{backgroundLabel && (
 				<div className="scene-canvas__bg-label text-muted">{backgroundLabel}</div>
 			)}
@@ -937,6 +948,45 @@ function RenderedSceneNode({
 					))
 				: null}
 		</div>
+	);
+}
+
+function BackgroundImage({ asset }: { asset: Asset }) {
+	const [imageSrc, setImageSrc] = useState<string | null>(null);
+
+	useEffect(() => {
+		let revokedUrl: string | null = null;
+		let cancelled = false;
+
+		async function load() {
+			try {
+				const bytes = await readFile(asset.sourcePath);
+				if (cancelled) return;
+				const blob = new Blob([bytes], { type: mimeTypeForImageAsset(asset.fileName) });
+				const url = URL.createObjectURL(blob);
+				revokedUrl = url;
+				setImageSrc(url);
+			} catch {
+				if (!cancelled) setImageSrc(null);
+			}
+		}
+		void load();
+
+		return () => {
+			cancelled = true;
+			if (revokedUrl) URL.revokeObjectURL(revokedUrl);
+		};
+	}, [asset.id, asset.sourcePath]);
+
+	if (!imageSrc) return null;
+
+	return (
+		<img
+			className="scene-canvas__bg-image"
+			src={imageSrc}
+			alt="Menu background"
+			draggable={false}
+		/>
 	);
 }
 
