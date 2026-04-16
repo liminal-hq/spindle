@@ -130,11 +130,8 @@ fn main() {
 
     println!("=== Rendering {} menu(s) ===\n", menus.len());
 
-    let asset_map: HashMap<&str, &Asset> = project
-        .assets
-        .iter()
-        .map(|a| (a.id.as_str(), a))
-        .collect();
+    let asset_map: HashMap<&str, &Asset> =
+        project.assets.iter().map(|a| (a.id.as_str(), a)).collect();
 
     for menu_ref in &menus {
         let menu = menu_ref.menu;
@@ -181,9 +178,7 @@ fn main() {
         for node in &doc.scene.nodes {
             match node {
                 SceneNode::Button {
-                    label,
-                    label_style,
-                    ..
+                    label, label_style, ..
                 } => {
                     buttons += 1;
                     let font_info = label_style

@@ -31,13 +31,14 @@ and node diagnostics to stdout.
 
 For each menu with an authored document:
 
-| File | Description |
-|------|-------------|
-| `<menu-id>_scene.png` | Raster scene PNG at render target dimensions (opaque background) |
-| `<menu-id>_scene_transparent.png` | Transparent scene PNG used in the build pipeline |
-| `<menu-id>_preview.png` | DAR-corrected preview PNG at display-aspect dimensions |
+| File                              | Description                                                      |
+| --------------------------------- | ---------------------------------------------------------------- |
+| `<menu-id>_scene.png`             | Raster scene PNG at render target dimensions (opaque background) |
+| `<menu-id>_scene_transparent.png` | Transparent scene PNG used in the build pipeline                 |
+| `<menu-id>_preview.png`           | DAR-corrected preview PNG at display-aspect dimensions           |
 
 Stdout shows:
+
 - Font resolution diagnostics — project-asset fonts vs system fonts
 - Per-node font/style info — immediately reveals `null` `fontFamily` or `labelStyle`
 - Render target (raster dimensions and SAR)
@@ -72,6 +73,7 @@ scene node has a null style in the project file — the Skia renderer falls back
 to `TextStyle::default()` (Inter 14px).
 
 To fix:
+
 1. Select the node in the Spindle menu editor.
 2. Change the font family in the inspector — this writes `labelStyle` (for
    buttons) or `fontFamily` (for text nodes) into the scene node.
