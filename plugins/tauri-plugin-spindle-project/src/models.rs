@@ -796,23 +796,23 @@ pub enum SceneNode {
         y: f64,
         width: f64,
         height: f64,
-        #[serde(default, alias = "font_size")]
+        #[serde(default, rename = "fontSize", alias = "font_size")]
         font_size: Option<f64>,
-        #[serde(default, alias = "font_family")]
+        #[serde(default, rename = "fontFamily", alias = "font_family")]
         font_family: Option<String>,
-        #[serde(default, alias = "font_weight")]
+        #[serde(default, rename = "fontWeight", alias = "font_weight")]
         font_weight: Option<FontWeight>,
-        #[serde(default, alias = "font_italic")]
+        #[serde(default, rename = "fontItalic", alias = "font_italic")]
         font_italic: Option<bool>,
-        #[serde(default, alias = "text_decoration")]
+        #[serde(default, rename = "textDecoration", alias = "text_decoration")]
         text_decoration: Option<TextDecoration>,
-        #[serde(default, alias = "text_align")]
+        #[serde(default, rename = "textAlign", alias = "text_align")]
         text_align: Option<TextAlign>,
         #[serde(default)]
         colour: Option<String>,
-        #[serde(default, alias = "line_height")]
+        #[serde(default, rename = "lineHeight", alias = "line_height")]
         line_height: Option<f64>,
-        #[serde(default, alias = "letter_spacing")]
+        #[serde(default, rename = "letterSpacing", alias = "letter_spacing")]
         letter_spacing: Option<f64>,
     },
     Image {
@@ -847,20 +847,20 @@ pub enum SceneNode {
         y: f64,
         width: f64,
         height: f64,
-        #[serde(default, alias = "highlight_mode")]
+        #[serde(default, rename = "highlightMode", alias = "highlight_mode")]
         highlight_mode: HighlightMode,
-        #[serde(default, alias = "highlight_keyframes")]
+        #[serde(default, rename = "highlightKeyframes", alias = "highlight_keyframes")]
         highlight_keyframes: Vec<HighlightKeyframe>,
-        #[serde(default, alias = "video_asset_id")]
+        #[serde(default, rename = "videoAssetId", alias = "video_asset_id")]
         video_asset_id: Option<String>,
-        #[serde(default, alias = "button_style")]
+        #[serde(default, rename = "buttonStyle", alias = "button_style")]
         button_style: Option<ButtonStyleMap>,
-        #[serde(default, alias = "label_style")]
+        #[serde(default, rename = "labelStyle", alias = "label_style")]
         label_style: Option<TextStyle>,
     },
     ComponentInstance {
         id: String,
-        #[serde(alias = "component_id")]
+        #[serde(rename = "componentId", alias = "component_id")]
         component_id: String,
     },
     GeneratedCollection {
@@ -2069,6 +2069,35 @@ mod tests {
             }
             other => panic!("expected image node, found {other:?}"),
         }
+    }
+
+    /// Confirm that SceneNode serialises with camelCase keys (not snake_case),
+    /// so that the TS frontend receives `fontFamily`, `fontSize`, etc.
+    #[test]
+    fn scene_node_text_serialises_camel_case_keys() {
+        let node = SceneNode::Text {
+            id: "t1".to_string(),
+            content: "Hello".to_string(),
+            x: 0.0,
+            y: 0.0,
+            width: 100.0,
+            height: 40.0,
+            font_size: Some(18.0),
+            font_family: Some("MathJax_Fraktur".to_string()),
+            font_weight: Some(FontWeight::Bold),
+            font_italic: Some(false),
+            text_decoration: None,
+            text_align: None,
+            colour: Some("#ffffff".to_string()),
+            line_height: None,
+            letter_spacing: None,
+        };
+
+        let json = serde_json::to_string(&node).unwrap();
+        assert!(json.contains("\"fontFamily\""), "expected camelCase fontFamily, got: {json}");
+        assert!(json.contains("\"fontSize\""), "expected camelCase fontSize, got: {json}");
+        assert!(!json.contains("\"font_family\""), "snake_case font_family must not appear: {json}");
+        assert!(!json.contains("\"font_size\""), "snake_case font_size must not appear: {json}");
     }
 
     #[test]
