@@ -9,7 +9,8 @@ Default permissions for the spindle-project plugin
 - `allow-serialise-project`
 - `allow-validate-project`
 - `allow-inspect-asset`
-- `allow-extract-thumbnail`
+- `allow-extract-video-thumbnail`
+- `allow-extract-image-thumbnail`
 - `allow-get-cache-dir`
 - `allow-generate-build-plan`
 - `allow-execute-build`
@@ -214,12 +215,12 @@ Denies the export_menu_render_preview command without any pre-configured scope.
 <tr>
 <td>
 
-`spindle-project:allow-extract-thumbnail`
+`spindle-project:allow-extract-image-thumbnail`
 
 </td>
 <td>
 
-Enables the extract_thumbnail command without any pre-configured scope.
+Enables the extract_image_thumbnail command without any pre-configured scope.
 
 </td>
 </tr>
@@ -227,12 +228,38 @@ Enables the extract_thumbnail command without any pre-configured scope.
 <tr>
 <td>
 
-`spindle-project:deny-extract-thumbnail`
+`spindle-project:deny-extract-image-thumbnail`
 
 </td>
 <td>
 
-Denies the extract_thumbnail command without any pre-configured scope.
+Denies the extract_image_thumbnail command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`spindle-project:allow-extract-video-thumbnail`
+
+</td>
+<td>
+
+Enables the extract_video_thumbnail command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`spindle-project:deny-extract-video-thumbnail`
+
+</td>
+<td>
+
+Denies the extract_video_thumbnail command without any pre-configured scope.
 
 </td>
 </tr>

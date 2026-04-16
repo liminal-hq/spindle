@@ -159,23 +159,41 @@ function mergeInspectedAsset(existingAsset: Asset, inspected: Asset): Asset {
 	};
 }
 
+const STILL_IMAGE_EXTENSIONS = /\.(png|jpe?g|bmp|tiff?|webp)$/i;
+
+function isStillImageAsset(asset: Asset): boolean {
+	return STILL_IMAGE_EXTENSIONS.test(asset.fileName);
+}
+
 async function extractAssetThumbnail(
 	asset: Asset,
 ): Promise<Pick<Asset, 'thumbnailPath' | 'thumbnailError'>> {
-	if (asset.videoStreams.length === 0) {
+	const isVideo = asset.videoStreams.length > 0;
+	const isImage = !isVideo && isStillImageAsset(asset);
+
+	if (!isVideo && !isImage) {
 		return { thumbnailPath: null, thumbnailError: null };
 	}
 
 	try {
 		const thumbDir = await invoke<string>('plugin:spindle-project|get_cache_dir');
 		const thumbPath = `${thumbDir}/thumb_${asset.id}.jpg`;
-		const durationSecs = asset.durationSecs ?? 0;
-		const seekTo = chooseThumbnailTimestamp(durationSecs);
-		await invoke('plugin:spindle-project|extract_thumbnail', {
-			sourcePath: asset.sourcePath,
-			outputPath: thumbPath,
-			timestampSecs: seekTo,
-		});
+
+		if (isVideo) {
+			const durationSecs = asset.durationSecs ?? 0;
+			const seekTo = chooseThumbnailTimestamp(durationSecs);
+			await invoke('plugin:spindle-project|extract_video_thumbnail', {
+				sourcePath: asset.sourcePath,
+				outputPath: thumbPath,
+				timestampSecs: seekTo,
+			});
+		} else {
+			await invoke('plugin:spindle-project|extract_image_thumbnail', {
+				sourcePath: asset.sourcePath,
+				outputPath: thumbPath,
+			});
+		}
+
 		return { thumbnailPath: thumbPath, thumbnailError: null };
 	} catch (error) {
 		const message =
@@ -217,7 +235,8 @@ async function cachedThumbnailExists(thumbnailPath: string | null): Promise<bool
 
 async function ensureProjectAssetThumbnails(project: SpindleProjectFile): Promise<void> {
 	for (const asset of project.assets) {
-		if (asset.videoStreams.length === 0) {
+		const needsThumbnail = asset.videoStreams.length > 0 || isStillImageAsset(asset);
+		if (!needsThumbnail) {
 			continue;
 		}
 

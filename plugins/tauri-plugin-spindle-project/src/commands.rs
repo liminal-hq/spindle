@@ -109,13 +109,28 @@ pub(crate) async fn inspect_asset<R: Runtime>(_app: AppHandle<R>, path: String) 
 
 /// Extract a thumbnail from a video asset at a given timestamp.
 #[command]
-pub(crate) async fn extract_thumbnail<R: Runtime>(
+pub(crate) async fn extract_video_thumbnail<R: Runtime>(
     _app: AppHandle<R>,
     source_path: String,
     output_path: String,
     timestamp_secs: f64,
 ) -> Result<()> {
-    crate::inspect::extract_thumbnail(&source_path, &output_path, timestamp_secs)
+    crate::inspect::extract_video_thumbnail(&source_path, &output_path, timestamp_secs)
+}
+
+/// Extract a scaled-down JPEG thumbnail from a still image asset.
+///
+/// Reads the source image, scales it so the longest edge is at most 1920 px,
+/// and writes the result as JPEG to `output_path`. The output lands in the app
+/// cache alongside video thumbnails so the frontend can read it through the
+/// existing `$APPCACHE/thumbnails/*` fs capability.
+#[command]
+pub(crate) async fn extract_image_thumbnail<R: Runtime>(
+    _app: AppHandle<R>,
+    source_path: String,
+    output_path: String,
+) -> Result<()> {
+    crate::inspect::extract_image_thumbnail(&source_path, &output_path)
 }
 
 /// Generate a build plan without executing it (dry-run / preview).

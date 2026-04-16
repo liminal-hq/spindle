@@ -188,7 +188,7 @@ pub fn inspect(path: &str) -> crate::Result<Asset> {
 /// Extract a thumbnail from a video file at the given timestamp.
 ///
 /// Writes a JPEG image to `output_path` using ffmpeg.
-pub fn extract_thumbnail(
+pub fn extract_video_thumbnail(
     source_path: &str,
     output_path: &str,
     timestamp_secs: f64,
@@ -232,6 +232,73 @@ pub fn extract_thumbnail(
     }
 
     Ok(())
+}
+
+/// Extract a preview thumbnail from a still image asset.
+///
+/// Decodes the source image with Skia, scales it so its longest edge is at
+/// most `MAX_LONG_EDGE` pixels (preserving aspect ratio), then encodes the
+/// result as JPEG and writes it to `output_path`. This keeps the cache at a
+/// reasonable size while remaining sharp enough for Blu-ray 1920×1080 canvases.
+///
+/// Supported formats: anything Skia can decode (PNG, JPEG, BMP, TIFF, WebP).
+pub fn extract_image_thumbnail(source_path: &str, output_path: &str) -> crate::Result<()> {
+    use skia_safe::{self as skia, surfaces, Data, EncodedImageFormat, ISize, Paint};
+
+    const MAX_LONG_EDGE: i32 = 1920;
+
+    let bytes = std::fs::read(source_path).map_err(|e| {
+        crate::Error::Inspection(format!("Failed to read image asset \"{source_path}\": {e}"))
+    })?;
+
+    let data = Data::new_copy(&bytes);
+    let src_image = skia::Image::from_encoded(data).ok_or_else(|| {
+        crate::Error::Inspection(format!(
+            "Skia could not decode image asset \"{source_path}\""
+        ))
+    })?;
+
+    let src_w = src_image.width();
+    let src_h = src_image.height();
+    let long_edge = src_w.max(src_h);
+
+    let (dst_w, dst_h) = if long_edge <= MAX_LONG_EDGE {
+        (src_w, src_h)
+    } else {
+        let scale = MAX_LONG_EDGE as f32 / long_edge as f32;
+        (
+            ((src_w as f32 * scale).round() as i32).max(1),
+            ((src_h as f32 * scale).round() as i32).max(1),
+        )
+    };
+
+    let info = skia_safe::ImageInfo::new(
+        ISize::new(dst_w, dst_h),
+        skia_safe::ColorType::RGBA8888,
+        skia_safe::AlphaType::Premul,
+        None,
+    );
+
+    let mut surface = surfaces::raster(&info, None, None).ok_or_else(|| {
+        crate::Error::Inspection("Failed to create Skia surface for image thumbnail".into())
+    })?;
+
+    let canvas = surface.canvas();
+    let dst_rect = skia_safe::Rect::from_wh(dst_w as f32, dst_h as f32);
+    canvas.draw_image_rect(src_image, None, dst_rect, &Paint::default());
+
+    let image = surface.image_snapshot();
+    let encoded = image
+        .encode(None, EncodedImageFormat::JPEG, Some(90))
+        .ok_or_else(|| {
+            crate::Error::Inspection("Failed to encode image thumbnail as JPEG".into())
+        })?;
+
+    std::fs::write(output_path, encoded.as_bytes()).map_err(|e| {
+        crate::Error::Inspection(format!(
+            "Failed to write image thumbnail to \"{output_path}\": {e}"
+        ))
+    })
 }
 
 fn build_thumbnail_filter(video: &VideoStreamInfo) -> String {
