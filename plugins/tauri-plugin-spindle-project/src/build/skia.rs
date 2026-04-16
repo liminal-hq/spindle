@@ -7,11 +7,13 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use skia_safe::{
-    self as skia, surfaces, AlphaType, Canvas, Color, ColorType, Data, EncodedImageFormat,
-    Font, FontMgr, FontStyle, ISize, ImageInfo, Paint, PaintStyle, Point, RRect, Rect, Typeface,
+    self as skia, surfaces, AlphaType, Canvas, Color, ColorType, Data, EncodedImageFormat, Font,
+    FontMgr, FontStyle, ISize, ImageInfo, Paint, PaintStyle, Point, RRect, Rect, Typeface,
 };
 
-use crate::models::{Asset, DiscFamily, FontWeight, RenderTarget, SceneNode, TextDecoration, TextStyle};
+use crate::models::{
+    Asset, DiscFamily, FontWeight, RenderTarget, SceneNode, TextDecoration, TextStyle,
+};
 
 use super::menu::AuthorableMenuRef;
 use super::types::MenuOverlayButton;
@@ -84,7 +86,10 @@ pub fn enumerate_fonts(assets: &[&Asset]) -> Vec<FontEntry> {
         }
         let key = family.to_ascii_lowercase();
         if seen.insert(key) {
-            entries.push(FontEntry { family, source: FontSource::ProjectAsset });
+            entries.push(FontEntry {
+                family,
+                source: FontSource::ProjectAsset,
+            });
         }
     }
 
@@ -99,7 +104,10 @@ pub fn enumerate_fonts(assets: &[&Asset]) -> Vec<FontEntry> {
         }
         let key = family.to_ascii_lowercase();
         if seen.insert(key) {
-            entries.push(FontEntry { family, source: FontSource::System });
+            entries.push(FontEntry {
+                family,
+                source: FontSource::System,
+            });
         }
     }
 
@@ -198,7 +206,7 @@ impl FontCache {
                     .get(&fam.to_ascii_lowercase())
                     .cloned()
                     // Then ask the platform font manager.
-                    .or_else(|| self.mgr.legacy_make_typeface(Some(fam), skia_style.clone()))
+                    .or_else(|| self.mgr.legacy_make_typeface(Some(fam), skia_style))
             })
             .or_else(|| {
                 // Fall back to any default typeface.
@@ -243,19 +251,49 @@ pub(crate) fn parse_colour(s: &str) -> Color {
     if let Some(inner) = s.strip_prefix("rgba(").and_then(|s| s.strip_suffix(')')) {
         let parts: Vec<&str> = inner.splitn(4, ',').collect();
         if parts.len() == 4 {
-            let r = parts[0].trim().parse::<f32>().unwrap_or(0.0).clamp(0.0, 255.0) as u8;
-            let g = parts[1].trim().parse::<f32>().unwrap_or(0.0).clamp(0.0, 255.0) as u8;
-            let b = parts[2].trim().parse::<f32>().unwrap_or(0.0).clamp(0.0, 255.0) as u8;
-            let a = (parts[3].trim().parse::<f32>().unwrap_or(1.0).clamp(0.0, 1.0) * 255.0).round() as u8;
+            let r = parts[0]
+                .trim()
+                .parse::<f32>()
+                .unwrap_or(0.0)
+                .clamp(0.0, 255.0) as u8;
+            let g = parts[1]
+                .trim()
+                .parse::<f32>()
+                .unwrap_or(0.0)
+                .clamp(0.0, 255.0) as u8;
+            let b = parts[2]
+                .trim()
+                .parse::<f32>()
+                .unwrap_or(0.0)
+                .clamp(0.0, 255.0) as u8;
+            let a = (parts[3]
+                .trim()
+                .parse::<f32>()
+                .unwrap_or(1.0)
+                .clamp(0.0, 1.0)
+                * 255.0)
+                .round() as u8;
             return Color::from_argb(a, r, g, b);
         }
     }
     if let Some(inner) = s.strip_prefix("rgb(").and_then(|s| s.strip_suffix(')')) {
         let parts: Vec<&str> = inner.splitn(3, ',').collect();
         if parts.len() == 3 {
-            let r = parts[0].trim().parse::<f32>().unwrap_or(0.0).clamp(0.0, 255.0) as u8;
-            let g = parts[1].trim().parse::<f32>().unwrap_or(0.0).clamp(0.0, 255.0) as u8;
-            let b = parts[2].trim().parse::<f32>().unwrap_or(0.0).clamp(0.0, 255.0) as u8;
+            let r = parts[0]
+                .trim()
+                .parse::<f32>()
+                .unwrap_or(0.0)
+                .clamp(0.0, 255.0) as u8;
+            let g = parts[1]
+                .trim()
+                .parse::<f32>()
+                .unwrap_or(0.0)
+                .clamp(0.0, 255.0) as u8;
+            let b = parts[2]
+                .trim()
+                .parse::<f32>()
+                .unwrap_or(0.0)
+                .clamp(0.0, 255.0) as u8;
             return Color::from_argb(255, r, g, b);
         }
     }
@@ -300,13 +338,12 @@ pub fn render_menu_scene_to_png(
     let w = target.raster_width as i32;
     let h = target.raster_height as i32;
 
-    let alpha_type = if transparent_bg { AlphaType::Premul } else { AlphaType::Opaque };
-    let info = ImageInfo::new(
-        ISize::new(w, h),
-        ColorType::RGBA8888,
-        alpha_type,
-        None,
-    );
+    let alpha_type = if transparent_bg {
+        AlphaType::Premul
+    } else {
+        AlphaType::Opaque
+    };
+    let info = ImageInfo::new(ISize::new(w, h), ColorType::RGBA8888, alpha_type, None);
 
     let mut surface = surfaces::raster(&info, None, None)
         .ok_or_else(|| crate::Error::Build("Failed to create Skia surface".into()))?;
@@ -354,8 +391,12 @@ pub fn render_menu_scene_to_png(
         .encode(None, EncodedImageFormat::PNG, None)
         .ok_or_else(|| crate::Error::Build("Failed to encode Skia surface as PNG".into()))?;
 
-    std::fs::write(output_path, encoded.as_bytes())
-        .map_err(|e| crate::Error::Build(format!("Failed to write PNG to {}: {e}", output_path.display())))
+    std::fs::write(output_path, encoded.as_bytes()).map_err(|e| {
+        crate::Error::Build(format!(
+            "Failed to write PNG to {}: {e}",
+            output_path.display()
+        ))
+    })
 }
 
 fn draw_scene_node(
@@ -466,7 +507,12 @@ fn draw_scene_node(
                     &paint,
                 );
             } else {
-                canvas.draw_str(content.as_str(), Point::new(text_x + 2.0, text_y + 2.0), &font, &shadow_paint);
+                canvas.draw_str(
+                    content.as_str(),
+                    Point::new(text_x + 2.0, text_y + 2.0),
+                    &font,
+                    &shadow_paint,
+                );
                 canvas.draw_str(content.as_str(), Point::new(text_x, text_y), &font, &paint);
             }
 
@@ -522,9 +568,9 @@ fn draw_scene_node(
             let radius = (style.border_radius * scale_x.min(scale_y)) as f32;
             let rect = Rect::from_xywh(scaled_x, scaled_y, scaled_w, scaled_h);
             let rrect = if radius > 0.0 {
-                RRect::new_rect_xy(&rect, radius, radius)
+                RRect::new_rect_xy(rect, radius, radius)
             } else {
-                RRect::new_rect(&rect)
+                RRect::new_rect(rect)
             };
 
             // Background fill.
@@ -534,7 +580,7 @@ fn draw_scene_node(
                 fill_paint.set_color(fill_colour);
                 fill_paint.set_anti_alias(true);
                 fill_paint.set_style(PaintStyle::Fill);
-                canvas.draw_rrect(&rrect, &fill_paint);
+                canvas.draw_rrect(rrect, &fill_paint);
             }
 
             // Border stroke.
@@ -545,7 +591,7 @@ fn draw_scene_node(
                 stroke_paint.set_anti_alias(true);
                 stroke_paint.set_style(PaintStyle::Stroke);
                 stroke_paint.set_stroke_width((style.border_width * scale_x.min(scale_y)) as f32);
-                canvas.draw_rrect(&rrect, &stroke_paint);
+                canvas.draw_rrect(rrect, &stroke_paint);
             }
 
             // Label text — centred within padded area, scaled down to fit.
@@ -584,7 +630,14 @@ fn draw_scene_node(
                 // button area, so the full label is always readable (matching
                 // the front-end's visual shrink-to-fit behaviour).
                 let (font, text_width) = fit_font_to_width(
-                    font_cache, Some(fam), weight, italic, scaled_size, label, spacing, inner_w,
+                    font_cache,
+                    Some(fam),
+                    weight,
+                    italic,
+                    scaled_size,
+                    label,
+                    spacing,
+                    inner_w,
                 );
 
                 let mut text_paint = Paint::default();
@@ -618,7 +671,12 @@ fn draw_scene_node(
                         &text_paint,
                     );
                 } else {
-                    canvas.draw_str(label, Point::new(text_x + 2.0, text_y + 2.0), &font, &shadow_paint);
+                    canvas.draw_str(
+                        label,
+                        Point::new(text_x + 2.0, text_y + 2.0),
+                        &font,
+                        &shadow_paint,
+                    );
                     canvas.draw_str(label, Point::new(text_x, text_y), &font, &text_paint);
                 }
             }
@@ -663,6 +721,7 @@ fn draw_text_with_spacing(
 ///
 /// Returns the (possibly smaller) `Font` and the measured text width.
 /// If the text already fits at `size`, returns the font unchanged.
+#[allow(clippy::too_many_arguments)]
 fn fit_font_to_width(
     font_cache: &FontCache,
     family: Option<&str>,
@@ -700,9 +759,13 @@ fn draw_image_asset(
     let (scale_x, scale_y) = scale;
 
     let path = std::path::Path::new(&asset.source_path);
-    let Ok(bytes) = std::fs::read(path) else { return };
+    let Ok(bytes) = std::fs::read(path) else {
+        return;
+    };
     let data = Data::new_copy(&bytes);
-    let Some(image) = skia::Image::from_encoded(data) else { return };
+    let Some(image) = skia::Image::from_encoded(data) else {
+        return;
+    };
 
     let dst = Rect::from_xywh(
         (x * scale_x) as f32,
@@ -729,19 +792,32 @@ fn draw_default_button_hint(
     scale_y: f64,
 ) {
     let default_button_id = menu_ref.default_button_id();
-    let Some(default_id) = default_button_id else { return };
+    let Some(default_id) = default_button_id else {
+        return;
+    };
 
     let highlight_colours = menu_ref.highlight_colours();
 
     // Find the default button directly from scene nodes to get button_style.
-    let node = menu_ref.scene_nodes().into_iter().find(|n| {
-        matches!(n, SceneNode::Button { id, .. } if id == default_id)
-    });
+    let node = menu_ref
+        .scene_nodes()
+        .into_iter()
+        .find(|n| matches!(n, SceneNode::Button { id, .. } if id == default_id));
     let Some(node) = node else { return };
 
     let (x, y, width, height, border_radius) = match node {
-        SceneNode::Button { x, y, width, height, button_style, .. } => {
-            let raw_r = button_style.as_ref().map(|bs| bs.normal.border_radius as f32).unwrap_or(0.0);
+        SceneNode::Button {
+            x,
+            y,
+            width,
+            height,
+            button_style,
+            ..
+        } => {
+            let raw_r = button_style
+                .as_ref()
+                .map(|bs| bs.normal.border_radius as f32)
+                .unwrap_or(0.0);
             let r = (raw_r * scale_x.min(scale_y) as f32).max(0.0);
             (*x, *y, *width, *height, r)
         }
@@ -768,9 +844,11 @@ fn draw_default_button_hint(
     paint.set_anti_alias(true);
 
     if border_radius > 0.0 {
-        let r = border_radius.min(rect.width() / 2.0).min(rect.height() / 2.0);
-        let rrect = RRect::new_rect_xy(&rect, r, r);
-        canvas.draw_rrect(&rrect, &paint);
+        let r = border_radius
+            .min(rect.width() / 2.0)
+            .min(rect.height() / 2.0);
+        let rrect = RRect::new_rect_xy(rect, r, r);
+        canvas.draw_rrect(rrect, &paint);
     } else {
         canvas.draw_rect(rect, &paint);
     }
@@ -825,9 +903,12 @@ pub(crate) fn render_menu_overlay_image_skia(
             (bh - stroke_width).max(0.0),
         );
         if button.border_radius > 0.0 {
-            let r = button.border_radius.min(rect.width() / 2.0).min(rect.height() / 2.0);
-            let rrect = RRect::new_rect_xy(&rect, r, r);
-            canvas.draw_rrect(&rrect, &paint);
+            let r = button
+                .border_radius
+                .min(rect.width() / 2.0)
+                .min(rect.height() / 2.0);
+            let rrect = RRect::new_rect_xy(rect, r, r);
+            canvas.draw_rrect(rrect, &paint);
         } else {
             canvas.draw_rect(rect, &paint);
         }
@@ -838,8 +919,12 @@ pub(crate) fn render_menu_overlay_image_skia(
         .encode(None, EncodedImageFormat::PNG, None)
         .ok_or_else(|| crate::Error::Build("Failed to encode Skia overlay as PNG".into()))?;
 
-    std::fs::write(output_path, encoded.as_bytes())
-        .map_err(|e| crate::Error::Build(format!("Failed to write overlay PNG to {}: {e}", output_path.display())))
+    std::fs::write(output_path, encoded.as_bytes()).map_err(|e| {
+        crate::Error::Build(format!(
+            "Failed to write overlay PNG to {}: {e}",
+            output_path.display()
+        ))
+    })
 }
 
 // ── Named colour helper ───────────────────────────────────────────────────────
@@ -1037,7 +1122,10 @@ mod tests {
 
         let bytes = std::fs::read(&tmp).expect("output PNG should exist");
 
-        assert!(is_valid_png(&bytes), "output should start with PNG magic bytes");
+        assert!(
+            is_valid_png(&bytes),
+            "output should start with PNG magic bytes"
+        );
 
         // IHDR chunk starts at byte 8; width at byte 16, height at byte 20.
         let png_width = read_u32_be(&bytes, 16);
@@ -1065,7 +1153,10 @@ mod tests {
 
         let bytes = std::fs::read(&tmp).expect("overlay PNG should exist");
 
-        assert!(is_valid_png(&bytes), "output should start with PNG magic bytes");
+        assert!(
+            is_valid_png(&bytes),
+            "output should start with PNG magic bytes"
+        );
 
         let png_width = read_u32_be(&bytes, 16);
         let png_height = read_u32_be(&bytes, 20);
@@ -1101,7 +1192,10 @@ mod tests {
         let normal_bytes = std::fs::read(&tmp_normal).unwrap();
         let bold_bytes = std::fs::read(&tmp_bold).unwrap();
 
-        assert_ne!(normal_bytes, bold_bytes, "bold render should differ from normal render");
+        assert_ne!(
+            normal_bytes, bold_bytes,
+            "bold render should differ from normal render"
+        );
 
         let _ = std::fs::remove_file(&tmp_normal);
         let _ = std::fs::remove_file(&tmp_bold);
@@ -1421,8 +1515,14 @@ mod tests {
         let with_button = make_menu_with_button(true);
         let without_button = make_menu_with_button(false);
 
-        let ref_with = AuthorableMenuRef { menu: &with_button, domain: MenuDomain::Vmgm };
-        let ref_without = AuthorableMenuRef { menu: &without_button, domain: MenuDomain::Vmgm };
+        let ref_with = AuthorableMenuRef {
+            menu: &with_button,
+            domain: MenuDomain::Vmgm,
+        };
+        let ref_without = AuthorableMenuRef {
+            menu: &without_button,
+            domain: MenuDomain::Vmgm,
+        };
 
         let assets: HashMap<&str, &Asset> = HashMap::new();
         let target = dvd_ntsc_target();
@@ -1451,7 +1551,6 @@ mod tests {
     /// produce a valid PNG.
     #[test]
     fn render_button_with_rgba_fill_produces_valid_png() {
-
         let menu = Menu {
             id: "rgba-btn-menu".to_string(),
             authored_document: Some(MenuDocument {
@@ -1464,7 +1563,10 @@ mod tests {
                         height: 480.0,
                         aspect: AspectMode::SixteenByNine,
                     },
-                    background: SceneBackground { asset_id: None, colour: None },
+                    background: SceneBackground {
+                        asset_id: None,
+                        colour: None,
+                    },
                     nodes: vec![SceneNode::Button {
                         id: "rgba-btn".to_string(),
                         label: "OK".to_string(),
@@ -1504,7 +1606,10 @@ mod tests {
             ..Menu::default()
         };
 
-        let menu_ref = AuthorableMenuRef { menu: &menu, domain: MenuDomain::Vmgm };
+        let menu_ref = AuthorableMenuRef {
+            menu: &menu,
+            domain: MenuDomain::Vmgm,
+        };
         let assets: HashMap<&str, &Asset> = HashMap::new();
         let target = dvd_ntsc_target();
         let tmp = std::env::temp_dir().join("spindle_test_rgba_btn.png");

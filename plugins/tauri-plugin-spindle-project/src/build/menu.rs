@@ -205,8 +205,7 @@ pub(crate) fn menu_scene_png_path(output_path: &Path) -> std::path::PathBuf {
         .file_stem()
         .and_then(|s| s.to_str())
         .unwrap_or("menu");
-    output_path
-        .with_file_name(format!("{stem}_scene.png"))
+    output_path.with_file_name(format!("{stem}_scene.png"))
 }
 
 pub(crate) fn build_ffmpeg_menu_command(
@@ -338,7 +337,6 @@ fn menu_loop_frame_count(standard: VideoStandard) -> u32 {
         VideoStandard::Pal => 25,
     }
 }
-
 
 pub(crate) fn generate_spumux_xml(
     menu_ref: &AuthorableMenuRef<'_>,
@@ -626,15 +624,36 @@ mod tests {
         let cmd_str = cmd.join(" ");
 
         // Skia overlay path — no legacy draw filters.
-        assert!(!cmd_str.contains("drawbox"), "should not contain drawbox: {cmd_str}");
-        assert!(!cmd_str.contains("drawtext"), "should not contain drawtext: {cmd_str}");
+        assert!(
+            !cmd_str.contains("drawbox"),
+            "should not contain drawbox: {cmd_str}"
+        );
+        assert!(
+            !cmd_str.contains("drawtext"),
+            "should not contain drawtext: {cmd_str}"
+        );
 
         // Must reference the scene PNG and the overlay filter.
-        assert!(cmd_str.contains("output_scene.png"), "should reference scene PNG: {cmd_str}");
-        assert!(cmd_str.contains("overlay=0:0"), "should contain overlay=0:0: {cmd_str}");
-        assert!(cmd_str.contains("-aspect 16:9"), "should contain aspect: {cmd_str}");
-        assert!(cmd_str.contains("-filter_complex"), "should contain filter_complex: {cmd_str}");
-        assert!(cmd_str.contains("-map [menuout]"), "should contain map: {cmd_str}");
+        assert!(
+            cmd_str.contains("output_scene.png"),
+            "should reference scene PNG: {cmd_str}"
+        );
+        assert!(
+            cmd_str.contains("overlay=0:0"),
+            "should contain overlay=0:0: {cmd_str}"
+        );
+        assert!(
+            cmd_str.contains("-aspect 16:9"),
+            "should contain aspect: {cmd_str}"
+        );
+        assert!(
+            cmd_str.contains("-filter_complex"),
+            "should contain filter_complex: {cmd_str}"
+        );
+        assert!(
+            cmd_str.contains("-map [menuout]"),
+            "should contain map: {cmd_str}"
+        );
     }
 
     #[test]
@@ -704,38 +723,40 @@ mod tests {
 
     #[test]
     fn build_ffmpeg_menu_command_scales_still_image_backgrounds_into_dvd_raster() {
-        let mut menu = Menu::default();
-        menu.id = "menu-1".to_string();
-        menu.name = "Image Menu".to_string();
-        menu.authored_document = Some(MenuDocument {
+        let menu = Menu {
             id: "menu-1".to_string(),
             name: "Image Menu".to_string(),
-            domain: crate::models::MenuDomain::Vmgm,
-            scene: MenuScene {
-                design_size: MenuSize {
-                    width: 720.0,
-                    height: 480.0,
-                    aspect: AspectMode::SixteenByNine,
+            authored_document: Some(MenuDocument {
+                id: "menu-1".to_string(),
+                name: "Image Menu".to_string(),
+                domain: crate::models::MenuDomain::Vmgm,
+                scene: MenuScene {
+                    design_size: MenuSize {
+                        width: 720.0,
+                        height: 480.0,
+                        aspect: AspectMode::SixteenByNine,
+                    },
+                    background: SceneBackground {
+                        asset_id: Some("asset-image".to_string()),
+                        colour: Some("#101014".to_string()),
+                    },
+                    nodes: vec![],
+                    guides: vec![],
                 },
-                background: SceneBackground {
-                    asset_id: Some("asset-image".to_string()),
-                    colour: Some("#101014".to_string()),
+                interaction: MenuInteractionGraph {
+                    default_focus_id: None,
+                    nodes: vec![],
+                    timeout_action: None,
                 },
-                nodes: vec![],
-                guides: vec![],
-            },
-            interaction: MenuInteractionGraph {
-                default_focus_id: None,
-                nodes: vec![],
-                timeout_action: None,
-            },
-            timing: MenuTiming::default(),
-            highlight_colours: MenuHighlightColours::default(),
-            background_mode: BackgroundMode::Still,
-            theme_ref: None,
-            generation_meta: None,
-            compile_policy: MenuCompilePolicy::default(),
-        });
+                timing: MenuTiming::default(),
+                highlight_colours: MenuHighlightColours::default(),
+                background_mode: BackgroundMode::Still,
+                theme_ref: None,
+                generation_meta: None,
+                compile_policy: MenuCompilePolicy::default(),
+            }),
+            ..Default::default()
+        };
 
         let project = SpindleProjectFile::default();
         let menu_ref = AuthorableMenuRef {

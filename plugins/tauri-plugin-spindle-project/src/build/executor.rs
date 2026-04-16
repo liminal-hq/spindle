@@ -133,57 +133,72 @@ where
                 };
 
                 // Reconstruct the menu scene data and render the Skia PNG.
-                if let Ok(menu_doc) = serde_json::from_str::<MenuDocument>(menu_document_json) {
-                    // Build a minimal asset map from the serialised source-path index
-                    // (asset_id → source_path). We set the asset id explicitly so that
-                    // the HashMap key matches what SceneNode::Image stores.
-                    let asset_paths: std::collections::HashMap<String, String> =
-                        serde_json::from_str(scene_assets_json).unwrap_or_default();
-                    let owned_assets: Vec<Asset> = asset_paths
-                        .into_iter()
-                        .map(|(id, source_path)| {
-                            let file_name = std::path::Path::new(&source_path)
-                                .file_name()
-                                .and_then(|n| n.to_str())
-                                .unwrap_or(&source_path)
-                                .to_string();
-                            let mut a = Asset::new(file_name, source_path);
-                            a.id = id;
-                            a
-                        })
-                        .collect();
-                    let assets_map: std::collections::HashMap<&str, &Asset> = owned_assets
-                        .iter()
-                        .map(|a| (a.id.as_str(), a))
-                        .collect();
-
-                    use super::menu::{AuthorableMenuRef, MenuDomain};
-                    use crate::models::Menu;
-                    let menu = Menu {
-                        id: menu_id.clone(),
-                        authored_document: Some(menu_doc),
-                        ..Menu::default()
-                    };
-                    let menu_ref = AuthorableMenuRef {
-                        menu: &menu,
-                        domain: MenuDomain::Vmgm,
-                    };
-
-                    if let Err(e) = render_menu_scene_to_png(
-                        &menu_ref,
-                        &assets_map,
-                        overlay_target,
-                        std::path::Path::new(scene_png_path),
-                        true, // transparent — composited over background by ffmpeg
-                    ) {
-                        let msg = format!("Failed to render Skia scene PNG for menu \"{menu_id}\": {e}");
+                // A missing or unparseable authored document is a hard failure:
+                // build_ffmpeg_menu_command always adds a -i <scene_png_path>
+                // input, so skipping the render would cause ffmpeg to fail on
+                // the missing file with a confusing error instead of a clear one.
+                // A missing or unparseable authored document is a hard failure:
+                // build_ffmpeg_menu_command always adds a -i <scene_png_path>
+                // input, so skipping the render would cause ffmpeg to fail on
+                // the missing file with an opaque error instead of a clear one.
+                let menu_doc = match serde_json::from_str::<MenuDocument>(menu_document_json) {
+                    Ok(doc) => doc,
+                    Err(e) => {
+                        let msg = format!(
+                            "Cannot render menu \"{menu_id}\": authored document is missing or \
+                             invalid ({e}). The menu must have an authored scene before it can be built."
+                        );
                         log_lines.push(msg.clone());
                         return failure(plan, log_lines, i, msg);
                     }
-                    log_lines.push(format!("  Rendered Skia scene PNG: {scene_png_path}"));
-                } else {
-                    log_lines.push(format!("  Skipping Skia scene PNG render for menu \"{menu_id}\" (no authored document)"));
+                };
+
+                // Build a minimal asset map from the serialised source-path index
+                // (asset_id → source_path). We set the asset id explicitly so that
+                // the HashMap key matches what SceneNode::Image stores.
+                let asset_paths: std::collections::HashMap<String, String> =
+                    serde_json::from_str(scene_assets_json).unwrap_or_default();
+                let owned_assets: Vec<Asset> = asset_paths
+                    .into_iter()
+                    .map(|(id, source_path)| {
+                        let file_name = std::path::Path::new(&source_path)
+                            .file_name()
+                            .and_then(|n| n.to_str())
+                            .unwrap_or(&source_path)
+                            .to_string();
+                        let mut a = Asset::new(file_name, source_path);
+                        a.id = id;
+                        a
+                    })
+                    .collect();
+                let assets_map: std::collections::HashMap<&str, &Asset> =
+                    owned_assets.iter().map(|a| (a.id.as_str(), a)).collect();
+
+                use super::menu::{AuthorableMenuRef, MenuDomain};
+                use crate::models::Menu;
+                let menu = Menu {
+                    id: menu_id.clone(),
+                    authored_document: Some(menu_doc),
+                    ..Menu::default()
+                };
+                let menu_ref = AuthorableMenuRef {
+                    menu: &menu,
+                    domain: MenuDomain::Vmgm,
+                };
+
+                if let Err(e) = render_menu_scene_to_png(
+                    &menu_ref,
+                    &assets_map,
+                    overlay_target,
+                    std::path::Path::new(scene_png_path),
+                    true, // transparent — composited over background by ffmpeg
+                ) {
+                    let msg =
+                        format!("Failed to render Skia scene PNG for menu \"{menu_id}\": {e}");
+                    log_lines.push(msg.clone());
+                    return failure(plan, log_lines, i, msg);
                 }
+                log_lines.push(format!("  Rendered Skia scene PNG: {scene_png_path}"));
 
                 let render = MenuOverlayRender {
                     menu_id,
