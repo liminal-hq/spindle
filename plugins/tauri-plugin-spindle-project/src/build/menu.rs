@@ -154,6 +154,7 @@ impl<'a> AuthorableMenuRef<'a> {
 
 pub(crate) struct AuthorableButtonRef<'a> {
     pub(crate) id: &'a str,
+    #[allow(dead_code)]
     pub(crate) label: &'a str,
     pub(crate) x: f64,
     pub(crate) y: f64,
