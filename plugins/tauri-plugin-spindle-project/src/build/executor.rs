@@ -174,6 +174,7 @@ where
                         &assets_map,
                         overlay_target,
                         std::path::Path::new(scene_png_path),
+                        true, // transparent — composited over background by ffmpeg
                     ) {
                         let msg = format!("Failed to render Skia scene PNG for menu \"{menu_id}\": {e}");
                         log_lines.push(msg.clone());

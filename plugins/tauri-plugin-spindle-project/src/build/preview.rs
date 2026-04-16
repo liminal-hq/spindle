@@ -63,7 +63,7 @@ pub fn export_menu_render_preview(
     let tmp = output_path.with_extension("_raw.tmp.png");
 
     let menu_ref = AuthorableMenuRef { menu, domain: BuildMenuDomain::Vmgm };
-    render_menu_scene_to_png(&menu_ref, &asset_map, target, &tmp)?;
+    render_menu_scene_to_png(&menu_ref, &asset_map, target, &tmp, false)?;
 
     // 6. DAR-correct: if SAR != 1:1, scale the PNG to display-aspect dimensions.
     if target.sar_num == target.sar_den {

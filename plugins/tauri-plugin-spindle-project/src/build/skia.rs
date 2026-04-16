@@ -285,19 +285,26 @@ pub(crate) fn parse_colour(s: &str) -> Color {
 /// Render the full menu scene (shapes, text, images, button outlines) to a PNG
 /// at raster resolution. This replaces the `drawbox`/`drawtext` filter chain in
 /// `build_ffmpeg_menu_command`.
+///
+/// When `transparent_bg` is `true` the PNG has a fully transparent background,
+/// suitable for compositing over a separate background layer in the ffmpeg
+/// pipeline.  When `false` the PNG gets an opaque dark fill so it works as a
+/// standalone preview image.
 pub(crate) fn render_menu_scene_to_png(
     menu_ref: &AuthorableMenuRef<'_>,
     assets: &HashMap<&str, &Asset>,
     target: RenderTarget,
     output_path: &Path,
+    transparent_bg: bool,
 ) -> crate::Result<()> {
     let w = target.raster_width as i32;
     let h = target.raster_height as i32;
 
+    let alpha_type = if transparent_bg { AlphaType::Premul } else { AlphaType::Opaque };
     let info = ImageInfo::new(
         ISize::new(w, h),
         ColorType::RGBA8888,
-        AlphaType::Opaque,
+        alpha_type,
         None,
     );
 
@@ -306,8 +313,11 @@ pub(crate) fn render_menu_scene_to_png(
 
     let canvas = surface.canvas();
 
-    // Fill background with opaque black so the PNG is fully opaque.
-    canvas.clear(Color::from_argb(255, 16, 16, 20));
+    if transparent_bg {
+        canvas.clear(Color::TRANSPARENT);
+    } else {
+        canvas.clear(Color::from_argb(255, 16, 16, 20));
+    }
 
     let design_size = menu_ref
         .menu
@@ -934,7 +944,7 @@ mod tests {
         let target = dvd_ntsc_target();
         let tmp = std::env::temp_dir().join("spindle_test_scene.png");
 
-        render_menu_scene_to_png(&menu_ref, &assets, target, &tmp)
+        render_menu_scene_to_png(&menu_ref, &assets, target, &tmp, false)
             .expect("render_menu_scene_to_png should succeed");
 
         let bytes = std::fs::read(&tmp).expect("output PNG should exist");
@@ -989,7 +999,7 @@ mod tests {
                 domain: MenuDomain::Vmgm,
             };
             let assets: HashMap<&str, &Asset> = HashMap::new();
-            render_menu_scene_to_png(&menu_ref, &assets, dvd_ntsc_target(), path)
+            render_menu_scene_to_png(&menu_ref, &assets, dvd_ntsc_target(), path, false)
                 .expect("render should succeed");
         }
 
@@ -1018,7 +1028,7 @@ mod tests {
                 domain: MenuDomain::Vmgm,
             };
             let assets: HashMap<&str, &Asset> = HashMap::new();
-            render_menu_scene_to_png(&menu_ref, &assets, dvd_ntsc_target(), path)
+            render_menu_scene_to_png(&menu_ref, &assets, dvd_ntsc_target(), path, false)
                 .expect("render should succeed");
         }
 
@@ -1061,7 +1071,7 @@ mod tests {
         let assets: HashMap<&str, &Asset> = HashMap::new();
         let tmp = std::env::temp_dir().join("spindle_test_vcd_clamped.png");
 
-        render_menu_scene_to_png(&menu_ref, &assets, vcd_target, &tmp)
+        render_menu_scene_to_png(&menu_ref, &assets, vcd_target, &tmp, false)
             .expect("render should succeed with clamped font size");
 
         assert!(tmp.exists(), "output PNG should be written");
@@ -1074,7 +1084,7 @@ mod tests {
         };
         let tmp_18 = std::env::temp_dir().join("spindle_test_vcd_18pt.png");
 
-        render_menu_scene_to_png(&menu_ref_18, &assets, vcd_target, &tmp_18)
+        render_menu_scene_to_png(&menu_ref_18, &assets, vcd_target, &tmp_18, false)
             .expect("render should succeed at 18pt");
 
         let clamped_bytes = std::fs::read(&tmp).unwrap();
@@ -1331,9 +1341,9 @@ mod tests {
         let tmp_with = std::env::temp_dir().join("spindle_test_btn_with.png");
         let tmp_without = std::env::temp_dir().join("spindle_test_btn_without.png");
 
-        render_menu_scene_to_png(&ref_with, &assets, target, &tmp_with)
+        render_menu_scene_to_png(&ref_with, &assets, target, &tmp_with, false)
             .expect("render with button should succeed");
-        render_menu_scene_to_png(&ref_without, &assets, target, &tmp_without)
+        render_menu_scene_to_png(&ref_without, &assets, target, &tmp_without, false)
             .expect("render without button should succeed");
 
         let bytes_with = std::fs::read(&tmp_with).unwrap();
@@ -1410,7 +1420,7 @@ mod tests {
         let target = dvd_ntsc_target();
         let tmp = std::env::temp_dir().join("spindle_test_rgba_btn.png");
 
-        render_menu_scene_to_png(&menu_ref, &assets, target, &tmp)
+        render_menu_scene_to_png(&menu_ref, &assets, target, &tmp, false)
             .expect("render with rgba fill should succeed without panic");
 
         let bytes = std::fs::read(&tmp).expect("output PNG should exist");
