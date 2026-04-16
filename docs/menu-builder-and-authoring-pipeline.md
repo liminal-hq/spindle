@@ -72,20 +72,20 @@ flowchart LR
 
 ## File Map
 
-| Area              | Responsibility                                             | Primary files                                                                                                                     |
-| ----------------- | ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| Frontend editor   | Menu editing, button placement, action assignment, preview | `apps/spindle/src/pages/MenusPage.tsx`                                                                                            |
-| Frontend state    | Project updates and persistence                            | `apps/spindle/src/store/project-store.ts`                                                                                         |
-| Shared TS model   | Menu, button, and playback-action types                    | `apps/spindle/src/types/project.ts`                                                                                               |
-| Shared Rust model | Rust-side schema used by the Tauri plugin                  | `plugins/tauri-plugin-spindle-project/src/models.rs`                                                                              |
-| Build facade      | Public build API and module wiring                         | `plugins/tauri-plugin-spindle-project/src/build/mod.rs`                                                                           |
-| Build planner     | Job discovery and plan assembly                            | `plugins/tauri-plugin-spindle-project/src/build/planner.rs`                                                                       |
-| **Skia renderer** | **Scene PNG rendering, font loading, overlay images**      | **`plugins/tauri-plugin-spindle-project/src/build/skia.rs`**                                                                      |
-| **Render preview**| **DAR-corrected preview export**                           | **`plugins/tauri-plugin-spindle-project/src/build/preview.rs`**                                                                   |
-| Menu authoring    | Build job wiring, spumux XML, button projections           | `plugins/tauri-plugin-spindle-project/src/build/menu.rs`                                                                          |
-| DVD authoring     | `dvdauthor` XML and navigation command generation          | `plugins/tauri-plugin-spindle-project/src/build/authoring.rs`, `plugins/tauri-plugin-spindle-project/src/build/dvd_navigation.rs` |
-| Build execution   | Subprocess execution and build orchestration               | `plugins/tauri-plugin-spindle-project/src/build/executor.rs`                                                                      |
-| Plugin commands   | Tauri command surface                                      | `plugins/tauri-plugin-spindle-project/src/commands.rs`                                                                            |
+| Area               | Responsibility                                             | Primary files                                                                                                                     |
+| ------------------ | ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Frontend editor    | Menu editing, button placement, action assignment, preview | `apps/spindle/src/pages/MenusPage.tsx`                                                                                            |
+| Frontend state     | Project updates and persistence                            | `apps/spindle/src/store/project-store.ts`                                                                                         |
+| Shared TS model    | Menu, button, and playback-action types                    | `apps/spindle/src/types/project.ts`                                                                                               |
+| Shared Rust model  | Rust-side schema used by the Tauri plugin                  | `plugins/tauri-plugin-spindle-project/src/models.rs`                                                                              |
+| Build facade       | Public build API and module wiring                         | `plugins/tauri-plugin-spindle-project/src/build/mod.rs`                                                                           |
+| Build planner      | Job discovery and plan assembly                            | `plugins/tauri-plugin-spindle-project/src/build/planner.rs`                                                                       |
+| **Skia renderer**  | **Scene PNG rendering, font loading, overlay images**      | **`plugins/tauri-plugin-spindle-project/src/build/skia.rs`**                                                                      |
+| **Render preview** | **DAR-corrected preview export**                           | **`plugins/tauri-plugin-spindle-project/src/build/preview.rs`**                                                                   |
+| Menu authoring     | Build job wiring, spumux XML, button projections           | `plugins/tauri-plugin-spindle-project/src/build/menu.rs`                                                                          |
+| DVD authoring      | `dvdauthor` XML and navigation command generation          | `plugins/tauri-plugin-spindle-project/src/build/authoring.rs`, `plugins/tauri-plugin-spindle-project/src/build/dvd_navigation.rs` |
+| Build execution    | Subprocess execution and build orchestration               | `plugins/tauri-plugin-spindle-project/src/build/executor.rs`                                                                      |
+| Plugin commands    | Tauri command surface                                      | `plugins/tauri-plugin-spindle-project/src/commands.rs`                                                                            |
 
 ## Menu Builder Architecture
 
@@ -241,13 +241,13 @@ Display width for preview = 720 × 32/27 ≈ 853px
 
 ### Format support
 
-| Format  | Default design space | Raster (NTSC) | SAR (16:9) | Overlay mechanism        | UI status     |
-|---------|---------------------|---------------|------------|--------------------------|---------------|
-| VCD     | 704 × 528           | 352 × 240     | —          | None / player-dependent  | Model only    |
-| SVCD    | 800 × 600           | 480 × 480     | —          | Limited, player-dependent| Model only    |
-| DVD     | 1024 × 576 (16:9)   | 720 × 480     | 32/27      | MPEG-2 + spumux          | Supported     |
-|         | 1024 × 768 (4:3)    | 720 × 480     | 8/9        |                          |               |
-| Blu-ray | 1920 × 1080         | 1920 × 1080   | 1/1        | BD IG PNG (stub)         | Model only    |
+| Format  | Default design space | Raster (NTSC) | SAR (16:9) | Overlay mechanism         | UI status  |
+| ------- | -------------------- | ------------- | ---------- | ------------------------- | ---------- |
+| VCD     | 704 × 528            | 352 × 240     | —          | None / player-dependent   | Model only |
+| SVCD    | 800 × 600            | 480 × 480     | —          | Limited, player-dependent | Model only |
+| DVD     | 1024 × 576 (16:9)    | 720 × 480     | 32/27      | MPEG-2 + spumux           | Supported  |
+|         | 1024 × 768 (4:3)     | 720 × 480     | 8/9        |                           |            |
+| Blu-ray | 1920 × 1080          | 1920 × 1080   | 1/1        | BD IG PNG (stub)          | Model only |
 
 `DiscFamily::is_ui_supported()` returns `true` only for `DvdVideo`. New variants are wired in the model and render pipeline but are not exposed in the format picker until their full authoring pipelines are complete.
 

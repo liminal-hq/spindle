@@ -1485,9 +1485,7 @@ function MenuEditor({
 							onUpdateMotionDurationSecs={handleMotionDurationChange}
 							onUpdateMotionLoopCount={handleMotionLoopCountChange}
 							onAutoNav={onAutoNav}
-							onExportRenderPreview={
-								menu.authoredDocument ? handleExportRenderPreview : undefined
-							}
+							onExportRenderPreview={menu.authoredDocument ? handleExportRenderPreview : undefined}
 							buttonPreviewState={buttonPreviewState}
 							onButtonPreviewStateChange={setButtonPreviewState}
 							displayAspect={displayAspect}

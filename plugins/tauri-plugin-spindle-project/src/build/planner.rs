@@ -10,7 +10,9 @@ use crate::models::*;
 
 use super::authoring::generate_dvdauthor_xml;
 use super::ffmpeg::{build_ffmpeg_text_subtitle_prepare_command, build_ffmpeg_transcode_command};
-use super::menu::{authorable_menus, build_ffmpeg_menu_command, generate_spumux_xml, menu_scene_png_path};
+use super::menu::{
+    authorable_menus, build_ffmpeg_menu_command, generate_spumux_xml, menu_scene_png_path,
+};
 use super::types::{BuildJob, BuildPlan, BuildSummary, MenuOverlayButton};
 use super::util::{sanitise_filename, xml_escape};
 
@@ -443,7 +445,15 @@ pub fn generate_build_plan_with_options(
                 .scene_nodes()
                 .iter()
                 .filter_map(|node| {
-                    if let SceneNode::Button { x, y, width, height, button_style, .. } = node {
+                    if let SceneNode::Button {
+                        x,
+                        y,
+                        width,
+                        height,
+                        button_style,
+                        ..
+                    } = node
+                    {
                         let raw_radius = button_style
                             .as_ref()
                             .map(|bs| bs.normal.border_radius as f32)
@@ -468,7 +478,13 @@ pub fn generate_build_plan_with_options(
             scene_assets_json,
         });
 
-        let spumux_xml = generate_spumux_xml(&menu_ref, project.disc.standard, &paths.menus_dir, scale_x, scale_y);
+        let spumux_xml = generate_spumux_xml(
+            &menu_ref,
+            project.disc.standard,
+            &paths.menus_dir,
+            scale_x,
+            scale_y,
+        );
         jobs.push(BuildJob::ComposeMenuHighlights {
             menu_id: menu_ref.menu.id.clone(),
             menu_name: menu_ref.menu.name.clone(),

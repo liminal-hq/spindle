@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use skia_safe::{
-    self as skia, surfaces, AlphaType, ColorType, ISize, ImageInfo, EncodedImageFormat,
+    self as skia, surfaces, AlphaType, ColorType, EncodedImageFormat, ISize, ImageInfo,
 };
 
 use crate::models::{AspectMode, RenderTarget, SpindleProjectFile};
@@ -30,9 +30,8 @@ pub fn export_menu_render_preview(
     output_path: &Path,
 ) -> crate::Result<()> {
     // 1. Find the menu in the project.
-    let menu = find_menu(project, menu_id).ok_or_else(|| {
-        crate::Error::Build(format!("Menu '{menu_id}' not found in project"))
-    })?;
+    let menu = find_menu(project, menu_id)
+        .ok_or_else(|| crate::Error::Build(format!("Menu '{menu_id}' not found in project")))?;
 
     if menu.authored_document.is_none() {
         return Err(crate::Error::Build(format!(
@@ -52,25 +51,24 @@ pub fn export_menu_render_preview(
     let target = RenderTarget::from_disc(&project.disc, display_aspect);
 
     // 4. Build the asset map.
-    let asset_map: HashMap<&str, &crate::models::Asset> = project
-        .assets
-        .iter()
-        .map(|a| (a.id.as_str(), a))
-        .collect();
+    let asset_map: HashMap<&str, &crate::models::Asset> =
+        project.assets.iter().map(|a| (a.id.as_str(), a)).collect();
 
     // 5. Render the scene at raster resolution into a temp path, then load,
     //    DAR-correct, and write the final output.
     let tmp = output_path.with_extension("_raw.tmp.png");
 
-    let menu_ref = AuthorableMenuRef { menu, domain: BuildMenuDomain::Vmgm };
+    let menu_ref = AuthorableMenuRef {
+        menu,
+        domain: BuildMenuDomain::Vmgm,
+    };
     render_menu_scene_to_png(&menu_ref, &asset_map, target, &tmp, false)?;
 
     // 6. DAR-correct: if SAR != 1:1, scale the PNG to display-aspect dimensions.
     if target.sar_num == target.sar_den {
         // Square pixels — no correction needed; just rename.
-        std::fs::rename(&tmp, output_path).map_err(|e| {
-            crate::Error::Build(format!("Failed to write preview PNG: {e}"))
-        })?;
+        std::fs::rename(&tmp, output_path)
+            .map_err(|e| crate::Error::Build(format!("Failed to write preview PNG: {e}")))?;
     } else {
         let result = dar_correct_png(&tmp, target, output_path);
         let _ = std::fs::remove_file(&tmp);
@@ -93,13 +91,14 @@ fn dar_correct_png(
         .map_err(|e| crate::Error::Build(format!("Failed to read raster PNG: {e}")))?;
 
     let data = skia::Data::new_copy(&bytes);
-    let src_image = skia::Image::from_encoded(data)
-        .ok_or_else(|| crate::Error::Build("Failed to decode raster PNG for DAR correction".into()))?;
+    let src_image = skia::Image::from_encoded(data).ok_or_else(|| {
+        crate::Error::Build("Failed to decode raster PNG for DAR correction".into())
+    })?;
 
     // display_width = raster_width * sar_num / sar_den
-    let display_width =
-        ((target.raster_width as f64) * (target.sar_num as f64) / (target.sar_den as f64))
-            .round() as i32;
+    let display_width = ((target.raster_width as f64) * (target.sar_num as f64)
+        / (target.sar_den as f64))
+        .round() as i32;
     let display_height = target.raster_height as i32;
 
     let info = ImageInfo::new(
@@ -109,34 +108,49 @@ fn dar_correct_png(
         None,
     );
 
-    let mut surface = surfaces::raster(&info, None, None)
-        .ok_or_else(|| crate::Error::Build("Failed to create DAR-correction Skia surface".into()))?;
+    let mut surface = surfaces::raster(&info, None, None).ok_or_else(|| {
+        crate::Error::Build("Failed to create DAR-correction Skia surface".into())
+    })?;
 
     let dst = skia::Rect::from_xywh(0.0, 0.0, display_width as f32, display_height as f32);
     let mut paint = skia::Paint::default();
     paint.set_anti_alias(true);
 
-    surface.canvas().draw_image_rect(&src_image, None, dst, &paint);
+    surface
+        .canvas()
+        .draw_image_rect(&src_image, None, dst, &paint);
 
     let image = surface.image_snapshot();
     let encoded = image
         .encode(None, EncodedImageFormat::PNG, None)
         .ok_or_else(|| crate::Error::Build("Failed to encode DAR-corrected PNG".into()))?;
 
-    std::fs::write(output_path, encoded.as_bytes())
-        .map_err(|e| crate::Error::Build(format!("Failed to write preview PNG to {}: {e}", output_path.display())))
+    std::fs::write(output_path, encoded.as_bytes()).map_err(|e| {
+        crate::Error::Build(format!(
+            "Failed to write preview PNG to {}: {e}",
+            output_path.display()
+        ))
+    })
 }
 
 /// Find a menu anywhere in the project (global menus + all titleset menus).
-fn find_menu<'a>(project: &'a SpindleProjectFile, menu_id: &str) -> Option<&'a crate::models::Menu> {
-    project.disc.global_menus.iter().find(|m| m.id == menu_id).or_else(|| {
-        project
-            .disc
-            .titlesets
-            .iter()
-            .flat_map(|ts| ts.menus.iter())
-            .find(|m| m.id == menu_id)
-    })
+fn find_menu<'a>(
+    project: &'a SpindleProjectFile,
+    menu_id: &str,
+) -> Option<&'a crate::models::Menu> {
+    project
+        .disc
+        .global_menus
+        .iter()
+        .find(|m| m.id == menu_id)
+        .or_else(|| {
+            project
+                .disc
+                .titlesets
+                .iter()
+                .flat_map(|ts| ts.menus.iter())
+                .find(|m| m.id == menu_id)
+        })
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -246,7 +260,10 @@ mod tests {
         let tmp = std::env::temp_dir().join("spindle_no_menu.png");
 
         let result = export_menu_render_preview(&project, "does-not-exist", &tmp);
-        assert!(result.is_err(), "should return an error for unknown menu ID");
+        assert!(
+            result.is_err(),
+            "should return an error for unknown menu ID"
+        );
     }
 
     #[test]
@@ -261,6 +278,9 @@ mod tests {
 
         let tmp = std::env::temp_dir().join("spindle_no_doc.png");
         let result = export_menu_render_preview(&project, "bare-menu", &tmp);
-        assert!(result.is_err(), "should return an error for menu without authored document");
+        assert!(
+            result.is_err(),
+            "should return an error for menu without authored document"
+        );
     }
 }

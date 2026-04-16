@@ -751,7 +751,6 @@ pub struct MenuSize {
     pub aspect: AspectMode,
 }
 
-
 impl Default for MenuSize {
     fn default() -> Self {
         Self::default_for(DiscFamily::DvdVideo, AspectMode::SixteenByNine)
@@ -768,7 +767,11 @@ impl MenuSize {
             (DiscFamily::Svcd, _) => (800.0, 600.0),
             (DiscFamily::Vcd, _) => (704.0, 528.0),
         };
-        Self { width, height, aspect }
+        Self {
+            width,
+            height,
+            aspect,
+        }
     }
 }
 
@@ -2094,10 +2097,22 @@ mod tests {
         };
 
         let json = serde_json::to_string(&node).unwrap();
-        assert!(json.contains("\"fontFamily\""), "expected camelCase fontFamily, got: {json}");
-        assert!(json.contains("\"fontSize\""), "expected camelCase fontSize, got: {json}");
-        assert!(!json.contains("\"font_family\""), "snake_case font_family must not appear: {json}");
-        assert!(!json.contains("\"font_size\""), "snake_case font_size must not appear: {json}");
+        assert!(
+            json.contains("\"fontFamily\""),
+            "expected camelCase fontFamily, got: {json}"
+        );
+        assert!(
+            json.contains("\"fontSize\""),
+            "expected camelCase fontSize, got: {json}"
+        );
+        assert!(
+            !json.contains("\"font_family\""),
+            "snake_case font_family must not appear: {json}"
+        );
+        assert!(
+            !json.contains("\"font_size\""),
+            "snake_case font_size must not appear: {json}"
+        );
     }
 
     #[test]
@@ -2178,7 +2193,11 @@ mod tests {
     #[test]
     fn render_target_dvd_ntsc_4by3() {
         // 720×480 raster, 4:3 DAR → SAR = (4×480)/(3×720) = 1920/2160 = 8/9
-        let disc = Disc { family: DiscFamily::DvdVideo, standard: VideoStandard::Ntsc, ..Disc::default() };
+        let disc = Disc {
+            family: DiscFamily::DvdVideo,
+            standard: VideoStandard::Ntsc,
+            ..Disc::default()
+        };
         let target = RenderTarget::from_disc(&disc, AspectMode::FourByThree);
         assert_eq!(target.raster_width, 720);
         assert_eq!(target.raster_height, 480);
@@ -2188,7 +2207,11 @@ mod tests {
     #[test]
     fn render_target_dvd_ntsc_16by9() {
         // 720×480 raster, 16:9 DAR → SAR = (16×480)/(9×720) = 7680/6480 = 32/27
-        let disc = Disc { family: DiscFamily::DvdVideo, standard: VideoStandard::Ntsc, ..Disc::default() };
+        let disc = Disc {
+            family: DiscFamily::DvdVideo,
+            standard: VideoStandard::Ntsc,
+            ..Disc::default()
+        };
         let target = RenderTarget::from_disc(&disc, AspectMode::SixteenByNine);
         assert_eq!(target.raster_width, 720);
         assert_eq!(target.raster_height, 480);
@@ -2198,7 +2221,11 @@ mod tests {
     #[test]
     fn render_target_dvd_pal_4by3() {
         // 720×576 raster, 4:3 DAR → SAR = (4×576)/(3×720) = 2304/2160 = 16/15
-        let disc = Disc { family: DiscFamily::DvdVideo, standard: VideoStandard::Pal, ..Disc::default() };
+        let disc = Disc {
+            family: DiscFamily::DvdVideo,
+            standard: VideoStandard::Pal,
+            ..Disc::default()
+        };
         let target = RenderTarget::from_disc(&disc, AspectMode::FourByThree);
         assert_eq!(target.raster_width, 720);
         assert_eq!(target.raster_height, 576);
@@ -2207,7 +2234,11 @@ mod tests {
 
     #[test]
     fn render_target_bluray_is_square_pixels() {
-        let disc = Disc { family: DiscFamily::BluRay, standard: VideoStandard::Ntsc, ..Disc::default() };
+        let disc = Disc {
+            family: DiscFamily::BluRay,
+            standard: VideoStandard::Ntsc,
+            ..Disc::default()
+        };
         let target = RenderTarget::from_disc(&disc, AspectMode::SixteenByNine);
         assert_eq!(target.raster_width, 1920);
         assert_eq!(target.raster_height, 1080);
@@ -2240,12 +2271,22 @@ mod tests {
     #[test]
     fn design_to_raster_scale_dvd_ntsc_16by9() {
         // MenuSize 1024×576 + DVD NTSC 16:9 → scale_x ≈ 0.703, scale_y ≈ 0.833
-        let disc = Disc { family: DiscFamily::DvdVideo, standard: VideoStandard::Ntsc, ..Disc::default() };
+        let disc = Disc {
+            family: DiscFamily::DvdVideo,
+            standard: VideoStandard::Ntsc,
+            ..Disc::default()
+        };
         let target = RenderTarget::from_disc(&disc, AspectMode::SixteenByNine);
         let scale_x = target.raster_width as f64 / 1024.0;
         let scale_y = target.raster_height as f64 / 576.0;
-        assert!((scale_x - 720.0 / 1024.0).abs() < 1e-9, "scale_x should be 720/1024, got {scale_x}");
-        assert!((scale_y - 480.0 / 576.0).abs() < 1e-9, "scale_y should be 480/576, got {scale_y}");
+        assert!(
+            (scale_x - 720.0 / 1024.0).abs() < 1e-9,
+            "scale_x should be 720/1024, got {scale_x}"
+        );
+        assert!(
+            (scale_y - 480.0 / 576.0).abs() < 1e-9,
+            "scale_y should be 480/576, got {scale_y}"
+        );
 
         // A shape at design (100, 100) should map to raster (70, 83)
         let rx = (100.0 * scale_x).round() as i32;
