@@ -732,27 +732,48 @@ fn draw_default_button_hint(
     let Some(default_id) = default_button_id else { return };
 
     let highlight_colours = menu_ref.highlight_colours();
-    let buttons = menu_ref.buttons();
 
-    let Some(button) = buttons.iter().find(|b| b.id == default_id) else { return };
+    // Find the default button directly from scene nodes to get button_style.
+    let node = menu_ref.scene_nodes().into_iter().find(|n| {
+        matches!(n, SceneNode::Button { id, .. } if id == default_id)
+    });
+    let Some(node) = node else { return };
+
+    let (x, y, width, height, border_radius) = match node {
+        SceneNode::Button { x, y, width, height, button_style, .. } => {
+            let raw_r = button_style.as_ref().map(|bs| bs.normal.border_radius as f32).unwrap_or(0.0);
+            let r = (raw_r * scale_x.min(scale_y) as f32).max(0.0);
+            (*x, *y, *width, *height, r)
+        }
+        _ => return,
+    };
 
     let c = parse_colour(&highlight_colours.select_colour);
     let outline_colour = Color::from_argb(180, c.r(), c.g(), c.b());
 
+    let stroke_width = 2.5_f32;
+    let inset = stroke_width / 2.0;
+
     let rect = Rect::from_xywh(
-        (button.x * scale_x) as f32,
-        (button.y * scale_y) as f32,
-        (button.width * scale_x) as f32,
-        (button.height * scale_y) as f32,
+        (x * scale_x) as f32 + inset,
+        (y * scale_y) as f32 + inset,
+        ((width * scale_x) as f32 - stroke_width).max(0.0),
+        ((height * scale_y) as f32 - stroke_width).max(0.0),
     );
 
     let mut paint = Paint::default();
     paint.set_color(outline_colour);
     paint.set_style(PaintStyle::Stroke);
-    paint.set_stroke_width(2.5);
+    paint.set_stroke_width(stroke_width);
     paint.set_anti_alias(true);
 
-    canvas.draw_rect(rect, &paint);
+    if border_radius > 0.0 {
+        let r = border_radius.min(rect.width() / 2.0).min(rect.height() / 2.0);
+        let rrect = RRect::new_rect_xy(&rect, r, r);
+        canvas.draw_rrect(&rrect, &paint);
+    } else {
+        canvas.draw_rect(rect, &paint);
+    }
 }
 
 // ── Overlay renderer ──────────────────────────────────────────────────────────
@@ -783,17 +804,33 @@ pub(crate) fn render_menu_overlay_image_skia(
 
     let stroke_colour = parse_colour_name_or_hex(colour);
 
+    let stroke_width = 2.0_f32;
+    let inset = stroke_width / 2.0;
+
     let mut paint = Paint::default();
     paint.set_color(stroke_colour);
     paint.set_style(PaintStyle::Stroke);
-    paint.set_stroke_width(2.0);
+    paint.set_stroke_width(stroke_width);
     paint.set_anti_alias(true);
 
     for button in button_bounds {
         let bw = (button.x1 - button.x0).max(1) as f32;
         let bh = (button.y1 - button.y0).max(1) as f32;
-        let rect = Rect::from_xywh(button.x0 as f32, button.y0 as f32, bw, bh);
-        canvas.draw_rect(rect, &paint);
+        // Inset the stroke rect by half the stroke width so the outline is fully
+        // within the button bounds and not clipped at the raster edges.
+        let rect = Rect::from_xywh(
+            button.x0 as f32 + inset,
+            button.y0 as f32 + inset,
+            (bw - stroke_width).max(0.0),
+            (bh - stroke_width).max(0.0),
+        );
+        if button.border_radius > 0.0 {
+            let r = button.border_radius.min(rect.width() / 2.0).min(rect.height() / 2.0);
+            let rrect = RRect::new_rect_xy(&rect, r, r);
+            canvas.draw_rrect(&rrect, &paint);
+        } else {
+            canvas.draw_rect(rect, &paint);
+        }
     }
 
     let image = surface.image_snapshot();
@@ -1019,6 +1056,7 @@ mod tests {
             y0: 200,
             x1: 300,
             y1: 250,
+            border_radius: 0.0,
         }];
         let tmp = std::env::temp_dir().join("spindle_test_overlay.png");
 

@@ -440,13 +440,25 @@ pub fn generate_build_plan_with_options(
             highlight_colour: menu_ref.highlight_colours().select_colour.clone(),
             select_colour: menu_ref.highlight_colours().activate_colour.clone(),
             button_bounds: menu_ref
-                .buttons()
+                .scene_nodes()
                 .iter()
-                .map(|button| MenuOverlayButton {
-                    x0: (button.x * scale_x).round() as i32,
-                    y0: (button.y * scale_y).round() as i32,
-                    x1: ((button.x + button.width) * scale_x).round() as i32,
-                    y1: ((button.y + button.height) * scale_y).round() as i32,
+                .filter_map(|node| {
+                    if let SceneNode::Button { x, y, width, height, button_style, .. } = node {
+                        let raw_radius = button_style
+                            .as_ref()
+                            .map(|bs| bs.normal.border_radius as f32)
+                            .unwrap_or(0.0);
+                        let radius = (raw_radius * scale_x.min(scale_y) as f32).max(0.0);
+                        Some(MenuOverlayButton {
+                            x0: (x * scale_x).round() as i32,
+                            y0: (y * scale_y).round() as i32,
+                            x1: ((x + width) * scale_x).round() as i32,
+                            y1: ((y + height) * scale_y).round() as i32,
+                            border_radius: radius,
+                        })
+                    } else {
+                        None
+                    }
                 })
                 .collect(),
             raster_width: target.raster_width,

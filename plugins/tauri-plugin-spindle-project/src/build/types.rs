@@ -224,6 +224,9 @@ pub struct MenuOverlayButton {
     pub y0: i32,
     pub x1: i32,
     pub y1: i32,
+    /// Corner radius of the button in raster pixels (from `button_style.border_radius`).
+    #[serde(default)]
+    pub border_radius: f32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
