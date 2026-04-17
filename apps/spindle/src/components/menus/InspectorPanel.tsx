@@ -11,6 +11,7 @@ import type {
 	PlaybackAction,
 	Title,
 	Menu,
+	MenuDomain,
 	Asset,
 	MenuDocument,
 	FocusNode,
@@ -219,6 +220,7 @@ export function InspectorPanel({
 							allTitles={allTitles}
 							allMenus={allMenus}
 							currentMenuId={currentMenuId}
+							menuDomain={menu?.authoredDocument?.domain}
 							onUpdateHighlightColours={onUpdateHighlightColours}
 							onSetDefaultFocus={onSetDefaultFocus}
 							onUpdateButton={onUpdateButton}
@@ -250,6 +252,7 @@ export function InspectorPanel({
 						allTitles={allTitles}
 						allMenus={allMenus}
 						currentMenuId={currentMenuId}
+						menuDomain={menu?.authoredDocument?.domain}
 						onUpdateButton={onUpdateButton}
 						onUpdateHighlightColours={onUpdateHighlightColours}
 						onRemoveButton={onRemoveButton}
@@ -300,6 +303,7 @@ function MenuLevelInspector({
 	allTitles,
 	allMenus,
 	currentMenuId,
+	menuDomain,
 	onUpdateHighlightColours,
 	onSetDefaultFocus,
 	onUpdateButton,
@@ -325,6 +329,7 @@ function MenuLevelInspector({
 	allTitles: Title[];
 	allMenus: Menu[];
 	currentMenuId: string;
+	menuDomain?: MenuDomain;
 	onUpdateHighlightColours: (colours: MenuHighlightColours) => void;
 	onSetDefaultFocus?: (buttonId: string) => void;
 	onUpdateButton: (buttonId: string, updates: Partial<MenuButton>) => void;
@@ -601,6 +606,7 @@ function MenuLevelInspector({
 											allTitles={allTitles}
 											allMenus={allMenus}
 											currentMenuId={currentMenuId}
+											menuDomain={menuDomain}
 										/>
 									</select>
 									{onSetDefaultFocus && !isDefault && (
@@ -705,6 +711,7 @@ function ButtonInspector({
 	allTitles,
 	allMenus,
 	currentMenuId,
+	menuDomain,
 	onUpdateButton,
 	onUpdateHighlightColours,
 	onRemoveButton,
@@ -722,6 +729,7 @@ function ButtonInspector({
 	allTitles: Title[];
 	allMenus: Menu[];
 	currentMenuId: string;
+	menuDomain?: MenuDomain;
 	onUpdateButton: (buttonId: string, updates: Partial<MenuButton>) => void;
 	onUpdateHighlightColours: (colours: MenuHighlightColours) => void;
 	onRemoveButton: (buttonId: string) => void;
@@ -826,7 +834,7 @@ function ButtonInspector({
 						})
 					}
 				>
-					<ActionOptions allTitles={allTitles} allMenus={allMenus} currentMenuId={currentMenuId} />
+					<ActionOptions allTitles={allTitles} allMenus={allMenus} currentMenuId={currentMenuId} menuDomain={menuDomain} />
 				</select>
 			</CollapsibleSection>
 
@@ -955,10 +963,12 @@ function ActionOptions({
 	allTitles,
 	allMenus,
 	currentMenuId,
+	menuDomain,
 }: {
 	allTitles: Title[];
 	allMenus: Menu[];
 	currentMenuId: string;
+	menuDomain?: MenuDomain;
 }) {
 	return (
 		<>
@@ -981,6 +991,11 @@ function ActionOptions({
 								</option>
 							)),
 						)}
+				</optgroup>
+			)}
+			{menuDomain === 'titleset' && (
+				<optgroup label="Titleset">
+					<option value="playAllInTitleset">Play All in Titleset</option>
 				</optgroup>
 			)}
 			<optgroup label="Show Menu">
@@ -1982,6 +1997,8 @@ function actionToString(action: PlaybackAction | null): string {
 			return 'stop';
 		case 'return':
 			return 'return';
+		case 'playAllInTitleset':
+			return 'playAllInTitleset';
 		default:
 			return '';
 	}
@@ -1991,6 +2008,7 @@ function stringToAction(str: string): PlaybackAction | null {
 	if (!str) return null;
 	if (str === 'stop') return { type: 'stop' };
 	if (str === 'return') return { type: 'return' };
+	if (str === 'playAllInTitleset') return { type: 'playAllInTitleset' };
 	const parts = str.split(':');
 	const type = parts[0];
 	if (type === 'playTitle' && parts[1]) return { type: 'playTitle', titleId: parts[1] };

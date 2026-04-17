@@ -3,13 +3,14 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: MIT
 
-import type { MenuButton, PlaybackAction, Title, Menu } from '../../types/project';
+import type { MenuButton, MenuDomain, PlaybackAction, Title, Menu } from '../../types/project';
 
 export interface BindModeProps {
 	buttons: MenuButton[];
 	allTitles: Title[];
 	allMenus: Menu[];
 	currentMenuId: string;
+	menuDomain?: MenuDomain;
 	defaultFocusId: string | null;
 	onUpdateButton: (buttonId: string, updates: Partial<MenuButton>) => void;
 	onSetDefaultFocus: (buttonId: string) => void;
@@ -20,6 +21,7 @@ export function BindMode({
 	allTitles,
 	allMenus,
 	currentMenuId,
+	menuDomain,
 	defaultFocusId,
 	onUpdateButton,
 	onSetDefaultFocus,
@@ -76,6 +78,11 @@ export function BindMode({
 														</option>
 													)),
 												)}
+										</optgroup>
+									)}
+									{menuDomain === 'titleset' && (
+										<optgroup label="Titleset">
+											<option value="playAllInTitleset">Play All in Titleset</option>
 										</optgroup>
 									)}
 									<optgroup label="Show Menu">
@@ -165,6 +172,8 @@ function actionToString(action: PlaybackAction | null): string {
 			return `setSubtitleStream:${action.streamIndex ?? 'null'}`;
 		case 'stop':
 			return 'stop';
+		case 'playAllInTitleset':
+			return 'playAllInTitleset';
 		default:
 			return '';
 	}
@@ -173,6 +182,7 @@ function actionToString(action: PlaybackAction | null): string {
 function stringToAction(str: string): PlaybackAction | null {
 	if (!str) return null;
 	if (str === 'stop') return { type: 'stop' };
+	if (str === 'playAllInTitleset') return { type: 'playAllInTitleset' };
 	const parts = str.split(':');
 	const type = parts[0];
 	if (type === 'playTitle' && parts[1]) return { type: 'playTitle', titleId: parts[1] };
