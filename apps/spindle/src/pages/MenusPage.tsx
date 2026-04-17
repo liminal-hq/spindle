@@ -121,12 +121,30 @@ export function MenusPage() {
 	const selectedEntry = allMenus.find((e) => e.menu.id === selectedMenuId) ?? null;
 	const firstMenuId = allMenus[0]?.menu.id ?? null;
 	const activeView = menuEditorMode === 'map' ? 'map' : 'editor';
-	const selectedTitleset =
-		(selectedEntry?.titlesetId
-			? disc.titlesets.find((ts) => ts.id === selectedEntry.titlesetId)
-			: null) ??
-		disc.titlesets[0] ??
+	// Titleset scope for menu generators. When ambiguous (multiple titlesets or a
+	// global menu is selected), the user picks explicitly via generatorTitlesetId.
+	const implicitTitlesetId =
+		selectedEntry?.titlesetId ??
+		(disc.titlesets.length === 1 ? disc.titlesets[0]?.id : null) ??
 		null;
+	const [generatorTitlesetId, setGeneratorTitlesetId] = useState<string | null>(
+		implicitTitlesetId,
+	);
+
+	// Sync the picker to the implicit titleset when a titleset-scoped menu is
+	// selected and there is no ambiguity.
+	useEffect(() => {
+		if (implicitTitlesetId && disc.titlesets.length === 1) {
+			setGeneratorTitlesetId(implicitTitlesetId);
+		}
+	}, [implicitTitlesetId, disc.titlesets.length]);
+
+	const showTitlesetPicker =
+		disc.titlesets.length > 1 || selectedEntry?.scope === 'global' || !selectedEntry;
+	const resolvedTitlesetId =
+		generatorTitlesetId ?? implicitTitlesetId ?? disc.titlesets[0]?.id ?? null;
+	const selectedTitleset =
+		disc.titlesets.find((ts) => ts.id === resolvedTitlesetId) ?? disc.titlesets[0] ?? null;
 	const chapterGenerationStats = selectedTitleset
 		? getChapterGenerationStats(selectedTitleset)
 		: { chapterCount: 0, pageCount: 0 };
@@ -440,6 +458,20 @@ export function MenusPage() {
 									</button>
 									{generatorsOpen ? (
 										<div className="menu-nav__generator-list">
+											{showTitlesetPicker && disc.titlesets.length > 0 && (
+												<select
+													className="menu-nav__generator-titleset-picker"
+													value={resolvedTitlesetId ?? ''}
+													onChange={(e) => setGeneratorTitlesetId(e.target.value || null)}
+													aria-label="Target titleset for menu generation"
+												>
+													{disc.titlesets.map((ts) => (
+														<option key={ts.id} value={ts.id}>
+															{ts.name}
+														</option>
+													))}
+												</select>
+											)}
 											<button
 												className="menu-nav__generator-item"
 												type="button"
