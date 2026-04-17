@@ -776,12 +776,14 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
 		const skipSidecar = useAppSettingsStore.getState().devSkipSidecar;
 		const skipUnsupportedStreams = useAppSettingsStore.getState().devSkipUnsupportedStreams;
+		const quantizeOverlayPalette = useAppSettingsStore.getState().devQuantizeOverlayPalette;
 		set({ buildStatus: 'planning' });
 		try {
 			console.info('[project-store] Generating build plan', {
 				outputDir,
 				skipSidecar,
 				skipUnsupportedStreams,
+				quantizeOverlayPalette,
 				...projectTraceSummary(project),
 			});
 			const plan = await invoke<BuildPlan>('plugin:spindle-project|generate_build_plan', {
@@ -789,6 +791,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 				outputDirectory: outputDir,
 				skipSidecar,
 				skipUnsupportedStreams,
+				quantizeOverlayPalette,
 			});
 			set({ buildPlan: plan, buildStatus: 'idle' });
 		} catch (e) {
@@ -826,6 +829,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
 		const skipSidecar = useAppSettingsStore.getState().devSkipSidecar;
 		const skipUnsupportedStreams = useAppSettingsStore.getState().devSkipUnsupportedStreams;
+		const quantizeOverlayPalette = useAppSettingsStore.getState().devQuantizeOverlayPalette;
 		set({
 			buildStatus: 'building',
 			buildLog: ['Starting DVD-Video build…'],
@@ -840,6 +844,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 				outputDirectory: outputDir,
 				skipSidecar,
 				skipUnsupportedStreams,
+				quantizeOverlayPalette,
 			});
 
 			set({
