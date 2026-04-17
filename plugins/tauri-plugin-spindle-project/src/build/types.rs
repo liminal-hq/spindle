@@ -72,6 +72,10 @@ pub enum BuildJob {
         menu_document_json: String,
         /// JSON-encoded map of `asset_id -> source_path` for image assets in the scene.
         scene_assets_json: String,
+        /// When true, render the overlay with AA enabled and quantize to ≤4 colours
+        /// before writing. Developer diagnostic option — not for normal builds.
+        #[serde(default)]
+        quantize_overlay_palette: bool,
     },
     /// Generate spumux XML and overlay subtitles/highlights on a menu.
     ComposeMenuHighlights {

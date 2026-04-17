@@ -121,6 +121,7 @@ where
                 scene_png_path,
                 menu_document_json,
                 scene_assets_json,
+                quantize_overlay_palette,
                 ..
             } => {
                 let overlay_target = RenderTarget {
@@ -200,6 +201,12 @@ where
                 }
                 log_lines.push(format!("  Rendered Skia scene PNG: {scene_png_path}"));
 
+                if *quantize_overlay_palette {
+                    log_lines.push(
+                        "  [dev] quantize_overlay_palette is active: rendering AA overlay and quantizing to ≤4 colours".to_string(),
+                    );
+                }
+
                 let render = MenuOverlayRender {
                     menu_id,
                     button_bounds,
@@ -210,6 +217,7 @@ where
                     select_image_path,
                     highlight_colour,
                     select_colour,
+                    quantize_palette: *quantize_overlay_palette,
                 };
                 if let Err(msg) = generate_menu_overlay_images(&render, &images) {
                     log_lines.push(msg.clone());

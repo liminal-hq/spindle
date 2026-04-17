@@ -9,7 +9,7 @@ use std::path::Path;
 use crate::models::*;
 
 use super::ffmpeg::fps_rational_str;
-use super::skia::render_menu_overlay_image_skia;
+use super::skia::{render_menu_overlay_image_skia, render_menu_overlay_image_skia_quantized};
 use super::types::MenuOverlayButton;
 use super::util::{sanitise_filename, xml_escape};
 
@@ -408,7 +408,13 @@ pub(crate) fn generate_menu_overlay_images(
     render: &MenuOverlayRender<'_>,
     images: &MenuOverlayImages<'_>,
 ) -> std::result::Result<(), String> {
-    render_menu_overlay_image_skia(
+    let render_fn: fn(&[_], &str, _, &Path) -> crate::Result<()> = if images.quantize_palette {
+        render_menu_overlay_image_skia_quantized
+    } else {
+        render_menu_overlay_image_skia
+    };
+
+    render_fn(
         render.button_bounds,
         images.highlight_colour,
         render.target,
@@ -421,7 +427,7 @@ pub(crate) fn generate_menu_overlay_images(
         )
     })?;
 
-    render_menu_overlay_image_skia(
+    render_fn(
         render.button_bounds,
         images.select_colour,
         render.target,
@@ -448,6 +454,8 @@ pub(crate) struct MenuOverlayImages<'a> {
     pub(crate) select_image_path: &'a str,
     pub(crate) highlight_colour: &'a str,
     pub(crate) select_colour: &'a str,
+    /// When true, render with AA enabled and quantize to ≤4 colours (dev diagnostic).
+    pub(crate) quantize_palette: bool,
 }
 
 #[cfg(test)]

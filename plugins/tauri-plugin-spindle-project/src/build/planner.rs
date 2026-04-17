@@ -161,7 +161,7 @@ pub fn generate_build_plan(
     output_dir: &str,
     skip_sidecar: bool,
 ) -> crate::Result<BuildPlan> {
-    generate_build_plan_with_options(project, output_dir, skip_sidecar, false)
+    generate_build_plan_with_options(project, output_dir, skip_sidecar, false, false)
 }
 
 pub fn generate_build_plan_with_options(
@@ -169,6 +169,7 @@ pub fn generate_build_plan_with_options(
     output_dir: &str,
     skip_sidecar: bool,
     skip_unsupported_streams: bool,
+    quantize_overlay_palette: bool,
 ) -> crate::Result<BuildPlan> {
     let mut owned_project = project.clone();
     if skip_unsupported_streams {
@@ -476,6 +477,7 @@ pub fn generate_build_plan_with_options(
             scene_png_path: scene_png_path.display().to_string(),
             menu_document_json,
             scene_assets_json,
+            quantize_overlay_palette,
         });
 
         let spumux_xml = generate_spumux_xml(
@@ -878,7 +880,8 @@ mod tests {
             });
 
         let plan =
-            generate_build_plan_with_options(&project, "/tmp/dvd_output", false, true).unwrap();
+            generate_build_plan_with_options(&project, "/tmp/dvd_output", false, true, false)
+                .unwrap();
 
         assert!(
             !plan

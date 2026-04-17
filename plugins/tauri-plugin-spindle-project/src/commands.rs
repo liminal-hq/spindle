@@ -141,12 +141,14 @@ pub(crate) async fn generate_build_plan<R: Runtime>(
     output_directory: String,
     skip_sidecar: bool,
     skip_unsupported_streams: bool,
+    quantize_overlay_palette: bool,
 ) -> Result<BuildPlan> {
     eprintln!(
-        "[spindle-project] generate_build_plan output_directory={} skip_sidecar={} skip_unsupported_streams={} {}",
+        "[spindle-project] generate_build_plan output_directory={} skip_sidecar={} skip_unsupported_streams={} quantize_overlay_palette={} {}",
         output_directory,
         skip_sidecar,
         skip_unsupported_streams,
+        quantize_overlay_palette,
         trace_project_summary(&project)
     );
     build::generate_build_plan_with_options(
@@ -154,6 +156,7 @@ pub(crate) async fn generate_build_plan<R: Runtime>(
         &output_directory,
         skip_sidecar,
         skip_unsupported_streams,
+        quantize_overlay_palette,
     )
 }
 
@@ -165,12 +168,14 @@ pub(crate) async fn execute_build<R: Runtime>(
     output_directory: String,
     skip_sidecar: bool,
     skip_unsupported_streams: bool,
+    quantize_overlay_palette: bool,
 ) -> Result<BuildResult> {
     let plan = build::generate_build_plan_with_options(
         &project,
         &output_directory,
         skip_sidecar,
         skip_unsupported_streams,
+        quantize_overlay_palette,
     )?;
 
     let result = build::execute_build_plan(&plan, |progress| {
@@ -306,6 +311,7 @@ pub(crate) async fn export_diagnostics<R: Runtime>(
     validation_issues: Vec<ValidationIssue>,
     skip_sidecar: bool,
     skip_unsupported_streams: bool,
+    quantize_overlay_palette: bool,
 ) -> Result<String> {
     let toolchain = {
         let tools = vec![
@@ -339,6 +345,7 @@ pub(crate) async fn export_diagnostics<R: Runtime>(
         "dev_options": {
             "skip_sidecar": skip_sidecar,
             "skip_unsupported_streams": skip_unsupported_streams,
+            "quantize_overlay_palette": quantize_overlay_palette,
         },
         "toolchain": toolchain,
         "validation_issues": validation_issues,
