@@ -32,7 +32,9 @@ export type PlaybackAction =
 	| { type: 'setSubtitleStream'; streamIndex: number | null }
 	| { type: 'sequence'; actions: PlaybackAction[] }
 	| { type: 'stop' }
-	| { type: 'return' };
+	| { type: 'return' }
+	| { type: 'playNextInTitleset' }
+	| { type: 'playAllInTitleset' };
 
 // ── Top-Level Project ───────────────────────────────────────────────────────
 

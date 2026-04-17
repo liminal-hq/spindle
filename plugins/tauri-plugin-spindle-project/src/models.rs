@@ -1235,6 +1235,14 @@ pub enum PlaybackAction {
     },
     Stop,
     Return,
+    /// Advance to the next title in the same titleset. Expands to a `PlayTitle`
+    /// action targeting the next `order_index` title at authoring time.
+    /// No-ops (treated as `Stop`) if this is already the last title.
+    /// DVD-only: Blu-ray can use native branching instead.
+    PlayNextInTitleset,
+    /// Play all titles in the current titleset in `order_index` order.
+    /// Expands at authoring time to a `Sequence` of `PlayTitle` actions.
+    PlayAllInTitleset,
 }
 
 // ── Assets ──────────────────────────────────────────────────────────────────
