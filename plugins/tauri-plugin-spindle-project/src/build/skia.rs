@@ -889,7 +889,10 @@ pub(crate) fn render_menu_overlay_image_skia(
     paint.set_color(stroke_colour);
     paint.set_style(PaintStyle::Stroke);
     paint.set_stroke_width(stroke_width);
-    paint.set_anti_alias(true);
+    // DVD subpictures require ≤16 unique colours. Anti-aliasing produces dozens of
+    // intermediate RGBA values which triggers spumux's palette assertion. Overlay
+    // images are hard-edged subpicture graphics where AA gives no visual benefit.
+    paint.set_anti_alias(false);
 
     for button in button_bounds {
         let bw = (button.x1 - button.x0).max(1) as f32;
