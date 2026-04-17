@@ -260,8 +260,14 @@ fn append_menu_pgc(xml: &mut String, spec: MenuPgcSpec<'_>) -> crate::Result<()>
     ));
     for button in spec.menu_ref.buttons() {
         if let Some(action) = button.action {
+            // Expand PlayAllInTitleset to a concrete Sequence before passing to
+            // the DVD command resolver. PlayNextInTitleset is not meaningful on a
+            // menu button (it has no "current title" context here), so it is
+            // treated as Stop.
+            let expanded_for_button = expand_playall_button_action(action, spec.disc, spec.domain);
+            let resolved_action = expanded_for_button.as_ref().unwrap_or(action);
             let cmd = playback_action_to_dvd_command_in_domain_result(
-                action,
+                resolved_action,
                 spec.disc,
                 spec.domain,
                 Some(spec.menu_number),
@@ -356,20 +362,131 @@ fn append_title_pgc(
     xml.push_str(&vob_attrs);
 
     if let Some(ref action) = title.end_action {
-        xml.push_str("        <post>\n");
-        xml.push_str(&format!(
-            "          {};\n",
-            playback_action_to_dvd_command_in_context(
-                action,
-                disc,
-                DvdCommandContext::Title { titleset_index },
-            )?
-        ));
-        xml.push_str("        </post>\n");
+        // Expand virtual actions that require titleset context before passing
+        // to the navigation command resolver.
+        let concrete = expand_title_end_action(action, title, disc, titleset_index)?;
+        if let Some(ref concrete_action) = concrete {
+            xml.push_str("        <post>\n");
+            xml.push_str(&format!(
+                "          {};\n",
+                playback_action_to_dvd_command_in_context(
+                    concrete_action,
+                    disc,
+                    DvdCommandContext::Title { titleset_index },
+                )?
+            ));
+            xml.push_str("        </post>\n");
+        } else if !matches!(action, PlaybackAction::PlayNextInTitleset) {
+            // PlayNextInTitleset with no next title → no post block (player stops)
+            xml.push_str("        <post>\n");
+            xml.push_str(&format!(
+                "          {};\n",
+                playback_action_to_dvd_command_in_context(
+                    action,
+                    disc,
+                    DvdCommandContext::Title { titleset_index },
+                )?
+            ));
+            xml.push_str("        </post>\n");
+        }
     }
 
     xml.push_str("      </pgc>\n");
     Ok(())
+}
+
+/// Expand virtual `PlaybackAction` variants that require full title + titleset context
+/// into concrete actions. Used from `append_title_pgc` for title `end_action`.
+///
+/// Returns:
+/// - `Ok(Some(action))` — a concrete action to emit
+/// - `Ok(None)` — for `PlayNextInTitleset` when this is the last title (no post block)
+/// - `Ok(None)` — for non-virtual actions (caller emits directly)
+/// - `Err` — unresolvable context
+/// Expand `PlayAllInTitleset` on a menu button to a concrete `Sequence` of
+/// `PlayTitle` actions for the titleset in scope. Returns `None` for all other
+/// action types. `PlayNextInTitleset` is not meaningful on a button; treated as
+/// `Stop`.
+fn expand_playall_button_action(
+    action: &PlaybackAction,
+    disc: &Disc,
+    domain: MenuDomain,
+) -> Option<PlaybackAction> {
+    match action {
+        PlaybackAction::PlayAllInTitleset => {
+            let titleset_index = match domain {
+                MenuDomain::Titleset(i) => i,
+                MenuDomain::Vmgm => return Some(PlaybackAction::Stop),
+            };
+            let titleset = disc.titlesets.get(titleset_index)?;
+            let mut titles: Vec<&Title> = titleset.titles.iter().collect();
+            titles.sort_by_key(|t| t.order_index);
+            let actions: Vec<PlaybackAction> = titles
+                .iter()
+                .map(|t| PlaybackAction::PlayTitle {
+                    title_id: t.id.clone(),
+                })
+                .collect();
+            if actions.is_empty() {
+                Some(PlaybackAction::Stop)
+            } else {
+                Some(PlaybackAction::Sequence { actions })
+            }
+        }
+        PlaybackAction::PlayNextInTitleset => Some(PlaybackAction::Stop),
+        _ => None,
+    }
+}
+
+fn expand_title_end_action(
+    action: &PlaybackAction,
+    current_title: &Title,
+    disc: &Disc,
+    titleset_index: usize,
+) -> crate::Result<Option<PlaybackAction>> {
+    let titleset = disc.titlesets.get(titleset_index).ok_or_else(|| {
+        crate::Error::Build(format!(
+            "Titleset index {titleset_index} out of range during virtual action expansion"
+        ))
+    })?;
+
+    match action {
+        PlaybackAction::PlayNextInTitleset => {
+            // Find the title with the lowest order_index strictly greater than
+            // the current title's order_index.
+            let next = titleset
+                .titles
+                .iter()
+                .filter(|t| t.order_index > current_title.order_index)
+                .min_by_key(|t| t.order_index);
+            match next {
+                Some(next_title) => Ok(Some(PlaybackAction::PlayTitle {
+                    title_id: next_title.id.clone(),
+                })),
+                // Last title: no post block → player stops.
+                None => Ok(None),
+            }
+        }
+        PlaybackAction::PlayAllInTitleset => {
+            // Expand to a sequence of PlayTitle for every title in the titleset
+            // ordered by order_index. Meaningful as a menu button action but can
+            // also appear as a title end_action.
+            let mut titles: Vec<&Title> = titleset.titles.iter().collect();
+            titles.sort_by_key(|t| t.order_index);
+            let actions: Vec<PlaybackAction> = titles
+                .iter()
+                .map(|t| PlaybackAction::PlayTitle {
+                    title_id: t.id.clone(),
+                })
+                .collect();
+            if actions.is_empty() {
+                Ok(Some(PlaybackAction::Stop))
+            } else {
+                Ok(Some(PlaybackAction::Sequence { actions }))
+            }
+        }
+        _ => Ok(None),
+    }
 }
 
 fn dvdauthor_subpicture_language(language: &str) -> Option<String> {
@@ -424,9 +541,107 @@ mod tests {
         add_second_titleset, test_menu, test_menu_with_action, test_project,
     };
     use crate::models::{
-        AspectMode, MenuDomain, PlaybackAction, SubtitleStreamInfo, SubtitleTrackMapping,
-        SubtitleType, VideoStandard,
+        AspectMode, AudioOutputTarget, AudioTrackMapping, ChapterPoint, CopyMode, MenuDomain,
+        PlaybackAction, SubtitleStreamInfo, SubtitleTrackMapping, SubtitleType, Title,
+        VideoOutputProfile, VideoRaster, VideoStandard, VideoTrackMapping,
     };
+
+    fn make_title(id: &str, name: &str, order_index: u32) -> Title {
+        Title {
+            id: id.to_string(),
+            name: name.to_string(),
+            source_asset_id: Some("asset-1".to_string()),
+            video_mapping: Some(VideoTrackMapping {
+                source_stream_index: 0,
+                copy_mode: CopyMode::ReEncode,
+            }),
+            video_output_profile: Some(VideoOutputProfile {
+                raster: VideoRaster::FullD1,
+                aspect: crate::models::AspectMode::SixteenByNine,
+            }),
+            audio_mappings: vec![AudioTrackMapping {
+                id: "am-x".to_string(),
+                source_stream_index: 1,
+                output_target: AudioOutputTarget::Ac3,
+                copy_mode: CopyMode::ReEncode,
+                label: "English".to_string(),
+                language: "eng".to_string(),
+                order_index: 0,
+                is_default: true,
+            }],
+            subtitle_mappings: vec![],
+            chapters: vec![ChapterPoint {
+                id: "ch-x".to_string(),
+                name: "Chapter 1".to_string(),
+                timestamp_secs: 0.0,
+                order_index: 0,
+            }],
+            end_action: None,
+            order_index,
+        }
+    }
+
+    #[test]
+    fn play_next_in_titleset_expands_to_next_title_by_order_index() {
+        let mut project = test_project();
+        // Add a second title to the titleset with a higher order_index.
+        project.disc.titlesets[0].titles.push(make_title("title-2", "Episode 2", 1));
+        project.disc.titlesets[0].titles[0].order_index = 0;
+        project.disc.titlesets[0].titles[0].end_action =
+            Some(PlaybackAction::PlayNextInTitleset);
+
+        let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+
+        // The first title's <post> should jump to title 2 (local titleset numbering).
+        assert!(
+            plan.dvdauthor_xml
+                .contains("<post>\n          jump title 2;\n        </post>"),
+            "PlayNextInTitleset should expand to a jump to the next title\n{}",
+            plan.dvdauthor_xml
+        );
+    }
+
+    #[test]
+    fn play_next_in_titleset_last_title_emits_no_post_block() {
+        let mut project = test_project();
+        // Only one title — it is already the last in the titleset.
+        project.disc.titlesets[0].titles[0].order_index = 0;
+        project.disc.titlesets[0].titles[0].end_action =
+            Some(PlaybackAction::PlayNextInTitleset);
+
+        let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+
+        // No <post> block should be emitted when this is the last title.
+        assert!(
+            !plan.dvdauthor_xml.contains("<post>"),
+            "PlayNextInTitleset on the last title should emit no <post> block\n{}",
+            plan.dvdauthor_xml
+        );
+    }
+
+    #[test]
+    fn play_all_in_titleset_on_button_expands_to_sequence_of_play_title() {
+        let mut project = test_project();
+        project.disc.titlesets[0].titles.push(make_title("title-2", "Episode 2", 1));
+        project.disc.titlesets[0].titles[0].order_index = 0;
+
+        // Create a titleset menu with a "Play All" button.
+        let menu = test_menu_with_action(
+            "ts-menu-1",
+            "Titleset Menu",
+            PlaybackAction::PlayAllInTitleset,
+        );
+        project.disc.titlesets[0].menus.push(menu);
+
+        let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+
+        // The button command should expand to a sequence jumping both titles.
+        assert!(
+            plan.dvdauthor_xml.contains("jump title 1") && plan.dvdauthor_xml.contains("jump title 2"),
+            "PlayAllInTitleset button should expand to a sequence jumping all titles\n{}",
+            plan.dvdauthor_xml
+        );
+    }
 
     #[test]
     fn dvdauthor_xml_contains_authored_menu_vob_and_button() {

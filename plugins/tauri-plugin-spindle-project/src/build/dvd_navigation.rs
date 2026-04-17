@@ -241,6 +241,16 @@ pub(crate) fn playback_action_to_dvd_command_in_context(
         }
         PlaybackAction::Stop => Ok("exit".to_string()),
         PlaybackAction::Return => Ok("resume".to_string()),
+        // Virtual actions are expanded to concrete DVD VM commands at a higher
+        // level (authoring.rs) before reaching this function. Reaching here
+        // means the action was used without expansion context — treat as Stop.
+        PlaybackAction::PlayNextInTitleset | PlaybackAction::PlayAllInTitleset => {
+            Err(crate::Error::Build(
+                "PlayNextInTitleset / PlayAllInTitleset must be expanded before DVD command \
+                 resolution. Use expand_title_end_action for title end actions."
+                    .to_string(),
+            ))
+        }
     }
 }
 

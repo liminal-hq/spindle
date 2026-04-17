@@ -1316,6 +1316,8 @@ fn validate_action(
             }
         }
         PlaybackAction::Stop | PlaybackAction::Return => {}
+        // Virtual actions expanded at authoring time; no cross-reference validation needed.
+        PlaybackAction::PlayNextInTitleset | PlaybackAction::PlayAllInTitleset => {}
     }
 }
 
