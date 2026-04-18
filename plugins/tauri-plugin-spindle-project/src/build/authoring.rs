@@ -259,27 +259,39 @@ fn append_menu_pgc(xml: &mut String, spec: MenuPgcSpec<'_>) -> crate::Result<()>
         xml_escape(&menu_vob_path.display().to_string())
     ));
     for button in spec.menu_ref.buttons() {
-        if let Some(action) = button.action {
-            // Expand PlayAllInTitleset to a concrete Sequence before passing to
-            // the DVD command resolver. PlayNextInTitleset is not meaningful on a
-            // menu button (it has no "current title" context here), so it is
-            // treated as Stop.
-            let expanded_for_button = expand_playall_button_action(action, spec.disc, spec.domain);
-            let resolved_action = expanded_for_button.as_ref().unwrap_or(action);
-            let cmd = playback_action_to_dvd_command_in_domain_result(
-                resolved_action,
-                spec.disc,
-                spec.domain,
-                Some(spec.menu_number),
-            )?;
-            // Compound commands (wrapped in braces) are already terminated;
-            // simple commands need a trailing semicolon.
-            let formatted = if cmd.starts_with('{') {
-                cmd
-            } else {
-                format!("{cmd};")
-            };
-            xml.push_str(&format!("        <button>{formatted}</button>\n"));
+        match button.action {
+            Some(action) => {
+                // Expand PlayAllInTitleset to a concrete Sequence before passing to
+                // the DVD command resolver. PlayNextInTitleset is not meaningful on a
+                // menu button (it has no "current title" context here), so it is
+                // treated as Stop.
+                let expanded_for_button =
+                    expand_playall_button_action(action, spec.disc, spec.domain);
+                let resolved_action = expanded_for_button.as_ref().unwrap_or(action);
+                let cmd = playback_action_to_dvd_command_in_domain_result(
+                    resolved_action,
+                    spec.disc,
+                    spec.domain,
+                    Some(spec.menu_number),
+                )?;
+                // Compound commands (wrapped in braces) are already terminated;
+                // simple commands need a trailing semicolon.
+                let formatted = if cmd.starts_with('{') {
+                    cmd
+                } else {
+                    format!("{cmd};")
+                };
+                xml.push_str(&format!("        <button>{formatted}</button>\n"));
+            }
+            None => {
+                // Buttons with no action still occupy a subpicture button slot in the
+                // spumux overlay. Omitting them here would create a count mismatch
+                // between the subpicture stream and the PGC button list, which causes
+                // dvdauthor to abort with "Cannot find button N". Emit an empty
+                // <button> element so dvdauthor's numbering stays in sync; the button
+                // will be inert (player does nothing when it is activated).
+                xml.push_str("        <button></button>\n");
+            }
         }
     }
     xml.push_str("      </pgc>\n");
@@ -1219,5 +1231,138 @@ mod tests {
         assert!(plan.dvdauthor_xml.contains(
             "<post>\n          { g0 = 2; call titleset 2 menu entry root; };\n        </post>"
         ));
+    }
+
+    /// A menu button with no action must still produce a `<button>` element so that
+    /// dvdauthor's button numbering matches the spumux subpicture overlay. Omitting
+    /// the element shifts all subsequent button numbers and triggers dvdauthor's
+    /// "Cannot find button N" assertion.
+    #[test]
+    fn menu_button_with_no_action_emits_empty_button_element() {
+        let mut project = test_project();
+        let mut menu = test_menu_with_action(
+            "menu-1",
+            "Main Menu",
+            PlaybackAction::PlayTitle {
+                title_id: "title-1".to_string(),
+            },
+        );
+        // Add a second button with no action (e.g. a "not yet implemented" placeholder).
+        menu.buttons.push(crate::models::MenuButton {
+            id: "btn-noop".to_string(),
+            label: "Coming Soon".to_string(),
+            bounds: crate::models::ButtonBounds {
+                x: 120.0,
+                y: 380.0,
+                width: 240.0,
+                height: 48.0,
+            },
+            action: None,
+            nav_up: Some("btn-1".to_string()),
+            nav_down: None,
+            nav_left: None,
+            nav_right: None,
+            highlight_mode: crate::models::HighlightMode::Static,
+            highlight_keyframes: vec![],
+            video_asset_id: None,
+        });
+        project.disc.global_menus.push(menu);
+
+        let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+
+        // Both buttons must be present — one with a command, one empty.
+        assert!(
+            plan.dvdauthor_xml
+                .contains("<button>jump title 1;</button>"),
+            "First button (with action) should emit its DVD command\n{}",
+            plan.dvdauthor_xml
+        );
+        assert!(
+            plan.dvdauthor_xml.contains("<button></button>"),
+            "No-action button must still emit an empty <button> element to keep spumux and dvdauthor button counts in sync\n{}",
+            plan.dvdauthor_xml
+        );
+    }
+
+    /// When a no-action button appears between two buttons that do have actions, the
+    /// relative order of all three `<button>` elements must be preserved so that
+    /// spumux button slots align correctly.
+    #[test]
+    fn menu_button_order_preserved_with_mixed_action_and_no_action_buttons() {
+        let mut project = test_project();
+        let mut menu = test_menu_with_action(
+            "menu-1",
+            "Main Menu",
+            PlaybackAction::PlayTitle {
+                title_id: "title-1".to_string(),
+            },
+        );
+        // btn-1 already set by test_menu_with_action (has action: jump title 1)
+        // Insert no-action btn in slot 2
+        menu.buttons.push(crate::models::MenuButton {
+            id: "btn-noop".to_string(),
+            label: "Placeholder".to_string(),
+            bounds: crate::models::ButtonBounds {
+                x: 120.0,
+                y: 380.0,
+                width: 240.0,
+                height: 48.0,
+            },
+            action: None,
+            nav_up: None,
+            nav_down: None,
+            nav_left: None,
+            nav_right: None,
+            highlight_mode: crate::models::HighlightMode::Static,
+            highlight_keyframes: vec![],
+            video_asset_id: None,
+        });
+        // btn-3 has action: Stop (slot 3)
+        menu.buttons.push(crate::models::MenuButton {
+            id: "btn-stop".to_string(),
+            label: "Exit".to_string(),
+            bounds: crate::models::ButtonBounds {
+                x: 120.0,
+                y: 440.0,
+                width: 240.0,
+                height: 48.0,
+            },
+            action: Some(PlaybackAction::Stop),
+            nav_up: None,
+            nav_down: None,
+            nav_left: None,
+            nav_right: None,
+            highlight_mode: crate::models::HighlightMode::Static,
+            highlight_keyframes: vec![],
+            video_asset_id: None,
+        });
+        project.disc.global_menus.push(menu);
+
+        let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+
+        // Extract the button elements in document order.
+        let buttons: Vec<&str> = plan
+            .dvdauthor_xml
+            .lines()
+            .filter(|l| l.trim().starts_with("<button>"))
+            .collect();
+        assert_eq!(
+            buttons.len(),
+            3,
+            "Three buttons should be emitted (including the no-action one)\n{}",
+            plan.dvdauthor_xml
+        );
+        assert!(
+            buttons[0].contains("jump title 1"),
+            "Slot 1 should be the play-title button"
+        );
+        assert!(
+            buttons[1] == "        <button></button>",
+            "Slot 2 should be the empty no-action button"
+        );
+        assert!(
+            buttons[2].contains("exit"),
+            "Slot 3 should be the stop/exit button"
+        );
     }
 }
