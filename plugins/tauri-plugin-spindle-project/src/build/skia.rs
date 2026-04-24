@@ -953,8 +953,9 @@ pub(crate) fn render_menu_overlay_image_skia_quantized(
         None,
     );
 
-    let mut surface = surfaces::raster(&info, None, None)
-        .ok_or_else(|| crate::Error::Build("Failed to create Skia overlay surface (quantize)".into()))?;
+    let mut surface = surfaces::raster(&info, None, None).ok_or_else(|| {
+        crate::Error::Build("Failed to create Skia overlay surface (quantize)".into())
+    })?;
 
     let canvas = surface.canvas();
     canvas.clear(Color::TRANSPARENT);
@@ -996,17 +997,16 @@ pub(crate) fn render_menu_overlay_image_skia_quantized(
     // Read back raw RGBA pixels from the Skia surface.
     let mut pixel_buf = vec![0u8; (w * h * 4) as usize];
     let row_bytes = w as usize * 4;
-    surface
-        .read_pixels(&info, &mut pixel_buf, row_bytes, IPoint::new(0, 0));
+    surface.read_pixels(&info, &mut pixel_buf, row_bytes, IPoint::new(0, 0));
 
     // Build a 4-entry palette: transparent, stroke colour, mid-tone (half-alpha
     // stroke), black. Map every pixel to its nearest palette entry.
     let sc = stroke_colour;
     let palette: [(u8, u8, u8, u8); 4] = [
         (0, 0, 0, 0),                         // transparent
-        (sc.r(), sc.g(), sc.b(), sc.a()),      // stroke colour
+        (sc.r(), sc.g(), sc.b(), sc.a()),     // stroke colour
         (sc.r(), sc.g(), sc.b(), sc.a() / 2), // mid-tone (half-alpha)
-        (0, 0, 0, 255),                        // black
+        (0, 0, 0, 255),                       // black
     ];
 
     fn rgba_dist_sq(a: (u8, u8, u8, u8), b: (u8, u8, u8, u8)) -> u32 {
@@ -1032,8 +1032,8 @@ pub(crate) fn render_menu_overlay_image_skia_quantized(
 
     // Re-encode the quantized pixels as PNG using the `image` crate.
     use image::{ImageBuffer, Rgba};
-    let img: ImageBuffer<Rgba<u8>, Vec<u8>> =
-        ImageBuffer::from_raw(w as u32, h as u32, pixel_buf).ok_or_else(|| {
+    let img: ImageBuffer<Rgba<u8>, Vec<u8>> = ImageBuffer::from_raw(w as u32, h as u32, pixel_buf)
+        .ok_or_else(|| {
             crate::Error::Build("Failed to create image buffer from quantized pixels".into())
         })?;
     img.save(output_path).map_err(|e| {

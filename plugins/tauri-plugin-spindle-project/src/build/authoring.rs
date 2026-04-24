@@ -407,18 +407,10 @@ fn append_title_pgc(
     Ok(())
 }
 
-/// Expand virtual `PlaybackAction` variants that require full title + titleset context
-/// into concrete actions. Used from `append_title_pgc` for title `end_action`.
-///
-/// Returns:
-/// - `Ok(Some(action))` — a concrete action to emit
-/// - `Ok(None)` — for `PlayNextInTitleset` when this is the last title (no post block)
-/// - `Ok(None)` — for non-virtual actions (caller emits directly)
-/// - `Err` — unresolvable context
 /// Expand `PlayAllInTitleset` on a menu button to a concrete `Sequence` of
 /// `PlayTitle` actions for the titleset in scope. Returns `None` for all other
-/// action types. `PlayNextInTitleset` is not meaningful on a button; treated as
-/// `Stop`.
+/// action types. `PlayNextInTitleset` is not meaningful on a button and is
+/// treated as `Stop`.
 fn expand_playall_button_action(
     action: &PlaybackAction,
     disc: &Disc,
