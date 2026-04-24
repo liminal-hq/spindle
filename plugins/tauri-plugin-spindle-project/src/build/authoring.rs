@@ -286,11 +286,11 @@ fn append_menu_pgc(xml: &mut String, spec: MenuPgcSpec<'_>) -> crate::Result<()>
             None => {
                 // Buttons with no action still occupy a subpicture button slot in the
                 // spumux overlay. Omitting them here would create a count mismatch
-                // between the subpicture stream and the PGC button list, which causes
-                // dvdauthor to abort with "Cannot find button N". Emit an empty
-                // <button> element so dvdauthor's numbering stays in sync; the button
-                // will be inert (player does nothing when it is activated).
-                xml.push_str("        <button></button>\n");
+                // between the subpicture stream and the PGC button list, causing
+                // dvdauthor to abort with "Cannot find button N". Emit `resume` so
+                // the player stays on the menu when the button is activated, rather
+                // than stopping playback entirely (which an empty <button> causes).
+                xml.push_str("        <button>resume;</button>\n");
             }
         }
     }
@@ -1278,8 +1278,8 @@ mod tests {
             plan.dvdauthor_xml
         );
         assert!(
-            plan.dvdauthor_xml.contains("<button></button>"),
-            "No-action button must still emit an empty <button> element to keep spumux and dvdauthor button counts in sync\n{}",
+            plan.dvdauthor_xml.contains("<button>resume;</button>"),
+            "No-action button must emit resume; to stay on the menu rather than stopping playback\n{}",
             plan.dvdauthor_xml
         );
     }
@@ -1357,8 +1357,8 @@ mod tests {
             "Slot 1 should be the play-title button"
         );
         assert!(
-            buttons[1] == "        <button></button>",
-            "Slot 2 should be the empty no-action button"
+            buttons[1] == "        <button>resume;</button>",
+            "Slot 2 should be the no-action button, emitting resume; to stay on the menu"
         );
         assert!(
             buttons[2].contains("exit"),
