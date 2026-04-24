@@ -834,7 +834,12 @@ function ButtonInspector({
 						})
 					}
 				>
-					<ActionOptions allTitles={allTitles} allMenus={allMenus} currentMenuId={currentMenuId} menuDomain={menuDomain} />
+					<ActionOptions
+						allTitles={allTitles}
+						allMenus={allMenus}
+						currentMenuId={currentMenuId}
+						menuDomain={menuDomain}
+					/>
 				</select>
 			</CollapsibleSection>
 

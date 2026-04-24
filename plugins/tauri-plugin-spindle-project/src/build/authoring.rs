@@ -597,10 +597,11 @@ mod tests {
     fn play_next_in_titleset_expands_to_next_title_by_order_index() {
         let mut project = test_project();
         // Add a second title to the titleset with a higher order_index.
-        project.disc.titlesets[0].titles.push(make_title("title-2", "Episode 2", 1));
+        project.disc.titlesets[0]
+            .titles
+            .push(make_title("title-2", "Episode 2", 1));
         project.disc.titlesets[0].titles[0].order_index = 0;
-        project.disc.titlesets[0].titles[0].end_action =
-            Some(PlaybackAction::PlayNextInTitleset);
+        project.disc.titlesets[0].titles[0].end_action = Some(PlaybackAction::PlayNextInTitleset);
 
         let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
 
@@ -618,8 +619,7 @@ mod tests {
         let mut project = test_project();
         // Only one title — it is already the last in the titleset.
         project.disc.titlesets[0].titles[0].order_index = 0;
-        project.disc.titlesets[0].titles[0].end_action =
-            Some(PlaybackAction::PlayNextInTitleset);
+        project.disc.titlesets[0].titles[0].end_action = Some(PlaybackAction::PlayNextInTitleset);
 
         let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
 
@@ -634,7 +634,9 @@ mod tests {
     #[test]
     fn play_all_in_titleset_on_button_expands_to_sequence_of_play_title() {
         let mut project = test_project();
-        project.disc.titlesets[0].titles.push(make_title("title-2", "Episode 2", 1));
+        project.disc.titlesets[0]
+            .titles
+            .push(make_title("title-2", "Episode 2", 1));
         project.disc.titlesets[0].titles[0].order_index = 0;
 
         // Create a titleset menu with a "Play All" button.
@@ -649,7 +651,8 @@ mod tests {
 
         // The button command should expand to a sequence jumping both titles.
         assert!(
-            plan.dvdauthor_xml.contains("jump title 1") && plan.dvdauthor_xml.contains("jump title 2"),
+            plan.dvdauthor_xml.contains("jump title 1")
+                && plan.dvdauthor_xml.contains("jump title 2"),
             "PlayAllInTitleset button should expand to a sequence jumping all titles\n{}",
             plan.dvdauthor_xml
         );

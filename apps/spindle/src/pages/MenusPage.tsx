@@ -127,9 +127,7 @@ export function MenusPage() {
 		selectedEntry?.titlesetId ??
 		(disc.titlesets.length === 1 ? disc.titlesets[0]?.id : null) ??
 		null;
-	const [generatorTitlesetId, setGeneratorTitlesetId] = useState<string | null>(
-		implicitTitlesetId,
-	);
+	const [generatorTitlesetId, setGeneratorTitlesetId] = useState<string | null>(implicitTitlesetId);
 
 	// Sync the picker to the implicit titleset when a titleset-scoped menu is
 	// selected and there is no ambiguity.

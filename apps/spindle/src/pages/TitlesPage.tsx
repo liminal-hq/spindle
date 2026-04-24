@@ -881,9 +881,7 @@ function TitleEditor({
 					<option value="stop">Stop</option>
 					<option
 						value="playNextInTitleset"
-						disabled={
-							allTitles.findIndex((t) => t.id === title.id) === allTitles.length - 1
-						}
+						disabled={allTitles.findIndex((t) => t.id === title.id) === allTitles.length - 1}
 					>
 						Next in Titleset
 					</option>
