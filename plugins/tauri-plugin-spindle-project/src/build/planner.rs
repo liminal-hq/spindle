@@ -975,4 +975,59 @@ mod tests {
         assert!(msg.contains("Motion menu build authoring is not implemented yet"));
         assert!(msg.contains("\"Main Menu\""));
     }
+
+    #[test]
+    fn build_plan_rejects_menu_with_missing_image_asset() {
+        let mut project = test_project();
+        let mut menu = test_menu();
+        menu.authored_document = Some(MenuDocument {
+            id: "menu-1".to_string(),
+            name: "Main Menu".to_string(),
+            domain: MenuDomain::Vmgm,
+            scene: MenuScene {
+                design_size: MenuSize {
+                    width: 720.0,
+                    height: 480.0,
+                    aspect: AspectMode::FourByThree,
+                },
+                background: SceneBackground {
+                    asset_id: None,
+                    colour: Some("#000000".to_string()),
+                },
+                nodes: vec![SceneNode::Image {
+                    id: "img-1".to_string(),
+                    asset_id: "deleted-asset-id".to_string(),
+                    x: 0.0,
+                    y: 0.0,
+                    width: 100.0,
+                    height: 100.0,
+                }],
+                guides: vec![],
+            },
+            interaction: MenuInteractionGraph {
+                default_focus_id: None,
+                nodes: vec![],
+                timeout_action: None,
+            },
+            timing: MenuTiming::default(),
+            highlight_colours: MenuHighlightColours::default(),
+            background_mode: BackgroundMode::Still,
+            theme_ref: None,
+            generation_meta: None,
+            compile_policy: MenuCompilePolicy::default(),
+        });
+        project.disc.global_menus.push(menu);
+
+        let err = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap_err();
+        let msg = err.to_string();
+
+        assert!(
+            msg.contains("deleted-asset-id"),
+            "error should name the missing asset ID: {msg}"
+        );
+        assert!(
+            msg.contains("Main Menu"),
+            "error should name the menu: {msg}"
+        );
+    }
 }

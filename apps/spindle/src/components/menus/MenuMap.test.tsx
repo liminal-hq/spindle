@@ -85,4 +85,55 @@ describe('FullMenuMap', () => {
 
 		expect(onSelectMenu).toHaveBeenCalledWith('menu-main');
 	});
+
+	it('marks a title node as having a runtime action when endAction is playNextInTitleset or playAllInTitleset', () => {
+		const project = buildProject();
+		const titleId = 'title-1';
+		project.disc.titlesets = [
+			{
+				id: 'ts-1',
+				name: 'Titleset 1',
+				menus: [],
+				titles: [
+					{
+						id: titleId,
+						name: 'Episode 1',
+						sourceAssetId: null,
+						videoMapping: null,
+						videoOutputProfile: null,
+						audioMappings: [],
+						subtitleMappings: [],
+						chapters: [],
+						endAction: { type: 'playNextInTitleset' },
+						orderIndex: 0,
+					},
+					{
+						id: 'title-2',
+						name: 'Episode 2',
+						sourceAssetId: null,
+						videoMapping: null,
+						videoOutputProfile: null,
+						audioMappings: [],
+						subtitleMappings: [],
+						chapters: [],
+						endAction: { type: 'playAllInTitleset' },
+						orderIndex: 1,
+					},
+				],
+			},
+		];
+
+		render(
+			<FullMenuMap
+				project={project}
+				selectedMenuId={null}
+				onSelectMenu={vi.fn()}
+				onOpenInEditor={vi.fn()}
+			/>,
+		);
+
+		// Both title nodes should carry the return/runtime-action indicator
+		expect(screen.getByTestId(`menu-map-node-${titleId}`).dataset.hasReturn).toBe('true');
+		expect(screen.getByTestId('menu-map-node-title-2').dataset.hasReturn).toBe('true');
+	});
 });

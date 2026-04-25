@@ -377,6 +377,7 @@ function NodeRect({
 	return (
 		<g
 			data-testid={`menu-map-node-${node.id}`}
+			data-has-return={hasReturn ? 'true' : undefined}
 			style={{ cursor: 'pointer' }}
 			onClick={() => onClick(node.id)}
 			onDoubleClick={() => onDoubleClick?.(node.id)}
