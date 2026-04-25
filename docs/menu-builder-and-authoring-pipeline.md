@@ -14,7 +14,7 @@ This note covers:
 - the menu-to-MPG and highlight-overlay pipeline
 - `dvdauthor` XML generation for menu video and button commands
 
-This note does not attempt to define a future motion-menu architecture in detail. Motion-menu fields already exist in the model, but the current authored pipeline is still centred on still backgrounds plus highlight overlays.
+This note does not attempt to define a future motion-menu architecture in detail. Motion-menu fields already exist in the model, and the current workspace now exposes reserved inspector controls for motion audio and loop settings, but the compiled authored pipeline is still centred on still backgrounds plus highlight overlays.
 
 ## Quick View
 
@@ -39,9 +39,11 @@ flowchart LR
 
     subgraph Plugin
         GP[generate_build_plan]
+        SK[Skia renderer\nbuild/skia.rs]
         RM[RenderMenu job]
         CH[ComposeMenuHighlights job]
         DX[generate_dvdauthor_xml]
+        PV[export_menu_render_preview]
     end
 
     subgraph ExternalTools
@@ -58,29 +60,32 @@ flowchart LR
     PJ --> MN
     MN --> MB
     PJ --> GP
-    GP --> RM
-    GP --> CH
+    GP --> SK
+    SK --> RM
+    SK --> CH
     GP --> DX
     RM --> FF
-    CH --> FF
     CH --> SP
     DX --> DV
+    PV --> SK
 ```
 
 ## File Map
 
-| Area              | Responsibility                                             | Primary files                                                                                                                     |
-| ----------------- | ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| Frontend editor   | Menu editing, button placement, action assignment, preview | `apps/spindle/src/pages/MenusPage.tsx`                                                                                            |
-| Frontend state    | Project updates and persistence                            | `apps/spindle/src/store/project-store.ts`                                                                                         |
-| Shared TS model   | Menu, button, and playback-action types                    | `apps/spindle/src/types/project.ts`                                                                                               |
-| Shared Rust model | Rust-side schema used by the Tauri plugin                  | `plugins/tauri-plugin-spindle-project/src/models.rs`                                                                              |
-| Build facade      | Public build API and module wiring                         | `plugins/tauri-plugin-spindle-project/src/build/mod.rs`                                                                           |
-| Build planner     | Job discovery and plan assembly                            | `plugins/tauri-plugin-spindle-project/src/build/planner.rs`                                                                       |
-| Menu authoring    | Menu rendering, overlays, and spumux XML                   | `plugins/tauri-plugin-spindle-project/src/build/menu.rs`                                                                          |
-| DVD authoring     | `dvdauthor` XML and navigation command generation          | `plugins/tauri-plugin-spindle-project/src/build/authoring.rs`, `plugins/tauri-plugin-spindle-project/src/build/dvd_navigation.rs` |
-| Build execution   | Subprocess execution and build orchestration               | `plugins/tauri-plugin-spindle-project/src/build/executor.rs`                                                                      |
-| Plugin commands   | Tauri command surface                                      | `plugins/tauri-plugin-spindle-project/src/commands.rs`                                                                            |
+| Area               | Responsibility                                             | Primary files                                                                                                                     |
+| ------------------ | ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Frontend editor    | Menu editing, button placement, action assignment, preview | `apps/spindle/src/pages/MenusPage.tsx`                                                                                            |
+| Frontend state     | Project updates and persistence                            | `apps/spindle/src/store/project-store.ts`                                                                                         |
+| Shared TS model    | Menu, button, and playback-action types                    | `apps/spindle/src/types/project.ts`                                                                                               |
+| Shared Rust model  | Rust-side schema used by the Tauri plugin                  | `plugins/tauri-plugin-spindle-project/src/models.rs`                                                                              |
+| Build facade       | Public build API and module wiring                         | `plugins/tauri-plugin-spindle-project/src/build/mod.rs`                                                                           |
+| Build planner      | Job discovery and plan assembly                            | `plugins/tauri-plugin-spindle-project/src/build/planner.rs`                                                                       |
+| **Skia renderer**  | **Scene PNG rendering, font loading, overlay images**      | **`plugins/tauri-plugin-spindle-project/src/build/skia.rs`**                                                                      |
+| **Render preview** | **DAR-corrected preview export**                           | **`plugins/tauri-plugin-spindle-project/src/build/preview.rs`**                                                                   |
+| Menu authoring     | Build job wiring, spumux XML, button projections           | `plugins/tauri-plugin-spindle-project/src/build/menu.rs`                                                                          |
+| DVD authoring      | `dvdauthor` XML and navigation command generation          | `plugins/tauri-plugin-spindle-project/src/build/authoring.rs`, `plugins/tauri-plugin-spindle-project/src/build/dvd_navigation.rs` |
+| Build execution    | Subprocess execution and build orchestration               | `plugins/tauri-plugin-spindle-project/src/build/executor.rs`                                                                      |
+| Plugin commands    | Tauri command surface                                      | `plugins/tauri-plugin-spindle-project/src/commands.rs`                                                                            |
 
 ## Menu Builder Architecture
 
@@ -115,19 +120,23 @@ flowchart TD
 Those layers behave differently:
 
 - the visual canvas edits geometry
-- the property rows edit labels and actions
-- the preview reuses the same data but changes interaction mode
+- the inspector edits labels, actions, background selection, display-aspect preview, and authored style states
+- the preview reuses the same data but changes interaction mode and now surfaces authored button-state styling plus action chips
 
 ### 3. Menu actions are stored as playback actions
 
-Each button has an optional `PlaybackAction`:
+Each button has an optional `PlaybackAction`. The full set of variants is:
 
-- `playTitle`
-- `playChapter`
-- `showMenu`
-- `stop`
+- `playTitle` — jump to a title by ID
+- `playChapter` — jump to a specific chapter within a title
+- `showMenu` — navigate to another menu by ID
+- `setAudioStream` — switch the active audio stream
+- `setSubtitleStream` — switch the active subtitle stream (or disable)
+- `sequence` — compose multiple actions in order
+- `stop` — stop playback
+- `return` — return to the calling context
 
-This is important architecturally because the menu editor is not hard-coded to DVD command strings. It stays at the level of authoring intent, and the Rust build pipeline translates that intent into DVD VM commands later.
+This is important architecturally because the menu editor is not hard-coded to DVD command strings. It stays at the level of authoring intent, and the Rust build pipeline translates that intent into DVD VM commands later. Note that not all variants have a direct DVD VM equivalent — `setAudioStream`, `setSubtitleStream`, and `sequence` are richer than what DVD menus natively support, and translation rules continue to evolve.
 
 ### 4. Navigation is geometric plus editable
 
@@ -197,6 +206,51 @@ Because menu data is already normalised into the project model:
 - diagnostics can reason about menus without scraping UI state
 - tests can construct menu scenarios directly in Rust without driving the UI
 
+## Coordinate Model
+
+Menus are authored in a logical design space with square pixels. The renderer scales design coordinates to the output raster at build time using `RenderTarget`.
+
+### Key types
+
+- **`MenuSize`** — the design-space canvas for a menu, in square-pixel display-aspect coordinates. Fields: `width`, `height`, `aspect`. Stored in `MenuDocument.scene.design_size`.
+- **`RenderTarget`** — derived at build time from `Disc` settings; never stored in the project file. Fields: `family`, `standard`, `raster_width`, `raster_height`, `sar_num`, `sar_den`.
+
+### Scaling relationship
+
+```
+scale_x = raster_width  / design_width
+scale_y = raster_height / design_height
+
+button.x_raster = button.x_design × scale_x
+button.y_raster = button.y_design × scale_y
+```
+
+Coordinates are fractional in design space. Rounding to integer pixels happens once, at render time, in `build/skia.rs`.
+
+### Concrete example: DVD NTSC 16:9
+
+```
+Design space:  1024 × 576  (16:9, square pixels)
+Render raster:  720 × 480  (NTSC full-D1)
+scale_x = 720 / 1024 ≈ 0.703
+scale_y = 480 / 576  ≈ 0.833
+
+SAR = (16 × 480) / (9 × 720) = 7680 / 6480, GCD-reduced → 32/27
+Display width for preview = 720 × 32/27 ≈ 853px
+```
+
+### Format support
+
+| Format  | Default design space | Raster (NTSC) | SAR (16:9) | Overlay mechanism         | UI status  |
+| ------- | -------------------- | ------------- | ---------- | ------------------------- | ---------- |
+| VCD     | 704 × 528            | 352 × 240     | —          | None / player-dependent   | Model only |
+| SVCD    | 800 × 600            | 480 × 480     | —          | Limited, player-dependent | Model only |
+| DVD     | 1024 × 576 (16:9)    | 720 × 480     | 32/27      | MPEG-2 + spumux           | Supported  |
+|         | 1024 × 768 (4:3)     | 720 × 480     | 8/9        |                           |            |
+| Blu-ray | 1920 × 1080          | 1920 × 1080   | 1/1        | BD IG PNG (stub)          | Model only |
+
+`DiscFamily::is_ui_supported()` returns `true` only for `DvdVideo`. New variants are wired in the model and render pipeline but are not exposed in the format picker until their full authoring pipelines are complete.
+
 ## Build-Plan Architecture
 
 ## Animated menu-to-MPG view
@@ -247,6 +301,7 @@ sequenceDiagram
     participant UI as Menu editor
     participant Store as project store
     participant Planner as generate_build_plan
+    participant Skia as Skia renderer
     participant FF as ffmpeg
     participant SP as spumux
     participant DA as dvdauthor
@@ -256,24 +311,19 @@ sequenceDiagram
     Planner->>Planner: discover authorable menus
     Planner->>Planner: create RenderMenu job
     Planner->>Planner: create ComposeMenuHighlights job
-    Planner->>FF: render base menu MPG
-    Planner->>FF: render highlight/select PNG overlays
-    Planner->>SP: mux subpicture overlays into menu MPG
+    Planner->>Skia: render scene nodes to PNG (shapes, text, images)
+    Skia->>FF: overlay Skia PNG, encode MPEG-2
+    Planner->>Skia: render highlight/select overlay PNGs
+    Skia->>SP: mux subpicture overlays into menu MPG
     Planner->>DA: reference final menu MPG in dvdauthor XML
 ```
 
 ### Stage A. Base menu render
 
-The current still-menu render path does the following:
+The still-menu render path does the following:
 
-- choose the menu raster from DVD full-D1 dimensions
-- derive the display aspect and sample aspect ratio from the menu domain
-- render a background
-  - from an assigned background asset if present
-  - or from a generated solid-colour source if no asset is assigned
-- draw visible button rectangles
-- draw button labels with `drawtext`
-- encode a short MPEG-2 DVD-compatible menu clip
+1. **Skia scene render** (`build/skia.rs`): the menu scene (shapes, text nodes, image assets, button hints) is rendered to a PNG at raster resolution. Design-space coordinates are scaled to raster coordinates using `scale_x = raster_width / design_width` and `scale_y = raster_height / design_height`.
+2. **ffmpeg compose and encode**: ffmpeg overlays the Skia PNG onto any background asset, then encodes the result as MPEG-2 with the correct SAR.
 
 This produces a `_base.mpg` file.
 
@@ -284,7 +334,7 @@ Before `spumux` runs, the pipeline generates:
 - highlight PNG
 - select PNG
 
-These images are not full visual menu renders. They are subpicture overlays used by DVD players for button highlight states.
+These images are transparent except for button outline strokes, drawn by Skia. They are the subpicture overlays consumed by DVD players for button highlight and select states.
 
 ### Stage C. `spumux` composition
 
@@ -334,19 +384,16 @@ That is why `PlaybackAction` is translated late. The legal DVD command depends o
 
 ## Current Visual Behaviour
 
-The current authored still-menu renderer now includes:
+The Skia renderer (`build/skia.rs`) produces the following for each menu:
 
-- button boxes
-- default-button emphasis
-- button label text
-- highlight and select overlays
+- background fill (solid colour or background asset)
+- `SceneNode::Shape` — filled rectangles at raster-scaled coordinates
+- `SceneNode::Text` — rendered via Skia with `font_weight`, `font_italic`, `letter_spacing`, and `text_decoration` (underline) applied; font family resolved from project font assets with system fallback; font size clamped to per-format minimum (see format table above)
+- `SceneNode::Image` — asset images scaled to raster bounds
+- button outline hints (the select-colour outline and label for the default button)
+- highlight and select overlay PNGs (transparent except for button outlines, used by `spumux`)
 
-It does not yet try to recreate every visual nuance of the canvas editor. In particular:
-
-- there is not yet a rich text layout engine
-- motion-menu playback is not fully authored
-- advanced typography and custom font selection are not part of the model
-- background composition is still deliberately simple
+Motion-menu authoring, advanced text shaping (multi-line layout, ligatures), and Blu-ray IG stream assembly are not yet authored end-to-end.
 
 ## Failure Boundaries And Diagnostics
 
@@ -399,17 +446,94 @@ The recent audit work added more routing tests specifically to reduce the last c
 - routing logic is now covered by a denser Rust test matrix
 - menu rendering is decomposed into stages that are easier to debug
 
+## Font Resolution
+
+### Priority order
+
+The Skia renderer resolves font families in the following priority order for every text node:
+
+1. **Project asset fonts** — font files (`.ttf`, `.otf`, `.woff`, `.woff2`) registered in `SpindleProjectFile.assets`. These are loaded by Skia at render time from their `source_path`.
+2. **Application sidecar fonts** — fonts bundled alongside the app binary in `src-tauri/fonts/`. This tier is reserved for future use; no fonts are bundled in the current release. The directory is tracked as an empty stub (`src-tauri/fonts/.gitkeep`).
+3. **System fonts** — discovered via Skia's `FontMgr` on the build host. On the canonical `ghcr.io/liminal-hq/tauri-dev-desktop` container, the available system families are: **DejaVu Sans**, **DejaVu Sans Mono**, **DejaVu Serif**, and **Noto Color Emoji**.
+
+If no match is found for a given family name, Skia falls back to its default typeface.
+
+### `enumerate_fonts` helper
+
+The font enumeration logic lives in `build/skia.rs` as the public `enumerate_fonts` function:
+
+```rust
+pub fn enumerate_fonts(assets: &[&Asset]) -> Vec<FontEntry>
+```
+
+It returns a deduplicated list of `FontEntry` values in priority order. `FontEntry` carries:
+
+- **`family`** — the display name shown in the UI (e.g. `"DejaVu Sans"`)
+- **`source`** — one of `project-asset`, `app-sidecar`, or `system`
+
+`FontCache::new()` is built on the same project-asset scan as `enumerate_fonts`, so both paths share the same font-loading logic.
+
+### `list_available_fonts` command
+
+The `list_available_fonts` Tauri command exposes font enumeration to the frontend:
+
+```
+plugin:spindle-project|list_available_fonts
+```
+
+**Payload:** `{ project: SpindleProjectFile }`  
+**Response:** `FontEntry[]`
+
+The UI calls this command once when a menu is selected (or when `project.assets` changes) and uses the result to populate the font-family dropdown in the inspector panel.
+
+### UI dropdown
+
+`TextStyleSection` in `InspectorPanel.tsx` accepts an optional `availableFonts?: FontEntry[]` prop. When provided, the dropdown renders `<optgroup>` sections:
+
+- **Project fonts** — entries with `source === 'project-asset'`
+- **Application fonts** — entries with `source === 'app-sidecar'`
+- **System fonts** — entries with `source === 'system'`
+
+Empty tiers are omitted. When `availableFonts` is `undefined` (command not yet resolved or failed), the dropdown falls back to the hardcoded list (`Space Grotesk`, `Inter`, `System UI`, `Georgia`, `Courier New`).
+
+The load is best-effort: if `list_available_fonts` fails (e.g. during development without a project loaded), the error is logged and the hardcoded fallback is used.
+
+## Render Preview
+
+The `export_menu_render_preview` command lets designers export a preview PNG during authoring — without running a full build.
+
+### What it produces
+
+A single PNG at display-aspect dimensions. The preview shows what the menu will look like after MPEG encode, with non-square-pixel SAR corrected:
+
+```
+raster PNG (720 × 480 for DVD NTSC)
+    ↓  scale display_width = raster_width × sar_num / sar_den
+preview PNG (853 × 480 for DVD NTSC 16:9)
+```
+
+For formats with square pixels (SAR 1:1, currently only Blu-ray) no scaling is applied.
+
+### When to use it
+
+- After authoring a menu, before triggering a full build, to confirm layout and text rendering
+- When debugging coordinate scaling or font rendering on a target format
+
+### Frontend
+
+"Export Render Preview" appears in the inspector panel **Render Preview** section when no scene node is selected and the menu has an authored document. Clicking it opens a save-file dialog and calls the backend command.
+
 ## Architecture Constraints
 
-- the still-menu renderer is intentionally not a pixel-perfect reproduction of the canvas
-- text rendering currently depends on ffmpeg `drawtext`, so typography is constrained
 - motion-menu fields exist ahead of full motion-menu authoring
+- multi-line text layout and advanced font shaping are not yet implemented
 - DVD VM routing remains domain-sensitive and must stay heavily tested
+- Blu-ray IG stream assembly is a stub; full BD authoring is follow-on work
 
 ## Suggested Next Improvements
 
-1. Add a menu render preview artifact to diagnostics exports.
-2. Store explicit menu typography settings in the shared model.
+1. Implement multi-line text layout for text nodes that exceed their bounding box.
+2. Add a visual regression fixture comparing Skia PNG output across format targets.
 3. Add tests for fallback behaviour when menu targets are missing.
-4. Add a visual regression fixture for menu command generation and render-command output.
-5. Decide how motion-menu timing, looping, and timeout behaviour should map into authored jobs.
+4. Decide how motion-menu timing, looping, and timeout behaviour should map into authored jobs.
+5. Complete Blu-ray IG stream assembly (currently a Skia-wired stub).

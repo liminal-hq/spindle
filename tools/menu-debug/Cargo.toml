@@ -1,0 +1,13 @@
+[package]
+name = "spindle-menu-debug"
+version = "0.1.0"
+edition = "2021"
+description = "CLI tool to render and inspect Spindle menu scenes from .spindle project files"
+
+[[bin]]
+name = "menu-debug"
+path = "src/main.rs"
+
+[dependencies]
+tauri-plugin-spindle-project = { path = "../../plugins/tauri-plugin-spindle-project" }
+serde_json = "1"

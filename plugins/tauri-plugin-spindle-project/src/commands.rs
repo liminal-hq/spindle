@@ -10,6 +10,51 @@ use crate::models::*;
 use crate::Result;
 use crate::SpindleProjectExt;
 
+fn trace_project_summary(project: &SpindleProjectFile) -> String {
+    let titleset_titles: usize = project
+        .disc
+        .titlesets
+        .iter()
+        .map(|titleset| titleset.titles.len())
+        .sum();
+    let titleset_menus: usize = project
+        .disc
+        .titlesets
+        .iter()
+        .map(|titleset| titleset.menus.len())
+        .sum();
+    let image_nodes: usize = project
+        .disc
+        .global_menus
+        .iter()
+        .chain(
+            project
+                .disc
+                .titlesets
+                .iter()
+                .flat_map(|titleset| titleset.menus.iter()),
+        )
+        .filter_map(|menu| menu.authored_document.as_ref())
+        .map(|document| {
+            document
+                .scene
+                .nodes
+                .iter()
+                .filter(|node| matches!(node, SceneNode::Image { .. }))
+                .count()
+        })
+        .sum();
+
+    format!(
+        "name={} assets={} titles={} menus={} image_nodes={}",
+        project.project.name,
+        project.assets.len(),
+        titleset_titles,
+        project.disc.global_menus.len() + titleset_menus,
+        image_nodes
+    )
+}
+
 /// Create a new default project with the given settings.
 #[command]
 pub(crate) async fn create_project<R: Runtime>(
@@ -25,6 +70,10 @@ pub(crate) async fn parse_project<R: Runtime>(
     app: AppHandle<R>,
     json: String,
 ) -> Result<SpindleProjectFile> {
+    eprintln!(
+        "[spindle-project] parse_project starting json_bytes={}",
+        json.len()
+    );
     app.spindle_project().parse_project(&json)
 }
 
@@ -34,6 +83,10 @@ pub(crate) async fn serialise_project<R: Runtime>(
     app: AppHandle<R>,
     project: SpindleProjectFile,
 ) -> Result<String> {
+    eprintln!(
+        "[spindle-project] serialise_project {}",
+        trace_project_summary(&project)
+    );
     app.spindle_project().serialise_project(&project)
 }
 
@@ -56,13 +109,28 @@ pub(crate) async fn inspect_asset<R: Runtime>(_app: AppHandle<R>, path: String) 
 
 /// Extract a thumbnail from a video asset at a given timestamp.
 #[command]
-pub(crate) async fn extract_thumbnail<R: Runtime>(
+pub(crate) async fn extract_video_thumbnail<R: Runtime>(
     _app: AppHandle<R>,
     source_path: String,
     output_path: String,
     timestamp_secs: f64,
 ) -> Result<()> {
-    crate::inspect::extract_thumbnail(&source_path, &output_path, timestamp_secs)
+    crate::inspect::extract_video_thumbnail(&source_path, &output_path, timestamp_secs)
+}
+
+/// Extract a scaled-down JPEG thumbnail from a still image asset.
+///
+/// Reads the source image, scales it so the longest edge is at most 1920 px,
+/// and writes the result as JPEG to `output_path`. The output lands in the app
+/// cache alongside video thumbnails so the frontend can read it through the
+/// existing `$APPCACHE/thumbnails/*` fs capability.
+#[command]
+pub(crate) async fn extract_image_thumbnail<R: Runtime>(
+    _app: AppHandle<R>,
+    source_path: String,
+    output_path: String,
+) -> Result<()> {
+    crate::inspect::extract_image_thumbnail(&source_path, &output_path)
 }
 
 /// Generate a build plan without executing it (dry-run / preview).
@@ -73,12 +141,22 @@ pub(crate) async fn generate_build_plan<R: Runtime>(
     output_directory: String,
     skip_sidecar: bool,
     skip_unsupported_streams: bool,
+    quantize_overlay_palette: bool,
 ) -> Result<BuildPlan> {
+    eprintln!(
+        "[spindle-project] generate_build_plan output_directory={} skip_sidecar={} skip_unsupported_streams={} quantize_overlay_palette={} {}",
+        output_directory,
+        skip_sidecar,
+        skip_unsupported_streams,
+        quantize_overlay_palette,
+        trace_project_summary(&project)
+    );
     build::generate_build_plan_with_options(
         &project,
         &output_directory,
         skip_sidecar,
         skip_unsupported_streams,
+        quantize_overlay_palette,
     )
 }
 
@@ -90,12 +168,14 @@ pub(crate) async fn execute_build<R: Runtime>(
     output_directory: String,
     skip_sidecar: bool,
     skip_unsupported_streams: bool,
+    quantize_overlay_palette: bool,
 ) -> Result<BuildResult> {
     let plan = build::generate_build_plan_with_options(
         &project,
         &output_directory,
         skip_sidecar,
         skip_unsupported_streams,
+        quantize_overlay_palette,
     )?;
 
     let result = build::execute_build_plan(&plan, |progress| {
@@ -176,6 +256,36 @@ fn detect_tool_version(path: &std::path::Path) -> Option<String> {
     None
 }
 
+/// Export a DAR-corrected render preview PNG for the given menu.
+///
+/// Renders the menu scene at raster resolution and scales to display-aspect
+/// dimensions so the preview reflects what a player would show, without
+/// running a full build.
+#[command]
+pub(crate) async fn export_menu_render_preview<R: Runtime>(
+    _app: AppHandle<R>,
+    project: SpindleProjectFile,
+    menu_id: String,
+    output_path: String,
+) -> Result<()> {
+    let path = std::path::Path::new(&output_path);
+    build::export_menu_render_preview(&project, &menu_id, path)
+}
+
+/// List all font families available to the Skia renderer for the given project.
+///
+/// Returns entries in priority order: project-asset fonts first, then system
+/// fonts. The UI uses this to populate the font-family dropdown so that only
+/// fonts the renderer can actually use are offered.
+#[command]
+pub(crate) async fn list_available_fonts<R: Runtime>(
+    _app: AppHandle<R>,
+    project: SpindleProjectFile,
+) -> Result<Vec<build::FontEntry>> {
+    let asset_refs: Vec<&Asset> = project.assets.iter().collect();
+    Ok(build::enumerate_fonts(&asset_refs))
+}
+
 /// Return the application cache directory for storing thumbnails and other transient data.
 #[command]
 pub(crate) async fn get_cache_dir<R: Runtime>(app: AppHandle<R>) -> Result<String> {
@@ -201,6 +311,7 @@ pub(crate) async fn export_diagnostics<R: Runtime>(
     validation_issues: Vec<ValidationIssue>,
     skip_sidecar: bool,
     skip_unsupported_streams: bool,
+    quantize_overlay_palette: bool,
 ) -> Result<String> {
     let toolchain = {
         let tools = vec![
@@ -234,6 +345,7 @@ pub(crate) async fn export_diagnostics<R: Runtime>(
         "dev_options": {
             "skip_sidecar": skip_sidecar,
             "skip_unsupported_streams": skip_unsupported_streams,
+            "quantize_overlay_palette": quantize_overlay_palette,
         },
         "toolchain": toolchain,
         "validation_issues": validation_issues,

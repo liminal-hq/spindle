@@ -367,16 +367,40 @@
           "markdownDescription": "Denies the export_diagnostics command without any pre-configured scope."
         },
         {
-          "description": "Enables the extract_thumbnail command without any pre-configured scope.",
+          "description": "Enables the export_menu_render_preview command without any pre-configured scope.",
           "type": "string",
-          "const": "allow-extract-thumbnail",
-          "markdownDescription": "Enables the extract_thumbnail command without any pre-configured scope."
+          "const": "allow-export-menu-render-preview",
+          "markdownDescription": "Enables the export_menu_render_preview command without any pre-configured scope."
         },
         {
-          "description": "Denies the extract_thumbnail command without any pre-configured scope.",
+          "description": "Denies the export_menu_render_preview command without any pre-configured scope.",
           "type": "string",
-          "const": "deny-extract-thumbnail",
-          "markdownDescription": "Denies the extract_thumbnail command without any pre-configured scope."
+          "const": "deny-export-menu-render-preview",
+          "markdownDescription": "Denies the export_menu_render_preview command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the extract_image_thumbnail command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-extract-image-thumbnail",
+          "markdownDescription": "Enables the extract_image_thumbnail command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the extract_image_thumbnail command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-extract-image-thumbnail",
+          "markdownDescription": "Denies the extract_image_thumbnail command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the extract_video_thumbnail command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-extract-video-thumbnail",
+          "markdownDescription": "Enables the extract_video_thumbnail command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the extract_video_thumbnail command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-extract-video-thumbnail",
+          "markdownDescription": "Denies the extract_video_thumbnail command without any pre-configured scope."
         },
         {
           "description": "Enables the generate_build_plan command without any pre-configured scope.",
@@ -415,6 +439,18 @@
           "markdownDescription": "Denies the inspect_asset command without any pre-configured scope."
         },
         {
+          "description": "Enables the list_available_fonts command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-list-available-fonts",
+          "markdownDescription": "Enables the list_available_fonts command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the list_available_fonts command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-list-available-fonts",
+          "markdownDescription": "Denies the list_available_fonts command without any pre-configured scope."
+        },
+        {
           "description": "Enables the parse_project command without any pre-configured scope.",
           "type": "string",
           "const": "allow-parse-project",
@@ -451,10 +487,10 @@
           "markdownDescription": "Denies the validate_project command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the spindle-project plugin\n#### This default permission set includes:\n\n- `allow-create-project`\n- `allow-parse-project`\n- `allow-serialise-project`\n- `allow-validate-project`\n- `allow-inspect-asset`\n- `allow-extract-thumbnail`\n- `allow-get-cache-dir`\n- `allow-generate-build-plan`\n- `allow-execute-build`\n- `allow-cancel-build`\n- `allow-auto-generate-menu-nav`\n- `allow-check-toolchain`\n- `allow-export-diagnostics`",
+          "description": "Default permissions for the spindle-project plugin\n#### This default permission set includes:\n\n- `allow-create-project`\n- `allow-parse-project`\n- `allow-serialise-project`\n- `allow-validate-project`\n- `allow-inspect-asset`\n- `allow-extract-video-thumbnail`\n- `allow-extract-image-thumbnail`\n- `allow-get-cache-dir`\n- `allow-generate-build-plan`\n- `allow-execute-build`\n- `allow-cancel-build`\n- `allow-auto-generate-menu-nav`\n- `allow-check-toolchain`\n- `allow-export-diagnostics`\n- `allow-list-available-fonts`\n- `allow-export-menu-render-preview`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the spindle-project plugin\n#### This default permission set includes:\n\n- `allow-create-project`\n- `allow-parse-project`\n- `allow-serialise-project`\n- `allow-validate-project`\n- `allow-inspect-asset`\n- `allow-extract-thumbnail`\n- `allow-get-cache-dir`\n- `allow-generate-build-plan`\n- `allow-execute-build`\n- `allow-cancel-build`\n- `allow-auto-generate-menu-nav`\n- `allow-check-toolchain`\n- `allow-export-diagnostics`"
+          "markdownDescription": "Default permissions for the spindle-project plugin\n#### This default permission set includes:\n\n- `allow-create-project`\n- `allow-parse-project`\n- `allow-serialise-project`\n- `allow-validate-project`\n- `allow-inspect-asset`\n- `allow-extract-video-thumbnail`\n- `allow-extract-image-thumbnail`\n- `allow-get-cache-dir`\n- `allow-generate-build-plan`\n- `allow-execute-build`\n- `allow-cancel-build`\n- `allow-auto-generate-menu-nav`\n- `allow-check-toolchain`\n- `allow-export-diagnostics`\n- `allow-list-available-fonts`\n- `allow-export-menu-render-preview`"
         }
       ]
     }

@@ -11,7 +11,9 @@ use std::time::Instant;
 
 use super::ffmpeg_progress;
 use super::menu::{generate_menu_overlay_images, MenuOverlayImages, MenuOverlayRender};
+use super::skia::render_menu_scene_to_png;
 use super::types::{BuildJob, BuildJobStatus, BuildPlan, BuildProgress, BuildResult};
+use crate::models::{Asset, DiscFamily, MenuDocument, RenderTarget};
 
 /// Minimum interval between step-progress event emissions.
 const PROGRESS_THROTTLE_MS: u128 = 500;
@@ -114,21 +116,110 @@ where
                 highlight_colour,
                 select_colour,
                 button_bounds,
+                raster_width,
+                raster_height,
+                scene_png_path,
+                menu_document_json,
+                scene_assets_json,
+                quantize_overlay_palette,
                 ..
             } => {
+                let overlay_target = RenderTarget {
+                    family: DiscFamily::DvdVideo,
+                    standard: Some(*standard),
+                    raster_width: *raster_width,
+                    raster_height: *raster_height,
+                    sar_num: 1,
+                    sar_den: 1,
+                };
+
+                // Reconstruct the menu scene data and render the Skia PNG.
+                // A missing or unparseable authored document is a hard failure:
+                // build_ffmpeg_menu_command always adds a -i <scene_png_path>
+                // input, so skipping the render would cause ffmpeg to fail on
+                // the missing file with a confusing error instead of a clear one.
+                // A missing or unparseable authored document is a hard failure:
+                // build_ffmpeg_menu_command always adds a -i <scene_png_path>
+                // input, so skipping the render would cause ffmpeg to fail on
+                // the missing file with an opaque error instead of a clear one.
+                let menu_doc = match serde_json::from_str::<MenuDocument>(menu_document_json) {
+                    Ok(doc) => doc,
+                    Err(e) => {
+                        let msg = format!(
+                            "Cannot render menu \"{menu_id}\": authored document is missing or \
+                             invalid ({e}). The menu must have an authored scene before it can be built."
+                        );
+                        log_lines.push(msg.clone());
+                        return failure(plan, log_lines, i, msg);
+                    }
+                };
+
+                // Build a minimal asset map from the serialised source-path index
+                // (asset_id → source_path). We set the asset id explicitly so that
+                // the HashMap key matches what SceneNode::Image stores.
+                let asset_paths: std::collections::HashMap<String, String> =
+                    serde_json::from_str(scene_assets_json).unwrap_or_default();
+                let owned_assets: Vec<Asset> = asset_paths
+                    .into_iter()
+                    .map(|(id, source_path)| {
+                        let file_name = std::path::Path::new(&source_path)
+                            .file_name()
+                            .and_then(|n| n.to_str())
+                            .unwrap_or(&source_path)
+                            .to_string();
+                        let mut a = Asset::new(file_name, source_path);
+                        a.id = id;
+                        a
+                    })
+                    .collect();
+                let assets_map: std::collections::HashMap<&str, &Asset> =
+                    owned_assets.iter().map(|a| (a.id.as_str(), a)).collect();
+
+                use super::menu::{AuthorableMenuRef, MenuDomain};
+                use crate::models::Menu;
+                let menu = Menu {
+                    id: menu_id.clone(),
+                    authored_document: Some(menu_doc),
+                    ..Menu::default()
+                };
+                let menu_ref = AuthorableMenuRef {
+                    menu: &menu,
+                    domain: MenuDomain::Vmgm,
+                };
+
+                if let Err(e) = render_menu_scene_to_png(
+                    &menu_ref,
+                    &assets_map,
+                    overlay_target,
+                    std::path::Path::new(scene_png_path),
+                    true, // transparent — composited over background by ffmpeg
+                ) {
+                    let msg =
+                        format!("Failed to render Skia scene PNG for menu \"{menu_id}\": {e}");
+                    log_lines.push(msg.clone());
+                    return failure(plan, log_lines, i, msg);
+                }
+                log_lines.push(format!("  Rendered Skia scene PNG: {scene_png_path}"));
+
+                if *quantize_overlay_palette {
+                    log_lines.push(
+                        "  [dev] quantize_overlay_palette is active: rendering AA overlay and quantizing to ≤4 colours".to_string(),
+                    );
+                }
+
                 let render = MenuOverlayRender {
-                    ffmpeg_bin: &command[0],
-                    standard: *standard,
                     menu_id,
                     button_bounds,
+                    target: overlay_target,
                 };
                 let images = MenuOverlayImages {
                     highlight_image_path,
                     select_image_path,
                     highlight_colour,
                     select_colour,
+                    quantize_palette: *quantize_overlay_palette,
                 };
-                if let Err(msg) = generate_menu_overlay_images(&render, &images, run_command) {
+                if let Err(msg) = generate_menu_overlay_images(&render, &images) {
                     log_lines.push(msg.clone());
                     return failure(plan, log_lines, i, msg);
                 }
@@ -972,11 +1063,11 @@ mod tests {
         }
 
         assert!(
-            output_dir.join("VIDEO_TS/VIDEO_TS.IFO").exists(),
+            output_dir.join("DVD_DISC/VIDEO_TS/VIDEO_TS.IFO").exists(),
             "expected VIDEO_TS.IFO in authored output"
         );
         assert!(
-            output_dir.join("VIDEO_TS/VTS_01_0.IFO").exists(),
+            output_dir.join("DVD_DISC/VIDEO_TS/VTS_01_0.IFO").exists(),
             "expected first titleset IFO in authored output"
         );
 

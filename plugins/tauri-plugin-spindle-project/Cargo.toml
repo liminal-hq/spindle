@@ -16,6 +16,8 @@ thiserror = "2"
 uuid = { version = "1", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 isolang = "2.4"
+skia-safe = { version = "0.93", features = [] }
+image = { version = "0.25", default-features = false, features = ["png"] }
 
 [build-dependencies]
 tauri-plugin = { version = "2", features = ["build"] }

@@ -2,5 +2,6 @@
 members = [
     "apps/spindle/src-tauri",
     "plugins/tauri-plugin-spindle-project",
+    "tools/menu-debug",
 ]
 resolver = "2"

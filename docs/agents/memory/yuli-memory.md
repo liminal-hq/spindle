@@ -29,6 +29,9 @@ Prefer structural UX facts over narration.
 - **Global Patterns**: When designing navigation, consider how different cultures perceive spatial hierarchy and flow.
 - **Accessibility**: A "calm" UI is inherently more accessible because it reduces cognitive load.
 - **Product Truth**: DVD authoring is a legacy workflow. We must make it feel modern and "alive" without breaking the underlying hardware-constrained "machinery" (as Edward says).
+- **Honest Preview Rule**: The preview overlay must explain what DVD changes, not only whether the menu is within limits. Users need degradation language, not just checklist counts.
+- **Map Orientation Rule**: A navigation map is only calming when it shows the real point of entry. First-play and other non-menu origins must stay legible so the journey has a visible doorway.
+- **Tooling Context**: On this project, verification should be treated as container-first. UX confidence depends on reviewing behaviour in the shared Docker environment, not ad hoc host-tool assumptions.
 
 ## Open Questions
 

@@ -486,6 +486,12 @@ function TitleEditor({
 	allMenus: { id: string; name: string }[];
 	onUpdate: (title: Title) => void;
 }) {
+	const titleSourceAssets = assets.filter(
+		(asset) =>
+			asset.videoStreams.length > 0 ||
+			asset.audioStreams.length > 0 ||
+			asset.subtitleStreams.length > 0,
+	);
 	const selectedAsset = assets.find((a) => a.id === title.sourceAssetId) ?? null;
 
 	const handleAssetChange = (assetId: string) => {
@@ -569,7 +575,7 @@ function TitleEditor({
 					onChange={(e) => e.target.value && handleAssetChange(e.target.value)}
 				>
 					<option value="">Select an asset…</option>
-					{assets.map((a) => (
+					{titleSourceAssets.map((a) => (
 						<option key={a.id} value={a.id}>
 							{a.fileName}
 						</option>
@@ -873,6 +879,15 @@ function TitleEditor({
 				>
 					<option value="">None (stop playback)</option>
 					<option value="stop">Stop</option>
+					<option
+						value="playNextInTitleset"
+						disabled={allTitles.findIndex((t) => t.id === title.id) === allTitles.length - 1}
+					>
+						Next in Titleset
+					</option>
+					<option value="playAllInTitleset" disabled={allTitles.length <= 1}>
+						Play All in Titleset
+					</option>
 					<optgroup label="Play Title">
 						{allTitles
 							.filter((t) => t.id !== title.id)
@@ -919,6 +934,10 @@ function endActionToString(action: PlaybackAction | null): string {
 			return `showMenu:${action.menuId}`;
 		case 'stop':
 			return 'stop';
+		case 'playNextInTitleset':
+			return 'playNextInTitleset';
+		case 'playAllInTitleset':
+			return 'playAllInTitleset';
 		default:
 			return '';
 	}
@@ -927,6 +946,8 @@ function endActionToString(action: PlaybackAction | null): string {
 function stringToEndAction(str: string): PlaybackAction | null {
 	if (!str) return null;
 	if (str === 'stop') return { type: 'stop' };
+	if (str === 'playNextInTitleset') return { type: 'playNextInTitleset' };
+	if (str === 'playAllInTitleset') return { type: 'playAllInTitleset' };
 	const parts = str.split(':');
 	const type = parts[0];
 	if (type === 'playTitle' && parts[1]) return { type: 'playTitle', titleId: parts[1] };

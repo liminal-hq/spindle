@@ -22,6 +22,7 @@ import type {
 	SceneNode,
 	ToolchainStatus,
 } from '../types/project';
+import { createDefaultMenuCompilePolicy, inferDefaultMenuDisplayAspect } from '../types/project';
 
 export type BuildStatus = 'idle' | 'planning' | 'building' | 'complete' | 'error';
 
@@ -94,6 +95,61 @@ function parentDir(filePath: string): string {
 	return filePath.replace(/[/\\][^/\\]+$/, '') || filePath;
 }
 
+function countImageSceneNodes(project: SpindleProjectFile): number {
+	const menus = [
+		...project.disc.globalMenus,
+		...project.disc.titlesets.flatMap((titleset) => titleset.menus),
+	];
+	return menus.reduce((count, menu) => {
+		const nodes = menu.authoredDocument?.scene.nodes ?? [];
+		return count + nodes.filter((node) => node.type === 'image').length;
+	}, 0);
+}
+
+function projectTraceSummary(project: SpindleProjectFile) {
+	return {
+		name: project.project.name,
+		assetCount: project.assets.length,
+		titleCount: project.disc.titlesets.reduce(
+			(count, titleset) => count + titleset.titles.length,
+			0,
+		),
+		menuCount:
+			project.disc.globalMenus.length +
+			project.disc.titlesets.reduce((count, titleset) => count + titleset.menus.length, 0),
+		imageNodeCount: countImageSceneNodes(project),
+	};
+}
+
+const IMPORTABLE_MEDIA_EXTENSIONS = [
+	'mpg',
+	'mpeg',
+	'vob',
+	'm2v',
+	'mp4',
+	'mkv',
+	'avi',
+	'mov',
+	'ts',
+	'ac3',
+	'dts',
+	'lpcm',
+	'wav',
+	'mp2',
+	'mp3',
+	'aac',
+	'sub',
+	'idx',
+	'srt',
+	'sup',
+	'png',
+	'jpg',
+	'jpeg',
+	'bmp',
+	'tif',
+	'tiff',
+] as const;
+
 function mergeInspectedAsset(existingAsset: Asset, inspected: Asset): Asset {
 	return {
 		...inspected,
@@ -103,23 +159,41 @@ function mergeInspectedAsset(existingAsset: Asset, inspected: Asset): Asset {
 	};
 }
 
+const STILL_IMAGE_EXTENSIONS = /\.(png|jpe?g|bmp|tiff?|webp)$/i;
+
+function isStillImageAsset(asset: Asset): boolean {
+	return STILL_IMAGE_EXTENSIONS.test(asset.fileName);
+}
+
 async function extractAssetThumbnail(
 	asset: Asset,
 ): Promise<Pick<Asset, 'thumbnailPath' | 'thumbnailError'>> {
-	if (asset.videoStreams.length === 0) {
+	const isVideo = asset.videoStreams.length > 0;
+	const isImage = !isVideo && isStillImageAsset(asset);
+
+	if (!isVideo && !isImage) {
 		return { thumbnailPath: null, thumbnailError: null };
 	}
 
 	try {
 		const thumbDir = await invoke<string>('plugin:spindle-project|get_cache_dir');
 		const thumbPath = `${thumbDir}/thumb_${asset.id}.jpg`;
-		const durationSecs = asset.durationSecs ?? 0;
-		const seekTo = chooseThumbnailTimestamp(durationSecs);
-		await invoke('plugin:spindle-project|extract_thumbnail', {
-			sourcePath: asset.sourcePath,
-			outputPath: thumbPath,
-			timestampSecs: seekTo,
-		});
+
+		if (isVideo) {
+			const durationSecs = asset.durationSecs ?? 0;
+			const seekTo = chooseThumbnailTimestamp(durationSecs);
+			await invoke('plugin:spindle-project|extract_video_thumbnail', {
+				sourcePath: asset.sourcePath,
+				outputPath: thumbPath,
+				timestampSecs: seekTo,
+			});
+		} else {
+			await invoke('plugin:spindle-project|extract_image_thumbnail', {
+				sourcePath: asset.sourcePath,
+				outputPath: thumbPath,
+			});
+		}
+
 		return { thumbnailPath: thumbPath, thumbnailError: null };
 	} catch (error) {
 		const message =
@@ -161,7 +235,8 @@ async function cachedThumbnailExists(thumbnailPath: string | null): Promise<bool
 
 async function ensureProjectAssetThumbnails(project: SpindleProjectFile): Promise<void> {
 	for (const asset of project.assets) {
-		if (asset.videoStreams.length === 0) {
+		const needsThumbnail = asset.videoStreams.length > 0 || isStillImageAsset(asset);
+		if (!needsThumbnail) {
 			continue;
 		}
 
@@ -270,6 +345,25 @@ async function resolveOutputDir(
 	return selected ?? null;
 }
 
+/**
+ * Return the names of motion menus that have not had a loop start time set.
+ * A loopStartSecs of 0.0 means the authored timing default was never changed —
+ * building such a menu produces a hard cut from frame 0 on every loop iteration.
+ */
+function motionMenusWithoutLoopStart(project: SpindleProjectFile): string[] {
+	const allMenus = [
+		...project.disc.globalMenus,
+		...project.disc.titlesets.flatMap((ts) => ts.menus),
+	];
+	return allMenus
+		.filter((m) => {
+			const doc = m.authoredDocument;
+			if (doc) return doc.backgroundMode === 'motion' && doc.timing.loopStartSecs === 0.0;
+			return m.backgroundMode === 'motion';
+		})
+		.map((m) => m.name);
+}
+
 export const useProjectStore = create<ProjectState>((set, get) => ({
 	project: null,
 	filePath: null,
@@ -283,7 +377,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 	buildLog: [],
 	toolchain: [],
 	selectedMenuId: null,
-	menuEditorMode: 'design',
+	menuEditorMode: 'editor',
 	previewMode: false,
 	showSafeArea: true,
 	undoStack: [],
@@ -330,9 +424,14 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 		useAppSettingsStore.getState().setLastProjectDir(parentDir(selected));
 		set({ isLoading: true });
 		try {
+			console.info('[project-store] Opening project', { path: selected });
 			const json = await invoke<string>('read_text_file', { path: selected });
 			const project = await invoke<SpindleProjectFile>('plugin:spindle-project|parse_project', {
 				json,
+			});
+			console.info('[project-store] Opened project', {
+				path: selected,
+				...projectTraceSummary(project),
 			});
 			set({
 				project,
@@ -363,11 +462,26 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 				...project,
 				project: { ...project.project, modifiedAt: new Date().toISOString() },
 			};
+			console.info('[project-store] Saving project', {
+				path: filePath,
+				...projectTraceSummary(updated),
+			});
 			const json = await invoke<string>('plugin:spindle-project|serialise_project', {
 				project: updated,
 			});
 			await invoke('write_text_file', { path: filePath, contents: json });
 			set({ project: updated, isDirty: false });
+			console.info('[project-store] Saved project', {
+				path: filePath,
+				jsonLength: typeof json === 'string' ? json.length : null,
+			});
+		} catch (error) {
+			console.error('[project-store] Save failed', {
+				path: filePath,
+				error,
+				...projectTraceSummary(project),
+			});
+			throw error;
 		} finally {
 			set({ isLoading: false });
 		}
@@ -395,11 +509,26 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 				...project,
 				project: { ...project.project, modifiedAt: new Date().toISOString() },
 			};
+			console.info('[project-store] Saving project as', {
+				path: selected,
+				...projectTraceSummary(updated),
+			});
 			const json = await invoke<string>('plugin:spindle-project|serialise_project', {
 				project: updated,
 			});
 			await invoke('write_text_file', { path: selected, contents: json });
 			set({ project: updated, filePath: selected, isDirty: false });
+			console.info('[project-store] Saved project as', {
+				path: selected,
+				jsonLength: typeof json === 'string' ? json.length : null,
+			});
+		} catch (error) {
+			console.error('[project-store] Save-as failed', {
+				path: selected,
+				error,
+				...projectTraceSummary(project),
+			});
+			throw error;
 		} finally {
 			set({ isLoading: false });
 		}
@@ -417,7 +546,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 			buildProgress: null,
 			buildLog: [],
 			selectedMenuId: null,
-			menuEditorMode: 'design',
+			menuEditorMode: 'editor',
 			undoStack: [],
 			redoStack: [],
 		});
@@ -452,28 +581,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 			filters: [
 				{
 					name: 'Media Files',
-					extensions: [
-						'mpg',
-						'mpeg',
-						'vob',
-						'm2v',
-						'mp4',
-						'mkv',
-						'avi',
-						'mov',
-						'ts',
-						'ac3',
-						'dts',
-						'lpcm',
-						'wav',
-						'mp2',
-						'mp3',
-						'aac',
-						'sub',
-						'idx',
-						'srt',
-						'sup',
-					],
+					extensions: [...IMPORTABLE_MEDIA_EXTENSIONS],
 				},
 			],
 		});
@@ -594,28 +702,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 			filters: [
 				{
 					name: 'Media Files',
-					extensions: [
-						'mpg',
-						'mpeg',
-						'vob',
-						'm2v',
-						'mp4',
-						'mkv',
-						'avi',
-						'mov',
-						'ts',
-						'ac3',
-						'dts',
-						'lpcm',
-						'wav',
-						'mp2',
-						'mp3',
-						'aac',
-						'sub',
-						'idx',
-						'srt',
-						'sup',
-					],
+					extensions: [...IMPORTABLE_MEDIA_EXTENSIONS],
 				},
 			],
 		});
@@ -671,21 +758,48 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 		const { project } = get();
 		if (!project) return;
 
+		const badMenus = motionMenusWithoutLoopStart(project);
+		if (badMenus.length > 0) {
+			set({
+				buildStatus: 'error',
+				buildLog: [
+					`Build blocked: motion menu${badMenus.length > 1 ? 's' : ''} ${badMenus.map((n) => `"${n}"`).join(', ')} ` +
+						`${badMenus.length > 1 ? 'have' : 'has'} loop start time set to 0.0 s. ` +
+						'Set an explicit loop start time in the menu inspector before building.',
+				],
+			});
+			return;
+		}
+
 		const outputDir = await resolveOutputDir(project, get().updateProject);
 		if (!outputDir) return;
 
 		const skipSidecar = useAppSettingsStore.getState().devSkipSidecar;
 		const skipUnsupportedStreams = useAppSettingsStore.getState().devSkipUnsupportedStreams;
+		const quantizeOverlayPalette = useAppSettingsStore.getState().devQuantizeOverlayPalette;
 		set({ buildStatus: 'planning' });
 		try {
+			console.info('[project-store] Generating build plan', {
+				outputDir,
+				skipSidecar,
+				skipUnsupportedStreams,
+				quantizeOverlayPalette,
+				...projectTraceSummary(project),
+			});
 			const plan = await invoke<BuildPlan>('plugin:spindle-project|generate_build_plan', {
 				project,
 				outputDirectory: outputDir,
 				skipSidecar,
 				skipUnsupportedStreams,
+				quantizeOverlayPalette,
 			});
 			set({ buildPlan: plan, buildStatus: 'idle' });
 		} catch (e) {
+			console.error('[project-store] Build plan generation failed', {
+				error: e,
+				outputDir,
+				...projectTraceSummary(project),
+			});
 			set({
 				buildStatus: 'error',
 				buildLog: [`Build plan generation failed: ${e}`],
@@ -697,11 +811,25 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 		const { project } = get();
 		if (!project) return;
 
+		const badMenus = motionMenusWithoutLoopStart(project);
+		if (badMenus.length > 0) {
+			set({
+				buildStatus: 'error',
+				buildLog: [
+					`Build blocked: motion menu${badMenus.length > 1 ? 's' : ''} ${badMenus.map((n) => `"${n}"`).join(', ')} ` +
+						`${badMenus.length > 1 ? 'have' : 'has'} loop start time set to 0.0 s. ` +
+						'Set an explicit loop start time in the menu inspector before building.',
+				],
+			});
+			return;
+		}
+
 		const outputDir = await resolveOutputDir(project, get().updateProject);
 		if (!outputDir) return;
 
 		const skipSidecar = useAppSettingsStore.getState().devSkipSidecar;
 		const skipUnsupportedStreams = useAppSettingsStore.getState().devSkipUnsupportedStreams;
+		const quantizeOverlayPalette = useAppSettingsStore.getState().devQuantizeOverlayPalette;
 		set({
 			buildStatus: 'building',
 			buildLog: ['Starting DVD-Video build…'],
@@ -716,6 +844,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 				outputDirectory: outputDir,
 				skipSidecar,
 				skipUnsupportedStreams,
+				quantizeOverlayPalette,
 			});
 
 			set({
@@ -890,7 +1019,9 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 				timeoutAction: menu.timeoutAction,
 			},
 			timing: {
+				introStartSecs: 0,
 				introDurationSecs: 0,
+				loopStartSecs: 0,
 				loopDurationSecs: menu.motionDurationSecs ?? 0,
 				loopCount: menu.motionLoopCount,
 			},
@@ -898,7 +1029,13 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 			backgroundMode: menu.backgroundMode,
 			themeRef: null,
 			generationMeta: null,
-			compilePolicy: { safeAreaMode: 'title-safe', paletteStrategy: 'auto' },
+			compilePolicy: createDefaultMenuCompilePolicy(
+				inferDefaultMenuDisplayAspect(project, {
+					menuId,
+					titlesetId,
+					domain: scope === 'global' ? 'vmgm' : 'titleset',
+				}),
+			),
 		};
 
 		// 2. Apply the updater

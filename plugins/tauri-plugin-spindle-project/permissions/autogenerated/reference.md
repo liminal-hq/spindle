@@ -9,7 +9,8 @@ Default permissions for the spindle-project plugin
 - `allow-serialise-project`
 - `allow-validate-project`
 - `allow-inspect-asset`
-- `allow-extract-thumbnail`
+- `allow-extract-video-thumbnail`
+- `allow-extract-image-thumbnail`
 - `allow-get-cache-dir`
 - `allow-generate-build-plan`
 - `allow-execute-build`
@@ -17,6 +18,8 @@ Default permissions for the spindle-project plugin
 - `allow-auto-generate-menu-nav`
 - `allow-check-toolchain`
 - `allow-export-diagnostics`
+- `allow-list-available-fonts`
+- `allow-export-menu-render-preview`
 
 ## Permission Table
 
@@ -186,12 +189,12 @@ Denies the export_diagnostics command without any pre-configured scope.
 <tr>
 <td>
 
-`spindle-project:allow-extract-thumbnail`
+`spindle-project:allow-export-menu-render-preview`
 
 </td>
 <td>
 
-Enables the extract_thumbnail command without any pre-configured scope.
+Enables the export_menu_render_preview command without any pre-configured scope.
 
 </td>
 </tr>
@@ -199,12 +202,64 @@ Enables the extract_thumbnail command without any pre-configured scope.
 <tr>
 <td>
 
-`spindle-project:deny-extract-thumbnail`
+`spindle-project:deny-export-menu-render-preview`
 
 </td>
 <td>
 
-Denies the extract_thumbnail command without any pre-configured scope.
+Denies the export_menu_render_preview command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`spindle-project:allow-extract-image-thumbnail`
+
+</td>
+<td>
+
+Enables the extract_image_thumbnail command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`spindle-project:deny-extract-image-thumbnail`
+
+</td>
+<td>
+
+Denies the extract_image_thumbnail command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`spindle-project:allow-extract-video-thumbnail`
+
+</td>
+<td>
+
+Enables the extract_video_thumbnail command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`spindle-project:deny-extract-video-thumbnail`
+
+</td>
+<td>
+
+Denies the extract_video_thumbnail command without any pre-configured scope.
 
 </td>
 </tr>
@@ -283,6 +338,32 @@ Enables the inspect_asset command without any pre-configured scope.
 <td>
 
 Denies the inspect_asset command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`spindle-project:allow-list-available-fonts`
+
+</td>
+<td>
+
+Enables the list_available_fonts command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`spindle-project:deny-list-available-fonts`
+
+</td>
+<td>
+
+Denies the list_available_fonts command without any pre-configured scope.
 
 </td>
 </tr>

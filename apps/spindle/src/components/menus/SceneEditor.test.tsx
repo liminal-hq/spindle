@@ -3,13 +3,18 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: MIT
 
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { LayersPanel } from './LayersPanel';
 import { InspectorPanel } from './InspectorPanel';
 import { SceneCanvas } from './SceneCanvas';
-import type { SceneNode, MenuButton, MenuHighlightColours } from '../../types/project';
-import { DEFAULT_HIGHLIGHT_COLOURS } from '../../types/project';
+import type { SceneNode, MenuButton, MenuHighlightColours, Asset } from '../../types/project';
+import { DEFAULT_HIGHLIGHT_COLOURS, createDefaultMenuCompilePolicy } from '../../types/project';
+import {
+	buildAudioSetupMenu,
+	buildSubtitleSetupMenu,
+	createGeneratedMenuFromButtons,
+} from '../../pages/MenusPage';
 
 // ── LayersPanel ────────────────────────────────────────────────────────────
 
@@ -168,11 +173,93 @@ describe('InspectorPanel', () => {
 		fireEvent.click(removeBtn);
 		expect(onRemove).toHaveBeenCalledWith('btn-1');
 	});
+
+	it('writes authored display shape from the menu-level inspector', () => {
+		const onDisplayAspectChange = vi.fn();
+
+		render(
+			<InspectorPanel
+				selectedNode={null}
+				selectedButton={null}
+				highlightColours={colours}
+				allTitles={[]}
+				allMenus={[]}
+				currentMenuId="menu-1"
+				onUpdateButton={vi.fn()}
+				onUpdateHighlightColours={vi.fn()}
+				onRemoveButton={vi.fn()}
+				buttons={[button]}
+				interactionNodes={[]}
+				defaultFocusId={null}
+				document={{
+					id: 'menu-1',
+					name: 'Menu',
+					domain: 'vmgm',
+					scene: {
+						designSize: { width: 720, height: 480 },
+						background: { assetId: null, colour: '#000000' },
+						nodes: [],
+						guides: [],
+					},
+					interaction: { defaultFocusId: null, nodes: [], timeoutAction: null },
+					timing: {
+						introStartSecs: 0,
+						introDurationSecs: 0,
+						loopStartSecs: 0,
+						loopDurationSecs: 0,
+						loopCount: 0,
+					},
+					highlightColours: colours,
+					backgroundMode: 'still',
+					themeRef: null,
+					generationMeta: null,
+					compilePolicy: createDefaultMenuCompilePolicy('four-by-three'),
+				}}
+				canvasHeight={480}
+				menu={{
+					id: 'menu-1',
+					name: 'Menu',
+					backgroundAssetId: null,
+					buttons: [button],
+					defaultButtonId: null,
+					highlightColours: colours,
+					backgroundMode: 'still',
+					motionDurationSecs: null,
+					motionAudioAssetId: null,
+					motionLoopCount: 0,
+					timeoutAction: null,
+				}}
+				displayAspect="four-by-three"
+				onDisplayAspectChange={onDisplayAspectChange}
+			/>,
+		);
+
+		const aspectButton = screen
+			.getAllByRole('button')
+			.find((control) => control.textContent === '16:9');
+		expect(aspectButton).toBeTruthy();
+		fireEvent.click(aspectButton!);
+		expect(onDisplayAspectChange).toHaveBeenCalledWith('sixteen-by-nine');
+		expect(
+			screen.getByText(
+				'16:9 here is anamorphic DVD output of the same raster, not a larger canvas.',
+			),
+		).toBeTruthy();
+	});
 });
 
 // ── SceneCanvas ────────────────────────────────────────────────────────────
 
+vi.mock('@tauri-apps/plugin-fs', () => ({
+	readFile: vi.fn().mockResolvedValue(new Uint8Array([0xff, 0xd8, 0xff])),
+	BaseDirectory: { AppCache: 13 },
+}));
+
 describe('SceneCanvas', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
 	const buttons: MenuButton[] = [
 		{
 			id: 'btn-1',
@@ -201,6 +288,25 @@ describe('SceneCanvas', () => {
 			videoAssetId: null,
 		},
 	];
+	const imageAsset: Asset = {
+		id: 'asset-image-1',
+		fileName: 'chapter-card.png',
+		sourcePath: '/tmp/chapter-card.png',
+		fileSizeBytes: 1024,
+		durationSecs: null,
+		containerFormat: null,
+		videoStreams: [],
+		audioStreams: [],
+		subtitleStreams: [],
+		compatibility: null,
+		fingerprint: null,
+		compatibilityDetail: null,
+		warnings: [],
+		thumbnailPath: '/app/cache/thumbnails/thumb_asset-image-1.jpg',
+		thumbnailError: null,
+		sourceChapters: [],
+		formatTitle: null,
+	};
 
 	it('renders button nodes on the canvas', () => {
 		render(
@@ -303,7 +409,7 @@ describe('SceneCanvas', () => {
 		expect(viewport).toBeTruthy();
 	});
 
-	it('shows DVD Preview badge when honest preview is on', () => {
+	it('shows compile preview compass when honest preview is on', () => {
 		render(
 			<SceneCanvas
 				buttons={buttons}
@@ -324,7 +430,14 @@ describe('SceneCanvas', () => {
 			/>,
 		);
 
-		expect(screen.getByText('DVD Preview')).toBeTruthy();
+		expect(screen.getByText('Compile Preview — DVD output simulation')).toBeTruthy();
+		expect(
+			screen.getByText(
+				'DVD fallback strips rich menu styling down to fewer colours and firmer edges.',
+			),
+		).toBeTruthy();
+		expect(screen.getByText('Palette collapse')).toBeTruthy();
+		expect(screen.getByText('Alpha flattening')).toBeTruthy();
 	});
 
 	it('renders safe-area guides when enabled', () => {
@@ -376,6 +489,243 @@ describe('SceneCanvas', () => {
 		expect(screen.getByText(/arrow keys/i)).toBeTruthy();
 	});
 
+	it('keeps authored text nodes visible in navigation preview mode', () => {
+		render(
+			<SceneCanvas
+				buttons={buttons}
+				canvasHeight={480}
+				sceneNodes={[
+					{
+						type: 'text',
+						id: 'text-1',
+						content: 'Menu Title',
+						x: 120,
+						y: 72,
+						width: 300,
+						height: 48,
+						fontSize: 32,
+						colour: '#ffffff',
+					},
+				]}
+				onUpdateButton={vi.fn()}
+				onUpdateSceneNode={vi.fn()}
+				showSafeArea={false}
+				backgroundLabel={null}
+				backgroundColour={null}
+				defaultButtonId="btn-1"
+				previewMode={true}
+				highlightColours={DEFAULT_HIGHLIGHT_COLOURS}
+				honestPreview={false}
+				showNavLines={true}
+				selectedNodeId={null}
+				onSelectNode={vi.fn()}
+			/>,
+		);
+
+		expect(screen.getByText('Menu Title')).toBeTruthy();
+	});
+
+	it('renders imported image artwork for image nodes', async () => {
+		render(
+			<SceneCanvas
+				buttons={buttons}
+				assets={[imageAsset]}
+				canvasHeight={480}
+				sceneNodes={[
+					{
+						type: 'image',
+						id: 'image-1',
+						assetId: 'asset-image-1',
+						x: 96,
+						y: 72,
+						width: 240,
+						height: 160,
+					},
+				]}
+				onUpdateButton={vi.fn()}
+				onUpdateSceneNode={vi.fn()}
+				showSafeArea={false}
+				backgroundLabel={null}
+				backgroundColour={null}
+				defaultButtonId={null}
+				previewMode={false}
+				highlightColours={DEFAULT_HIGHLIGHT_COLOURS}
+				honestPreview={false}
+				showNavLines={false}
+				selectedNodeId={null}
+				onSelectNode={vi.fn()}
+			/>,
+		);
+
+		// Once the thumbnail cache read resolves, the image element should appear
+		const img = await screen.findByAltText('chapter-card.png');
+		expect(img).toBeTruthy();
+		expect((img as HTMLImageElement).src).toBeTruthy();
+	});
+
+	it('resets preview focus when the active menu changes', () => {
+		const { container, rerender } = render(
+			<SceneCanvas
+				buttons={buttons}
+				canvasHeight={480}
+				sceneNodes={[]}
+				onUpdateButton={vi.fn()}
+				onUpdateSceneNode={vi.fn()}
+				showSafeArea={false}
+				backgroundLabel={null}
+				backgroundColour={null}
+				defaultButtonId="btn-1"
+				previewMode={true}
+				highlightColours={DEFAULT_HIGHLIGHT_COLOURS}
+				honestPreview={false}
+				showNavLines={true}
+				selectedNodeId={null}
+				onSelectNode={vi.fn()}
+			/>,
+		);
+
+		expect(container.querySelector('.scene-canvas__node--focused')).toHaveTextContent('Play');
+
+		rerender(
+			<SceneCanvas
+				buttons={[
+					{
+						id: 'btn-3',
+						label: 'Setup',
+						bounds: { x: 120, y: 260, width: 220, height: 44 },
+						action: null,
+						navUp: null,
+						navDown: null,
+						navLeft: null,
+						navRight: null,
+						highlightMode: 'static',
+						highlightKeyframes: [],
+						videoAssetId: null,
+					},
+				]}
+				canvasHeight={480}
+				sceneNodes={[]}
+				onUpdateButton={vi.fn()}
+				onUpdateSceneNode={vi.fn()}
+				showSafeArea={false}
+				backgroundLabel={null}
+				backgroundColour={null}
+				defaultButtonId="btn-3"
+				previewMode={true}
+				highlightColours={DEFAULT_HIGHLIGHT_COLOURS}
+				honestPreview={false}
+				showNavLines={true}
+				selectedNodeId={null}
+				onSelectNode={vi.fn()}
+			/>,
+		);
+
+		expect(container.querySelector('.scene-canvas__node--focused')).toHaveTextContent('Setup');
+	});
+
+	it('preserves keyboard-moved focus while previewing the current menu', () => {
+		const { container } = render(
+			<SceneCanvas
+				buttons={buttons}
+				canvasHeight={480}
+				sceneNodes={[]}
+				onUpdateButton={vi.fn()}
+				onUpdateSceneNode={vi.fn()}
+				showSafeArea={false}
+				backgroundLabel={null}
+				backgroundColour={null}
+				defaultButtonId="btn-1"
+				previewMode={true}
+				highlightColours={DEFAULT_HIGHLIGHT_COLOURS}
+				honestPreview={false}
+				showNavLines={true}
+				selectedNodeId={null}
+				onSelectNode={vi.fn()}
+			/>,
+		);
+
+		const viewport = container.querySelector('.scene-canvas__viewport--preview');
+		expect(viewport).toBeTruthy();
+
+		fireEvent.keyDown(viewport!, { key: 'ArrowDown' });
+
+		expect(container.querySelector('.scene-canvas__node--focused')).toHaveTextContent('Chapters');
+	});
+
+	it('applies the selected button preview state on the design canvas', () => {
+		const styledNode: SceneNode = {
+			type: 'button',
+			id: 'btn-1',
+			label: 'Play',
+			x: 100,
+			y: 300,
+			width: 200,
+			height: 40,
+			buttonStyle: {
+				normal: {
+					bgFill: 'rgba(255,255,255,0.04)',
+					borderColour: '#ffffff1f',
+					borderWidth: 1,
+					borderRadius: 6,
+					paddingH: 12,
+					paddingV: 0,
+					shadowType: 'none',
+					shadowColour: '#000000',
+					shadowBlur: 0,
+					shadowSpread: 0,
+				},
+				focus: {
+					bgFill: 'rgb(255, 0, 0)',
+					borderColour: '#ff0000',
+					borderWidth: 1,
+					borderRadius: 6,
+					paddingH: 12,
+					paddingV: 0,
+					shadowType: 'none',
+					shadowColour: '#000000',
+					shadowBlur: 0,
+					shadowSpread: 0,
+				},
+				activate: {
+					bgFill: 'rgb(0, 255, 0)',
+					borderColour: '#00ff00',
+					borderWidth: 1,
+					borderRadius: 6,
+					paddingH: 12,
+					paddingV: 0,
+					shadowType: 'none',
+					shadowColour: '#000000',
+					shadowBlur: 0,
+					shadowSpread: 0,
+				},
+			},
+		};
+
+		render(
+			<SceneCanvas
+				buttons={buttons}
+				canvasHeight={480}
+				sceneNodes={[styledNode]}
+				onUpdateButton={vi.fn()}
+				onUpdateSceneNode={vi.fn()}
+				showSafeArea={false}
+				backgroundLabel={null}
+				backgroundColour={null}
+				defaultButtonId={null}
+				previewMode={false}
+				highlightColours={DEFAULT_HIGHLIGHT_COLOURS}
+				honestPreview={false}
+				showNavLines={false}
+				selectedNodeId="btn-1"
+				onSelectNode={vi.fn()}
+				buttonPreviewState="focus"
+			/>,
+		);
+
+		const playNode = screen.getByText('Play').closest('.scene-canvas__node');
+		expect(playNode).toHaveStyle({ background: 'rgb(255, 0, 0)' });
+	});
+
 	it('deselects node when canvas background is clicked', () => {
 		const onSelect = vi.fn();
 		const { container } = render(
@@ -401,5 +751,195 @@ describe('SceneCanvas', () => {
 		const viewport = container.querySelector('.scene-canvas__viewport');
 		fireEvent.click(viewport!);
 		expect(onSelect).toHaveBeenCalledWith(null);
+	});
+
+	it('simulates authored anamorphic display on the same raster', () => {
+		const { container } = render(
+			<SceneCanvas
+				buttons={buttons}
+				canvasHeight={480}
+				sceneNodes={[]}
+				onUpdateButton={vi.fn()}
+				onUpdateSceneNode={vi.fn()}
+				showSafeArea={false}
+				backgroundLabel={null}
+				backgroundColour={null}
+				defaultButtonId={null}
+				previewMode={false}
+				highlightColours={DEFAULT_HIGHLIGHT_COLOURS}
+				honestPreview={false}
+				showNavLines={false}
+				selectedNodeId={null}
+				onSelectNode={vi.fn()}
+				displayAspect="sixteen-by-nine"
+			/>,
+		);
+
+		expect(container.querySelector('.scene-canvas__viewport')).toHaveStyle({
+			aspectRatio: '16 / 9',
+		});
+	});
+
+	it('creates generated menus with the provided authored design height', () => {
+		const menu = createGeneratedMenuFromButtons(
+			'menu-generated',
+			'Generated Menu',
+			[
+				{
+					id: 'btn-generated',
+					label: 'Play',
+					bounds: { x: 96, y: 320, width: 220, height: 44 },
+					action: null,
+					navUp: null,
+					navDown: null,
+					navLeft: null,
+					navRight: null,
+					highlightMode: 'static',
+					highlightKeyframes: [],
+					videoAssetId: null,
+				},
+			],
+			'titleset',
+			576,
+			'four-by-three',
+		);
+
+		expect(menu.authoredDocument?.scene.designSize).toEqual({ width: 720, height: 576 });
+	});
+
+	it('builds audio setup choices from the titleset-wide audio union', () => {
+		const menu = buildAudioSetupMenu(
+			{
+				id: 'titleset-1',
+				name: 'Feature',
+				menus: [],
+				titles: [
+					{
+						id: 'title-1',
+						name: 'Feature A',
+						sourceAssetId: null,
+						videoMapping: null,
+						videoOutputProfile: { raster: 'full-d1', aspect: 'four-by-three' },
+						audioMappings: [
+							{
+								id: 'audio-1',
+								sourceStreamIndex: 0,
+								outputTarget: 'AC3',
+								copyMode: 'copy',
+								label: 'English 2.0',
+								language: 'en',
+								orderIndex: 0,
+								isDefault: true,
+							},
+						],
+						subtitleMappings: [],
+						chapters: [],
+						endAction: null,
+						orderIndex: 0,
+					},
+					{
+						id: 'title-2',
+						name: 'Feature B',
+						sourceAssetId: null,
+						videoMapping: null,
+						videoOutputProfile: { raster: 'full-d1', aspect: 'four-by-three' },
+						audioMappings: [
+							{
+								id: 'audio-2',
+								sourceStreamIndex: 1,
+								outputTarget: 'AC3',
+								copyMode: 'copy',
+								label: 'Commentary',
+								language: 'en',
+								orderIndex: 1,
+								isDefault: false,
+							},
+						],
+						subtitleMappings: [],
+						chapters: [],
+						endAction: null,
+						orderIndex: 1,
+					},
+				],
+			},
+			'NTSC',
+			null,
+		);
+
+		expect(menu).not.toBeNull();
+		expect(menu?.buttons.map((button) => button.label)).toEqual(['English 2.0', 'Commentary']);
+		expect(menu?.buttons[1]?.action).toEqual({
+			type: 'sequence',
+			actions: [{ type: 'setAudioStream', streamIndex: 1 }],
+		});
+	});
+
+	it('builds subtitle setup choices from the titleset-wide subtitle union', () => {
+		const menu = buildSubtitleSetupMenu(
+			{
+				id: 'titleset-1',
+				name: 'Feature',
+				menus: [],
+				titles: [
+					{
+						id: 'title-1',
+						name: 'Feature A',
+						sourceAssetId: null,
+						videoMapping: null,
+						videoOutputProfile: { raster: 'full-d1', aspect: 'four-by-three' },
+						audioMappings: [],
+						subtitleMappings: [
+							{
+								id: 'sub-1',
+								sourceStreamIndex: 0,
+								label: 'English',
+								language: 'en',
+								orderIndex: 0,
+								isDefault: true,
+								isForced: false,
+							},
+						],
+						chapters: [],
+						endAction: null,
+						orderIndex: 0,
+					},
+					{
+						id: 'title-2',
+						name: 'Feature B',
+						sourceAssetId: null,
+						videoMapping: null,
+						videoOutputProfile: { raster: 'full-d1', aspect: 'four-by-three' },
+						audioMappings: [],
+						subtitleMappings: [
+							{
+								id: 'sub-2',
+								sourceStreamIndex: 1,
+								label: 'Spanish',
+								language: 'es',
+								orderIndex: 1,
+								isDefault: false,
+								isForced: false,
+							},
+						],
+						chapters: [],
+						endAction: null,
+						orderIndex: 1,
+					},
+				],
+			},
+			'NTSC',
+			null,
+		);
+
+		expect(menu).not.toBeNull();
+		expect(menu?.buttons.map((button) => button.label)).toEqual([
+			'English',
+			'Spanish',
+			'Subtitles Off',
+		]);
+		expect(menu?.buttons[1]?.action).toEqual({
+			type: 'sequence',
+			actions: [{ type: 'setSubtitleStream', streamIndex: 1 }],
+		});
 	});
 });

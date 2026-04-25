@@ -49,7 +49,8 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::serialise_project,
             commands::validate_project,
             commands::inspect_asset,
-            commands::extract_thumbnail,
+            commands::extract_video_thumbnail,
+            commands::extract_image_thumbnail,
             commands::get_cache_dir,
             commands::generate_build_plan,
             commands::execute_build,
@@ -57,6 +58,8 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::auto_generate_menu_nav,
             commands::check_toolchain,
             commands::export_diagnostics,
+            commands::export_menu_render_preview,
+            commands::list_available_fonts,
         ])
         .setup(|app, api| {
             #[cfg(mobile)]

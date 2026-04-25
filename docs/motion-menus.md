@@ -244,14 +244,17 @@ With timeout (plays first title after 3 loops of a 15-second menu = 45 seconds):
 
 ### Menu Editor
 
-1. **Background mode toggle**: radio buttons for "Still" vs "Motion" below the background asset dropdown.
-2. **Motion settings panel** (visible when mode = motion):
+1. **Background mode toggle**: right-inspector controls for "Still" vs "Motion" alongside asset-backed background editing.
+2. **Motion settings panel** (always visible in the inspector, disabled when mode = still):
    - Video asset selector (reuses the background asset dropdown — the selected asset's video stream becomes the loop)
    - Audio asset selector (optional, for background music)
-   - Loop duration display (read from the video asset's duration)
+   - Loop duration input or derived display
    - Loop count input (0 = infinite)
    - Timeout action dropdown (same as end-action: play title, show menu, stop)
-3. **Canvas preview**: when in motion mode, show a "Motion" badge on the canvas. Full video preview is a future enhancement.
+3. **Canvas preview**:
+   - when in motion mode, preserve a visible motion-oriented control surface in the inspector
+   - the centre stage supports 4:3 versus anamorphic 16:9 display simulation for authored review
+   - full moving-video playback in the stage remains a future enhancement
 
 ### Button Properties
 

@@ -4,6 +4,8 @@ const COMMANDS: &[&str] = &[
     "serialise_project",
     "validate_project",
     "inspect_asset",
+    "extract_video_thumbnail",
+    "extract_image_thumbnail",
 ];
 
 fn main() {

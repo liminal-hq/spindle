@@ -33,9 +33,20 @@ Prefer durable, reusable context over narration.
 - GitHub PR hygiene and labels are in good shape, but the repository currently has no open issue backlog, so important future work is concentrated in docs and memory rather than visible execution tracking.
 - Trust and support surfaces should be checked alongside release surfaces; for example, diagnostics export can drift from runtime versioning even when the main app UI is current.
 - The shared filesystem-based agent communication layer now lives under `docs/agents/shared/`, with `context/` for Franklin/Edward broadcast state and `handoffs/<agent>/` inboxes for point-to-point JSON requests and responses.
+- Files in `docs/agents/shared/handoffs/` should be treated as inbox artefacts, not normal tracked repo content. Do not force-add ignored handoff notes to git; leave them on disk and record durable lessons in memory/context files instead.
 - The current laptop environment should be treated as container-first for verification work: when Rust tooling or mixed workspace validation is needed, prefer `ghcr.io/liminal-hq/tauri-dev-desktop:latest` rather than assuming host-installed Rust tools are available.
 - We have adopted Yuli's Set 2b unified menu editor design, establishing Blu-ray (HDMV/IG) as the primary authoring ceiling and DVD/VCD as a graceful degradation floor managed via the Compile Preview overlay.
 - Seamless branching (multiplexed BOV) for UI states and SPRM manipulation (`setAudioStream`, `setSubtitleStream`) are now confirmed backend requirements that the compiler and multiplexer must support reliably.
+- During the Set 2b menu-editor finish, old `.spindle` files were blocked by authored menu document drift rather than by top-level project metadata. Compatibility fixes belong at the Rust schema boundary first, especially for mixed `camelCase` and legacy `snake_case` node fields plus newly added timing defaults.
+- The upgraded menu inspector now persists optional scene-node styling data for text and button nodes, so the Rust `SceneNode` model must stay aligned with the frontend editor types or those style-only edits will be silently dropped on open/save.
+- For menu-editor hardening, the most useful verification pair was containerised Rust plugin coverage (`cargo test -p tauri-plugin-spindle-project`) plus targeted frontend store tests (`pnpm --filter @liminal-hq/spindle test -- src/store/project-store.test.ts`) rather than broader UI-only smoke passes.
+- For the Set 2b shell itself, the biggest UX misses were usually not missing data models but missing feedback loops: if the inspector can edit a state, the centre canvas needs to show that state honestly right away.
+- The menu workspace benefits from treating authored display shape as a first-class preview concern. Even with a fixed 720-line raster, authors need a visible 4:3 versus anamorphic 16:9 simulation plus zoom to judge composition well.
+- Background controls are more trustworthy in the inspector rail than in the top toolbar when they need to grow into still, video, audio, and motion-loop settings over time.
+- A clean verification bundle for workspace-shell changes is `pnpm --filter @liminal-hq/spindle test -- src/components/menus/SceneEditor.test.tsx src/components/menus/MenuMap.test.tsx src/store/project-store.test.ts` plus `pnpm --filter @liminal-hq/spindle build`.
+- The canvas zone must be a single flat `position: relative` flex-centre container matching the Set 2b prototype `canvas-viewport` pattern. Extra wrapper shells create double-nesting that crowds the authoring surface; the tool palette belongs as a `position: absolute` overlay in the top-left corner.
+- Inspector collapsible sections should use a card pattern (border + border-radius on each section, subtle dark header background) rather than flat row dividers. The prototype `insp-section` approach is the reference. All sections should default open unless there is a deliberate progressive-disclosure reason.
+- When embedding `LayersPanel` inside the inspector body, strip its own border and background via CSS context overrides — it is already inside a card and should not double-frame.
 
 ## Open Questions
 

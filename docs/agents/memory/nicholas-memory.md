@@ -25,9 +25,27 @@ Prefer durable design guidance over narrative notes.
 - Dense surfaces such as planners, mapping tools, and preview canvases should feel calm and readable before they feel flashy.
 - Nicholas works best in productive tension with Tristan's structural rigour and Edward's constraint-minded product review.
 - A recurring trap to watch for is styling that implies freedom or interactivity the underlying system does not really offer.
+- When shared agent coordination matters, Nicholas should follow the inbox-and-context workflow in `docs/agents/shared/communication-protocol.md`: read the broadcast context before substantial work, take bounded requests from the receiver inbox, and place JSON responses back in the sender's inbox.
+
+## Set 2b Visual Decisions
+
+- **Menus rail cards** now act as topology summaries, not plain selectors. Each card should keep the 48×32 thumbnail treatment, live incoming/outgoing connection indicators, and a small health dot so authors can scan menu coverage before opening a workspace.
+- **Menus workstation toolbar** is the canonical home for overlay toggles and background assignment. Avoid reintroducing duplicate control rows under the canvas unless a control is truly canvas-local.
+- **Menus right rail** should read as a single workstation column: Layers first, Inspector second, with the selected entity named in the inspector header and calm section containers inside the panel body rather than stacked outer cards.
+- **Map legends** should use token-aligned line swatches rather than coloured text dots so they visually match the toolbar legend and the connection language of the workstation.
+- **Compile Preview overlay** keeps the rose-tinted top banner (rgba 244,63,94) and frosted dark lower treatment, but now behaves as a "preview compass" rather than a checklist. Degradation language should lead: palette collapse, alpha flattening, and simplified highlight states are the primary message; button/action/nav/safe-area diagnostics are supporting signals. The CSS filter (saturate 0.7, contrast 1.05) simulates DVD colour reduction.
+- **Navigation map scope tinting** follows Yuli's scope-badge palette: VMGM nodes are cyan-tinted (34,211,238), titleset nodes are purple-tinted (167,139,250). This matches the badge colours in the left-rail menu list.
+- **Return action** renders as a pink loopback badge on map nodes rather than a conventional edge, because return resumes playback without a fixed target.
+- **Inspector collapsible sections** use a chevron-toggle wrapper. Primary sections (Button identity, Position/Size, Action, Navigation) stay flat and always visible. Secondary sections (Highlight Mode, Overlay Colours, Button Style, Text Style) collapse to keep the panel scannable.
+- **Button Style panel** uses per-state sub-tabs (Normal/Focus/Activate) inside a collapsible section — this pattern came from Yuli's mockup and scales well for the three DVD button states.
 
 ## Open Questions
 
 - Which shared visual primitives should become the default foundation for new Spindle surfaces.
 - How the app should balance premium atmosphere with the clarity needed for dense authoring workflows.
 - Which visual constraints need to be documented explicitly so future polish passes do not re-litigate them.
+- The Button Style and Text Style panels need data model support in `MenuDocument` — Tristan should add per-state style fields on button nodes and typography fields on text nodes.
+
+## References
+
+- `docs/agents/shared/communication-protocol.md`

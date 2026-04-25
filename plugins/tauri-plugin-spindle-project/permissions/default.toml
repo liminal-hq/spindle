@@ -6,7 +6,8 @@ permissions = [
   "allow-serialise-project",
   "allow-validate-project",
   "allow-inspect-asset",
-  "allow-extract-thumbnail",
+  "allow-extract-video-thumbnail",
+  "allow-extract-image-thumbnail",
   "allow-get-cache-dir",
   "allow-generate-build-plan",
   "allow-execute-build",
@@ -14,4 +15,6 @@ permissions = [
   "allow-auto-generate-menu-nav",
   "allow-check-toolchain",
   "allow-export-diagnostics",
+  "allow-list-available-fonts",
+  "allow-export-menu-render-preview",
 ]

@@ -8,19 +8,20 @@ use std::path::Path;
 
 use crate::models::*;
 
-use super::ffmpeg::{dvd_sample_aspect_ratio, fps_rational_str, output_display_aspect_ratio_parts};
+use super::ffmpeg::fps_rational_str;
+use super::skia::{render_menu_overlay_image_skia, render_menu_overlay_image_skia_quantized};
 use super::types::MenuOverlayButton;
 use super::util::{sanitise_filename, xml_escape};
 
 #[derive(Clone, Copy)]
-pub(crate) enum MenuDomain {
+pub enum MenuDomain {
     Vmgm,
     Titleset(usize),
 }
 
-pub(crate) struct AuthorableMenuRef<'a> {
-    pub(crate) menu: &'a Menu,
-    pub(crate) domain: MenuDomain,
+pub struct AuthorableMenuRef<'a> {
+    pub menu: &'a Menu,
+    pub domain: MenuDomain,
 }
 
 impl<'a> AuthorableMenuRef<'a> {
@@ -33,11 +34,7 @@ impl<'a> AuthorableMenuRef<'a> {
     }
 
     pub(crate) fn background_asset_id(&self) -> Option<&str> {
-        self.menu
-            .authored_document
-            .as_ref()
-            .and_then(|doc| doc.scene.background.asset_id.as_deref())
-            .or(self.menu.background_asset_id.as_deref())
+        self.menu.resolved_background_asset_id()
     }
 
     pub(crate) fn highlight_colours(&self) -> &MenuHighlightColours {
@@ -50,11 +47,7 @@ impl<'a> AuthorableMenuRef<'a> {
 
     #[allow(dead_code)]
     pub(crate) fn background_mode(&self) -> BackgroundMode {
-        self.menu
-            .authored_document
-            .as_ref()
-            .map(|doc| doc.background_mode)
-            .unwrap_or(self.menu.background_mode)
+        self.menu.resolved_background_mode()
     }
 
     #[allow(dead_code)]
@@ -68,11 +61,7 @@ impl<'a> AuthorableMenuRef<'a> {
 
     #[allow(dead_code)]
     pub(crate) fn motion_duration_secs(&self) -> Option<f64> {
-        self.menu
-            .authored_document
-            .as_ref()
-            .map(|doc| doc.timing.loop_duration_secs)
-            .or(self.menu.motion_duration_secs)
+        self.menu.resolved_motion_duration_secs()
     }
 
     #[allow(dead_code)]
@@ -82,6 +71,11 @@ impl<'a> AuthorableMenuRef<'a> {
             .as_ref()
             .map(|doc| doc.timing.loop_count)
             .unwrap_or(self.menu.motion_loop_count)
+    }
+
+    pub(crate) fn display_aspect(&self, project: &SpindleProjectFile) -> AspectMode {
+        let fallback = inferred_menu_output_aspect(project, self.domain);
+        self.menu.resolved_display_aspect(fallback)
     }
 
     pub(crate) fn buttons(&self) -> Vec<AuthorableButtonRef<'_>> {
@@ -160,6 +154,9 @@ impl<'a> AuthorableMenuRef<'a> {
 
 pub(crate) struct AuthorableButtonRef<'a> {
     pub(crate) id: &'a str,
+    // Populated from scene data for future overlay-label rendering; not yet
+    // consumed in the Rust pipeline but needed structurally.
+    #[allow(dead_code)]
     pub(crate) label: &'a str,
     pub(crate) x: f64,
     pub(crate) y: f64,
@@ -172,7 +169,7 @@ pub(crate) struct AuthorableButtonRef<'a> {
     pub(crate) nav_right: Option<&'a str>,
 }
 
-pub(crate) fn authorable_menus(project: &SpindleProjectFile) -> Vec<AuthorableMenuRef<'_>> {
+pub fn authorable_menus(project: &SpindleProjectFile) -> Vec<AuthorableMenuRef<'_>> {
     let mut menus = Vec::new();
     for menu in &project.disc.global_menus {
         menus.push(AuthorableMenuRef {
@@ -191,27 +188,24 @@ pub(crate) fn authorable_menus(project: &SpindleProjectFile) -> Vec<AuthorableMe
     menus
 }
 
-pub(crate) fn menu_output_aspect(project: &SpindleProjectFile, domain: MenuDomain) -> AspectMode {
+pub(crate) fn inferred_menu_output_aspect(
+    project: &SpindleProjectFile,
+    domain: MenuDomain,
+) -> AspectMode {
     match domain {
-        MenuDomain::Vmgm => project
-            .disc
-            .titlesets
-            .iter()
-            .flat_map(|titleset| titleset.titles.iter())
-            .find_map(|title| title.video_output_profile.map(|profile| profile.aspect))
-            .unwrap_or(AspectMode::SixteenByNine),
-        MenuDomain::Titleset(index) => project
-            .disc
-            .titlesets
-            .get(index)
-            .and_then(|titleset| {
-                titleset
-                    .titles
-                    .iter()
-                    .find_map(|title| title.video_output_profile.map(|profile| profile.aspect))
-            })
-            .unwrap_or(AspectMode::SixteenByNine),
+        MenuDomain::Vmgm => project.inferred_vmgm_menu_aspect(),
+        MenuDomain::Titleset(index) => project.inferred_titleset_menu_aspect(index),
     }
+}
+
+/// Derive the path where the Skia scene PNG for a menu render will be written.
+/// The PNG is placed alongside the output file with a `_scene.png` suffix.
+pub(crate) fn menu_scene_png_path(output_path: &Path) -> std::path::PathBuf {
+    let stem = output_path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("menu");
+    output_path.with_file_name(format!("{stem}_scene.png"))
 }
 
 pub(crate) fn build_ffmpeg_menu_command(
@@ -221,11 +215,14 @@ pub(crate) fn build_ffmpeg_menu_command(
     project: &SpindleProjectFile,
     standard: VideoStandard,
     output_path: &Path,
+    scene_png_path: &Path,
 ) -> crate::Result<Vec<String>> {
-    let (width, height) = VideoRaster::FullD1.resolution(standard);
-    let aspect = menu_output_aspect(project, menu_ref.domain);
-    let (display_num, display_den) = output_display_aspect_ratio_parts(aspect);
-    let sar = dvd_sample_aspect_ratio(width, height, display_num, display_den);
+    let aspect = menu_ref.display_aspect(project);
+    let target = RenderTarget::from_disc(&project.disc, aspect);
+    let width = target.raster_width;
+    let height = target.raster_height;
+    let sar = target.sar_string();
+
     let aspect_str = match aspect {
         AspectMode::FourByThree => "4:3",
         AspectMode::SixteenByNine => "16:9",
@@ -233,10 +230,10 @@ pub(crate) fn build_ffmpeg_menu_command(
     let fps = fps_rational_str(standard.frame_rate());
 
     let mut cmd = vec![ffmpeg_bin.to_string(), "-y".to_string()];
-    let mut vf_parts = Vec::new();
-    let mut image_inputs = Vec::new();
+    let mut filter_complex_parts = Vec::new();
+    let next_input_index;
+    let background_label = "canvas0".to_string();
 
-    // 1. Base input (background)
     if let Some(background_asset_id) = menu_ref.background_asset_id() {
         let asset = assets.get(background_asset_id).ok_or_else(|| {
             crate::Error::Build(format!(
@@ -244,16 +241,35 @@ pub(crate) fn build_ffmpeg_menu_command(
                 menu_ref.name()
             ))
         })?;
-        cmd.extend(["-i".to_string(), asset.source_path.clone()]);
-        vf_parts.push(format!("fps={fps}"));
-        vf_parts.push(format!(
-            "scale={width}:{height}:force_original_aspect_ratio=decrease,pad={width}:{height}:(ow-iw)/2:(oh-ih)/2"
-        ));
-        vf_parts.push("trim=start_frame=0:end_frame=1".to_string());
-        vf_parts.push(format!(
-            "loop=loop={}:size=1:start=0",
-            menu_loop_frame_count(standard).saturating_sub(1)
-        ));
+
+        if asset.is_still_image() {
+            cmd.extend([
+                "-f".to_string(),
+                "lavfi".to_string(),
+                "-i".to_string(),
+                format!("color=c=#101014:s={}x{}:d=1", width, height),
+            ]);
+            cmd.extend([
+                "-loop".to_string(),
+                "1".to_string(),
+                "-i".to_string(),
+                asset.source_path.clone(),
+            ]);
+            filter_complex_parts.push(format!(
+                "[1:v]scale={width}:{height}:force_original_aspect_ratio=decrease,pad={width}:{height}:(ow-iw)/2:(oh-ih)/2[background_fill]"
+            ));
+            filter_complex_parts.push(format!(
+                "[0:v][background_fill]overlay=0:0[{background_label}]"
+            ));
+            next_input_index = 2;
+        } else {
+            cmd.extend(["-i".to_string(), asset.source_path.clone()]);
+            filter_complex_parts.push(format!(
+                "[0:v]fps={fps},scale={width}:{height}:force_original_aspect_ratio=decrease,pad={width}:{height}:(ow-iw)/2:(oh-ih)/2,trim=start_frame=0:end_frame=1,loop=loop={}:size=1:start=0[{background_label}]",
+                menu_loop_frame_count(standard).saturating_sub(1)
+            ));
+            next_input_index = 1;
+        }
     } else {
         cmd.extend([
             "-f".to_string(),
@@ -261,116 +277,28 @@ pub(crate) fn build_ffmpeg_menu_command(
             "-i".to_string(),
             format!("color=c=#101014:s={}x{}:d=1", width, height),
         ]);
-        vf_parts.push(format!("fps={fps}"));
+        filter_complex_parts.push(format!("[0:v]fps={fps}[{background_label}]"));
+        next_input_index = 1;
     }
 
-    // 2. Additional image inputs for scene nodes
-    for node in menu_ref.scene_nodes() {
-        if let SceneNode::Image { id, asset_id, .. } = node {
-            let asset = assets.get(asset_id.as_str()).ok_or_else(|| {
-                crate::Error::Build(format!(
-                    "Image asset \"{}\" not found for node \"{}\" in menu \"{}\"",
-                    asset_id,
-                    id,
-                    menu_ref.name()
-                ))
-            })?;
-            cmd.extend(["-i".to_string(), asset.source_path.clone()]);
-            image_inputs.push(node);
-        }
-    }
+    // Add the pre-rendered Skia scene PNG as an input and composite it over the background.
+    cmd.extend([
+        "-loop".to_string(),
+        "1".to_string(),
+        "-i".to_string(),
+        scene_png_path.display().to_string(),
+    ]);
+    let skia_input_index = next_input_index;
 
-    // 3. Scene node rendering (non-buttons)
-    // Render shapes and images first as they are often backgrounds
-    for node in menu_ref.scene_nodes() {
-        if let SceneNode::Shape {
-            x,
-            y,
-            width,
-            height,
-            fill,
-            ..
-        } = node
-        {
-            let fill = fill.as_deref().unwrap_or("#333333");
-            vf_parts.push(format!(
-                "drawbox=x={}:y={}:w={}:h={}:color={}:t=fill",
-                x.round() as i32,
-                y.round() as i32,
-                width.round() as i32,
-                height.round() as i32,
-                fill
-            ));
-        }
-    }
-
-    /*
-    // Overlay images
-    for (idx, node) in image_inputs.iter().enumerate() {
-        if let SceneNode::Image { x, y, width, height, .. } = node {
-            // Index starts at 1 because 0 is the background
-            let input_idx = idx + 1;
-            // Scale the image input to its authored size
-            // We use [v:input_idx] and overlay it
-            let _overlay_filter = format!(
-                "[{input_idx}:v]scale={w}:{h}:force_original_aspect_ratio=decrease,pad={w}:{h}:(ow-iw)/2:(oh-ih)/2[ovl{idx}];[v][ovl{idx}]overlay=x={x}:y={y}[v]",
-                input_idx = input_idx,
-                idx = idx,
-                w = width.round() as i32,
-                h = height.round() as i32,
-                x = x.round() as i32,
-                y = y.round() as i32
-            );
-            // This requires a complex filtergraph, but for now we'll try to stick to vf if possible
-            // Actually, overlay is better in filter_complex.
-            // But let's see if we can use a simpler approach for now.
-        }
-    }
-    */
-
-    // For now, let's keep it simple: Text and Buttons only for the "Full Loop" test
-    // to avoid complex filtergraph logic until we really need it.
-    // (Wait, the directive said verify it produces valid MPEG. If I skip images it's still "valid" but incomplete).
-
-    // 4. Render text nodes
-    for node in menu_ref.scene_nodes() {
-        if let SceneNode::Text {
-            content,
-            x,
-            y,
-            width,
-            height,
-            font_size,
-            colour,
-            ..
-        } = node
-        {
-            let font_size = font_size.unwrap_or(24.0);
-            let colour = colour.as_deref().unwrap_or("white");
-            let escaped_text = escape_drawtext_text(content);
-            vf_parts.push(format!(
-                "drawtext=text='{escaped_text}':fontcolor={colour}:fontsize={font_size}:shadowcolor=black@0.6:shadowx=2:shadowy=2:x={x}+(({width}-text_w)/2):y={y}+(({height}-text_h)/2)",
-                escaped_text = escaped_text,
-                colour = colour,
-                font_size = font_size,
-                x = x.round() as i32,
-                y = y.round() as i32,
-                width = width.round() as i32,
-                height = height.round() as i32
-            ));
-        }
-    }
-
-    // 5. Button overlays and labels (on top)
-    vf_parts.push(menu_button_overlay_filter(menu_ref));
-    if let Some(label_filter) = menu_button_label_filter(menu_ref) {
-        vf_parts.push(label_filter);
-    }
-    vf_parts.push(format!("setsar={sar}"));
+    filter_complex_parts.push(format!(
+        "[{background_label}][{skia_input_index}:v]overlay=0:0,setsar={sar}[menuout]"
+    ));
 
     cmd.extend([
-        "-vf".to_string(),
-        vf_parts.join(","),
+        "-filter_complex".to_string(),
+        filter_complex_parts.join(";"),
+        "-map".to_string(),
+        "[menuout]".to_string(),
         "-r".to_string(),
         fps.to_string(),
         "-c:v".to_string(),
@@ -410,87 +338,12 @@ fn menu_loop_frame_count(standard: VideoStandard) -> u32 {
     }
 }
 
-fn menu_button_overlay_filter(menu_ref: &AuthorableMenuRef<'_>) -> String {
-    let buttons = menu_ref.buttons();
-    if buttons.is_empty() {
-        return "null".to_string();
-    }
-
-    let mut filters = Vec::new();
-    let default_button_id = menu_ref.default_button_id();
-    let highlight_colours = menu_ref.highlight_colours();
-
-    for button in &buttons {
-        // For the static background preview render, we highlight the default button
-        // using its authored select colour. Other buttons get a neutral hint.
-        let colour = if default_button_id == Some(button.id) {
-            format!("{}@0.50", highlight_colours.select_colour)
-        } else {
-            "#ffffff@0.28".to_string()
-        };
-        filters.push(format!(
-            "drawbox=x={}:y={}:w={}:h={}:color={}:t=2",
-            button.x.round() as i32,
-            button.y.round() as i32,
-            button.width.round() as i32,
-            button.height.round() as i32,
-            colour
-        ));
-    }
-
-    filters.join(",")
-}
-
-fn menu_button_label_filter(menu_ref: &AuthorableMenuRef<'_>) -> Option<String> {
-    let buttons = menu_ref.buttons();
-    let filters = buttons
-        .iter()
-        .filter_map(|button| {
-            let label = button.label.trim();
-            if label.is_empty() {
-                return None;
-            }
-
-            let width = button.width.round().max(1.0) as i32;
-            let height = button.height.round().max(1.0) as i32;
-            let font_size = (height as f64 * 0.34).round().clamp(14.0, 30.0) as i32;
-            let x = button.x.round() as i32;
-            let y = button.y.round() as i32;
-            let escaped_label = escape_drawtext_text(label);
-
-            Some(format!(
-                "drawtext=text='{escaped_label}':fontcolor=white:fontsize={font_size}:shadowcolor=black:shadowx=2:shadowy=2:x={x}+(({width}-text_w)/2):y={y}+(({height}-text_h)/2)"
-            ))
-        })
-        .collect::<Vec<_>>();
-
-    if filters.is_empty() {
-        None
-    } else {
-        Some(filters.join(","))
-    }
-}
-
-fn escape_drawtext_text(text: &str) -> String {
-    text.chars()
-        .flat_map(|ch| match ch {
-            '\\' => ['\\', '\\'].into_iter().collect::<Vec<_>>(),
-            '\'' => ['\\', '\''].into_iter().collect::<Vec<_>>(),
-            ':' => ['\\', ':'].into_iter().collect::<Vec<_>>(),
-            '%' => ['\\', '%'].into_iter().collect::<Vec<_>>(),
-            '[' => ['\\', '['].into_iter().collect::<Vec<_>>(),
-            ']' => ['\\', ']'].into_iter().collect::<Vec<_>>(),
-            ',' => ['\\', ','].into_iter().collect::<Vec<_>>(),
-            ';' => ['\\', ';'].into_iter().collect::<Vec<_>>(),
-            other => [other].into_iter().collect::<Vec<_>>(),
-        })
-        .collect()
-}
-
 pub(crate) fn generate_spumux_xml(
     menu_ref: &AuthorableMenuRef<'_>,
     standard: VideoStandard,
     menus_dir: &Path,
+    scale_x: f64,
+    scale_y: f64,
 ) -> String {
     let format_str = match standard {
         VideoStandard::Ntsc => "NTSC",
@@ -517,10 +370,10 @@ pub(crate) fn generate_spumux_xml(
         xml.push_str(&format!(
             "      <button name=\"{}\" x0=\"{}\" y0=\"{}\" x1=\"{}\" y1=\"{}\"{}{}{}{} />\n",
             name,
-            button.x.round() as i32,
-            button.y.round() as i32,
-            (button.x + button.width).round() as i32,
-            (button.y + button.height).round() as i32,
+            (button.x * scale_x).round() as i32,
+            (button.y * scale_y).round() as i32,
+            ((button.x + button.width) * scale_x).round() as i32,
+            ((button.y + button.height) * scale_y).round() as i32,
             button_nav_attr("up", button.nav_up, &buttons),
             button_nav_attr("down", button.nav_down, &buttons),
             button_nav_attr("left", button.nav_left, &buttons),
@@ -554,30 +407,46 @@ fn button_nav_attr(
 pub(crate) fn generate_menu_overlay_images(
     render: &MenuOverlayRender<'_>,
     images: &MenuOverlayImages<'_>,
-    run_command: impl Fn(&[String]) -> std::result::Result<String, String>,
 ) -> std::result::Result<(), String> {
-    render_menu_overlay_image(
-        render,
-        images.highlight_image_path,
+    let render_fn: fn(&[_], &str, _, &Path) -> crate::Result<()> = if images.quantize_palette {
+        render_menu_overlay_image_skia_quantized
+    } else {
+        render_menu_overlay_image_skia
+    };
+
+    render_fn(
+        render.button_bounds,
         images.highlight_colour,
-        "highlight",
-        &run_command,
-    )?;
-    render_menu_overlay_image(
-        render,
-        images.select_image_path,
+        render.target,
+        Path::new(images.highlight_image_path),
+    )
+    .map_err(|e| {
+        format!(
+            "Failed to render highlight overlay image for menu \"{}\": {e}",
+            render.menu_id
+        )
+    })?;
+
+    render_fn(
+        render.button_bounds,
         images.select_colour,
-        "select",
-        &run_command,
-    )?;
+        render.target,
+        Path::new(images.select_image_path),
+    )
+    .map_err(|e| {
+        format!(
+            "Failed to render select overlay image for menu \"{}\": {e}",
+            render.menu_id
+        )
+    })?;
+
     Ok(())
 }
 
 pub(crate) struct MenuOverlayRender<'a> {
-    pub(crate) ffmpeg_bin: &'a str,
-    pub(crate) standard: VideoStandard,
     pub(crate) menu_id: &'a str,
     pub(crate) button_bounds: &'a [MenuOverlayButton],
+    pub(crate) target: RenderTarget,
 }
 
 pub(crate) struct MenuOverlayImages<'a> {
@@ -585,46 +454,8 @@ pub(crate) struct MenuOverlayImages<'a> {
     pub(crate) select_image_path: &'a str,
     pub(crate) highlight_colour: &'a str,
     pub(crate) select_colour: &'a str,
-}
-
-fn render_menu_overlay_image(
-    render: &MenuOverlayRender<'_>,
-    output_path: &str,
-    colour: &str,
-    kind: &str,
-    run_command: &impl Fn(&[String]) -> std::result::Result<String, String>,
-) -> std::result::Result<(), String> {
-    let (width, height) = VideoRaster::FullD1.resolution(render.standard);
-    let mut vf_parts = vec!["format=rgba".to_string()];
-    for button in render.button_bounds {
-        let width = (button.x1 - button.x0).max(1);
-        let height = (button.y1 - button.y0).max(1);
-        vf_parts.push(format!(
-            "drawbox=x={}:y={}:w={}:h={}:color={}:t=2",
-            button.x0, button.y0, width, height, colour
-        ));
-    }
-
-    let args = vec![
-        render.ffmpeg_bin.to_string(),
-        "-y".to_string(),
-        "-f".to_string(),
-        "lavfi".to_string(),
-        "-i".to_string(),
-        format!("color=c=black@0.0:s={}x{}:d=1", width, height),
-        "-frames:v".to_string(),
-        "1".to_string(),
-        "-vf".to_string(),
-        vf_parts.join(","),
-        output_path.to_string(),
-    ];
-
-    run_command(&args).map(|_| ()).map_err(|msg| {
-        format!(
-            "Failed to render {kind} overlay image for menu \"{}\": {msg}",
-            render.menu_id
-        )
-    })
+    /// When true, render with AA enabled and quantize to ≤4 colours (dev diagnostic).
+    pub(crate) quantize_palette: bool,
 }
 
 #[cfg(test)]
@@ -658,6 +489,7 @@ mod tests {
                     design_size: MenuSize {
                         width: 720.0,
                         height: 480.0,
+                        aspect: AspectMode::SixteenByNine,
                     },
                     background: SceneBackground {
                         asset_id: Some("asset-authored".to_string()),
@@ -673,6 +505,8 @@ mod tests {
                         highlight_mode: HighlightMode::Static,
                         highlight_keyframes: vec![],
                         video_asset_id: None,
+                        button_style: None,
+                        label_style: None,
                     }],
                     guides: vec![],
                 },
@@ -702,6 +536,10 @@ mod tests {
         assert_eq!(menu_ref.name(), "Authored Name");
         assert_eq!(menu_ref.background_asset_id(), Some("asset-authored"));
         assert_eq!(menu_ref.default_button_id(), Some("btn-authored"));
+        assert_eq!(
+            menu_ref.display_aspect(&SpindleProjectFile::default()),
+            AspectMode::SixteenByNine
+        );
 
         let buttons = menu_ref.buttons();
         assert_eq!(buttons.len(), 1);
@@ -711,7 +549,9 @@ mod tests {
     }
 
     #[test]
-    fn build_ffmpeg_menu_command_includes_scene_nodes() {
+    fn build_ffmpeg_menu_command_uses_skia_overlay_not_draw_filters() {
+        // The command should not contain drawbox/drawtext; instead it should include
+        // a Skia scene PNG input and an overlay=0:0 filter chain.
         let menu = Menu {
             id: "menu-1".to_string(),
             authored_document: Some(MenuDocument {
@@ -722,6 +562,7 @@ mod tests {
                     design_size: MenuSize {
                         width: 720.0,
                         height: 480.0,
+                        aspect: AspectMode::SixteenByNine,
                     },
                     background: SceneBackground {
                         asset_id: None,
@@ -736,16 +577,6 @@ mod tests {
                             height: 50.0,
                             fill: Some("#ff0000".to_string()),
                         },
-                        SceneNode::Text {
-                            id: "text-1".to_string(),
-                            content: "Hello World".to_string(),
-                            x: 30.0,
-                            y: 40.0,
-                            width: 200.0,
-                            height: 30.0,
-                            font_size: Some(32.0),
-                            colour: Some("yellow".to_string()),
-                        },
                         SceneNode::Button {
                             id: "btn-1".to_string(),
                             label: "Play".to_string(),
@@ -756,6 +587,8 @@ mod tests {
                             highlight_mode: HighlightMode::Static,
                             highlight_keyframes: vec![],
                             video_asset_id: None,
+                            button_style: None,
+                            label_style: None,
                         },
                     ],
                     guides: vec![],
@@ -792,18 +625,175 @@ mod tests {
             &project,
             VideoStandard::Ntsc,
             std::path::Path::new("/tmp/output.mpg"),
+            std::path::Path::new("/tmp/output_scene.png"),
         )
         .unwrap();
 
         let cmd_str = cmd.join(" ");
 
-        // Check for shape rendering
-        assert!(cmd_str.contains("drawbox=x=10:y=20:w=100:h=50:color=#ff0000:t=fill"));
+        // Skia overlay path — no legacy draw filters.
+        assert!(
+            !cmd_str.contains("drawbox"),
+            "should not contain drawbox: {cmd_str}"
+        );
+        assert!(
+            !cmd_str.contains("drawtext"),
+            "should not contain drawtext: {cmd_str}"
+        );
 
-        // Check for text rendering
-        assert!(cmd_str.contains("drawtext=text='Hello World':fontcolor=yellow:fontsize=32"));
+        // Must reference the scene PNG and the overlay filter.
+        assert!(
+            cmd_str.contains("output_scene.png"),
+            "should reference scene PNG: {cmd_str}"
+        );
+        assert!(
+            cmd_str.contains("overlay=0:0"),
+            "should contain overlay=0:0: {cmd_str}"
+        );
+        assert!(
+            cmd_str.contains("-aspect 16:9"),
+            "should contain aspect: {cmd_str}"
+        );
+        assert!(
+            cmd_str.contains("-filter_complex"),
+            "should contain filter_complex: {cmd_str}"
+        );
+        assert!(
+            cmd_str.contains("-map [menuout]"),
+            "should contain map: {cmd_str}"
+        );
+    }
 
-        // Check for button (overlay box)
-        assert!(cmd_str.contains("drawbox=x=100:y=150:w=200:h=40"));
+    #[test]
+    fn build_ffmpeg_menu_command_includes_setsar_in_overlay_filter() {
+        // The setsar filter must appear in the filter chain even with the Skia path.
+        let menu = Menu {
+            id: "menu-sar".to_string(),
+            authored_document: Some(MenuDocument {
+                id: "menu-sar".to_string(),
+                name: "SAR Test Menu".to_string(),
+                domain: crate::models::MenuDomain::Vmgm,
+                scene: MenuScene {
+                    design_size: MenuSize {
+                        width: 1024.0,
+                        height: 576.0,
+                        aspect: AspectMode::SixteenByNine,
+                    },
+                    background: SceneBackground {
+                        asset_id: None,
+                        colour: Some("#000000".to_string()),
+                    },
+                    nodes: vec![],
+                    guides: vec![],
+                },
+                interaction: MenuInteractionGraph {
+                    default_focus_id: None,
+                    nodes: vec![],
+                    timeout_action: None,
+                },
+                timing: MenuTiming::default(),
+                highlight_colours: MenuHighlightColours::default(),
+                background_mode: BackgroundMode::Still,
+                theme_ref: None,
+                generation_meta: None,
+                compile_policy: MenuCompilePolicy {
+                    display_aspect: Some(AspectMode::SixteenByNine),
+                    ..MenuCompilePolicy::default()
+                },
+            }),
+            ..Menu::default()
+        };
+
+        let project = SpindleProjectFile::default();
+        let menu_ref = AuthorableMenuRef {
+            menu: &menu,
+            domain: super::MenuDomain::Vmgm,
+        };
+        let assets = std::collections::HashMap::new();
+        let cmd = super::build_ffmpeg_menu_command(
+            "ffmpeg",
+            &menu_ref,
+            &assets,
+            &project,
+            VideoStandard::Ntsc,
+            std::path::Path::new("/tmp/output.mpg"),
+            std::path::Path::new("/tmp/output_scene.png"),
+        )
+        .unwrap();
+
+        let cmd_str = cmd.join(" ");
+        // DVD NTSC 16:9 SAR = 32/27
+        assert!(
+            cmd_str.contains("setsar=32/27"),
+            "expected setsar=32/27 in filter chain, got: {cmd_str}"
+        );
+    }
+
+    #[test]
+    fn build_ffmpeg_menu_command_scales_still_image_backgrounds_into_dvd_raster() {
+        let menu = Menu {
+            id: "menu-1".to_string(),
+            name: "Image Menu".to_string(),
+            authored_document: Some(MenuDocument {
+                id: "menu-1".to_string(),
+                name: "Image Menu".to_string(),
+                domain: crate::models::MenuDomain::Vmgm,
+                scene: MenuScene {
+                    design_size: MenuSize {
+                        width: 720.0,
+                        height: 480.0,
+                        aspect: AspectMode::SixteenByNine,
+                    },
+                    background: SceneBackground {
+                        asset_id: Some("asset-image".to_string()),
+                        colour: Some("#101014".to_string()),
+                    },
+                    nodes: vec![],
+                    guides: vec![],
+                },
+                interaction: MenuInteractionGraph {
+                    default_focus_id: None,
+                    nodes: vec![],
+                    timeout_action: None,
+                },
+                timing: MenuTiming::default(),
+                highlight_colours: MenuHighlightColours::default(),
+                background_mode: BackgroundMode::Still,
+                theme_ref: None,
+                generation_meta: None,
+                compile_policy: MenuCompilePolicy::default(),
+            }),
+            ..Default::default()
+        };
+
+        let project = SpindleProjectFile::default();
+        let menu_ref = AuthorableMenuRef {
+            menu: &menu,
+            domain: super::MenuDomain::Vmgm,
+        };
+        let mut assets = std::collections::HashMap::new();
+        let mut image_asset = Asset::new(
+            "background.png".to_string(),
+            "/tmp/background.png".to_string(),
+        );
+        image_asset.container_format = Some("png_pipe".to_string());
+        assets.insert("asset-image", &image_asset);
+
+        let cmd = super::build_ffmpeg_menu_command(
+            "ffmpeg",
+            &menu_ref,
+            &assets,
+            &project,
+            VideoStandard::Ntsc,
+            std::path::Path::new("/tmp/output.mpg"),
+            std::path::Path::new("/tmp/output_scene.png"),
+        )
+        .unwrap();
+
+        let cmd_str = cmd.join(" ");
+
+        assert!(cmd_str.contains("-loop 1 -i /tmp/background.png"));
+        assert!(cmd_str.contains("[1:v]scale=720:480:force_original_aspect_ratio=decrease,pad=720:480:(ow-iw)/2:(oh-ih)/2[background_fill]"));
+        assert!(cmd_str.contains("[0:v][background_fill]overlay=0:0[canvas0]"));
     }
 }

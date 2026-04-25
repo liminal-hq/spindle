@@ -27,6 +27,8 @@ export function SettingsPage() {
 	const setDevSkipSidecar = useAppSettingsStore((s) => s.setDevSkipSidecar);
 	const devSkipUnsupportedStreams = useAppSettingsStore((s) => s.devSkipUnsupportedStreams);
 	const setDevSkipUnsupportedStreams = useAppSettingsStore((s) => s.setDevSkipUnsupportedStreams);
+	const devQuantizeOverlayPalette = useAppSettingsStore((s) => s.devQuantizeOverlayPalette);
+	const setDevQuantizeOverlayPalette = useAppSettingsStore((s) => s.setDevQuantizeOverlayPalette);
 	const [thumbnailCache, setThumbnailCache] = useState<ThumbnailCacheStatus | null>(null);
 	const [isCacheLoading, setIsCacheLoading] = useState(false);
 	const [cacheError, setCacheError] = useState<string | null>(null);
@@ -65,6 +67,7 @@ export function SettingsPage() {
 				validationIssues,
 				skipSidecar: devSkipSidecar,
 				skipUnsupportedStreams: devSkipUnsupportedStreams,
+				quantizeOverlayPalette: devQuantizeOverlayPalette,
 			});
 
 			const path = await save({
@@ -239,6 +242,22 @@ export function SettingsPage() {
 							className="settings__toggle"
 							checked={devSkipUnsupportedStreams}
 							onChange={(e) => setDevSkipUnsupportedStreams(e.target.checked)}
+						/>
+					</label>
+					<label className="settings__toggle-row">
+						<div className="settings__toggle-text">
+							<span className="settings__toggle-label">Quantize overlay palette (dev)</span>
+							<span className="settings__toggle-desc text-muted">
+								Render menu overlays with anti-aliasing enabled and quantize the result to a 4-entry
+								palette. Use this to preview and verify AA+quantized overlay output without building
+								a full disc.
+							</span>
+						</div>
+						<input
+							type="checkbox"
+							className="settings__toggle"
+							checked={devQuantizeOverlayPalette}
+							onChange={(e) => setDevQuantizeOverlayPalette(e.target.checked)}
 						/>
 					</label>
 				</div>

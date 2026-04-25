@@ -10,13 +10,16 @@ use crate::models::*;
 
 use super::authoring::generate_dvdauthor_xml;
 use super::ffmpeg::{build_ffmpeg_text_subtitle_prepare_command, build_ffmpeg_transcode_command};
-use super::menu::{authorable_menus, build_ffmpeg_menu_command, generate_spumux_xml};
+use super::menu::{
+    authorable_menus, build_ffmpeg_menu_command, generate_spumux_xml, menu_scene_png_path,
+};
 use super::types::{BuildJob, BuildPlan, BuildSummary, MenuOverlayButton};
 use super::util::{sanitise_filename, xml_escape};
 
 struct BuildPaths {
     output_dir: PathBuf,
     work_dir: PathBuf,
+    dvd_root_dir: PathBuf,
     titles_dir: PathBuf,
     subtitles_dir: PathBuf,
     menus_dir: PathBuf,
@@ -39,14 +42,16 @@ impl BuildPaths {
     fn new(output_dir: &str) -> Self {
         let output_dir = PathBuf::from(output_dir);
         let work_dir = output_dir.join("_spindle_work");
+        let dvd_root_dir = output_dir.join("DVD_DISC");
         let titles_dir = work_dir.join("titles");
         let subtitles_dir = work_dir.join("subtitles");
         let menus_dir = work_dir.join("menus");
-        let video_ts_dir = output_dir.join("VIDEO_TS");
+        let video_ts_dir = dvd_root_dir.join("VIDEO_TS");
 
         Self {
             output_dir,
             work_dir,
+            dvd_root_dir,
             titles_dir,
             subtitles_dir,
             menus_dir,
@@ -60,6 +65,7 @@ impl BuildPaths {
             self.titles_dir.display().to_string(),
             self.subtitles_dir.display().to_string(),
             self.menus_dir.display().to_string(),
+            self.dvd_root_dir.display().to_string(),
             self.video_ts_dir.display().to_string(),
         ]
     }
@@ -67,7 +73,7 @@ impl BuildPaths {
     fn reset_directories(&self) -> Vec<String> {
         vec![
             self.work_dir.display().to_string(),
-            self.video_ts_dir.display().to_string(),
+            self.dvd_root_dir.display().to_string(),
         ]
     }
 
@@ -155,7 +161,7 @@ pub fn generate_build_plan(
     output_dir: &str,
     skip_sidecar: bool,
 ) -> crate::Result<BuildPlan> {
-    generate_build_plan_with_options(project, output_dir, skip_sidecar, false)
+    generate_build_plan_with_options(project, output_dir, skip_sidecar, false, false)
 }
 
 pub fn generate_build_plan_with_options(
@@ -163,6 +169,7 @@ pub fn generate_build_plan_with_options(
     output_dir: &str,
     skip_sidecar: bool,
     skip_unsupported_streams: bool,
+    quantize_overlay_palette: bool,
 ) -> crate::Result<BuildPlan> {
     let mut owned_project = project.clone();
     if skip_unsupported_streams {
@@ -183,6 +190,7 @@ pub fn generate_build_plan_with_options(
     });
 
     let assets: HashMap<&str, &Asset> = project.assets.iter().map(|a| (a.id.as_str(), a)).collect();
+    ensure_supported_menu_backend(project)?;
 
     let all_titles: Vec<(&Titleset, &Title)> = project
         .disc
@@ -367,6 +375,7 @@ pub fn generate_build_plan_with_options(
 
     for menu_ref in authorable_menus(project) {
         let menu_paths = paths.menu_paths(&menu_ref.menu.id);
+        let scene_png_path = menu_scene_png_path(&menu_paths.base_video_path);
         let render_command = build_ffmpeg_menu_command(
             &tools.ffmpeg,
             &menu_ref,
@@ -374,7 +383,58 @@ pub fn generate_build_plan_with_options(
             project,
             project.disc.standard,
             &menu_paths.base_video_path,
+            &scene_png_path,
         )?;
+
+        let menu_aspect = menu_ref.display_aspect(project);
+        let target = RenderTarget::from_disc(&project.disc, menu_aspect);
+        let design_size = menu_ref
+            .menu
+            .authored_document
+            .as_ref()
+            .map(|doc| &doc.scene.design_size);
+        let (scale_x, scale_y) = if let Some(ds) = design_size {
+            (
+                target.raster_width as f64 / ds.width,
+                target.raster_height as f64 / ds.height,
+            )
+        } else {
+            (1.0, 1.0)
+        };
+
+        // Serialise the MenuDocument and the image assets it references so the
+        // executor can reconstruct them when calling render_menu_scene_to_png.
+        let menu_document_json = menu_ref
+            .menu
+            .authored_document
+            .as_ref()
+            .and_then(|doc| serde_json::to_string(doc).ok())
+            .unwrap_or_default();
+
+        // Collect only the assets referenced by SceneNode::Image nodes.
+        let scene_image_asset_ids: Vec<String> = menu_ref
+            .scene_nodes()
+            .iter()
+            .filter_map(|node| {
+                if let SceneNode::Image { asset_id, .. } = node {
+                    Some(asset_id.clone())
+                } else {
+                    None
+                }
+            })
+            .collect();
+        let mut scene_assets_map: HashMap<String, String> = HashMap::new();
+        for asset_id in &scene_image_asset_ids {
+            let asset = assets.get(asset_id.as_str()).ok_or_else(|| {
+                crate::Error::Build(format!(
+                    "Menu \"{}\" references image asset \"{asset_id}\" which no longer exists. \
+                     Remove or replace the image node before building.",
+                    menu_ref.name()
+                ))
+            })?;
+            scene_assets_map.insert(asset_id.clone(), asset.source_path.clone());
+        }
+        let scene_assets_json = serde_json::to_string(&scene_assets_map).unwrap_or_default();
 
         jobs.push(BuildJob::RenderMenu {
             menu_id: menu_ref.menu.id.clone(),
@@ -388,18 +448,50 @@ pub fn generate_build_plan_with_options(
             highlight_colour: menu_ref.highlight_colours().select_colour.clone(),
             select_colour: menu_ref.highlight_colours().activate_colour.clone(),
             button_bounds: menu_ref
-                .buttons()
+                .scene_nodes()
                 .iter()
-                .map(|button| MenuOverlayButton {
-                    x0: button.x.round() as i32,
-                    y0: button.y.round() as i32,
-                    x1: (button.x + button.width).round() as i32,
-                    y1: (button.y + button.height).round() as i32,
+                .filter_map(|node| {
+                    if let SceneNode::Button {
+                        x,
+                        y,
+                        width,
+                        height,
+                        button_style,
+                        ..
+                    } = node
+                    {
+                        let raw_radius = button_style
+                            .as_ref()
+                            .map(|bs| bs.normal.border_radius as f32)
+                            .unwrap_or(0.0);
+                        let radius = (raw_radius * scale_x.min(scale_y) as f32).max(0.0);
+                        Some(MenuOverlayButton {
+                            x0: (x * scale_x).round() as i32,
+                            y0: (y * scale_y).round() as i32,
+                            x1: ((x + width) * scale_x).round() as i32,
+                            y1: ((y + height) * scale_y).round() as i32,
+                            border_radius: radius,
+                        })
+                    } else {
+                        None
+                    }
                 })
                 .collect(),
+            raster_width: target.raster_width,
+            raster_height: target.raster_height,
+            scene_png_path: scene_png_path.display().to_string(),
+            menu_document_json,
+            scene_assets_json,
+            quantize_overlay_palette,
         });
 
-        let spumux_xml = generate_spumux_xml(&menu_ref, project.disc.standard, &paths.menus_dir);
+        let spumux_xml = generate_spumux_xml(
+            &menu_ref,
+            project.disc.standard,
+            &paths.menus_dir,
+            scale_x,
+            scale_y,
+        );
         jobs.push(BuildJob::ComposeMenuHighlights {
             menu_id: menu_ref.menu.id.clone(),
             menu_name: menu_ref.menu.name.clone(),
@@ -423,13 +515,13 @@ pub fn generate_build_plan_with_options(
         project,
         &paths.titles_dir,
         &paths.menus_dir,
-        &paths.video_ts_dir,
+        &paths.dvd_root_dir,
     )?;
     let xml_path = paths.dvdauthor_xml_path();
 
     jobs.push(BuildJob::AuthorDvd {
         xml_path: xml_path.display().to_string(),
-        output_path: paths.video_ts_dir.display().to_string(),
+        output_path: paths.dvd_root_dir.display().to_string(),
         command: vec![
             tools.dvdauthor,
             "-x".to_string(),
@@ -449,7 +541,7 @@ pub fn generate_build_plan_with_options(
             .to_uppercase();
 
         jobs.push(BuildJob::CreateIso {
-            source_path: paths.output_dir.display().to_string(),
+            source_path: paths.dvd_root_dir.display().to_string(),
             output_path: iso_path.display().to_string(),
             command: vec![
                 tools.iso_authoring,
@@ -458,7 +550,7 @@ pub fn generate_build_plan_with_options(
                 volume_id,
                 "-o".to_string(),
                 iso_path.display().to_string(),
-                paths.output_dir.display().to_string(),
+                paths.dvd_root_dir.display().to_string(),
             ],
             label: "Create ISO image".to_string(),
         });
@@ -492,6 +584,36 @@ pub fn generate_build_plan_with_options(
         dvdauthor_xml,
         summary,
     })
+}
+
+fn ensure_supported_menu_backend(project: &SpindleProjectFile) -> crate::Result<()> {
+    let motion_menus: Vec<_> = project
+        .disc
+        .global_menus
+        .iter()
+        .chain(
+            project
+                .disc
+                .titlesets
+                .iter()
+                .flat_map(|titleset| titleset.menus.iter()),
+        )
+        .filter(|menu| matches!(menu.resolved_background_mode(), BackgroundMode::Motion))
+        .map(|menu| menu.name.clone())
+        .collect();
+
+    if motion_menus.is_empty() {
+        return Ok(());
+    }
+
+    Err(crate::Error::Build(format!(
+        "Motion menu build authoring is not implemented yet. Switch these menus back to still mode before building: {}",
+        motion_menus
+            .iter()
+            .map(|name| format!("\"{name}\""))
+            .collect::<Vec<_>>()
+            .join(", ")
+    )))
 }
 
 fn generate_text_subtitle_spumux_xml(
@@ -763,7 +885,8 @@ mod tests {
             });
 
         let plan =
-            generate_build_plan_with_options(&project, "/tmp/dvd_output", false, true).unwrap();
+            generate_build_plan_with_options(&project, "/tmp/dvd_output", false, true, false)
+                .unwrap();
 
         assert!(
             !plan
@@ -835,6 +958,76 @@ mod tests {
                 .iter()
                 .any(|j| matches!(j, BuildJob::LinkTitle { .. })),
             "duplicate title should be linked, not transcoded again"
+        );
+    }
+
+    #[test]
+    fn build_plan_rejects_motion_menus_until_backend_support_lands() {
+        let mut project = test_project();
+        let mut menu = test_menu();
+        menu.background_mode = BackgroundMode::Motion;
+        menu.motion_duration_secs = Some(12.0);
+        project.disc.global_menus.push(menu);
+
+        let err = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap_err();
+        let msg = err.to_string();
+
+        assert!(msg.contains("Motion menu build authoring is not implemented yet"));
+        assert!(msg.contains("\"Main Menu\""));
+    }
+
+    #[test]
+    fn build_plan_rejects_menu_with_missing_image_asset() {
+        let mut project = test_project();
+        let mut menu = test_menu();
+        menu.authored_document = Some(MenuDocument {
+            id: "menu-1".to_string(),
+            name: "Main Menu".to_string(),
+            domain: MenuDomain::Vmgm,
+            scene: MenuScene {
+                design_size: MenuSize {
+                    width: 720.0,
+                    height: 480.0,
+                    aspect: AspectMode::FourByThree,
+                },
+                background: SceneBackground {
+                    asset_id: None,
+                    colour: Some("#000000".to_string()),
+                },
+                nodes: vec![SceneNode::Image {
+                    id: "img-1".to_string(),
+                    asset_id: "deleted-asset-id".to_string(),
+                    x: 0.0,
+                    y: 0.0,
+                    width: 100.0,
+                    height: 100.0,
+                }],
+                guides: vec![],
+            },
+            interaction: MenuInteractionGraph {
+                default_focus_id: None,
+                nodes: vec![],
+                timeout_action: None,
+            },
+            timing: MenuTiming::default(),
+            highlight_colours: MenuHighlightColours::default(),
+            background_mode: BackgroundMode::Still,
+            theme_ref: None,
+            generation_meta: None,
+            compile_policy: MenuCompilePolicy::default(),
+        });
+        project.disc.global_menus.push(menu);
+
+        let err = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap_err();
+        let msg = err.to_string();
+
+        assert!(
+            msg.contains("deleted-asset-id"),
+            "error should name the missing asset ID: {msg}"
+        );
+        assert!(
+            msg.contains("Main Menu"),
+            "error should name the menu: {msg}"
         );
     }
 }

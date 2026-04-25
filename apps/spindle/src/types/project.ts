@@ -31,7 +31,10 @@ export type PlaybackAction =
 	| { type: 'setAudioStream'; streamIndex: number }
 	| { type: 'setSubtitleStream'; streamIndex: number | null }
 	| { type: 'sequence'; actions: PlaybackAction[] }
-	| { type: 'stop' };
+	| { type: 'stop' }
+	| { type: 'return' }
+	| { type: 'playNextInTitleset' }
+	| { type: 'playAllInTitleset' };
 
 // ── Top-Level Project ───────────────────────────────────────────────────────
 
@@ -136,7 +139,7 @@ export interface SourceChapter {
 
 // ── Menus ───────────────────────────────────────────────────────────────────
 
-export type MenuEditorMode = 'design' | 'bind' | 'remote' | 'compile';
+export type MenuEditorMode = 'editor' | 'map' | 'design' | 'bind' | 'remote' | 'compile';
 export type BackgroundMode = 'still' | 'motion';
 export type HighlightMode = 'static' | 'animated';
 
@@ -198,6 +201,44 @@ export interface SceneBackground {
 	colour: string | null;
 }
 
+// ── Button & Text Style ─────────────────────────────────────────────────────
+
+export type ButtonShadowType = 'none' | 'box-shadow' | 'outer-glow' | 'inner-glow';
+
+/** Per-state visual appearance for a button node (authored layer only). */
+export interface ButtonStateStyle {
+	bgFill: string;
+	borderColour: string;
+	borderWidth: number;
+	borderRadius: number;
+	paddingH: number;
+	paddingV: number;
+	shadowType: ButtonShadowType;
+	shadowColour: string;
+	shadowBlur: number;
+	shadowSpread: number;
+}
+
+/** The three interactive states for a button. */
+export interface ButtonStyleMap {
+	normal: ButtonStateStyle;
+	focus: ButtonStateStyle;
+	activate: ButtonStateStyle;
+}
+
+/** Typography style shared by button labels and standalone text nodes. */
+export interface TextStyle {
+	fontFamily: string;
+	fontSize: number;
+	fontWeight: 'normal' | 'bold';
+	fontItalic: boolean;
+	textDecoration: 'none' | 'underline';
+	textAlign: 'left' | 'center' | 'right';
+	colour: string;
+	lineHeight: number;
+	letterSpacing: number;
+}
+
 /** A node within the authored menu scene graph. */
 export type SceneNode =
 	| { type: 'group'; id: string; name: string; children: SceneNode[] }
@@ -211,6 +252,13 @@ export type SceneNode =
 			height: number;
 			fontSize?: number;
 			colour?: string;
+			fontFamily?: string;
+			fontWeight?: 'normal' | 'bold';
+			fontItalic?: boolean;
+			textDecoration?: 'none' | 'underline';
+			textAlign?: 'left' | 'center' | 'right';
+			lineHeight?: number;
+			letterSpacing?: number;
 	  }
 	| {
 			type: 'image';
@@ -242,6 +290,10 @@ export type SceneNode =
 			highlightMode?: HighlightMode;
 			highlightKeyframes?: HighlightKeyframe[];
 			videoAssetId?: string | null;
+			/** Per-state visual appearance (authored layer). */
+			buttonStyle?: ButtonStyleMap;
+			/** Label typography. */
+			labelStyle?: TextStyle;
 	  }
 	| { type: 'componentInstance'; id: string; componentId: string }
 	| { type: 'generatedCollection'; id: string; source: string };
@@ -269,7 +321,9 @@ export interface FocusNode {
 
 /** Timing and motion rules for the menu. */
 export interface MenuTiming {
+	introStartSecs: number;
 	introDurationSecs: number;
+	loopStartSecs: number;
 	loopDurationSecs: number;
 	loopCount: number; // 0 = infinite
 }
@@ -282,6 +336,7 @@ export interface MenuGenerationMeta {
 
 /** Format-specific compilation rules and safe-area policies. */
 export interface MenuCompilePolicy {
+	displayAspect: AspectMode;
 	safeAreaMode: 'action-safe' | 'title-safe' | 'none';
 	paletteStrategy: 'auto' | 'manual';
 }
@@ -584,6 +639,19 @@ export interface ToolchainStatus {
 	version: string | null;
 }
 
+// ── Font Enumeration ────────────────────────────────────────────────────────
+
+/** Where a font family came from in the Skia renderer's resolution priority chain. */
+export type FontSource = 'project-asset' | 'app-sidecar' | 'system';
+
+/** A font family available to the Skia renderer, with its source tier. */
+export interface FontEntry {
+	/** Display name shown in the UI (e.g. "DejaVu Sans"). */
+	family: string;
+	/** Where this font came from. */
+	source: FontSource;
+}
+
 // ── Command Payloads ────────────────────────────────────────────────────────
 
 export interface CreateProjectRequest {
@@ -610,6 +678,55 @@ export const CAPACITY_BYTES: Record<CapacityTarget, number> = {
 	DVD5: 4_700_000_000,
 	DVD9: 8_500_000_000,
 };
+
+export function createDefaultMenuCompilePolicy(
+	displayAspect: AspectMode = 'four-by-three',
+): MenuCompilePolicy {
+	return {
+		displayAspect,
+		safeAreaMode: 'title-safe',
+		paletteStrategy: 'auto',
+	};
+}
+
+export function inferDefaultMenuDisplayAspect(
+	project: SpindleProjectFile,
+	options: {
+		menuId?: string;
+		titlesetId?: string | null;
+		domain?: MenuDomain;
+	} = {},
+): AspectMode {
+	const lookupTitleset =
+		(options.titlesetId
+			? project.disc.titlesets.find((titleset) => titleset.id === options.titlesetId)
+			: undefined) ??
+		(options.menuId
+			? project.disc.titlesets.find((titleset) =>
+					titleset.menus.some((menu) => menu.id === options.menuId),
+				)
+			: undefined);
+
+	const scopedAspect = lookupTitleset?.titles.find((title) => title.videoOutputProfile?.aspect)
+		?.videoOutputProfile?.aspect;
+	if (scopedAspect) return scopedAspect;
+
+	if (options.domain === 'vmgm') {
+		return (
+			project.disc.titlesets
+				.flatMap((titleset) => titleset.titles)
+				.find((title) => title.videoOutputProfile?.aspect)?.videoOutputProfile?.aspect ??
+			'four-by-three'
+		);
+	}
+
+	return (
+		project.disc.titlesets
+			.flatMap((titleset) => titleset.titles)
+			.find((title) => title.videoOutputProfile?.aspect)?.videoOutputProfile?.aspect ??
+		'four-by-three'
+	);
+}
 
 export function createDefaultProject(name = 'Untitled Project'): SpindleProjectFile {
 	const now = new Date().toISOString();

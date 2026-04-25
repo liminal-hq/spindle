@@ -29,14 +29,45 @@ impl SpindleProjectFile {
     /// any legacy flat menu structures.
     pub fn migrate_all_menus(&mut self) {
         let standard = self.disc.standard;
+        let global_display_aspect = self.inferred_vmgm_menu_aspect();
+        let titleset_display_aspects: Vec<_> = (0..self.disc.titlesets.len())
+            .map(|index| self.inferred_titleset_menu_aspect(index))
+            .collect();
         for menu in &mut self.disc.global_menus {
-            menu.migrate_to_document(MenuDomain::Vmgm, standard);
+            menu.migrate_to_document(MenuDomain::Vmgm, standard, global_display_aspect);
+            menu.ensure_authored_compile_defaults(global_display_aspect);
+            menu.backfill_design_size_aspect(global_display_aspect);
         }
-        for titleset in &mut self.disc.titlesets {
+        for (titleset_index, titleset) in self.disc.titlesets.iter_mut().enumerate() {
+            let display_aspect = titleset_display_aspects[titleset_index];
             for menu in &mut titleset.menus {
-                menu.migrate_to_document(MenuDomain::Titleset, standard);
+                menu.migrate_to_document(MenuDomain::Titleset, standard, display_aspect);
+                menu.ensure_authored_compile_defaults(display_aspect);
+                menu.backfill_design_size_aspect(display_aspect);
             }
         }
+    }
+
+    pub fn inferred_vmgm_menu_aspect(&self) -> AspectMode {
+        self.disc
+            .titlesets
+            .iter()
+            .flat_map(|titleset| titleset.titles.iter())
+            .find_map(|title| title.video_output_profile.map(|profile| profile.aspect))
+            .unwrap_or(AspectMode::SixteenByNine)
+    }
+
+    pub fn inferred_titleset_menu_aspect(&self, titleset_index: usize) -> AspectMode {
+        self.disc
+            .titlesets
+            .get(titleset_index)
+            .and_then(|titleset| {
+                titleset
+                    .titles
+                    .iter()
+                    .find_map(|title| title.video_output_profile.map(|profile| profile.aspect))
+            })
+            .unwrap_or_else(|| self.inferred_vmgm_menu_aspect())
     }
 }
 
@@ -101,11 +132,30 @@ impl Default for Disc {
     }
 }
 
-/// Supported disc format families. DVD in v1, BD planned for future.
+/// Disc format family. Controls raster dimensions, SAR, overlay mechanism, and minimum font size.
+///
+/// `DvdVideo` is fully supported end-to-end. `BluRay`, `Svcd`, and `Vcd` are wired in the model
+/// and Skia render pipeline but are not exposed in the UI format picker — use
+/// `is_ui_supported()` to gate UI controls.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum DiscFamily {
+    /// DVD-Video: MPEG-2 encode, spumux subpicture overlays. Fully supported.
     DvdVideo,
+    /// Blu-ray Disc: square-pixel 1920×1080, full-colour PNG IG streams. Model and render only.
+    BluRay,
+    /// Super Video CD: limited overlay support. Model and render only.
+    Svcd,
+    /// Video CD: no standardised overlay. Model and render only.
+    Vcd,
+}
+
+impl DiscFamily {
+    /// Returns `true` only for formats that are fully supported in the UI.
+    /// New variants are model-only until their authoring and render pipelines are complete.
+    pub fn is_ui_supported(&self) -> bool {
+        matches!(self, DiscFamily::DvdVideo)
+    }
 }
 
 /// Video standard (affects resolution profiles, frame rates, timing).
@@ -303,11 +353,111 @@ impl VideoRaster {
 }
 
 /// Aspect ratio presentation mode.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum AspectMode {
     FourByThree,
+    #[default]
     SixteenByNine,
+}
+
+/// Render-time parameters derived from project disc settings. Not stored in the project file.
+///
+/// `RenderTarget` is computed once via `from_disc()` and threaded through the Skia renderer and
+/// ffmpeg pipeline. It captures everything the renderer needs: raster dimensions, SAR, disc family
+/// (which determines overlay strategy and minimum font size), and video standard.
+///
+/// Display width for DAR-corrected output = `raster_width × sar_num / sar_den`.
+#[derive(Debug, Clone, Copy)]
+pub struct RenderTarget {
+    pub family: DiscFamily,
+    /// `None` for Blu-ray (no NTSC/PAL distinction at this level).
+    pub standard: Option<VideoStandard>,
+    pub raster_width: u32,
+    pub raster_height: u32,
+    pub sar_num: u32,
+    pub sar_den: u32,
+}
+
+impl RenderTarget {
+    /// Derive a render target from the disc's family, video standard, and display aspect.
+    pub fn from_disc(disc: &Disc, aspect: AspectMode) -> Self {
+        match disc.family {
+            DiscFamily::DvdVideo => {
+                let (width, height) = VideoRaster::FullD1.resolution(disc.standard);
+                let (dar_num, dar_den) = match aspect {
+                    AspectMode::FourByThree => (4u64, 3u64),
+                    AspectMode::SixteenByNine => (16u64, 9u64),
+                };
+                // SAR = (DAR_num * height) / (DAR_den * width), reduced by GCD.
+                let mut num = dar_num * height as u64;
+                let mut den = dar_den * width as u64;
+                let g = gcd_u64(num, den);
+                num /= g;
+                den /= g;
+                Self {
+                    family: DiscFamily::DvdVideo,
+                    standard: Some(disc.standard),
+                    raster_width: width,
+                    raster_height: height,
+                    sar_num: num as u32,
+                    sar_den: den as u32,
+                }
+            }
+            DiscFamily::BluRay => Self {
+                family: DiscFamily::BluRay,
+                standard: None,
+                raster_width: 1920,
+                raster_height: 1080,
+                sar_num: 1,
+                sar_den: 1,
+            },
+            DiscFamily::Svcd => {
+                let (width, height) = match disc.standard {
+                    VideoStandard::Ntsc => (480u32, 480u32),
+                    VideoStandard::Pal => (480u32, 576u32),
+                };
+                // SVCD SAR (4:3 only): 15:11
+                Self {
+                    family: DiscFamily::Svcd,
+                    standard: Some(disc.standard),
+                    raster_width: width,
+                    raster_height: height,
+                    sar_num: 15,
+                    sar_den: 11,
+                }
+            }
+            DiscFamily::Vcd => {
+                let (width, height) = match disc.standard {
+                    VideoStandard::Ntsc => (352u32, 240u32),
+                    VideoStandard::Pal => (352u32, 288u32),
+                };
+                // VCD SAR (4:3 only): 10:11
+                Self {
+                    family: DiscFamily::Vcd,
+                    standard: Some(disc.standard),
+                    raster_width: width,
+                    raster_height: height,
+                    sar_num: 10,
+                    sar_den: 11,
+                }
+            }
+        }
+    }
+
+    /// SAR as an ffmpeg `setsar` string (e.g. `"10/11"`).
+    pub fn sar_string(&self) -> String {
+        format!("{}/{}", self.sar_num, self.sar_den)
+    }
+}
+
+fn gcd_u64(mut a: u64, mut b: u64) -> u64 {
+    while b != 0 {
+        let tmp = b;
+        b = a % b;
+        a = tmp;
+    }
+    a.max(1)
 }
 
 /// DVD-legal audio output targets.
@@ -399,7 +549,12 @@ impl Default for Menu {
 impl Menu {
     /// Lift a legacy menu into the new authored document format.
     /// This is used during migration to ensure old projects can be edited in the new scene editor.
-    pub fn migrate_to_document(&mut self, domain: MenuDomain, standard: VideoStandard) {
+    pub fn migrate_to_document(
+        &mut self,
+        domain: MenuDomain,
+        standard: VideoStandard,
+        display_aspect: AspectMode,
+    ) {
         if self.authored_document.is_some() {
             return;
         }
@@ -410,6 +565,7 @@ impl Menu {
             design_size: MenuSize {
                 width: res_w,
                 height: res_h,
+                aspect: display_aspect,
             },
             background: SceneBackground {
                 asset_id: self.background_asset_id.clone(),
@@ -428,6 +584,8 @@ impl Menu {
                     highlight_mode: b.highlight_mode,
                     highlight_keyframes: b.highlight_keyframes.clone(),
                     video_asset_id: b.video_asset_id.clone(),
+                    button_style: None,
+                    label_style: None,
                 })
                 .collect(),
             guides: Vec::new(),
@@ -451,7 +609,9 @@ impl Menu {
         };
 
         let timing = MenuTiming {
+            intro_start_secs: 0.0,
             intro_duration_secs: 0.0,
+            loop_start_secs: 0.0,
             loop_duration_secs: self.motion_duration_secs.unwrap_or(0.0),
             loop_count: self.motion_loop_count,
         };
@@ -468,10 +628,74 @@ impl Menu {
             theme_ref: None,
             generation_meta: None,
             compile_policy: MenuCompilePolicy {
+                display_aspect: Some(display_aspect),
                 safe_area_mode: SafeAreaMode::ActionSafe,
                 palette_strategy: PaletteStrategy::Auto,
             },
         });
+    }
+
+    pub fn ensure_authored_compile_defaults(&mut self, display_aspect: AspectMode) {
+        if let Some(doc) = &mut self.authored_document {
+            if doc.compile_policy.display_aspect.is_none() {
+                doc.compile_policy.display_aspect = Some(display_aspect);
+            }
+        }
+    }
+
+    /// Back-fill `design_size.aspect` on existing authored documents where the field
+    /// was absent (old project files deserialise it as the default `SixteenByNine`).
+    /// We overwrite only when the compile policy has an explicit display aspect that
+    /// differs, so we don't clobber intentionally authored values.
+    pub fn backfill_design_size_aspect(&mut self, display_aspect: AspectMode) {
+        if let Some(doc) = &mut self.authored_document {
+            let policy_aspect = doc.compile_policy.display_aspect.unwrap_or(display_aspect);
+            if doc.scene.design_size.aspect != policy_aspect {
+                doc.scene.design_size.aspect = policy_aspect;
+            }
+        }
+    }
+
+    pub fn resolved_background_asset_id(&self) -> Option<&str> {
+        self.authored_document
+            .as_ref()
+            .and_then(|doc| doc.scene.background.asset_id.as_deref())
+            .or(self.background_asset_id.as_deref())
+    }
+
+    pub fn resolved_background_mode(&self) -> BackgroundMode {
+        self.authored_document
+            .as_ref()
+            .map(|doc| doc.background_mode)
+            .unwrap_or(self.background_mode)
+    }
+
+    pub fn resolved_motion_duration_secs(&self) -> Option<f64> {
+        self.authored_document
+            .as_ref()
+            .map(|doc| doc.timing.loop_duration_secs)
+            .or(self.motion_duration_secs)
+    }
+
+    pub fn resolved_motion_loop_start_secs(&self) -> Option<f64> {
+        self.authored_document
+            .as_ref()
+            .map(|doc| doc.timing.loop_start_secs)
+            .or_else(|| (self.background_mode == BackgroundMode::Motion).then_some(0.0))
+    }
+
+    pub fn resolved_motion_audio_asset_id(&self) -> Option<&str> {
+        self.motion_audio_asset_id.as_deref()
+    }
+
+    pub fn authored_display_aspect(&self) -> Option<AspectMode> {
+        self.authored_document
+            .as_ref()
+            .and_then(|doc| doc.compile_policy.display_aspect)
+    }
+
+    pub fn resolved_display_aspect(&self, fallback: AspectMode) -> AspectMode {
+        self.authored_display_aspect().unwrap_or(fallback)
     }
 }
 
@@ -510,11 +734,45 @@ pub struct MenuScene {
     pub guides: Vec<SceneGuide>,
 }
 
+/// Design-space canvas size for a menu, expressed in square-pixel display-aspect coordinates.
+///
+/// The Skia renderer scales these dimensions to the raster target at build time:
+/// `scale_x = raster_width / width`, `scale_y = raster_height / height`.
+/// All scene node coordinates are stored in this space and are only rounded to integers
+/// at render time.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MenuSize {
     pub width: f64,
     pub height: f64,
+    /// Display aspect for this design canvas. Defaults to `SixteenByNine` for
+    /// compatibility with project files written before this field existed.
+    #[serde(default)]
+    pub aspect: AspectMode,
+}
+
+impl Default for MenuSize {
+    fn default() -> Self {
+        Self::default_for(DiscFamily::DvdVideo, AspectMode::SixteenByNine)
+    }
+}
+
+impl MenuSize {
+    /// Default design-space canvas dimensions for a given disc family and aspect mode.
+    pub fn default_for(family: DiscFamily, aspect: AspectMode) -> Self {
+        let (width, height) = match (family, aspect) {
+            (DiscFamily::DvdVideo, AspectMode::FourByThree) => (1024.0, 768.0),
+            (DiscFamily::DvdVideo, AspectMode::SixteenByNine) => (1024.0, 576.0),
+            (DiscFamily::BluRay, _) => (1920.0, 1080.0),
+            (DiscFamily::Svcd, _) => (800.0, 600.0),
+            (DiscFamily::Vcd, _) => (704.0, 528.0),
+        };
+        Self {
+            width,
+            height,
+            aspect,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -527,6 +785,7 @@ pub struct SceneBackground {
 /// A node within the authored menu scene graph.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", tag = "type")]
+#[allow(clippy::large_enum_variant)]
 pub enum SceneNode {
     Group {
         id: String,
@@ -540,13 +799,28 @@ pub enum SceneNode {
         y: f64,
         width: f64,
         height: f64,
-        #[serde(default)]
+        #[serde(default, rename = "fontSize", alias = "font_size")]
         font_size: Option<f64>,
+        #[serde(default, rename = "fontFamily", alias = "font_family")]
+        font_family: Option<String>,
+        #[serde(default, rename = "fontWeight", alias = "font_weight")]
+        font_weight: Option<FontWeight>,
+        #[serde(default, rename = "fontItalic", alias = "font_italic")]
+        font_italic: Option<bool>,
+        #[serde(default, rename = "textDecoration", alias = "text_decoration")]
+        text_decoration: Option<TextDecoration>,
+        #[serde(default, rename = "textAlign", alias = "text_align")]
+        text_align: Option<TextAlign>,
         #[serde(default)]
         colour: Option<String>,
+        #[serde(default, rename = "lineHeight", alias = "line_height")]
+        line_height: Option<f64>,
+        #[serde(default, rename = "letterSpacing", alias = "letter_spacing")]
+        letter_spacing: Option<f64>,
     },
     Image {
         id: String,
+        #[serde(rename = "assetId", alias = "asset_id")]
         asset_id: String,
         x: f64,
         y: f64,
@@ -564,6 +838,7 @@ pub enum SceneNode {
     },
     Video {
         id: String,
+        #[serde(rename = "assetId", alias = "asset_id")]
         asset_id: String,
         x: f64,
         y: f64,
@@ -575,15 +850,20 @@ pub enum SceneNode {
         y: f64,
         width: f64,
         height: f64,
-        #[serde(default)]
+        #[serde(default, rename = "highlightMode", alias = "highlight_mode")]
         highlight_mode: HighlightMode,
-        #[serde(default)]
+        #[serde(default, rename = "highlightKeyframes", alias = "highlight_keyframes")]
         highlight_keyframes: Vec<HighlightKeyframe>,
-        #[serde(default)]
+        #[serde(default, rename = "videoAssetId", alias = "video_asset_id")]
         video_asset_id: Option<String>,
+        #[serde(default, rename = "buttonStyle", alias = "button_style")]
+        button_style: Option<ButtonStyleMap>,
+        #[serde(default, rename = "labelStyle", alias = "label_style")]
+        label_style: Option<TextStyle>,
     },
     ComponentInstance {
         id: String,
+        #[serde(rename = "componentId", alias = "component_id")]
         component_id: String,
     },
     GeneratedCollection {
@@ -630,7 +910,11 @@ pub struct FocusNode {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MenuTiming {
+    #[serde(default)]
+    pub intro_start_secs: f64,
     pub intro_duration_secs: f64,
+    #[serde(default)]
+    pub loop_start_secs: f64,
     pub loop_duration_secs: f64,
     pub loop_count: u32, // 0 = infinite
 }
@@ -638,7 +922,9 @@ pub struct MenuTiming {
 impl Default for MenuTiming {
     fn default() -> Self {
         Self {
+            intro_start_secs: 0.0,
             intro_duration_secs: 0.0,
+            loop_start_secs: 0.0,
             loop_duration_secs: 0.0,
             loop_count: 0,
         }
@@ -657,6 +943,7 @@ pub struct MenuGenerationMeta {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MenuCompilePolicy {
+    pub display_aspect: Option<AspectMode>,
     pub safe_area_mode: SafeAreaMode,
     pub palette_strategy: PaletteStrategy,
 }
@@ -664,6 +951,7 @@ pub struct MenuCompilePolicy {
 impl Default for MenuCompilePolicy {
     fn default() -> Self {
         Self {
+            display_aspect: None,
             safe_area_mode: SafeAreaMode::ActionSafe,
             palette_strategy: PaletteStrategy::Auto,
         }
@@ -779,6 +1067,117 @@ pub enum HighlightMode {
     Animated,
 }
 
+// ── Button & Text Style ─────────────────────────────────────────────────────
+
+/// Legal shadow types for authored button styling.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "kebab-case")]
+pub enum ButtonShadowType {
+    #[default]
+    None,
+    BoxShadow,
+    OuterGlow,
+    InnerGlow,
+}
+
+/// Per-state visual appearance for a button node (authored layer only).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ButtonStateStyle {
+    pub bg_fill: String,
+    pub border_colour: String,
+    pub border_width: f64,
+    pub border_radius: f64,
+    pub padding_h: f64,
+    pub padding_v: f64,
+    pub shadow_type: ButtonShadowType,
+    pub shadow_colour: String,
+    pub shadow_blur: f64,
+    pub shadow_spread: f64,
+}
+
+impl Default for ButtonStateStyle {
+    fn default() -> Self {
+        Self {
+            bg_fill: "rgba(255, 255, 255, 0.04)".to_string(),
+            border_colour: "rgba(255, 255, 255, 0.12)".to_string(),
+            border_width: 1.5,
+            border_radius: 6.0,
+            padding_h: 16.0,
+            padding_v: 0.0,
+            shadow_type: ButtonShadowType::None,
+            shadow_colour: "transparent".to_string(),
+            shadow_blur: 0.0,
+            shadow_spread: 0.0,
+        }
+    }
+}
+
+/// The three interactive states for a button.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ButtonStyleMap {
+    pub normal: ButtonStateStyle,
+    pub focus: ButtonStateStyle,
+    pub activate: ButtonStateStyle,
+}
+
+/// Typography style shared by button labels and standalone text nodes.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TextStyle {
+    pub font_family: String,
+    pub font_size: f64,
+    pub font_weight: FontWeight,
+    pub font_italic: bool,
+    pub text_decoration: TextDecoration,
+    pub text_align: TextAlign,
+    pub colour: String,
+    pub line_height: f64,
+    pub letter_spacing: f64,
+}
+
+impl Default for TextStyle {
+    fn default() -> Self {
+        Self {
+            font_family: "Inter".to_string(),
+            font_size: 14.0,
+            font_weight: FontWeight::Normal,
+            font_italic: false,
+            text_decoration: TextDecoration::None,
+            text_align: TextAlign::Left,
+            colour: "#ffffff".to_string(),
+            line_height: 1.4,
+            letter_spacing: 0.0,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "kebab-case")]
+pub enum FontWeight {
+    #[default]
+    Normal,
+    Bold,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "kebab-case")]
+pub enum TextDecoration {
+    #[default]
+    None,
+    Underline,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "kebab-case")]
+pub enum TextAlign {
+    #[default]
+    Left,
+    Center,
+    Right,
+}
+
 /// A keyframe for animated button highlights within a motion menu loop.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -835,6 +1234,15 @@ pub enum PlaybackAction {
         actions: Vec<PlaybackAction>,
     },
     Stop,
+    Return,
+    /// Advance to the next title in the same titleset. Expands to a `PlayTitle`
+    /// action targeting the next `order_index` title at authoring time.
+    /// No-ops (treated as `Stop`) if this is already the last title.
+    /// DVD-only: Blu-ray can use native branching instead.
+    PlayNextInTitleset,
+    /// Play all titles in the current titleset in `order_index` order.
+    /// Expands at authoring time to a `Sequence` of `PlayTitle` actions.
+    PlayAllInTitleset,
 }
 
 // ── Assets ──────────────────────────────────────────────────────────────────
@@ -892,6 +1300,24 @@ impl Asset {
             source_chapters: Vec::new(),
             format_title: None,
         }
+    }
+
+    pub fn is_still_image(&self) -> bool {
+        let extension = std::path::Path::new(&self.file_name)
+            .extension()
+            .and_then(|ext| ext.to_str())
+            .map(|ext| ext.to_ascii_lowercase());
+
+        if let Some(extension) = extension.as_deref() {
+            if matches!(extension, "png" | "jpg" | "jpeg" | "bmp" | "tif" | "tiff") {
+                return true;
+            }
+        }
+
+        self.container_format
+            .as_deref()
+            .map(|format| matches!(format, "png_pipe" | "image2"))
+            .unwrap_or(false)
     }
 }
 
@@ -1222,6 +1648,13 @@ mod tests {
     }
 
     #[test]
+    fn return_action_serialises_as_unit_variant() {
+        let action = PlaybackAction::Return;
+        let json = serde_json::to_string(&action).unwrap();
+        assert_eq!(json, "{\"type\":\"return\"}");
+    }
+
+    #[test]
     fn ids_are_unique() {
         let t1 = Title::new("A".to_string(), 0);
         let t2 = Title::new("B".to_string(), 1);
@@ -1319,7 +1752,11 @@ mod tests {
             authored_document: None,
         };
 
-        menu.migrate_to_document(MenuDomain::Vmgm, VideoStandard::Ntsc);
+        menu.migrate_to_document(
+            MenuDomain::Vmgm,
+            VideoStandard::Ntsc,
+            AspectMode::FourByThree,
+        );
 
         let doc = menu.authored_document.expect("should have migrated");
         assert_eq!(doc.id, "menu-1");
@@ -1351,5 +1788,591 @@ mod tests {
         assert_eq!(doc.interaction.nodes.len(), 1);
         assert_eq!(doc.interaction.nodes[0].node_id, "btn-1");
         assert_eq!(doc.timing.loop_duration_secs, 10.0);
+        assert_eq!(
+            doc.compile_policy.display_aspect,
+            Some(AspectMode::FourByThree)
+        );
+    }
+
+    #[test]
+    fn legacy_authored_menu_document_deserialises() {
+        let json = r##"
+        {
+          "schemaVersion": 1,
+          "project": {
+            "id": "project-1",
+            "name": "Legacy Menu Project",
+            "createdAt": "2026-04-01T00:00:00Z",
+            "modifiedAt": "2026-04-01T00:00:00Z"
+          },
+          "disc": {
+            "family": "dvd-video",
+            "standard": "NTSC",
+            "capacityTarget": "DVD5",
+            "firstPlayAction": null,
+            "titlesets": [
+              {
+                "id": "titleset-1",
+                "name": "Titleset 1",
+                "titles": [],
+                "menus": [
+                  {
+                    "id": "menu-1",
+                    "name": "Main Menu",
+                    "backgroundAssetId": null,
+                    "buttons": [],
+                    "defaultButtonId": "btn-1",
+                    "highlightColours": {
+                      "selectColour": "#ffaa40",
+                      "selectOpacity": 0.6,
+                      "activateColour": "#ffffff",
+                      "activateOpacity": 0.8
+                    },
+                    "backgroundMode": "still",
+                    "motionDurationSecs": null,
+                    "motionAudioAssetId": null,
+                    "motionLoopCount": 0,
+                    "timeoutAction": null,
+                    "authoredDocument": {
+                      "id": "menu-1",
+                      "name": "Main Menu",
+                      "domain": "titleset",
+                      "scene": {
+                        "designSize": {
+                          "width": 720.0,
+                          "height": 480.0
+                        },
+                        "background": {
+                          "assetId": null,
+                          "colour": "#101014"
+                        },
+                        "nodes": [
+                          {
+                            "type": "button",
+                            "id": "btn-1",
+                            "label": "Play",
+                            "x": 100.0,
+                            "y": 200.0,
+                            "width": 240.0,
+                            "height": 48.0,
+                            "highlight_mode": "static",
+                            "highlight_keyframes": [],
+                            "video_asset_id": null
+                          }
+                        ],
+                        "guides": []
+                      },
+                      "interaction": {
+                        "defaultFocusId": "btn-1",
+                        "nodes": [
+                          {
+                            "nodeId": "btn-1",
+                            "navUp": null,
+                            "navDown": null,
+                            "navLeft": null,
+                            "navRight": null,
+                            "action": {
+                              "type": "return"
+                            }
+                          }
+                        ],
+                        "timeoutAction": null
+                      },
+                      "timing": {
+                        "introDurationSecs": 0.0,
+                        "loopDurationSecs": 0.0,
+                        "loopCount": 0
+                      },
+                      "highlightColours": {
+                        "selectColour": "#ffaa40",
+                        "selectOpacity": 0.6,
+                        "activateColour": "#ffffff",
+                        "activateOpacity": 0.8
+                      },
+                      "backgroundMode": "still",
+                      "themeRef": null,
+                      "generationMeta": null,
+                      "compilePolicy": {
+                        "safeAreaMode": "action-safe",
+                        "paletteStrategy": "auto"
+                      }
+                    }
+                  }
+                ]
+              }
+            ],
+            "globalMenus": []
+          },
+          "assets": [],
+          "buildSettings": {
+            "outputDirectory": null,
+            "generateIso": false,
+            "safetyMarginBytes": 50000000,
+            "allocationStrategy": "duration-weighted"
+          }
+        }
+        "##;
+
+        let parsed: SpindleProjectFile = serde_json::from_str(json).unwrap();
+        let doc = &parsed.disc.titlesets[0].menus[0]
+            .authored_document
+            .as_ref()
+            .expect("legacy authored document should load");
+
+        assert_eq!(doc.timing.intro_start_secs, 0.0);
+        assert_eq!(doc.timing.loop_start_secs, 0.0);
+        assert_eq!(doc.compile_policy.display_aspect, None);
+
+        match &doc.scene.nodes[0] {
+            SceneNode::Button {
+                highlight_mode,
+                highlight_keyframes,
+                video_asset_id,
+                ..
+            } => {
+                assert_eq!(*highlight_mode, HighlightMode::Static);
+                assert!(highlight_keyframes.is_empty());
+                assert!(video_asset_id.is_none());
+            }
+            other => panic!("expected button node, found {other:?}"),
+        }
+    }
+
+    #[test]
+    fn styled_scene_nodes_round_trip_through_json() {
+        let project = SpindleProjectFile {
+            disc: Disc {
+                titlesets: vec![Titleset {
+                    menus: vec![Menu {
+                        id: "menu-1".to_string(),
+                        name: "Styled Menu".to_string(),
+                        authored_document: Some(MenuDocument {
+                            id: "menu-1".to_string(),
+                            name: "Styled Menu".to_string(),
+                            domain: MenuDomain::Titleset,
+                            scene: MenuScene {
+                                design_size: MenuSize {
+                                    width: 720.0,
+                                    height: 480.0,
+                                    aspect: AspectMode::SixteenByNine,
+                                },
+                                background: SceneBackground {
+                                    asset_id: None,
+                                    colour: Some("#101014".to_string()),
+                                },
+                                nodes: vec![
+                                    SceneNode::Text {
+                                        id: "text-1".to_string(),
+                                        content: "Hello".to_string(),
+                                        x: 24.0,
+                                        y: 36.0,
+                                        width: 320.0,
+                                        height: 64.0,
+                                        font_size: Some(28.0),
+                                        font_family: Some("Aptos".to_string()),
+                                        font_weight: Some(FontWeight::Bold),
+                                        font_italic: Some(true),
+                                        text_decoration: Some(TextDecoration::Underline),
+                                        text_align: Some(TextAlign::Center),
+                                        colour: Some("#ffeeaa".to_string()),
+                                        line_height: Some(1.2),
+                                        letter_spacing: Some(0.5),
+                                    },
+                                    SceneNode::Button {
+                                        id: "button-1".to_string(),
+                                        label: "Play".to_string(),
+                                        x: 96.0,
+                                        y: 192.0,
+                                        width: 220.0,
+                                        height: 52.0,
+                                        highlight_mode: HighlightMode::Animated,
+                                        highlight_keyframes: vec![HighlightKeyframe {
+                                            timestamp_secs: 0.25,
+                                            select_colour: Some("#ffaa40".to_string()),
+                                            select_opacity: Some(0.8),
+                                            activate_colour: None,
+                                            activate_opacity: None,
+                                        }],
+                                        video_asset_id: Some("asset-1".to_string()),
+                                        button_style: Some(ButtonStyleMap::default()),
+                                        label_style: Some(TextStyle::default()),
+                                    },
+                                    SceneNode::Image {
+                                        id: "image-1".to_string(),
+                                        asset_id: "asset-image".to_string(),
+                                        x: 420.0,
+                                        y: 72.0,
+                                        width: 180.0,
+                                        height: 120.0,
+                                    },
+                                ],
+                                guides: vec![],
+                            },
+                            interaction: MenuInteractionGraph {
+                                default_focus_id: Some("button-1".to_string()),
+                                nodes: vec![],
+                                timeout_action: None,
+                            },
+                            timing: MenuTiming::default(),
+                            highlight_colours: MenuHighlightColours::default(),
+                            background_mode: BackgroundMode::Still,
+                            theme_ref: None,
+                            generation_meta: None,
+                            compile_policy: MenuCompilePolicy::default(),
+                        }),
+                        ..Menu::default()
+                    }],
+                    ..Titleset::default()
+                }],
+                ..Disc::default()
+            },
+            ..SpindleProjectFile::default()
+        };
+
+        let json = serde_json::to_string(&project).unwrap();
+        let parsed: SpindleProjectFile = serde_json::from_str(&json).unwrap();
+        let doc = parsed.disc.titlesets[0].menus[0]
+            .authored_document
+            .as_ref()
+            .expect("styled document should persist");
+
+        match &doc.scene.nodes[0] {
+            SceneNode::Text {
+                font_family,
+                font_weight,
+                font_italic,
+                text_decoration,
+                text_align,
+                line_height,
+                letter_spacing,
+                ..
+            } => {
+                assert_eq!(font_family.as_deref(), Some("Aptos"));
+                assert_eq!(*font_weight, Some(FontWeight::Bold));
+                assert_eq!(*font_italic, Some(true));
+                assert_eq!(*text_decoration, Some(TextDecoration::Underline));
+                assert_eq!(*text_align, Some(TextAlign::Center));
+                assert_eq!(*line_height, Some(1.2));
+                assert_eq!(*letter_spacing, Some(0.5));
+            }
+            other => panic!("expected text node, found {other:?}"),
+        }
+
+        match &doc.scene.nodes[1] {
+            SceneNode::Button {
+                button_style,
+                label_style,
+                highlight_mode,
+                video_asset_id,
+                ..
+            } => {
+                assert!(button_style.is_some());
+                assert!(label_style.is_some());
+                assert_eq!(*highlight_mode, HighlightMode::Animated);
+                assert_eq!(video_asset_id.as_deref(), Some("asset-1"));
+            }
+            other => panic!("expected button node, found {other:?}"),
+        }
+
+        match &doc.scene.nodes[2] {
+            SceneNode::Image { asset_id, .. } => {
+                assert_eq!(asset_id, "asset-image");
+            }
+            other => panic!("expected image node, found {other:?}"),
+        }
+    }
+
+    /// Confirm that SceneNode serialises with camelCase keys (not snake_case),
+    /// so that the TS frontend receives `fontFamily`, `fontSize`, etc.
+    #[test]
+    fn scene_node_text_serialises_camel_case_keys() {
+        let node = SceneNode::Text {
+            id: "t1".to_string(),
+            content: "Hello".to_string(),
+            x: 0.0,
+            y: 0.0,
+            width: 100.0,
+            height: 40.0,
+            font_size: Some(18.0),
+            font_family: Some("MathJax_Fraktur".to_string()),
+            font_weight: Some(FontWeight::Bold),
+            font_italic: Some(false),
+            text_decoration: None,
+            text_align: None,
+            colour: Some("#ffffff".to_string()),
+            line_height: None,
+            letter_spacing: None,
+        };
+
+        let json = serde_json::to_string(&node).unwrap();
+        assert!(
+            json.contains("\"fontFamily\""),
+            "expected camelCase fontFamily, got: {json}"
+        );
+        assert!(
+            json.contains("\"fontSize\""),
+            "expected camelCase fontSize, got: {json}"
+        );
+        assert!(
+            !json.contains("\"font_family\""),
+            "snake_case font_family must not appear: {json}"
+        );
+        assert!(
+            !json.contains("\"font_size\""),
+            "snake_case font_size must not appear: {json}"
+        );
+    }
+
+    #[test]
+    fn scene_image_nodes_accept_camel_case_asset_id() {
+        let mut project = SpindleProjectFile::default();
+        project.project.id = "project-1".to_string();
+        project.project.name = "Image Menu".to_string();
+        project.disc.global_menus.push(Menu {
+            id: "menu-1".to_string(),
+            name: "Main Menu".to_string(),
+            authored_document: Some(MenuDocument {
+                id: "menu-1".to_string(),
+                name: "Main Menu".to_string(),
+                domain: MenuDomain::Vmgm,
+                scene: MenuScene {
+                    design_size: MenuSize {
+                        width: 720.0,
+                        height: 480.0,
+                        aspect: AspectMode::SixteenByNine,
+                    },
+                    background: SceneBackground {
+                        asset_id: None,
+                        colour: Some("#101014".to_string()),
+                    },
+                    nodes: vec![],
+                    guides: vec![],
+                },
+                interaction: MenuInteractionGraph {
+                    default_focus_id: None,
+                    nodes: vec![],
+                    timeout_action: None,
+                },
+                timing: MenuTiming::default(),
+                highlight_colours: MenuHighlightColours::default(),
+                background_mode: BackgroundMode::Still,
+                theme_ref: None,
+                generation_meta: None,
+                compile_policy: MenuCompilePolicy::default(),
+            }),
+            ..Menu::default()
+        });
+
+        let mut value = serde_json::to_value(&project).unwrap();
+        value["disc"]["globalMenus"][0]["authoredDocument"]["scene"]["nodes"] = serde_json::json!([
+          {
+            "type": "image",
+            "id": "image-1",
+            "assetId": "asset-image",
+            "x": 96.0,
+            "y": 72.0,
+            "width": 180.0,
+            "height": 120.0
+          }
+        ]);
+
+        let parsed: SpindleProjectFile = serde_json::from_value(value).unwrap();
+
+        match &parsed.disc.global_menus[0]
+            .authored_document
+            .as_ref()
+            .expect("authored document should load")
+            .scene
+            .nodes[0]
+        {
+            SceneNode::Image { asset_id, .. } => assert_eq!(asset_id, "asset-image"),
+            other => panic!("expected image node, found {other:?}"),
+        }
+    }
+
+    #[test]
+    fn disc_family_ui_support_gating() {
+        assert!(DiscFamily::DvdVideo.is_ui_supported());
+        assert!(!DiscFamily::BluRay.is_ui_supported());
+        assert!(!DiscFamily::Svcd.is_ui_supported());
+        assert!(!DiscFamily::Vcd.is_ui_supported());
+    }
+
+    #[test]
+    fn render_target_dvd_ntsc_4by3() {
+        // 720×480 raster, 4:3 DAR → SAR = (4×480)/(3×720) = 1920/2160 = 8/9
+        let disc = Disc {
+            family: DiscFamily::DvdVideo,
+            standard: VideoStandard::Ntsc,
+            ..Disc::default()
+        };
+        let target = RenderTarget::from_disc(&disc, AspectMode::FourByThree);
+        assert_eq!(target.raster_width, 720);
+        assert_eq!(target.raster_height, 480);
+        assert_eq!((target.sar_num, target.sar_den), (8, 9));
+    }
+
+    #[test]
+    fn render_target_dvd_ntsc_16by9() {
+        // 720×480 raster, 16:9 DAR → SAR = (16×480)/(9×720) = 7680/6480 = 32/27
+        let disc = Disc {
+            family: DiscFamily::DvdVideo,
+            standard: VideoStandard::Ntsc,
+            ..Disc::default()
+        };
+        let target = RenderTarget::from_disc(&disc, AspectMode::SixteenByNine);
+        assert_eq!(target.raster_width, 720);
+        assert_eq!(target.raster_height, 480);
+        assert_eq!((target.sar_num, target.sar_den), (32, 27));
+    }
+
+    #[test]
+    fn render_target_dvd_pal_4by3() {
+        // 720×576 raster, 4:3 DAR → SAR = (4×576)/(3×720) = 2304/2160 = 16/15
+        let disc = Disc {
+            family: DiscFamily::DvdVideo,
+            standard: VideoStandard::Pal,
+            ..Disc::default()
+        };
+        let target = RenderTarget::from_disc(&disc, AspectMode::FourByThree);
+        assert_eq!(target.raster_width, 720);
+        assert_eq!(target.raster_height, 576);
+        assert_eq!((target.sar_num, target.sar_den), (16, 15));
+    }
+
+    #[test]
+    fn render_target_bluray_is_square_pixels() {
+        let disc = Disc {
+            family: DiscFamily::BluRay,
+            standard: VideoStandard::Ntsc,
+            ..Disc::default()
+        };
+        let target = RenderTarget::from_disc(&disc, AspectMode::SixteenByNine);
+        assert_eq!(target.raster_width, 1920);
+        assert_eq!(target.raster_height, 1080);
+        assert_eq!((target.sar_num, target.sar_den), (1, 1));
+        assert!(target.standard.is_none());
+    }
+
+    #[test]
+    fn menu_size_default_for_dvd_ntsc_4by3() {
+        let size = MenuSize::default_for(DiscFamily::DvdVideo, AspectMode::FourByThree);
+        assert_eq!(size.width, 1024.0);
+        assert_eq!(size.height, 768.0);
+        assert_eq!(size.aspect, AspectMode::FourByThree);
+    }
+
+    #[test]
+    fn menu_size_default_for_dvd_ntsc_16by9() {
+        let size = MenuSize::default_for(DiscFamily::DvdVideo, AspectMode::SixteenByNine);
+        assert_eq!(size.width, 1024.0);
+        assert_eq!(size.height, 576.0);
+    }
+
+    #[test]
+    fn menu_size_default_for_bluray() {
+        let size = MenuSize::default_for(DiscFamily::BluRay, AspectMode::SixteenByNine);
+        assert_eq!(size.width, 1920.0);
+        assert_eq!(size.height, 1080.0);
+    }
+
+    #[test]
+    fn design_to_raster_scale_dvd_ntsc_16by9() {
+        // MenuSize 1024×576 + DVD NTSC 16:9 → scale_x ≈ 0.703, scale_y ≈ 0.833
+        let disc = Disc {
+            family: DiscFamily::DvdVideo,
+            standard: VideoStandard::Ntsc,
+            ..Disc::default()
+        };
+        let target = RenderTarget::from_disc(&disc, AspectMode::SixteenByNine);
+        let scale_x = target.raster_width as f64 / 1024.0;
+        let scale_y = target.raster_height as f64 / 576.0;
+        assert!(
+            (scale_x - 720.0 / 1024.0).abs() < 1e-9,
+            "scale_x should be 720/1024, got {scale_x}"
+        );
+        assert!(
+            (scale_y - 480.0 / 576.0).abs() < 1e-9,
+            "scale_y should be 480/576, got {scale_y}"
+        );
+
+        // A shape at design (100, 100) should map to raster (70, 83)
+        let rx = (100.0 * scale_x).round() as i32;
+        let ry = (100.0 * scale_y).round() as i32;
+        assert_eq!(rx, 70);
+        assert_eq!(ry, 83);
+    }
+
+    #[test]
+    fn menu_size_aspect_defaults_to_sixteen_by_nine_on_deserialise() {
+        // Old project files have no "aspect" field in designSize — should default to SixteenByNine.
+        let json = r#"{"width": 720.0, "height": 480.0}"#;
+        let size: MenuSize = serde_json::from_str(json).unwrap();
+        assert_eq!(size.aspect, AspectMode::SixteenByNine);
+    }
+
+    #[test]
+    fn migrate_all_menus_backfills_display_aspect_on_legacy_authored_documents() {
+        let mut project = SpindleProjectFile::default();
+        project.disc.titlesets[0].titles.push(Title {
+            id: "title-1".to_string(),
+            name: "Feature".to_string(),
+            source_asset_id: None,
+            video_mapping: None,
+            video_output_profile: Some(VideoOutputProfile {
+                raster: VideoRaster::FullD1,
+                aspect: AspectMode::FourByThree,
+            }),
+            audio_mappings: vec![],
+            subtitle_mappings: vec![],
+            chapters: vec![],
+            end_action: None,
+            order_index: 0,
+        });
+        project.disc.titlesets[0].menus.push(Menu {
+            id: "menu-1".to_string(),
+            name: "Main Menu".to_string(),
+            authored_document: Some(MenuDocument {
+                id: "menu-1".to_string(),
+                name: "Main Menu".to_string(),
+                domain: MenuDomain::Titleset,
+                scene: MenuScene {
+                    design_size: MenuSize {
+                        width: 720.0,
+                        height: 480.0,
+                        aspect: AspectMode::SixteenByNine,
+                    },
+                    background: SceneBackground {
+                        asset_id: None,
+                        colour: Some("#101014".to_string()),
+                    },
+                    nodes: vec![],
+                    guides: vec![],
+                },
+                interaction: MenuInteractionGraph {
+                    default_focus_id: None,
+                    nodes: vec![],
+                    timeout_action: None,
+                },
+                timing: MenuTiming::default(),
+                highlight_colours: MenuHighlightColours::default(),
+                background_mode: BackgroundMode::Still,
+                theme_ref: None,
+                generation_meta: None,
+                compile_policy: MenuCompilePolicy::default(),
+            }),
+            ..Menu::default()
+        });
+
+        project.migrate_all_menus();
+
+        let doc = project.disc.titlesets[0].menus[0]
+            .authored_document
+            .as_ref()
+            .expect("menu should retain authored document");
+        assert_eq!(
+            doc.compile_policy.display_aspect,
+            Some(AspectMode::FourByThree)
+        );
     }
 }
