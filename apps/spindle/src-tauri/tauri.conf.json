@@ -24,11 +24,7 @@
 		"security": {
 			"csp": null,
 			"assetProtocol": {
-				"scope": [
-					"$APPCACHE/**",
-					"$APPDATA/**",
-					"$HOME/**"
-				]
+				"scope": ["$APPCACHE/**", "$APPDATA/**", "$HOME/**"]
 			}
 		}
 	},
@@ -37,14 +33,10 @@
 		"targets": "all",
 		"linux": {
 			"deb": {
-				"depends": [
-					"ffmpeg"
-				]
+				"depends": ["ffmpeg"]
 			},
 			"rpm": {
-				"recommends": [
-					"(ffmpeg or ffmpeg-free)"
-				]
+				"recommends": ["(ffmpeg or ffmpeg-free)"]
 			}
 		},
 		"category": "Video",
