@@ -4054,7 +4054,7 @@ dependencies = [
 
 [[package]]
 name = "spindle"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "log",
  "serde",
@@ -4544,7 +4544,7 @@ dependencies = [
 
 [[package]]
 name = "tauri-plugin-spindle-project"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "chrono",
  "image",
