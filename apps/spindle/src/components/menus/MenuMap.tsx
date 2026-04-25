@@ -91,7 +91,9 @@ function extractEdgesFromAction(
 			});
 			break;
 		case 'return':
-			// Return resumes playback — no fixed target, so mark the source node
+		case 'playNextInTitleset':
+		case 'playAllInTitleset':
+			// No fixed target — resolved at runtime; mark the source node
 			returnIds.add(fromId);
 			break;
 		case 'sequence':

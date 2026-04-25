@@ -425,9 +425,14 @@ pub fn generate_build_plan_with_options(
             .collect();
         let mut scene_assets_map: HashMap<String, String> = HashMap::new();
         for asset_id in &scene_image_asset_ids {
-            if let Some(asset) = assets.get(asset_id.as_str()) {
-                scene_assets_map.insert(asset_id.clone(), asset.source_path.clone());
-            }
+            let asset = assets.get(asset_id.as_str()).ok_or_else(|| {
+                crate::Error::Build(format!(
+                    "Menu \"{}\" references image asset \"{asset_id}\" which no longer exists. \
+                     Remove or replace the image node before building.",
+                    menu_ref.name()
+                ))
+            })?;
+            scene_assets_map.insert(asset_id.clone(), asset.source_path.clone());
         }
         let scene_assets_json = serde_json::to_string(&scene_assets_map).unwrap_or_default();
 
