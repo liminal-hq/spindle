@@ -1,13 +1,13 @@
 // Tauri plugin exposing display geometry for responsive, density-aware UIs.
 //
-// The primary signal is *logical* geometry (physical pixels ÷ scale factor),
+// (c) Copyright 2026 Liminal HQ, Scott Morris
+// SPDX-License-Identifier: MIT
+
+// The primary signal is logical geometry (physical pixels / scale factor),
 // because the OS scale factor already encodes the user's chosen UI density.
 // Physical millimetre size is reported best-effort (it is unavailable on some
 // Wayland sessions, VMs, and panels with no EDID) and must be treated as
 // optional by consumers — never as a basis for overriding the OS scale.
-//
-// (c) Copyright 2026 Liminal HQ, Scott Morris
-// SPDX-License-Identifier: MIT
 
 use serde::Serialize;
 use tauri::{

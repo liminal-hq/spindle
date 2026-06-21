@@ -1,20 +1,20 @@
 // Density- and size-aware layout signal for responsive UIs.
 //
+// (c) Copyright 2026 Liminal HQ, Scott Morris
+// SPDX-License-Identifier: MIT
+
 // The breakpoint we care about is *effective logical width* — how many CSS
 // pixels the window actually has to lay out in — because that is what decides
 // whether multi-column layouts fit. At high DPI the logical viewport is much
-// smaller than the physical resolution (e.g. a 5120x2880 panel at 2x scale only
-// offers ~2560 logical px, and a non-maximised window far less), so keying off
-// physical resolution would be wrong.
+// smaller than the physical resolution (e.g. a 5120x2880 panel at 2x scale
+// only offers ~2560 logical px, and a non-maximised window far less), so
+// keying off physical resolution would be wrong.
 //
-// Primary source is the window's own viewport (`innerWidth`/`innerHeight`,
-// already in logical px). The display-awareness plugin augments this with the
-// active monitor's scale and best-effort physical size, surfaced for callers
-// that want them, and drives re-evaluation when the window moves between
-// monitors with different scale factors.
-//
-// (c) Copyright 2026 Liminal HQ, Scott Morris
-// SPDX-License-Identifier: MIT
+// Primary source is the window's own viewport (innerWidth/innerHeight,
+// already in logical px). The display-awareness plugin augments this with
+// the active monitor's scale and best-effort physical size, surfaced for
+// callers that want them, and drives re-evaluation when the window moves
+// between monitors with different scale factors.
 
 import { useEffect, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
