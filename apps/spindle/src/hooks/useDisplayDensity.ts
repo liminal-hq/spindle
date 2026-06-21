@@ -7,10 +7,19 @@
 // being laid out*, not the whole window — the window also contains the app's
 // own persistent sidebar and padding, so window.innerWidth overstates how
 // much room a given workspace actually has (e.g. the default 1280px window
-// leaves a menu workspace under 1100px after the sidebar). Callers pass a
-// ref to the element whose width should drive the breakpoint; it is measured
-// with a ResizeObserver, falling back to window.innerWidth only until the
-// element is mounted or when no ref is supplied at all.
+// leaves a menu workspace under 1100px after the sidebar). Callers attach
+// the returned `containerRef` callback to the element whose width should
+// drive the breakpoint; it is measured with a ResizeObserver, falling back
+// to window.innerWidth until the element is mounted or when the callback
+// isn't attached to anything.
+//
+// `containerRef` is a *callback* ref rather than a plain `useRef` object on
+// purpose: a plain ref's `.current` only updates when React commits, with no
+// signal that tells an effect to re-run, so an effect that captured the ref
+// object early (e.g. before the element exists, such as while a parent
+// component is still showing a loading/empty state) never re-measures once
+// the element actually mounts later. A callback ref doesn't have that gap —
+// React calls it directly with the node every time it attaches or detaches.
 //
 // At high DPI the logical viewport is also much smaller than the physical
 // resolution (e.g. a 5120x2880 panel at 2x scale only offers ~2560 logical
@@ -22,7 +31,7 @@
 // want them, and drives re-evaluation when the window moves between monitors
 // with different scale factors.
 
-import { useEffect, useState, type RefObject } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
 	getActiveDisplay,
 	onDisplayChanged,
@@ -41,7 +50,7 @@ export type { DisplayGeometry };
 export type LayoutBreakpoint = 'compact' | 'medium' | 'wide';
 
 export interface DisplayDensity {
-	/** Measured workspace (or window, if no container ref given) width in logical px. */
+	/** Measured workspace (or window, if containerRef isn't attached) width in logical px. */
 	viewportWidth: number;
 	/** Measured workspace (or window) height in logical px. */
 	viewportHeight: number;
@@ -53,6 +62,8 @@ export interface DisplayDensity {
 	isCompact: boolean;
 	isMedium: boolean;
 	isWide: boolean;
+	/** Attach to the element whose width should drive the breakpoint. */
+	containerRef: (node: HTMLElement | null) => void;
 }
 
 const MEDIUM_MIN = 900;
@@ -73,24 +84,33 @@ function readWindowSize(): { width: number; height: number } {
 }
 
 /**
- * Reactive display-density signal. Recomputes on resize of the given
- * container (or the window, if no container ref is supplied) and when the
- * active monitor changes (via the display-awareness plugin's change event).
+ * Reactive display-density signal. Recomputes on resize of the element
+ * attached via the returned `containerRef` (or the window, while nothing is
+ * attached) and when the active monitor changes (via the display-awareness
+ * plugin's change event).
  */
-export function useDisplayDensity(containerRef?: RefObject<HTMLElement | null>): DisplayDensity {
+export function useDisplayDensity(): DisplayDensity {
 	const [size, setSize] = useState(readWindowSize);
 	const [scale, setScale] = useState(() =>
 		typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1,
 	);
 	const [activeDisplay, setActiveDisplay] = useState<DisplayGeometry | null>(null);
+	const [containerNode, setContainerNode] = useState<HTMLElement | null>(null);
 
-	// Measure the container (preferred) or fall back to the window.
+	// A callback ref re-fires whenever the node actually attaches/detaches —
+	// unlike a plain useRef object, which doesn't notify anything when its
+	// .current changes, so an effect that captured it before the node existed
+	// would never know to re-measure once it mounted.
+	const containerRef = useCallback((node: HTMLElement | null) => {
+		setContainerNode(node);
+	}, []);
+
+	// Measure the attached container (preferred) or fall back to the window.
 	useEffect(() => {
-		const element = containerRef?.current;
-
-		if (!element) {
+		if (!containerNode) {
 			const onResize = () => setSize(readWindowSize());
 			window.addEventListener('resize', onResize);
+			setSize(readWindowSize());
 			return () => window.removeEventListener('resize', onResize);
 		}
 
@@ -100,9 +120,9 @@ export function useDisplayDensity(containerRef?: RefObject<HTMLElement | null>):
 			const { width, height } = entry.contentRect;
 			setSize({ width, height });
 		});
-		observer.observe(element);
+		observer.observe(containerNode);
 		return () => observer.disconnect();
-	}, [containerRef]);
+	}, [containerNode]);
 
 	// Pull the active monitor's geometry from the plugin, and refresh it whenever
 	// the window crosses to a monitor with a different scale factor.
@@ -144,5 +164,6 @@ export function useDisplayDensity(containerRef?: RefObject<HTMLElement | null>):
 		isCompact: breakpoint === 'compact',
 		isMedium: breakpoint === 'medium',
 		isWide: breakpoint === 'wide',
+		containerRef,
 	};
 }

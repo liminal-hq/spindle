@@ -3,7 +3,7 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: MIT
 
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import type { CSSProperties } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { save } from '@tauri-apps/plugin-dialog';
@@ -98,11 +98,13 @@ export function MenusPage() {
 	const menuEditorMode = useProjectStore((s) => s.menuEditorMode);
 	const setMenuEditorMode = useProjectStore((s) => s.setMenuEditorMode);
 	const { consumePendingEntityId } = useNavigation();
-	const menusContainerRef = useRef<HTMLDivElement>(null);
 	// Measured against the workspace container, not the window — the window
 	// also contains the app's own sidebar and padding, so window width
-	// overstates how much room the workspace actually has.
-	const density = useDisplayDensity(menusContainerRef);
+	// overstates how much room the workspace actually has. `containerRef` is
+	// a callback ref attached to the `.menus` div below, which re-measures
+	// correctly even though that div doesn't exist yet on the render where
+	// `project` is still null (see the early return a few lines down).
+	const { containerRef: menusContainerRef, ...density } = useDisplayDensity();
 	// Below 'wide' the rail becomes an overlay, but starts open — picking a
 	// menu to work on is the first thing an author does, so it should not be
 	// hidden by default the way the inspector (a detail panel) is.
@@ -754,7 +756,7 @@ function MenuEditor({
 	onUpdate: (updater: (m: Menu) => Menu) => void;
 	onRemove: () => void;
 	onAutoNav: () => void;
-	density: DisplayDensity;
+	density: Omit<DisplayDensity, 'containerRef'>;
 	railIsOverlay: boolean;
 	railVisible: boolean;
 	onOpenRail: () => void;

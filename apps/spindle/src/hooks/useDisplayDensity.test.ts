@@ -4,8 +4,28 @@
 // SPDX-License-Identifier: MIT
 
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { classify, useDisplayDensity, type DisplayGeometry } from './useDisplayDensity';
+
+class MockResizeObserver {
+	static instances: MockResizeObserver[] = [];
+	observedElements: Element[] = [];
+	disconnected = false;
+
+	constructor(public callback: ResizeObserverCallback) {
+		MockResizeObserver.instances.push(this);
+	}
+
+	observe(element: Element) {
+		this.observedElements.push(element);
+	}
+
+	unobserve() {}
+
+	disconnect() {
+		this.disconnected = true;
+	}
+}
 
 const { getActiveDisplay, onDisplayChanged } = vi.hoisted(() => ({
 	getActiveDisplay: vi.fn(),
@@ -66,6 +86,8 @@ describe('useDisplayDensity', () => {
 		onDisplayChanged.mockReset();
 		onDisplayChanged.mockReturnValue(Promise.resolve(() => {}));
 		setWindowInnerSize(1280, 800);
+		MockResizeObserver.instances = [];
+		vi.stubGlobal('ResizeObserver', MockResizeObserver);
 	});
 
 	it('falls back to window size and classifies the breakpoint when no container ref is given', () => {
@@ -103,6 +125,39 @@ describe('useDisplayDensity', () => {
 		await waitFor(() => expect(getActiveDisplay).toHaveBeenCalled());
 		expect(result.current.activeDisplay).toBeNull();
 		expect(result.current.breakpoint).toBe('wide');
+	});
+
+	it('switches from the window fallback to observing the container once it attaches', () => {
+		// Regression test: the hook used to accept a plain useRef object, whose
+		// .current only updates on commit with no signal an effect can depend
+		// on — so a node that mounts on a *later* render than the one where
+		// the hook first ran (e.g. a parent that renders null until some data
+		// loads) was never observed; the breakpoint silently kept measuring
+		// the window forever. A callback ref fixes this by re-firing exactly
+		// when the node attaches, regardless of which render that happens on.
+		getActiveDisplay.mockResolvedValue(null);
+		const { result } = renderHook(() => useDisplayDensity());
+
+		// Nothing attached yet — falls back to the window-resize listener,
+		// not a ResizeObserver.
+		expect(MockResizeObserver.instances).toHaveLength(0);
+
+		const node = document.createElement('div');
+		act(() => {
+			result.current.containerRef(node);
+		});
+
+		// Attaching the node (simulating React committing the ref on a later
+		// render) must start observing it.
+		expect(MockResizeObserver.instances).toHaveLength(1);
+		expect(MockResizeObserver.instances[0]?.observedElements).toContain(node);
+
+		act(() => {
+			result.current.containerRef(null);
+		});
+
+		// Detaching tears down the observer and falls back to the window again.
+		expect(MockResizeObserver.instances[0]?.disconnected).toBe(true);
 	});
 
 	it('subscribes to and unsubscribes from display-change notifications', () => {
