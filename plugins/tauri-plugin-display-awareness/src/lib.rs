@@ -25,7 +25,7 @@ pub const DISPLAY_CHANGED_EVENT: &str = "display://changed";
 /// `logical_*` fields are the OS-scale-corrected values a responsive layout
 /// should key its breakpoints off. `physical_*` are raw pixels; `*_mm` are
 /// best-effort physical dimensions (`None` when the OS could not report them).
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DisplayGeometry {
     pub name: String,
@@ -85,22 +85,11 @@ fn get_displays() -> Vec<DisplayGeometry> {
         .collect()
 }
 
-/// Return the display the given window currently resides on, falling back to the
-/// primary display. The reported `scale` prefers the window's live scale factor.
-#[tauri::command]
-fn get_active_display<R: Runtime>(window: Window<R>) -> Option<DisplayGeometry> {
-    let displays = get_displays();
-    if displays.is_empty() {
-        return None;
-    }
-
-    // Match by the window's outer position against each display's bounds.
-    let window_pos = window
-        .outer_position()
-        .ok()
-        .map(|p| (p.x, p.y))
-        .unwrap_or((0, 0));
-
+/// Pick the display a window at `window_pos` resides on: the display whose
+/// bounds contain that point, falling back to the primary display, then to
+/// the first enumerated display, in that order. Pure and runtime-independent
+/// so it can be unit tested without a live `Window`.
+fn choose_display(displays: &[DisplayGeometry], window_pos: (i32, i32)) -> Option<DisplayGeometry> {
     let matched = displays.iter().find(|d| {
         let within_x =
             window_pos.0 >= d.position_x && window_pos.0 < d.position_x + d.physical_width as i32;
@@ -109,10 +98,25 @@ fn get_active_display<R: Runtime>(window: Window<R>) -> Option<DisplayGeometry> 
         within_x && within_y
     });
 
-    let mut chosen = matched
+    matched
         .or_else(|| displays.iter().find(|d| d.is_primary))
         .or_else(|| displays.first())
-        .cloned()?;
+        .cloned()
+}
+
+/// Return the display the given window currently resides on, falling back to the
+/// primary display. The reported `scale` prefers the window's live scale factor.
+#[tauri::command]
+fn get_active_display<R: Runtime>(window: Window<R>) -> Option<DisplayGeometry> {
+    let displays = get_displays();
+
+    let window_pos = window
+        .outer_position()
+        .ok()
+        .map(|p| (p.x, p.y))
+        .unwrap_or((0, 0));
+
+    let mut chosen = choose_display(&displays, window_pos)?;
 
     // Prefer the window's live scale factor — it is authoritative for layout and
     // can differ from the enumerated value mid-transition between monitors.
@@ -139,4 +143,101 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             });
         })
         .build()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn display(name: &str, is_primary: bool, x: i32, y: i32, w: u32, h: u32) -> DisplayGeometry {
+        DisplayGeometry {
+            name: name.to_string(),
+            is_primary,
+            scale: 1.0,
+            physical_width: w,
+            physical_height: h,
+            logical_width: w,
+            logical_height: h,
+            position_x: x,
+            position_y: y,
+            width_mm: None,
+            height_mm: None,
+        }
+    }
+
+    #[test]
+    fn round_div_divides_and_rounds() {
+        assert_eq!(round_div(1920, 2.0), 960);
+        // 1000 / 3 = 333.33... rounds to 333.
+        assert_eq!(round_div(1000, 3.0), 333);
+        // 1000 / 1.5 = 666.67 rounds up to 667.
+        assert_eq!(round_div(1000, 1.5), 667);
+    }
+
+    #[test]
+    fn round_div_returns_value_unchanged_for_non_positive_scale() {
+        assert_eq!(round_div(1920, 0.0), 1920);
+        assert_eq!(round_div(1920, -1.0), 1920);
+    }
+
+    #[test]
+    fn normalise_mm_treats_positive_values_as_present() {
+        assert_eq!(normalise_mm(620), Some(620));
+        assert_eq!(normalise_mm(1), Some(1));
+    }
+
+    #[test]
+    fn normalise_mm_treats_zero_and_negative_as_absent() {
+        // display-info reports 0 when EDID doesn't supply a physical size.
+        assert_eq!(normalise_mm(0), None);
+        assert_eq!(normalise_mm(-1), None);
+    }
+
+    #[test]
+    fn choose_display_returns_none_for_empty_list() {
+        assert_eq!(choose_display(&[], (0, 0)), None);
+    }
+
+    #[test]
+    fn choose_display_matches_the_display_containing_the_window() {
+        let primary = display("primary", true, 0, 0, 1920, 1080);
+        let secondary = display("secondary", false, 1920, 0, 1280, 720);
+        let displays = [primary.clone(), secondary.clone()];
+
+        // A point inside the second display's bounds should match it, even
+        // though the primary display is listed first.
+        assert_eq!(choose_display(&displays, (2000, 100)), Some(secondary));
+        assert_eq!(choose_display(&displays, (100, 100)), Some(primary));
+    }
+
+    #[test]
+    fn choose_display_falls_back_to_primary_when_window_position_matches_none() {
+        let primary = display("primary", true, 0, 0, 1920, 1080);
+        let secondary = display("secondary", false, 1920, 0, 1280, 720);
+        let displays = [secondary, primary.clone()];
+
+        // (5000, 5000) is outside both displays' bounds.
+        assert_eq!(choose_display(&displays, (5000, 5000)), Some(primary));
+    }
+
+    #[test]
+    fn choose_display_falls_back_to_first_display_when_none_is_primary() {
+        let first = display("first", false, 0, 0, 1920, 1080);
+        let second = display("second", false, 1920, 0, 1280, 720);
+        let displays = [first.clone(), second];
+
+        assert_eq!(choose_display(&displays, (5000, 5000)), Some(first));
+    }
+
+    #[test]
+    fn choose_display_bounds_are_exclusive_on_the_far_edge() {
+        let only = display("only", true, 0, 0, 1920, 1080);
+        let displays = [only.clone()];
+
+        // The bottom-right corner (1920, 1080) is one pixel past the display's
+        // bounds on both axes and should not match directly, but still falls
+        // back to the (sole) primary display.
+        assert_eq!(choose_display(&displays, (1919, 1079)), Some(only.clone()));
+        assert_eq!(choose_display(&displays, (1920, 1080)), Some(only));
+    }
 }

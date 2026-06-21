@@ -58,7 +58,8 @@ export interface DisplayDensity {
 const MEDIUM_MIN = 900;
 const WIDE_MIN = 1280;
 
-function classify(width: number): LayoutBreakpoint {
+/** Exported for direct unit testing of the breakpoint boundaries. */
+export function classify(width: number): LayoutBreakpoint {
 	if (width >= WIDE_MIN) return 'wide';
 	if (width >= MEDIUM_MIN) return 'medium';
 	return 'compact';
