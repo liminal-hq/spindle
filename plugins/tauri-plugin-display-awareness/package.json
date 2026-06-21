@@ -4,12 +4,11 @@
 	"author": "Liminal HQ, Scott Morris",
 	"description": "JS bindings for the display-awareness Tauri plugin.",
 	"type": "module",
-	"types": "./guest-js/index.ts",
+	"types": "./dist-js/index.d.ts",
 	"main": "./dist-js/index.cjs",
 	"module": "./dist-js/index.js",
 	"exports": {
-		"types": "./guest-js/index.ts",
-		"source": "./guest-js/index.ts",
+		"types": "./dist-js/index.d.ts",
 		"import": "./dist-js/index.js",
 		"require": "./dist-js/index.cjs",
 		"default": "./dist-js/index.js"

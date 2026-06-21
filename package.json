@@ -8,17 +8,16 @@
 		"pnpm": "10.32.1"
 	},
 	"scripts": {
-		"build": "pnpm build:plugins && pnpm --filter @liminal-hq/spindle build",
-		"build:plugins": "pnpm --filter tauri-plugin-display-awareness-api build",
+		"build": "pnpm --filter @liminal-hq/spindle build",
 		"ci:all": "pnpm validate",
-		"dev": "pnpm build:plugins && pnpm --filter @liminal-hq/spindle dev",
+		"dev": "pnpm --filter @liminal-hq/spindle dev",
 		"format": "prettier --write .",
 		"format:check": "prettier --check .",
 		"release:version:check": "./scripts/check-release-versions.sh",
 		"release:version:prepare": "./scripts/prepare-release-version.sh",
 		"tauri": "pnpm --filter @liminal-hq/spindle tauri",
-		"test:js": "pnpm build:plugins && pnpm --filter @liminal-hq/spindle test",
-		"test:js:ci": "pnpm build:plugins && pnpm --filter @liminal-hq/spindle test:ci",
+		"test:js": "pnpm --filter @liminal-hq/spindle test",
+		"test:js:ci": "pnpm --filter @liminal-hq/spindle test:ci",
 		"test:rust": "cargo nextest run --workspace --locked",
 		"test:rust:ci": "mkdir -p test-results/rust && cargo nextest run --workspace --locked --config-file nextest.toml --profile ci",
 		"validate": "pnpm format:check && pnpm test:js:ci && pnpm build && cargo fmt --all -- --check && cargo clippy --workspace --all-targets --locked -- -D warnings && pnpm test:rust:ci"

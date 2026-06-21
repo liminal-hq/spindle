@@ -4,11 +4,15 @@
 	"version": "0.3.0",
 	"type": "module",
 	"scripts": {
+		"predev": "pnpm --filter tauri-plugin-display-awareness-api build",
 		"dev": "vite",
+		"prebuild": "pnpm --filter tauri-plugin-display-awareness-api build",
 		"build": "tsc && vite build",
 		"preview": "vite preview",
 		"tauri": "tauri",
+		"pretest": "pnpm --filter tauri-plugin-display-awareness-api build",
 		"test": "vitest run",
+		"pretest:ci": "pnpm --filter tauri-plugin-display-awareness-api build",
 		"test:ci": "mkdir -p ../../test-results/spindle && vitest run --reporter=default --reporter=junit --outputFile.junit=../../test-results/spindle/junit.xml",
 		"test:watch": "vitest"
 	},
