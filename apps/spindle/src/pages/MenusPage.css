@@ -8,6 +8,7 @@
 /* ── Layout ───────────────────────────────────────────────── */
 
 .menus-content {
+	position: relative;
 	display: grid;
 	grid-template-columns: 260px 1fr;
 	height: 100%;
@@ -106,10 +107,16 @@
 .menu-nav__lower-stack {
 	display: flex;
 	flex-direction: column;
+	flex-shrink: 0;
 	gap: var(--space-3);
 	padding: 0 0 var(--space-3);
 	border-top: 1px solid var(--border-subtle);
 	background: linear-gradient(180deg, rgba(10, 10, 16, 0), rgba(10, 10, 16, 0.65));
+	/* Never let the nav map + collapsible panels squeeze the menu list above
+	   them down to nothing — cap at roughly half the rail body and scroll
+	   internally past that, regardless of how many panels are expanded. */
+	max-height: 50%;
+	overflow-y: auto;
 }
 
 .menu-nav__panel {
@@ -542,6 +549,13 @@
 	color: var(--brand-pink);
 }
 
+/* Pinned to the far right of the toolbar, beside where the inspector overlay
+   actually opens, so the trigger sits next to the thing it controls rather
+   than wherever it happens to land in the wrapping toggle group. */
+.editor-toolbar__toggle--inspector {
+	margin-left: auto;
+}
+
 .editor-toolbar__toggle-dot {
 	width: 6px;
 	height: 6px;
@@ -607,6 +621,7 @@
 /* ── Workspace split ──────────────────────────────────────── */
 
 .editor-body {
+	position: relative;
 	display: grid;
 	grid-template-columns: minmax(0, 1fr) 356px;
 	flex: 1;
@@ -627,6 +642,12 @@
 	grid-template-columns: 1fr;
 }
 
+/* When the inspector is closed below 'wide', the canvas claims the full
+   width — there is no second column to reserve space for until it opens. */
+.editor-body--inspector-closed {
+	grid-template-columns: 1fr;
+}
+
 .menus__canvas-zone {
 	position: relative;
 	display: flex;
@@ -638,7 +659,11 @@
 		rgba(255, 170, 64, 0.012) 0%,
 		transparent 55%
 	);
-	overflow: hidden;
+	/* .menus__canvas-scroll owns the real scroll/clip boundary one level in;
+	   clipping here too left no room between the two, so the inner element's
+	   own scrollbar (drawn at its edge) was being clipped out of existence by
+	   this parent before it could ever render. */
+	overflow: visible;
 	min-width: 0;
 	min-height: 0;
 }
@@ -698,7 +723,12 @@
 	width: 100%;
 	height: 100%;
 	display: grid;
-	place-items: center;
+	/* `center` only centers when content fits; once the 720x{canvasHeight}
+	   viewport overflows this container (the common case below 'wide'),
+	   center-alignment clips the start edge with no way to scroll back to it.
+	   `safe center` falls back to start-alignment instead of clipping when the
+	   content doesn't fit, keeping the whole canvas reachable by scrolling. */
+	place-items: safe center;
 	overflow: auto;
 	padding: clamp(12px, 2vw, 22px);
 }
@@ -1460,4 +1490,86 @@
 	border-radius: var(--radius-sm);
 	font-style: italic;
 	color: var(--text-muted);
+}
+
+/* ── Responsive: rail becomes an overlay, inspector narrows in-place ──
+   Breakpoints are driven by useDisplayDensity (effective logical width),
+   set as data-breakpoint on .menus. Below 'wide' there is not enough room
+   for the menu rail alongside a useable canvas, so the rail becomes a
+   dismissable overlay the author opens deliberately. The inspector instead
+   shrinks/grows the canvas's grid column in place when toggled — it must
+   never float over canvas content the author may be looking at while it is
+   open, so it is not an overlay.
+
+   This block is intentionally placed at the end of the file: --hidden must
+   win over the base .menu-nav display rule, and with equal specificity that
+   requires later source order rather than relying on selector weight. */
+
+.menus__editor-column {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+	min-height: 0;
+	height: 100%;
+	overflow: hidden;
+}
+
+.menus__editor-column > .editor-area {
+	flex: 1;
+	min-height: 0;
+}
+
+.menus[data-breakpoint='medium'] .menus-content,
+.menus[data-breakpoint='compact'] .menus-content {
+	grid-template-columns: 1fr;
+}
+
+.menus[data-breakpoint='medium'] .editor-body:not(.editor-body--inspector-closed) {
+	grid-template-columns: minmax(0, 1fr) 300px;
+}
+
+.menus[data-breakpoint='compact'] .editor-body:not(.editor-body--inspector-closed) {
+	grid-template-columns: minmax(0, 1fr) 280px;
+}
+
+/* Rail overlay */
+
+.menu-nav-scrim {
+	position: absolute;
+	inset: 0;
+	z-index: 20;
+	border: none;
+	background: rgba(0, 0, 0, 0.5);
+	cursor: pointer;
+}
+
+.menu-nav--overlay {
+	position: absolute;
+	inset: 0 auto 0 0;
+	z-index: 21;
+	width: min(300px, 85vw);
+	box-shadow: 8px 0 24px rgba(0, 0, 0, 0.4);
+}
+
+.menu-nav__rail-toggle {
+	border: none;
+	background: transparent;
+	color: var(--text-muted);
+	font-size: var(--text-sm);
+	cursor: pointer;
+	padding: 2px 6px;
+	border-radius: var(--radius-sm);
+}
+
+.menu-nav__rail-toggle:hover {
+	color: var(--text-primary);
+	background: rgba(255, 255, 255, 0.06);
+}
+
+/* Must come last: equal-specificity --hidden vs. the base .menu-nav display
+   rule is resolved by source order. */
+
+.menu-nav--hidden {
+	display: none;
 }
