@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "apps/spindle/src-tauri",
+    "plugins/tauri-plugin-display-awareness",
     "plugins/tauri-plugin-spindle-project",
     "tools/menu-debug",
 ]

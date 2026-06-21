@@ -1,0 +1,19 @@
+[package]
+name = "tauri-plugin-display-awareness"
+version = "0.1.0"
+authors = ["Liminal HQ, Scott Morris"]
+description = "Tauri plugin exposing logical display geometry, scale factor, and best-effort physical size, with change events for responsive UIs"
+edition = "2021"
+rust-version = "1.77.2"
+exclude = ["/examples", "/dist-js", "/guest-js", "/node_modules"]
+links = "tauri-plugin-display-awareness"
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+# Best-effort physical dimensions (mm). Cross-platform (Linux xcb/xrandr, Windows, macOS).
+# Values may be 0/absent when EDID is unavailable; treated as optional by consumers.
+display-info = "0.5"
+
+[build-dependencies]
+tauri-plugin = { version = "2", features = ["build"] }

@@ -38,4 +38,5 @@ log = "0.4"
 tauri-plugin-mcp-bridge = "0.11"
 
 # Spindle plugins (workspace)
+tauri-plugin-display-awareness = { path = "../../../plugins/tauri-plugin-display-awareness" }
 tauri-plugin-spindle-project = { path = "../../../plugins/tauri-plugin-spindle-project" }

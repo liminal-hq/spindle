@@ -114,6 +114,7 @@ pub fn run() {
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_log::Builder::new().build())
         // Spindle plugins
+        .plugin(tauri_plugin_display_awareness::init())
         .plugin(tauri_plugin_spindle_project::init());
 
     #[cfg(debug_assertions)]
