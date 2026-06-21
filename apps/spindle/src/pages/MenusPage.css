@@ -90,7 +90,12 @@
 }
 
 .menu-nav__list {
-	flex: 1;
+	/* Size to actual content (one menu card is far shorter than half the rail)
+	   instead of claiming an even split with the lower stack regardless of how
+	   much content either side has; scrolls on its own once it's the side with
+	   too much to fit. */
+	flex: 0 1 auto;
+	max-height: 50%;
 	min-height: 0;
 	overflow-y: auto;
 	padding: var(--space-3) var(--space-2);
@@ -107,15 +112,15 @@
 .menu-nav__lower-stack {
 	display: flex;
 	flex-direction: column;
-	flex-shrink: 0;
+	/* Take whatever the (content-sized) menu list above doesn't need, instead
+	   of a fixed 50/50 split that wastes space when the list is short and
+	   starves the nav map + panels when it's long. */
+	flex: 1;
 	gap: var(--space-3);
 	padding: 0 0 var(--space-3);
 	border-top: 1px solid var(--border-subtle);
 	background: linear-gradient(180deg, rgba(10, 10, 16, 0), rgba(10, 10, 16, 0.65));
-	/* Never let the nav map + collapsible panels squeeze the menu list above
-	   them down to nothing — cap at roughly half the rail body and scroll
-	   internally past that, regardless of how many panels are expanded. */
-	max-height: 50%;
+	min-height: 0;
 	overflow-y: auto;
 }
 
@@ -125,6 +130,11 @@
 	border-radius: var(--radius-md);
 	background: rgba(8, 8, 12, 0.72);
 	overflow: hidden;
+	/* As a flex child of .menu-nav__lower-stack, an overflow:hidden element's
+	   flex-basis defaults to min-height:0, so flexbox was free to squeeze this
+	   down to header-only height and silently clip the expanded panel body
+	   underneath. flex-shrink:0 keeps it at its natural content height. */
+	flex-shrink: 0;
 }
 
 .menu-nav__panel-header {
