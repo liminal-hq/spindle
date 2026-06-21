@@ -1439,18 +1439,18 @@ function MenuEditor({
 								title="Toggle inspector panel"
 							>
 								Inspector
-							<svg
-								width="14"
-								height="14"
-								viewBox="0 0 16 16"
-								fill="none"
-								stroke="currentColor"
-								strokeWidth="1.5"
-								aria-hidden="true"
-							>
-								<rect x="1.5" y="2.5" width="13" height="11" rx="1.5" />
-								<line x1="10" y1="2.5" x2="10" y2="13.5" />
-							</svg>
+								<svg
+									width="14"
+									height="14"
+									viewBox="0 0 16 16"
+									fill="none"
+									stroke="currentColor"
+									strokeWidth="1.5"
+									aria-hidden="true"
+								>
+									<rect x="1.5" y="2.5" width="13" height="11" rx="1.5" />
+									<line x1="10" y1="2.5" x2="10" y2="13.5" />
+								</svg>
 							</button>
 						)}
 					</>
@@ -1583,42 +1583,44 @@ function MenuEditor({
 					{(!inspectorIsOverlay || inspectorVisible) && (
 						<div className="menus__side-panel">
 							<InspectorPanel
-							selectedNode={selectedNode}
-							selectedButton={selectedButton}
-							highlightColours={highlightColours}
-							allTitles={allTitles}
-							allMenus={allMenus}
-							currentMenuId={menu.id}
-							onUpdateButton={handleUpdateButton}
-							onUpdateHighlightColours={handleUpdateHighlightColours}
-							onRemoveButton={handleRemoveButton}
-							onUpdateSceneNode={handleUpdateSceneNode}
-							onRemoveNode={handleRemoveNode}
-							assets={project.assets}
-							buttons={currentButtons}
-							interactionNodes={menu.authoredDocument?.interaction.nodes ?? []}
-							defaultFocusId={defaultFocusId}
-							document={menu.authoredDocument ?? null}
-							canvasHeight={canvasHeight}
-							onSetDefaultFocus={handleSetDefaultFocus}
-							sceneNodes={sceneNodes}
-							selectedNodeId={selectedNodeId}
-							onSelectSceneNode={setSelectedNodeId}
-							menu={menu}
-							onUpdateBackgroundAsset={handleBackgroundChange}
-							onUpdateBackgroundColour={handleBackgroundColourChange}
-							onUpdateBackgroundMode={handleBackgroundModeChange}
-							onUpdateMotionAudioAsset={handleMotionAudioChange}
-							onUpdateMotionDurationSecs={handleMotionDurationChange}
-							onUpdateMotionLoopCount={handleMotionLoopCountChange}
-							onAutoNav={onAutoNav}
-							onExportRenderPreview={menu.authoredDocument ? handleExportRenderPreview : undefined}
-							buttonPreviewState={buttonPreviewState}
-							onButtonPreviewStateChange={setButtonPreviewState}
-							displayAspect={displayAspect}
-							onDisplayAspectChange={handleDisplayAspectChange}
-							availableFonts={availableFonts}
-						/>
+								selectedNode={selectedNode}
+								selectedButton={selectedButton}
+								highlightColours={highlightColours}
+								allTitles={allTitles}
+								allMenus={allMenus}
+								currentMenuId={menu.id}
+								onUpdateButton={handleUpdateButton}
+								onUpdateHighlightColours={handleUpdateHighlightColours}
+								onRemoveButton={handleRemoveButton}
+								onUpdateSceneNode={handleUpdateSceneNode}
+								onRemoveNode={handleRemoveNode}
+								assets={project.assets}
+								buttons={currentButtons}
+								interactionNodes={menu.authoredDocument?.interaction.nodes ?? []}
+								defaultFocusId={defaultFocusId}
+								document={menu.authoredDocument ?? null}
+								canvasHeight={canvasHeight}
+								onSetDefaultFocus={handleSetDefaultFocus}
+								sceneNodes={sceneNodes}
+								selectedNodeId={selectedNodeId}
+								onSelectSceneNode={setSelectedNodeId}
+								menu={menu}
+								onUpdateBackgroundAsset={handleBackgroundChange}
+								onUpdateBackgroundColour={handleBackgroundColourChange}
+								onUpdateBackgroundMode={handleBackgroundModeChange}
+								onUpdateMotionAudioAsset={handleMotionAudioChange}
+								onUpdateMotionDurationSecs={handleMotionDurationChange}
+								onUpdateMotionLoopCount={handleMotionLoopCountChange}
+								onAutoNav={onAutoNav}
+								onExportRenderPreview={
+									menu.authoredDocument ? handleExportRenderPreview : undefined
+								}
+								buttonPreviewState={buttonPreviewState}
+								onButtonPreviewStateChange={setButtonPreviewState}
+								displayAspect={displayAspect}
+								onDisplayAspectChange={handleDisplayAspectChange}
+								availableFonts={availableFonts}
+							/>
 						</div>
 					)}
 				</div>

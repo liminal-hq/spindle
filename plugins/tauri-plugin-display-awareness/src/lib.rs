@@ -133,7 +133,8 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             let emitter = window.clone();
             window.on_window_event(move |event| {
                 if let WindowEvent::ScaleFactorChanged { .. } = event {
-                    let _ = emitter.emit(DISPLAY_CHANGED_EVENT, get_active_display(emitter.clone()));
+                    let _ =
+                        emitter.emit(DISPLAY_CHANGED_EVENT, get_active_display(emitter.clone()));
                 }
             });
         })
