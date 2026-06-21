@@ -3,13 +3,13 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: MIT
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import type { CSSProperties } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { save } from '@tauri-apps/plugin-dialog';
 import { useProjectStore } from '../store/project-store';
 import { useNavigation } from '../App';
-import { useDisplayDensity } from '../hooks/useDisplayDensity';
+import { useDisplayDensity, type DisplayDensity } from '../hooks/useDisplayDensity';
 import type {
 	AspectMode,
 	ButtonStyleMap,
@@ -98,7 +98,11 @@ export function MenusPage() {
 	const menuEditorMode = useProjectStore((s) => s.menuEditorMode);
 	const setMenuEditorMode = useProjectStore((s) => s.setMenuEditorMode);
 	const { consumePendingEntityId } = useNavigation();
-	const density = useDisplayDensity();
+	const menusContainerRef = useRef<HTMLDivElement>(null);
+	// Measured against the workspace container, not the window — the window
+	// also contains the app's own sidebar and padding, so window width
+	// overstates how much room the workspace actually has.
+	const density = useDisplayDensity(menusContainerRef);
 	// Below 'wide' the rail becomes an overlay, but starts open — picking a
 	// menu to work on is the first thing an author does, so it should not be
 	// hidden by default the way the inspector (a detail panel) is.
@@ -337,7 +341,7 @@ export function MenusPage() {
 	};
 
 	return (
-		<div className="menus" data-breakpoint={density.breakpoint}>
+		<div className="menus" data-breakpoint={density.breakpoint} ref={menusContainerRef}>
 			<div className="menus-content">
 				{railIsOverlay && railVisible && (
 					<button
@@ -580,12 +584,17 @@ export function MenusPage() {
 							onUpdate={(updater) => handleUpdateMenu(selectedEntry.menu.id, updater)}
 							onRemove={() => handleRemoveMenu(selectedEntry.menu.id)}
 							onAutoNav={() => autoGenerateMenuNav(selectedEntry.menu.id)}
+							density={density}
 							railIsOverlay={railIsOverlay}
 							railVisible={railVisible}
 							onOpenRail={() => setRailOpenOverlay(true)}
 						/>
 					) : (
-						<EmptyMenuWorkspace />
+						<EmptyMenuWorkspace
+							railIsOverlay={railIsOverlay}
+							railVisible={railVisible}
+							onOpenRail={() => setRailOpenOverlay(true)}
+						/>
 					)}
 				</div>
 			</div>
@@ -675,11 +684,29 @@ function MenuListItem({
 	);
 }
 
-function EmptyMenuWorkspace() {
+function EmptyMenuWorkspace({
+	railIsOverlay,
+	railVisible,
+	onOpenRail,
+}: {
+	railIsOverlay: boolean;
+	railVisible: boolean;
+	onOpenRail: () => void;
+}) {
 	return (
 		<section className="editor-area">
 			<div className="editor-toolbar card">
 				<div className="editor-toolbar__left">
+					{railIsOverlay && !railVisible && (
+						<button
+							type="button"
+							className="editor-toolbar__toggle"
+							onClick={onOpenRail}
+							title="Show menus rail"
+						>
+							☰ Menus
+						</button>
+					)}
 					<h2 className="editor-toolbar__title">Menu Workspace</h2>
 				</div>
 			</div>
@@ -716,6 +743,7 @@ function MenuEditor({
 	onUpdate,
 	onRemove,
 	onAutoNav,
+	density,
 	railIsOverlay,
 	railVisible,
 	onOpenRail,
@@ -726,6 +754,7 @@ function MenuEditor({
 	onUpdate: (updater: (m: Menu) => Menu) => void;
 	onRemove: () => void;
 	onAutoNav: () => void;
+	density: DisplayDensity;
 	railIsOverlay: boolean;
 	railVisible: boolean;
 	onOpenRail: () => void;
@@ -777,7 +806,6 @@ function MenuEditor({
 	const [activeTool, setActiveTool] = useState<'select' | 'button' | 'text' | 'image' | 'shape'>(
 		'select',
 	);
-	const density = useDisplayDensity();
 	// At wide widths the inspector is a persistent column; below that it becomes
 	// an overlay the author opens deliberately, since there isn't room for it
 	// alongside a useable canvas.

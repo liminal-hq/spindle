@@ -15,6 +15,7 @@ Default permissions for the display-awareness plugin
 <th>Description</th>
 </tr>
 
+
 <tr>
 <td>
 
