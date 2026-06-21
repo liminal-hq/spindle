@@ -33,5 +33,9 @@ tauri-plugin-os = "2"
 tauri-plugin-log = "2"
 log = "0.4"
 
+# Dev/debug tooling: the MCP bridge plugin is only registered under
+# `#[cfg(debug_assertions)]` in code, so it is compiled in but inert in release.
+tauri-plugin-mcp-bridge = "0.11"
+
 # Spindle plugins (workspace)
 tauri-plugin-spindle-project = { path = "../../../plugins/tauri-plugin-spindle-project" }

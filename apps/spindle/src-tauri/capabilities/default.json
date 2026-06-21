@@ -25,6 +25,7 @@
 		"window-state:default",
 		"os:default",
 		"log:default",
-		"spindle-project:default"
+		"spindle-project:default",
+		"mcp-bridge:default"
 	]
 }

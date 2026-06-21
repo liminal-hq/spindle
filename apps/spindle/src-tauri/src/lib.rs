@@ -97,7 +97,7 @@ fn cache_dir_size_and_count(path: &Path) -> std::io::Result<(u64, usize)> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
             read_text_file,
             write_text_file,
@@ -114,7 +114,12 @@ pub fn run() {
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_log::Builder::new().build())
         // Spindle plugins
-        .plugin(tauri_plugin_spindle_project::init())
+        .plugin(tauri_plugin_spindle_project::init());
+
+    #[cfg(debug_assertions)]
+    let builder = builder.plugin(tauri_plugin_mcp_bridge::init());
+
+    builder
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
