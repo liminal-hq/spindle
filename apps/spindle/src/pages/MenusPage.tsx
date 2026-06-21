@@ -161,6 +161,10 @@ export function MenusPage() {
 	// list crowds out the menu list and nav map above it, especially in the
 	// rail's overlay form below 'wide'.
 	const [generatorsOpen, setGeneratorsOpen] = useState(false);
+	// Open by default (orientation at a glance is the point of the mini map),
+	// but collapsible like its siblings so it can be tucked away on request
+	// rather than always claiming rail space.
+	const [navMapOpen, setNavMapOpen] = useState(true);
 
 	useEffect(() => {
 		if (!firstMenuId) {
@@ -460,6 +464,8 @@ export function MenusPage() {
 									selectedMenuId={selectedMenuId}
 									onSelect={setSelectedMenuId}
 									onExpand={() => setMenuEditorMode('map')}
+									collapsed={!navMapOpen}
+									onToggleCollapsed={() => setNavMapOpen((open) => !open)}
 								/>
 								<div className="menu-nav__panel">
 									<button

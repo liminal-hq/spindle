@@ -810,6 +810,20 @@
 	color: var(--text-muted);
 }
 
+.mini-map__collapse-toggle {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	border: none;
+	background: transparent;
+	padding: 0;
+	cursor: pointer;
+}
+
+.mini-map__collapse-toggle[aria-expanded='true'] .menu-nav__panel-chevron {
+	transform: rotate(180deg);
+}
+
 .mini-map__canvas {
 	height: 148px;
 	overflow: hidden;

@@ -566,11 +566,16 @@ export function MiniMenuMap({
 	selectedMenuId,
 	onSelect,
 	onExpand,
+	collapsed = false,
+	onToggleCollapsed,
 }: {
 	project: SpindleProjectFile;
 	selectedMenuId: string | null;
 	onSelect: (id: string) => void;
 	onExpand: () => void;
+	/** When true, only the header (with its own toggle) is rendered. */
+	collapsed?: boolean;
+	onToggleCollapsed?: () => void;
 }) {
 	const layout = useMemo(() => computeMapLayout(project, true), [project.disc]);
 
@@ -579,34 +584,52 @@ export function MiniMenuMap({
 	return (
 		<div className="mini-map">
 			<div className="mini-map__header">
-				<span className="mini-map__label">Navigation Map</span>
+				{onToggleCollapsed ? (
+					<button
+						className="mini-map__collapse-toggle"
+						type="button"
+						onClick={onToggleCollapsed}
+						aria-expanded={!collapsed}
+					>
+						<span className="mini-map__label">Navigation Map</span>
+						<span className="menu-nav__panel-chevron" aria-hidden="true">
+							⌄
+						</span>
+					</button>
+				) : (
+					<span className="mini-map__label">Navigation Map</span>
+				)}
 				<button className="btn btn--ghost btn--xs" onClick={onExpand} title="Open full map">
 					⤢
 				</button>
 			</div>
-			<div className="mini-map__canvas">
-				<MapSvg
-					layout={layout}
-					selectedMenuId={selectedMenuId}
-					compact={true}
-					onSelect={onSelect}
-				/>
-			</div>
-			{/* Edge type legend */}
-			<div className="mini-map__legend">
-				<span className="mini-map__legend-item">
-					<span className="mini-map__legend-line mini-map__legend-line--show" />
-					<span>show</span>
-				</span>
-				<span className="mini-map__legend-item">
-					<span className="mini-map__legend-line mini-map__legend-line--play" />
-					<span>play</span>
-				</span>
-				<span className="mini-map__legend-item">
-					<span className="mini-map__legend-line mini-map__legend-line--return" />
-					<span>return</span>
-				</span>
-			</div>
+			{collapsed ? null : (
+				<>
+					<div className="mini-map__canvas">
+						<MapSvg
+							layout={layout}
+							selectedMenuId={selectedMenuId}
+							compact={true}
+							onSelect={onSelect}
+						/>
+					</div>
+					{/* Edge type legend */}
+					<div className="mini-map__legend">
+						<span className="mini-map__legend-item">
+							<span className="mini-map__legend-line mini-map__legend-line--show" />
+							<span>show</span>
+						</span>
+						<span className="mini-map__legend-item">
+							<span className="mini-map__legend-line mini-map__legend-line--play" />
+							<span>play</span>
+						</span>
+						<span className="mini-map__legend-item">
+							<span className="mini-map__legend-line mini-map__legend-line--return" />
+							<span>return</span>
+						</span>
+					</div>
+				</>
+			)}
 		</div>
 	);
 }
