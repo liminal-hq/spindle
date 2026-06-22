@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: MIT
 
 mod authoring;
+mod capacity;
 mod dvd_navigation;
 mod executor;
 mod ffmpeg;
@@ -13,6 +14,7 @@ mod navigation;
 mod planner;
 mod skia;
 
+pub use capacity::{estimate_disc_capacity, CapacityEstimate, TitleBitrateAllocation};
 pub use menu::{authorable_menus, AuthorableMenuRef, MenuDomain};
 pub use skia::{enumerate_fonts, render_menu_scene_to_png, FontEntry, FontSource};
 #[cfg(test)]

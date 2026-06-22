@@ -5,6 +5,7 @@ permissions = [
   "allow-parse-project",
   "allow-serialise-project",
   "allow-validate-project",
+  "allow-estimate-disc-capacity",
   "allow-inspect-asset",
   "allow-extract-video-thumbnail",
   "allow-extract-image-thumbnail",

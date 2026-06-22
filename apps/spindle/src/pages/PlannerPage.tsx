@@ -8,8 +8,8 @@ import { NoProjectState } from '../components/NoProjectState';
 import { CAPACITY_LABELS } from '../types/project';
 import type { Title, Asset, Menu } from '../types/project';
 import {
-	estimateDiscCapacity,
 	formatBytes,
+	useDiscCapacityEstimate,
 	DVD_MAX_VIDEO_RATE_BPS,
 	STILL_MENU_BYTES,
 	MOTION_MENU_BITRATE,
@@ -18,6 +18,7 @@ import './PlannerPage.css';
 
 export function PlannerPage() {
 	const project = useProjectStore((s) => s.project);
+	const capacity = useDiscCapacityEstimate(project);
 
 	if (!project) {
 		return (
@@ -51,6 +52,18 @@ export function PlannerPage() {
 		...disc.titlesets.flatMap((ts) => ts.menus.map((m) => ({ menu: m, scope: ts.name }))),
 	];
 
+	if (!capacity) {
+		return (
+			<div className="planner">
+				<div className="page-header">
+					<h1 className="page-title">Disc Planner</h1>
+					<span className="badge badge--neutral">{CAPACITY_LABELS[disc.capacityTarget]}</span>
+				</div>
+				<p className="text-muted">Calculating disc capacity&hellip;</p>
+			</div>
+		);
+	}
+
 	// Note: usagePct and isOverCapacity use estimated output size (bitrate × duration),
 	// not source size, because source files will be re-encoded to DVD-compliant MPEG-2.
 	// Source size is only shown as a reference point.
@@ -65,7 +78,11 @@ export function PlannerPage() {
 		estimatedOutputBytes,
 		usagePct,
 		isOverCapacity,
-	} = estimateDiscCapacity(project);
+		titleBitrates,
+	} = capacity;
+	const titleBitrateById = new Map(
+		titleBitrates.map((alloc) => [alloc.titleId, alloc.bitsPerSecond]),
+	);
 
 	return (
 		<div className="planner">
@@ -167,6 +184,7 @@ export function PlannerPage() {
 								const sourceSize = asset?.fileSizeBytes ?? 0;
 								const durationPct =
 									totalDurationSecs > 0 ? (duration / totalDurationSecs) * 100 : 0;
+								const titleRate = titleBitrateById.get(title.id);
 
 								return (
 									<div key={title.id} className="planner__title-row">
@@ -179,6 +197,9 @@ export function PlannerPage() {
 										<div className="planner__title-stats">
 											<span>{formatDuration(duration)}</span>
 											<span>{formatBytes(sourceSize)}</span>
+											{titleRate != null && (
+												<span className="text-muted">{formatBitrate(titleRate)} video</span>
+											)}
 											<span className="text-muted">{durationPct.toFixed(1)}% of disc</span>
 										</div>
 										<div className="planner__title-bar">

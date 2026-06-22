@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-estimate-disc-capacity"
+description = "Enables the estimate_disc_capacity command without any pre-configured scope."
+commands.allow = ["estimate_disc_capacity"]
+
+[[permission]]
+identifier = "deny-estimate-disc-capacity"
+description = "Denies the estimate_disc_capacity command without any pre-configured scope."
+commands.deny = ["estimate_disc_capacity"]

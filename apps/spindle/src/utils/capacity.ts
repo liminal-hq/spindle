@@ -1,94 +1,50 @@
-// Shared disc-capacity estimation: a single budget-aware calculation used by
-// both the Overview and Planner pages, so they never disagree about whether
-// a project fits on its target disc.
+// Shared disc-capacity estimation hook: a thin wrapper around the plugin's
+// `estimateDiscCapacity` command, the single source of truth used by both
+// the Overview and Planner pages and the build pipeline itself, so none of
+// them can disagree about whether a project fits on its target disc.
 //
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: MIT
 
-import { CAPACITY_BYTES } from '../types/project';
-import type { SpindleProjectFile } from '../types/project';
+import { useEffect, useState } from 'react';
+import { estimateDiscCapacity } from 'tauri-plugin-spindle-project-api';
+import type { CapacityEstimate, SpindleProjectFile } from 'tauri-plugin-spindle-project-api';
 
-// DVD-Video spec limits (ISO/IEC 13818-1)
-const DVD_MAX_MUX_RATE_BPS = 10_080_000; // 10.08 Mbps total mux rate
-export const DVD_MAX_VIDEO_RATE_BPS = 9_800_000; // 9.8 Mbps max video ES
+export type { CapacityEstimate, TitleBitrateAllocation } from 'tauri-plugin-spindle-project-api';
 
-// Menu size estimate constants: still menus are ~1-2 MB (MPEG-2 still + highlights),
-// motion menus use their duration at a moderate bitrate.
-export const STILL_MENU_BYTES = 1_500_000; // ~1.5 MB per still menu
-export const MOTION_MENU_BITRATE = 5_000_000; // 5 Mbps for motion menus
+// Display-only constants mirroring plugins/tauri-plugin-spindle-project/src/build/capacity.rs.
+// These aren't part of the fit/budget calculation itself (that's 100% computed
+// in Rust via `estimateDiscCapacity` above) — they only label informational
+// breakdown rows in the Planner UI. Keep in sync if the Rust values change.
+export const DVD_MAX_VIDEO_RATE_BPS = 9_800_000;
+export const STILL_MENU_BYTES = 1_500_000;
+export const MOTION_MENU_BITRATE = 5_000_000;
 
-export interface CapacityEstimate {
-	capacityBytes: number;
-	totalDurationSecs: number;
-	estimatedMenuBytes: number;
-	safetyMarginBytes: number;
-	estimatedOverheadBytes: number;
-	usableBytes: number;
-	/** Average video bitrate available within budget, capped to DVD spec limits. */
-	availableBitsPerSecond: number;
-	/** True when the disc's capacity (not the DVD spec) is the binding constraint. */
-	isCapacityConstrained: boolean;
-	/** Estimated encoded size at the budgeted rate — not source file size, since
-	 * source files are re-encoded to DVD-compliant MPEG-2 before authoring. */
-	estimatedOutputBytes: number;
-	usagePct: number;
-	isOverCapacity: boolean;
-}
+/** Live disc-capacity estimate for the given project, recomputed by the Rust
+ * backend whenever the project changes. Returns `null` until the first
+ * estimate has loaded (e.g. on initial mount). */
+export function useDiscCapacityEstimate(
+	project: SpindleProjectFile | null,
+): CapacityEstimate | null {
+	const [estimate, setEstimate] = useState<CapacityEstimate | null>(null);
 
-/** Estimate encoded disc size and bitrate budget from total title duration,
- * the disc's capacity target, and authored menus — shared by Overview and
- * Planner so both pages report the same answer to "does this fit?" */
-export function estimateDiscCapacity(project: SpindleProjectFile): CapacityEstimate {
-	const disc = project.disc;
-	const capacityBytes = CAPACITY_BYTES[disc.capacityTarget];
-
-	const totalDurationSecs = disc.titlesets
-		.flatMap((ts) => ts.titles)
-		.reduce((sum, title) => {
-			const asset = project.assets.find((a) => a.id === title.sourceAssetId);
-			return sum + (asset?.durationSecs ?? 0);
-		}, 0);
-
-	const allMenus = [...disc.globalMenus, ...disc.titlesets.flatMap((ts) => ts.menus)];
-	const estimatedMenuBytes = allMenus.reduce((sum, menu) => {
-		if (menu.backgroundMode === 'motion' && menu.motionDurationSecs) {
-			return sum + (MOTION_MENU_BITRATE * menu.motionDurationSecs) / 8;
+	useEffect(() => {
+		if (!project) {
+			setEstimate(null);
+			return;
 		}
-		return sum + STILL_MENU_BYTES;
-	}, 0);
 
-	const safetyMarginBytes = project.buildSettings.safetyMarginBytes;
-	const estimatedOverheadBytes = 50_000_000 + estimatedMenuBytes; // IFOs, NAV packs + menus
-	const usableBytes = capacityBytes - safetyMarginBytes - estimatedOverheadBytes;
+		let cancelled = false;
+		estimateDiscCapacity(project).then((result) => {
+			if (!cancelled) setEstimate(result);
+		});
 
-	// NOTE: this budgeted rate is advisory only — the build pipeline currently
-	// encodes at a fixed bitrate regardless of what's computed here, so a
-	// capacity-constrained project can still produce an output larger than this
-	// estimate predicts. Tracked separately as liminal-hq/spindle#43.
-	const rawBitsPerSecond = totalDurationSecs > 0 ? (usableBytes * 8) / totalDurationSecs : 0;
-	const availableBitsPerSecond = Math.min(rawBitsPerSecond, DVD_MAX_VIDEO_RATE_BPS);
-	const isCapacityConstrained = rawBitsPerSecond < DVD_MAX_VIDEO_RATE_BPS;
+		return () => {
+			cancelled = true;
+		};
+	}, [project]);
 
-	const estimatedOutputBytes =
-		totalDurationSecs > 0
-			? (Math.min(rawBitsPerSecond, DVD_MAX_MUX_RATE_BPS) * totalDurationSecs) / 8
-			: 0;
-	const usagePct = estimatedOutputBytes > 0 ? (estimatedOutputBytes / capacityBytes) * 100 : 0;
-	const isOverCapacity = estimatedOutputBytes > usableBytes;
-
-	return {
-		capacityBytes,
-		totalDurationSecs,
-		estimatedMenuBytes,
-		safetyMarginBytes,
-		estimatedOverheadBytes,
-		usableBytes,
-		availableBitsPerSecond,
-		isCapacityConstrained,
-		estimatedOutputBytes,
-		usagePct,
-		isOverCapacity,
-	};
+	return estimate;
 }
 
 /** Format a byte count as a human-readable size, handling negative values

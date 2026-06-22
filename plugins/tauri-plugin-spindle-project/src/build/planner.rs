@@ -192,6 +192,15 @@ pub fn generate_build_plan_with_options(
     let assets: HashMap<&str, &Asset> = project.assets.iter().map(|a| (a.id.as_str(), a)).collect();
     ensure_supported_menu_backend(project)?;
 
+    // Per-title average video bitrate, computed from the disc-wide capacity
+    // budget so the transcode actually respects what the Planner/Overview
+    // estimate promised (see liminal-hq/spindle#43).
+    let title_bitrates: HashMap<String, f64> = super::estimate_disc_capacity(project)
+        .title_bitrates
+        .into_iter()
+        .map(|alloc| (alloc.title_id, alloc.bits_per_second))
+        .collect();
+
     let all_titles: Vec<(&Titleset, &Title)> = project
         .disc
         .titlesets
@@ -285,6 +294,10 @@ pub fn generate_build_plan_with_options(
                 .as_ref()
                 .and_then(|vm| asset.video_streams.get(vm.source_stream_index as usize));
 
+            let video_bitrate_bps = title_bitrates
+                .get(title.id.as_str())
+                .copied()
+                .unwrap_or(0.0);
             let mut command = build_ffmpeg_transcode_command(
                 &asset.source_path,
                 &output_path,
@@ -292,6 +305,7 @@ pub fn generate_build_plan_with_options(
                 asset,
                 &project.disc,
                 video_info,
+                video_bitrate_bps,
             );
             command[0] = tools.ffmpeg.clone();
 

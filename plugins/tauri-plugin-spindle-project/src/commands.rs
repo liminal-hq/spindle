@@ -99,6 +99,17 @@ pub(crate) async fn validate_project<R: Runtime>(
     app.spindle_project().validate_project(&project)
 }
 
+/// Estimate disc-capacity usage and the per-title bitrate budget the build
+/// pipeline will actually encode at — the single source of truth shared by
+/// the Overview/Planner UI and `generate_build_plan`/`execute_build`.
+#[command]
+pub(crate) async fn estimate_disc_capacity<R: Runtime>(
+    _app: AppHandle<R>,
+    project: SpindleProjectFile,
+) -> Result<build::CapacityEstimate> {
+    Ok(build::estimate_disc_capacity(&project))
+}
+
 /// Inspect a media file and return its metadata as an Asset.
 #[command]
 pub(crate) async fn inspect_asset<R: Runtime>(_app: AppHandle<R>, path: String) -> Result<Asset> {

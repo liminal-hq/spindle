@@ -3,6 +3,7 @@ const COMMANDS: &[&str] = &[
     "parse_project",
     "serialise_project",
     "validate_project",
+    "estimate_disc_capacity",
     "inspect_asset",
     "extract_video_thumbnail",
     "extract_image_thumbnail",
