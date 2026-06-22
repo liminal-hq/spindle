@@ -1129,6 +1129,10 @@ mod tests {
         project.assets[0].source_path = source_path.display().to_string();
         project.assets[0].file_name = "source.mp4".to_string();
         project.assets[0].duration_secs = Some(1.5);
+        // Trim the fixture's default chapter list to fit the 1.5s source — the
+        // default second chapter sits at 300s, well past this short fixture.
+        project.disc.titlesets[0].titles[0].chapters =
+            vec![project.disc.titlesets[0].titles[0].chapters[0].clone()];
         // First-play action set, but `global_menus` is left empty — no VMGM-level
         // menus at all, only the titleset's title.
         project.disc.first_play_action = Some(PlaybackAction::PlayTitle {
