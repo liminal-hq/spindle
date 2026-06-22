@@ -165,39 +165,46 @@ fn allocate_title_bitrates(
             .collect();
     }
 
-    match strategy {
-        AllocationStrategy::DurationWeighted | AllocationStrategy::PriorityWeighted => {
-            // Every title gets the same average rate; bytes naturally scale
-            // with each title's own duration.
-            titles_with_duration
-                .iter()
-                .map(|(title, _)| TitleBitrateAllocation {
-                    title_id: title.id.clone(),
-                    bits_per_second: available_bits_per_second,
-                })
-                .collect()
-        }
-        AllocationStrategy::EqualShare => {
-            // Every title gets the same total byte budget regardless of
-            // duration, so short titles get a higher per-second rate.
-            let total_budget_bits = available_bits_per_second * total_duration_secs;
-            let share_bits = total_budget_bits / titles_with_duration.len() as f64;
-            titles_with_duration
-                .iter()
-                .map(|(title, duration)| {
-                    let bits_per_second = if *duration > 0.0 {
-                        (share_bits / duration).min(DVD_MAX_VIDEO_RATE_BPS)
-                    } else {
-                        available_bits_per_second
-                    };
-                    TitleBitrateAllocation {
-                        title_id: title.id.clone(),
-                        bits_per_second,
+    // Clamp to the encoder's actual ceiling (not just the looser DVD spec
+    // limit), so the exported rate matches what `build_ffmpeg_transcode_command`
+    // will really request — otherwise Planner/the command can report a rate
+    // (e.g. the DVD spec's 9.8 Mbps) above what the generated `-b:v` ends up
+    // being (clamped to the encoder's 9.0 Mbps ceiling).
+    let capped_rate = available_bits_per_second.min(super::ffmpeg::MAX_VIDEO_RATE_BPS);
+
+    titles_with_duration
+        .iter()
+        .map(|(title, duration)| {
+            // Unknown-duration titles aren't counted in `total_duration_secs`
+            // or the disc-level byte estimate at all, so handing them a
+            // capacity-derived rate would let the build encode real,
+            // unaccounted-for bytes while the estimate still claims the
+            // project fits. Leave them at 0 so the encoder falls back to its
+            // own safe default instead of silently riding on the budget.
+            let bits_per_second = if *duration <= 0.0 {
+                0.0
+            } else {
+                match strategy {
+                    // Every title gets the same average rate; bytes naturally
+                    // scale with each title's own duration.
+                    AllocationStrategy::DurationWeighted | AllocationStrategy::PriorityWeighted => {
+                        capped_rate
                     }
-                })
-                .collect()
-        }
-    }
+                    // Every title gets the same total byte budget regardless
+                    // of duration, so short titles get a higher per-second rate.
+                    AllocationStrategy::EqualShare => {
+                        let total_budget_bits = available_bits_per_second * total_duration_secs;
+                        let share_bits = total_budget_bits / titles_with_duration.len() as f64;
+                        (share_bits / duration).min(capped_rate)
+                    }
+                }
+            };
+            TitleBitrateAllocation {
+                title_id: title.id.clone(),
+                bits_per_second,
+            }
+        })
+        .collect()
 }
 
 #[cfg(test)]
@@ -216,7 +223,67 @@ mod tests {
         assert_eq!(estimate.title_bitrates.len(), 1);
         assert_eq!(
             estimate.title_bitrates[0].bits_per_second,
-            estimate.available_bits_per_second
+            estimate
+                .available_bits_per_second
+                .min(super::super::ffmpeg::MAX_VIDEO_RATE_BPS)
+        );
+    }
+
+    #[test]
+    fn title_bitrates_are_clamped_to_the_encoder_ceiling_not_just_the_dvd_spec_limit() {
+        // Regression test: the DVD spec ceiling (9.8 Mbps) is looser than the
+        // encoder's actual `-maxrate` ceiling (9.0 Mbps), so a rate exported
+        // here must not exceed what `build_ffmpeg_transcode_command` will
+        // really request, or Planner/the command report a number the build
+        // doesn't honour.
+        let mut project = test_project();
+        project.assets[0].duration_secs = Some(3600.0);
+
+        let estimate = estimate_disc_capacity(&project);
+
+        assert!(estimate.available_bits_per_second > super::super::ffmpeg::MAX_VIDEO_RATE_BPS);
+        for alloc in &estimate.title_bitrates {
+            assert!(
+                alloc.bits_per_second <= super::super::ffmpeg::MAX_VIDEO_RATE_BPS,
+                "title {} got {} bps, above the encoder ceiling of {}",
+                alloc.title_id,
+                alloc.bits_per_second,
+                super::super::ffmpeg::MAX_VIDEO_RATE_BPS
+            );
+        }
+    }
+
+    #[test]
+    fn unknown_duration_titles_do_not_get_a_capacity_derived_bitrate() {
+        // Regression test: a title whose asset has no known duration isn't
+        // counted in total_duration_secs or the disc-level byte estimate, so
+        // handing it a positive budgeted rate would let the build encode
+        // real, unaccounted-for bytes while the estimate still claims the
+        // disc fits.
+        let mut project = test_project();
+        project.assets[0].duration_secs = Some(3600.0);
+
+        let mut second_title = project.disc.titlesets[0].titles[0].clone();
+        second_title.id = "title-unknown-duration".to_string();
+        project.disc.titlesets[0].titles.push(second_title);
+
+        let mut unknown_asset = project.assets[0].clone();
+        unknown_asset.id = "asset-unknown".to_string();
+        unknown_asset.duration_secs = None;
+        project.assets.push(unknown_asset);
+        project.disc.titlesets[0].titles[1].source_asset_id = Some("asset-unknown".to_string());
+
+        let estimate = estimate_disc_capacity(&project);
+
+        let unknown_rate = estimate
+            .title_bitrates
+            .iter()
+            .find(|a| a.title_id == "title-unknown-duration")
+            .expect("expected an allocation entry for the unknown-duration title")
+            .bits_per_second;
+        assert_eq!(
+            unknown_rate, 0.0,
+            "unknown-duration titles must not receive a capacity-derived bitrate"
         );
     }
 

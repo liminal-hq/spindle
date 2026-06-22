@@ -16,7 +16,7 @@ pub(crate) const DEFAULT_VIDEO_BITRATE_BPS: f64 = 6_000_000.0;
 /// capacity budget's `DVD_MAX_VIDEO_RATE_BPS` (9.8 Mbps) — this is the
 /// short-term peak the encoder is allowed to burst to, not the requested
 /// average, and is clamped below the average if the average is unusually high.
-const MAX_VIDEO_RATE_BPS: f64 = 9_000_000.0;
+pub(crate) const MAX_VIDEO_RATE_BPS: f64 = 9_000_000.0;
 
 pub(crate) fn build_ffmpeg_transcode_command(
     source_path: &str,
