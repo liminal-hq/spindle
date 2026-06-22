@@ -4,10 +4,9 @@
 // SPDX-License-Identifier: MIT
 
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
-import { listen } from '@tauri-apps/api/event';
+import { onBuildProgress } from 'tauri-plugin-spindle-project-api';
 import { useProjectStore } from './store/project-store';
 import { useAppSettingsStore } from './store/app-settings-store';
-import type { BuildProgress } from './types/project';
 import { Topbar } from './components/Topbar';
 import { Sidebar } from './components/Sidebar';
 import { Statusbar } from './components/Statusbar';
@@ -93,8 +92,7 @@ function App() {
 
 	// Build progress event listener
 	useEffect(() => {
-		const unlisten = listen<BuildProgress>('spindle://build-progress', (event) => {
-			const progress = event.payload;
+		const unlisten = onBuildProgress((progress) => {
 			useProjectStore.setState({
 				buildProgress: progress,
 				buildLog:

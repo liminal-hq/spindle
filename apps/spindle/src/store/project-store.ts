@@ -7,6 +7,21 @@ import { create } from 'zustand';
 import { invoke } from '@tauri-apps/api/core';
 import { open, save, confirm } from '@tauri-apps/plugin-dialog';
 import { BaseDirectory, readFile } from '@tauri-apps/plugin-fs';
+import {
+	createProject as createProjectCommand,
+	parseProject,
+	serialiseProject,
+	validateProject as validateProjectCommand,
+	inspectAsset,
+	extractVideoThumbnail,
+	extractImageThumbnail,
+	generateBuildPlan as generateBuildPlanCommand,
+	executeBuild as executeBuildCommand,
+	cancelBuild as cancelBuildCommand,
+	autoGenerateMenuNav as autoGenerateMenuNavCommand,
+	checkToolchain as checkToolchainCommand,
+	getCacheDir,
+} from 'tauri-plugin-spindle-project-api';
 import { useAppSettingsStore } from './app-settings-store';
 import type {
 	SpindleProjectFile,
@@ -176,22 +191,15 @@ async function extractAssetThumbnail(
 	}
 
 	try {
-		const thumbDir = await invoke<string>('plugin:spindle-project|get_cache_dir');
+		const thumbDir = await getCacheDir();
 		const thumbPath = `${thumbDir}/thumb_${asset.id}.jpg`;
 
 		if (isVideo) {
 			const durationSecs = asset.durationSecs ?? 0;
 			const seekTo = chooseThumbnailTimestamp(durationSecs);
-			await invoke('plugin:spindle-project|extract_video_thumbnail', {
-				sourcePath: asset.sourcePath,
-				outputPath: thumbPath,
-				timestampSecs: seekTo,
-			});
+			await extractVideoThumbnail(asset.sourcePath, thumbPath, seekTo);
 		} else {
-			await invoke('plugin:spindle-project|extract_image_thumbnail', {
-				sourcePath: asset.sourcePath,
-				outputPath: thumbPath,
-			});
+			await extractImageThumbnail(asset.sourcePath, thumbPath);
 		}
 
 		return { thumbnailPath: thumbPath, thumbnailError: null };
@@ -283,9 +291,7 @@ async function backfillAssetFormatTitles(project: SpindleProjectFile): Promise<v
 
 	for (const asset of stale) {
 		try {
-			const inspected = await invoke<Asset>('plugin:spindle-project|inspect_asset', {
-				path: asset.sourcePath,
-			});
+			const inspected = await inspectAsset(asset.sourcePath);
 
 			const { project: current } = useProjectStore.getState();
 			if (!current) return;
@@ -386,9 +392,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 	createProject: async (req) => {
 		set({ isLoading: true });
 		try {
-			const project = await invoke<SpindleProjectFile>('plugin:spindle-project|create_project', {
-				payload: req,
-			});
+			const project = await createProjectCommand(req);
 			set({
 				project,
 				filePath: null,
@@ -426,9 +430,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 		try {
 			console.info('[project-store] Opening project', { path: selected });
 			const json = await invoke<string>('read_text_file', { path: selected });
-			const project = await invoke<SpindleProjectFile>('plugin:spindle-project|parse_project', {
-				json,
-			});
+			const project = await parseProject(json);
 			console.info('[project-store] Opened project', {
 				path: selected,
 				...projectTraceSummary(project),
@@ -466,9 +468,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 				path: filePath,
 				...projectTraceSummary(updated),
 			});
-			const json = await invoke<string>('plugin:spindle-project|serialise_project', {
-				project: updated,
-			});
+			const json = await serialiseProject(updated);
 			await invoke('write_text_file', { path: filePath, contents: json });
 			set({ project: updated, isDirty: false });
 			console.info('[project-store] Saved project', {
@@ -513,9 +513,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 				path: selected,
 				...projectTraceSummary(updated),
 			});
-			const json = await invoke<string>('plugin:spindle-project|serialise_project', {
-				project: updated,
-			});
+			const json = await serialiseProject(updated);
 			await invoke('write_text_file', { path: selected, contents: json });
 			set({ project: updated, filePath: selected, isDirty: false });
 			console.info('[project-store] Saved project as', {
@@ -563,9 +561,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 		const { project } = get();
 		if (!project) return;
 
-		const issues = await invoke<ValidationIssue[]>('plugin:spindle-project|validate_project', {
-			project,
-		});
+		const issues = await validateProjectCommand(project);
 		set({ validationIssues: issues });
 	},
 
@@ -625,9 +621,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 		// Trigger inspection and thumbnail extraction for each new asset
 		for (const asset of newAssets) {
 			try {
-				const inspected = await invoke<Asset>('plugin:spindle-project|inspect_asset', {
-					path: asset.sourcePath,
-				});
+				const inspected = await inspectAsset(asset.sourcePath);
 				// Merge inspection results, preserving the ID we assigned
 				const { project: current } = get();
 				if (!current) break;
@@ -725,9 +719,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
 		// Re-inspect the relinked file
 		try {
-			const inspected = await invoke<Asset>('plugin:spindle-project|inspect_asset', {
-				path: newPath,
-			});
+			const inspected = await inspectAsset(newPath);
 			const { project: current } = get();
 			if (!current) return;
 			const currentAsset = current.assets.find((a) => a.id === assetId);
@@ -786,9 +778,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 				quantizeOverlayPalette,
 				...projectTraceSummary(project),
 			});
-			const plan = await invoke<BuildPlan>('plugin:spindle-project|generate_build_plan', {
-				project,
-				outputDirectory: outputDir,
+			const plan = await generateBuildPlanCommand(project, outputDir, {
 				skipSidecar,
 				skipUnsupportedStreams,
 				quantizeOverlayPalette,
@@ -839,9 +829,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 		});
 
 		try {
-			const result = await invoke<BuildResult>('plugin:spindle-project|execute_build', {
-				project,
-				outputDirectory: outputDir,
+			const result = await executeBuildCommand(project, outputDir, {
 				skipSidecar,
 				skipUnsupportedStreams,
 				quantizeOverlayPalette,
@@ -872,7 +860,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
 	cancelBuild: async () => {
 		try {
-			await invoke('plugin:spindle-project|cancel_build');
+			await cancelBuildCommand();
 			set((state) => ({
 				buildLog: [...state.buildLog, 'Cancellation requested…'],
 			}));
@@ -933,9 +921,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
 		if (!foundMenu) return;
 
-		const updated = await invoke<Menu>('plugin:spindle-project|auto_generate_menu_nav', {
-			menu: foundMenu,
-		});
+		const updated = await autoGenerateMenuNavCommand(foundMenu);
 
 		get().updateProject((p) => {
 			if (scope === 'global') {
@@ -1109,9 +1095,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 	checkToolchain: async () => {
 		try {
 			const skipSidecar = useAppSettingsStore.getState().devSkipSidecar;
-			const statuses = await invoke<ToolchainStatus[]>('plugin:spindle-project|check_toolchain', {
-				skipSidecar,
-			});
+			const statuses = await checkToolchainCommand(skipSidecar);
 			set({ toolchain: statuses });
 		} catch {
 			// Toolchain check is best-effort

@@ -5,8 +5,8 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import type { CSSProperties } from 'react';
-import { invoke } from '@tauri-apps/api/core';
 import { save } from '@tauri-apps/plugin-dialog';
+import { exportMenuRenderPreview, listAvailableFonts } from 'tauri-plugin-spindle-project-api';
 import { useProjectStore } from '../store/project-store';
 import { useNavigation } from '../App';
 import { useDisplayDensity, type DisplayDensity } from '../hooks/useDisplayDensity';
@@ -769,11 +769,7 @@ function MenuEditor({
 		});
 		if (!outputPath) return;
 		try {
-			await invoke('plugin:spindle-project|export_menu_render_preview', {
-				project,
-				menuId: menu.id,
-				outputPath,
-			});
+			await exportMenuRenderPreview(project, menu.id, outputPath);
 		} catch (err) {
 			console.error('[MenusPage] export_menu_render_preview failed', err);
 		}
@@ -820,7 +816,7 @@ function MenuEditor({
 	// Best-effort: if the command fails, fall back to the hardcoded list (undefined).
 	useEffect(() => {
 		let cancelled = false;
-		invoke<FontEntry[]>('plugin:spindle-project|list_available_fonts', { project })
+		listAvailableFonts(project)
 			.then((fonts) => {
 				if (!cancelled) setAvailableFonts(fonts);
 			})

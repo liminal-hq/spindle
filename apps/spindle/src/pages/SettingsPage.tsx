@@ -7,6 +7,7 @@ import { useEffect } from 'react';
 import { useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { confirm, save } from '@tauri-apps/plugin-dialog';
+import { exportDiagnostics } from 'tauri-plugin-spindle-project-api';
 import { useProjectStore } from '../store/project-store';
 import { useAppSettingsStore } from '../store/app-settings-store';
 import './SettingsPage.css';
@@ -61,10 +62,7 @@ export function SettingsPage() {
 
 	const handleExportDiagnostics = async () => {
 		try {
-			const json = await invoke<string>('plugin:spindle-project|export_diagnostics', {
-				project: project ?? null,
-				buildLog,
-				validationIssues,
+			const json = await exportDiagnostics(project ?? null, buildLog, validationIssues, {
 				skipSidecar: devSkipSidecar,
 				skipUnsupportedStreams: devSkipUnsupportedStreams,
 				quantizeOverlayPalette: devQuantizeOverlayPalette,
