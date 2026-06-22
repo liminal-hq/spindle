@@ -41,20 +41,23 @@ pub(crate) fn generate_dvdauthor_xml(
     if has_global_menus || has_first_play {
         xml.push_str("  <vmgm>\n");
 
-        if has_global_menus {
-            let vmgm_aspect =
-                menu_section_aspect(project, &project.disc.global_menus, MenuDomain::Vmgm)?;
-            append_menu_section(
-                &mut xml,
-                format_str,
-                aspect_str(vmgm_aspect),
-                &project.disc.global_menus,
-                MenuDomain::Vmgm,
-                &project.disc,
-                project,
-                menus_dir,
-            )?;
-        }
+        // dvdauthor requires a video format declaration for the VMGM domain even when
+        // it has no authored menu content of its own (e.g. a disc whose only VMGM-level
+        // need is a first-play jump, with all real menus living at the titleset level).
+        // `append_menu_section` already handles an empty `menus` slice safely, writing
+        // just `<menus><video .../></menus>` with no PGC content.
+        let vmgm_aspect =
+            menu_section_aspect(project, &project.disc.global_menus, MenuDomain::Vmgm)?;
+        append_menu_section(
+            &mut xml,
+            format_str,
+            aspect_str(vmgm_aspect),
+            &project.disc.global_menus,
+            MenuDomain::Vmgm,
+            &project.disc,
+            project,
+            menus_dir,
+        )?;
 
         if let Some(ref action) = project.disc.first_play_action {
             xml.push_str("    <fpc>\n");
@@ -711,6 +714,38 @@ mod tests {
             "dvdauthor XML must declare aspect ratio\n{}",
             plan.dvdauthor_xml
         );
+    }
+
+    #[test]
+    fn dvdauthor_xml_declares_vmgm_video_format_with_first_play_but_no_global_menus() {
+        // Regression test: a disc with a first-play action but no global/VMGM-level
+        // menus (the common case where all real menus live at the titleset level)
+        // must still declare a video format inside <vmgm>, otherwise dvdauthor fails
+        // at the final table-of-contents step with "no video format specified for VMGM".
+        let mut project = test_project();
+        assert!(project.disc.global_menus.is_empty());
+        project.disc.first_play_action = Some(PlaybackAction::PlayTitle {
+            title_id: "title-1".to_string(),
+        });
+
+        let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+
+        let vmgm_start = plan
+            .dvdauthor_xml
+            .find("<vmgm>")
+            .expect("dvdauthor XML must contain a <vmgm> block");
+        let vmgm_end = plan
+            .dvdauthor_xml
+            .find("</vmgm>")
+            .expect("dvdauthor XML must close the <vmgm> block");
+        let vmgm_block = &plan.dvdauthor_xml[vmgm_start..vmgm_end];
+
+        assert!(
+            vmgm_block.contains("<video format=\"ntsc\" aspect=\"16:9\" />"),
+            "<vmgm> must declare a video format even with no global menus\n{}",
+            plan.dvdauthor_xml
+        );
+        assert!(vmgm_block.contains("<fpc>"));
     }
 
     #[test]
