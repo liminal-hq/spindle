@@ -82,6 +82,14 @@ export interface Title {
 	chapters: ChapterPoint[];
 	endAction: PlaybackAction | null;
 	orderIndex: number;
+	/** Scales this title's share of the disc-wide bitrate budget under `priority-weighted` allocation. Default 1.0. */
+	bitrateWeight: number;
+	/** Minimum per-title average video bitrate the allocator must honour. Ignored when `pinnedBitrateBps` is set. */
+	bitrateFloorBps: number | null;
+	/** Maximum per-title average video bitrate the allocator may hand to this title. Ignored when `pinnedBitrateBps` is set. */
+	bitrateCeilingBps: number | null;
+	/** When set, this title opts out of the allocator and is encoded at exactly this average video bitrate. */
+	pinnedBitrateBps: number | null;
 }
 
 // ── Track Mappings ──────────────────────────────────────────────────────────
@@ -507,6 +515,8 @@ export interface CapacityEstimate {
 	usagePct: number;
 	isOverCapacity: boolean;
 	titleBitrates: TitleBitrateAllocation[];
+	/** True when even pushing every floor-bound title to its `bitrateFloorBps` exceeds the disc budget. */
+	floorInfeasible: boolean;
 }
 
 // ── Build Settings ──────────────────────────────────────────────────────────

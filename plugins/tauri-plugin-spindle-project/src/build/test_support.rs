@@ -89,6 +89,10 @@ pub(crate) fn test_project() -> SpindleProjectFile {
         ],
         end_action: Some(PlaybackAction::Stop),
         order_index: 0,
+        bitrate_weight: 1.0,
+        bitrate_floor_bps: None,
+        bitrate_ceiling_bps: None,
+        pinned_bitrate_bps: None,
     };
 
     project.disc.titlesets[0].titles.push(title);
@@ -219,6 +223,10 @@ pub(crate) fn add_second_titleset(project: &mut SpindleProjectFile) {
         }],
         end_action: Some(PlaybackAction::Stop),
         order_index: 0,
+        bitrate_weight: 1.0,
+        bitrate_floor_bps: None,
+        bitrate_ceiling_bps: None,
+        pinned_bitrate_bps: None,
     };
 
     let second_titleset = Titleset {

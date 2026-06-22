@@ -129,6 +129,10 @@ describe('ProjectStore: updateMenuDocument', () => {
 						chapters: [],
 						endAction: null,
 						orderIndex: 0,
+						bitrateWeight: 1.0,
+						bitrateFloorBps: null,
+						bitrateCeilingBps: null,
+						pinnedBitrateBps: null,
 					},
 				],
 				menus: [
