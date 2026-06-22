@@ -180,8 +180,21 @@ fn estimate_title_audio_bitrate_bps(title: &Title, asset: Option<&Asset>) -> f64
                 AudioOutputTarget::Ac3 => 448_000.0,
                 AudioOutputTarget::Mp2 => 384_000.0,
                 AudioOutputTarget::Dts => 768_000.0,
-                // Stereo 16-bit/48kHz PCM; LPCM has no fixed rate of its own.
-                AudioOutputTarget::Lpcm => 1_536_000.0,
+                // LPCM is uncompressed and has no fixed rate of its own —
+                // `build_ffmpeg_transcode_command` never forces `-ac`, so the
+                // encode keeps the source channel count. Derive the real rate
+                // from it instead of assuming stereo (16-bit/48kHz).
+                AudioOutputTarget::Lpcm => {
+                    let channels = asset
+                        .and_then(|a| {
+                            a.audio_streams
+                                .iter()
+                                .find(|s| s.index == mapping.source_stream_index)
+                        })
+                        .map(|stream| stream.channels)
+                        .unwrap_or(2);
+                    16.0 * 48_000.0 * channels as f64
+                }
             },
             // Copied as-is: use the source stream's known bitrate, or fall
             // back to the heaviest re-encode target (AC3) if unknown.
@@ -357,6 +370,35 @@ mod tests {
         assert!(
             usable_video_bytes_implied < estimate.usable_bytes,
             "expected audio to be reserved out of the usable budget before deriving the video rate"
+        );
+    }
+
+    #[test]
+    fn lpcm_audio_reservation_scales_with_source_channel_count() {
+        // Regression test: a 5.1 source re-encoded to LPCM keeps all 6
+        // channels (build_ffmpeg_transcode_command never forces `-ac`), so
+        // assuming stereo would reserve roughly a third of the real bytes.
+        let mut stereo_project = test_project();
+        stereo_project.assets[0].duration_secs = Some(3600.0);
+        stereo_project.assets[0].audio_streams[0].channels = 2;
+        stereo_project.disc.titlesets[0].titles[0].audio_mappings[0].output_target =
+            AudioOutputTarget::Lpcm;
+
+        let mut surround_project = test_project();
+        surround_project.assets[0].duration_secs = Some(3600.0);
+        surround_project.assets[0].audio_streams[0].channels = 6;
+        surround_project.disc.titlesets[0].titles[0].audio_mappings[0].output_target =
+            AudioOutputTarget::Lpcm;
+
+        let stereo_estimate = estimate_disc_capacity(&stereo_project);
+        let surround_estimate = estimate_disc_capacity(&surround_project);
+
+        assert!(
+            surround_estimate.available_bits_per_second < stereo_estimate.available_bits_per_second,
+            "expected a 5.1 LPCM source to reserve more audio bytes (leaving a smaller video budget) \
+             than a stereo one, got surround={} stereo={}",
+            surround_estimate.available_bits_per_second,
+            stereo_estimate.available_bits_per_second
         );
     }
 
