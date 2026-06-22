@@ -5,6 +5,7 @@
 
 import { useProjectStore } from '../store/project-store';
 import { useNavigation } from '../App';
+import { NoProjectState } from '../components/NoProjectState';
 import { CAPACITY_LABELS, CAPACITY_BYTES } from '../types/project';
 import type {
 	VideoStandard,
@@ -20,7 +21,21 @@ export function OverviewPage() {
 	const updateProject = useProjectStore((s) => s.updateProject);
 	const validationIssues = useProjectStore((s) => s.validationIssues);
 
-	if (!project) return <NoProjectView />;
+	if (!project) {
+		return (
+			<NoProjectState
+				title="Welcome to Spindle"
+				description="Optical-disc authoring studio for DVD-Video projects."
+				icon={
+					<svg viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="1.5">
+						<circle cx="32" cy="32" r="28" />
+						<circle cx="32" cy="32" r="12" />
+						<circle cx="32" cy="32" r="3" />
+					</svg>
+				}
+			/>
+		);
+	}
 
 	const disc = project.disc;
 	const titleCount = disc.titlesets.reduce((s, ts) => s + ts.titles.length, 0);
@@ -250,40 +265,6 @@ export function OverviewPage() {
 }
 
 // ── Sub-components ──────────────────────────────────────────────────────────
-
-function NoProjectView() {
-	const createProject = useProjectStore((s) => s.createProject);
-	const openProject = useProjectStore((s) => s.openProject);
-
-	const handleNew = () =>
-		createProject({ name: 'Untitled Project', standard: 'NTSC', capacityTarget: 'DVD5' });
-
-	return (
-		<div className="overview__empty">
-			<svg
-				className="overview__empty-icon"
-				viewBox="0 0 64 64"
-				fill="none"
-				stroke="currentColor"
-				strokeWidth="1.5"
-			>
-				<circle cx="32" cy="32" r="28" />
-				<circle cx="32" cy="32" r="12" />
-				<circle cx="32" cy="32" r="3" />
-			</svg>
-			<h2>Welcome to Spindle</h2>
-			<p className="text-muted">Optical-disc authoring studio for DVD-Video projects.</p>
-			<div className="overview__empty-actions">
-				<button className="btn btn--primary" onClick={handleNew}>
-					New Project
-				</button>
-				<button className="btn" onClick={openProject}>
-					Open Project
-				</button>
-			</div>
-		</div>
-	);
-}
 
 function issueRoute(issue: ValidationIssue): string | null {
 	const type = issue.entityType;

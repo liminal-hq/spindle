@@ -9,6 +9,7 @@ import { save } from '@tauri-apps/plugin-dialog';
 import { exportMenuRenderPreview, listAvailableFonts } from 'tauri-plugin-spindle-project-api';
 import { useProjectStore } from '../store/project-store';
 import { useNavigation } from '../App';
+import { NoProjectState } from '../components/NoProjectState';
 import { useDisplayDensity, type DisplayDensity } from '../hooks/useDisplayDensity';
 import type {
 	AspectMode,
@@ -118,7 +119,22 @@ export function MenusPage() {
 		if (entityId) setSelectedMenuId(entityId);
 	}, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-	if (!project) return null;
+	if (!project) {
+		return (
+			<NoProjectState
+				title="No Project Open"
+				description="Open or create a project to design menu layouts and navigation."
+				icon={
+					<svg viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="1.5">
+						<rect x="8" y="8" width="48" height="48" rx="4" />
+						<rect x="14" y="36" width="14" height="8" rx="2" />
+						<rect x="36" y="36" width="14" height="8" rx="2" />
+						<rect x="14" y="16" width="36" height="14" rx="2" />
+					</svg>
+				}
+			/>
+		);
+	}
 
 	const disc = project.disc;
 	const allMenus = [

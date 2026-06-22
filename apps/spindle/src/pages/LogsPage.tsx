@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: MIT
 
 import { useProjectStore } from '../store/project-store';
+import { NoProjectState } from '../components/NoProjectState';
 import './LogsPage.css';
 
 export function LogsPage() {
@@ -11,7 +12,19 @@ export function LogsPage() {
 	const validationIssues = useProjectStore((s) => s.validationIssues);
 	const validateProject = useProjectStore((s) => s.validateProject);
 
-	if (!project) return null;
+	if (!project) {
+		return (
+			<NoProjectState
+				title="No Project Open"
+				description="Open or create a project to view build logs and diagnostics."
+				icon={
+					<svg viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="1.5">
+						<path d="M8 48h48M8 32h32M8 16h20" />
+					</svg>
+				}
+			/>
+		);
+	}
 
 	const disc = project.disc;
 	const titleCount = disc.titlesets.reduce((s, ts) => s + ts.titles.length, 0);

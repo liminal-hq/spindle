@@ -99,35 +99,6 @@
 	gap: var(--space-4);
 }
 
-/* ── Empty state ───────────────────────────────────────────── */
-
-.overview__empty {
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	justify-content: center;
-	height: 100%;
-	text-align: center;
-	gap: var(--space-4);
-}
-
-.overview__empty-icon {
-	width: 80px;
-	height: 80px;
-	opacity: 0.2;
-}
-
-.overview__empty h2 {
-	font-family: var(--font-heading);
-	margin-bottom: 0;
-}
-
-.overview__empty-actions {
-	display: flex;
-	gap: var(--space-3);
-	margin-top: var(--space-2);
-}
-
 /* ── Shared card and badge classes ─────────────────────────── */
 
 .card {

@@ -6,6 +6,7 @@
 import { useEffect, useState } from 'react';
 import { useProjectStore } from '../store/project-store';
 import { useNavigation } from '../App';
+import { NoProjectState } from '../components/NoProjectState';
 import type {
 	Title,
 	Titleset,
@@ -48,7 +49,22 @@ export function TitlesPage() {
 		}
 	}, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-	if (!project) return null;
+	if (!project) {
+		return (
+			<NoProjectState
+				title="No Project Open"
+				description="Open or create a project to organise titles and configure output profiles."
+				icon={
+					<svg viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="1.5">
+						<rect x="8" y="8" width="48" height="48" rx="4" />
+						<line x1="16" y1="20" x2="48" y2="20" />
+						<line x1="16" y1="32" x2="40" y2="32" />
+						<line x1="16" y1="44" x2="32" y2="44" />
+					</svg>
+				}
+			/>
+		);
+	}
 
 	// Select first titleset by default, or follow user selection
 	const titleset =
