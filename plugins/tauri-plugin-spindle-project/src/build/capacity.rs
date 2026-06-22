@@ -60,22 +60,26 @@ pub fn estimate_disc_capacity(project: &SpindleProjectFile) -> CapacityEstimate 
     let disc = &project.disc;
     let capacity_bytes = disc.capacity_target.capacity_bytes() as f64;
 
-    let titles_with_duration: Vec<(&Title, f64)> = disc
+    // Per-title duration and estimated audio bitrate — the latter is muxed
+    // alongside video at the rate `build_ffmpeg_transcode_command` actually
+    // requests, so both the disc-wide budget and each title's own video cap
+    // need to account for it (see `allocate_title_bitrates`).
+    let titles_with_duration: Vec<(&Title, f64, f64)> = disc
         .titlesets
         .iter()
         .flat_map(|ts| ts.titles.iter())
         .map(|title| {
-            let duration = title
+            let asset = title
                 .source_asset_id
                 .as_deref()
-                .and_then(|id| project.assets.iter().find(|a| a.id == id))
-                .and_then(|asset| asset.duration_secs)
-                .unwrap_or(0.0);
-            (title, duration)
+                .and_then(|id| project.assets.iter().find(|a| a.id == id));
+            let duration = asset.and_then(|a| a.duration_secs).unwrap_or(0.0);
+            let audio_bps = estimate_title_audio_bitrate_bps(title, asset);
+            (title, duration, audio_bps)
         })
         .collect();
 
-    let total_duration_secs: f64 = titles_with_duration.iter().map(|(_, d)| d).sum();
+    let total_duration_secs: f64 = titles_with_duration.iter().map(|(_, d, _)| d).sum();
 
     // Audio is muxed alongside video at the same rates `build_ffmpeg_transcode_command`
     // requests, so it must be reserved out of the budget before any of it is
@@ -83,14 +87,8 @@ pub fn estimate_disc_capacity(project: &SpindleProjectFile) -> CapacityEstimate 
     // build encodes the full video budget *plus* audio and overflows the target.
     let total_audio_bytes: f64 = titles_with_duration
         .iter()
-        .filter(|(_, duration)| *duration > 0.0)
-        .map(|(title, duration)| {
-            let asset = title
-                .source_asset_id
-                .as_deref()
-                .and_then(|id| project.assets.iter().find(|a| a.id == id));
-            (estimate_title_audio_bitrate_bps(title, asset) * duration) / 8.0
-        })
+        .filter(|(_, duration, _)| *duration > 0.0)
+        .map(|(_, duration, audio_bps)| (audio_bps * duration) / 8.0)
         .sum();
 
     let all_menus: Vec<&Menu> = disc
@@ -140,7 +138,7 @@ pub fn estimate_disc_capacity(project: &SpindleProjectFile) -> CapacityEstimate 
     let video_output_bytes: f64 = titles_with_duration
         .iter()
         .zip(title_bitrates.iter())
-        .map(|((_, duration), alloc)| (alloc.bits_per_second * duration) / 8.0)
+        .map(|((_, duration, _), alloc)| (alloc.bits_per_second * duration) / 8.0)
         .sum();
     let estimated_output_bytes = video_output_bytes + total_audio_bytes;
     let usage_pct = if estimated_output_bytes > 0.0 {
@@ -220,7 +218,7 @@ fn estimate_title_audio_bitrate_bps(title: &Title, asset: Option<&Asset>) -> f64
 /// liminal-hq/spindle#44), so it falls back to `duration-weighted` until that
 /// lands.
 fn allocate_title_bitrates(
-    titles_with_duration: &[(&Title, f64)],
+    titles_with_duration: &[(&Title, f64, f64)],
     total_duration_secs: f64,
     available_bits_per_second: f64,
     strategy: AllocationStrategy,
@@ -228,9 +226,11 @@ fn allocate_title_bitrates(
     if titles_with_duration.is_empty() || available_bits_per_second <= 0.0 {
         return titles_with_duration
             .iter()
-            .map(|(title, _)| TitleBitrateAllocation {
+            .map(|(title, _, audio_bps)| TitleBitrateAllocation {
                 title_id: title.id.clone(),
-                bits_per_second: available_bits_per_second.max(0.0),
+                bits_per_second: available_bits_per_second
+                    .max(0.0)
+                    .min((super::ffmpeg::MUX_RATE_BPS - audio_bps).max(0.0)),
             })
             .collect();
     }
@@ -244,7 +244,7 @@ fn allocate_title_bitrates(
 
     titles_with_duration
         .iter()
-        .map(|(title, duration)| {
+        .map(|(title, duration, audio_bps)| {
             // Unknown-duration titles aren't counted in `total_duration_secs`
             // or the disc-level byte estimate at all, so handing them a
             // capacity-derived rate would let the build encode real,
@@ -254,7 +254,7 @@ fn allocate_title_bitrates(
             let bits_per_second = if *duration <= 0.0 {
                 0.0
             } else {
-                match strategy {
+                let video_bps = match strategy {
                     // Every title gets the same average rate; bytes naturally
                     // scale with each title's own duration.
                     AllocationStrategy::DurationWeighted | AllocationStrategy::PriorityWeighted => {
@@ -267,7 +267,12 @@ fn allocate_title_bitrates(
                         let share_bits = total_budget_bits / titles_with_duration.len() as f64;
                         (share_bits / duration).min(capped_rate)
                     }
-                }
+                };
+                // Video plus this title's own audio must still fit under the
+                // disc's `-muxrate` ceiling, even if the disc-wide video pool
+                // alone would not exceed it (a heavy per-title audio track,
+                // e.g. multichannel LPCM, can still blow the combined mux rate).
+                video_bps.min((super::ffmpeg::MUX_RATE_BPS - audio_bps).max(0.0))
             };
             TitleBitrateAllocation {
                 title_id: title.id.clone(),
@@ -404,6 +409,32 @@ mod tests {
             clamped_video_bytes,
             audio_bytes,
             raw_video_bytes
+        );
+    }
+
+    #[test]
+    fn title_video_rate_is_capped_to_leave_room_for_its_own_audio_under_the_mux_rate() {
+        // Regression test: a short, unconstrained project can have plenty of
+        // disc-wide budget (so the video pool hits the 9 Mbps encoder
+        // ceiling), but a heavy per-title audio track (e.g. 5.1 LPCM at
+        // ~4.6 Mbps) plus that video would still exceed the 10.08 Mbps
+        // `-muxrate` ceiling `build_ffmpeg_transcode_command` always sets.
+        let mut project = test_project();
+        project.assets[0].duration_secs = Some(3600.0);
+        project.assets[0].audio_streams[0].channels = 6;
+        project.disc.titlesets[0].titles[0].audio_mappings[0].output_target =
+            AudioOutputTarget::Lpcm;
+
+        let estimate = estimate_disc_capacity(&project);
+        let audio_bps = 16.0 * 48_000.0 * 6.0;
+
+        assert!(
+            estimate.title_bitrates[0].bits_per_second + audio_bps
+                <= super::super::ffmpeg::MUX_RATE_BPS + 1.0,
+            "title video ({}) plus its own audio ({}) should fit under the mux rate ({})",
+            estimate.title_bitrates[0].bits_per_second,
+            audio_bps,
+            super::super::ffmpeg::MUX_RATE_BPS
         );
     }
 

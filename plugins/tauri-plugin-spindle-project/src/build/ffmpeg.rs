@@ -18,6 +18,10 @@ pub(crate) const DEFAULT_VIDEO_BITRATE_BPS: f64 = 6_000_000.0;
 /// average, and is clamped below the average if the average is unusually high.
 pub(crate) const MAX_VIDEO_RATE_BPS: f64 = 9_000_000.0;
 
+/// DVD-Video's total mux rate ceiling — the `-muxrate` this command always
+/// requests. Video and audio together must fit under it.
+pub(crate) const MUX_RATE_BPS: f64 = 10_080_000.0;
+
 pub(crate) fn build_ffmpeg_transcode_command(
     source_path: &str,
     output_path: &Path,
@@ -198,7 +202,7 @@ pub(crate) fn build_ffmpeg_transcode_command(
         "-f".to_string(),
         "dvd".to_string(),
         "-muxrate".to_string(),
-        "10080000".to_string(),
+        (MUX_RATE_BPS as i64).to_string(),
         output_path.display().to_string(),
     ]);
 
