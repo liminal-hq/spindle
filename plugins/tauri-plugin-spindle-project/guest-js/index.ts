@@ -721,9 +721,7 @@ export async function validateProject(project: SpindleProjectFile): Promise<Vali
 
 /** Estimate disc-capacity usage and the per-title bitrate budget the build
  * pipeline will actually encode at. */
-export async function estimateDiscCapacity(
-	project: SpindleProjectFile,
-): Promise<CapacityEstimate> {
+export async function estimateDiscCapacity(project: SpindleProjectFile): Promise<CapacityEstimate> {
 	return await invoke('plugin:spindle-project|estimate_disc_capacity', { project });
 }
 
