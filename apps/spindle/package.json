@@ -4,15 +4,15 @@
 	"version": "0.3.0",
 	"type": "module",
 	"scripts": {
-		"predev": "pnpm --filter tauri-plugin-display-awareness-api build",
+		"predev": "pnpm --filter tauri-plugin-display-awareness-api --filter tauri-plugin-spindle-project-api build",
 		"dev": "vite",
-		"prebuild": "pnpm --filter tauri-plugin-display-awareness-api build",
+		"prebuild": "pnpm --filter tauri-plugin-display-awareness-api --filter tauri-plugin-spindle-project-api build",
 		"build": "tsc && vite build",
 		"preview": "vite preview",
 		"tauri": "tauri",
-		"pretest": "pnpm --filter tauri-plugin-display-awareness-api build",
+		"pretest": "pnpm --filter tauri-plugin-display-awareness-api --filter tauri-plugin-spindle-project-api build",
 		"test": "vitest run",
-		"pretest:ci": "pnpm --filter tauri-plugin-display-awareness-api build",
+		"pretest:ci": "pnpm --filter tauri-plugin-display-awareness-api --filter tauri-plugin-spindle-project-api build",
 		"test:ci": "mkdir -p ../../test-results/spindle && vitest run --reporter=default --reporter=junit --outputFile.junit=../../test-results/spindle/junit.xml",
 		"test:watch": "vitest"
 	},
@@ -29,6 +29,7 @@
 		"react": "^19.1.0",
 		"react-dom": "^19.1.0",
 		"tauri-plugin-display-awareness-api": "workspace:*",
+		"tauri-plugin-spindle-project-api": "workspace:*",
 		"zustand": "^5.0.12"
 	},
 	"devDependencies": {

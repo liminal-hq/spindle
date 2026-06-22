@@ -49,6 +49,9 @@ importers:
       tauri-plugin-display-awareness-api:
         specifier: workspace:*
         version: link:../../plugins/tauri-plugin-display-awareness
+      tauri-plugin-spindle-project-api:
+        specifier: workspace:*
+        version: link:../../plugins/tauri-plugin-spindle-project
       zustand:
         specifier: ^5.0.12
         version: 5.0.12(@types/react@19.2.14)(react@19.2.4)(use-sync-external-store@1.6.0(react@19.2.4))
@@ -85,6 +88,25 @@ importers:
         version: 4.1.0(@types/node@25.5.0)(happy-dom@20.8.4)(jsdom@29.0.1)(vite@7.3.1(@types/node@25.5.0))
 
   plugins/tauri-plugin-display-awareness:
+    dependencies:
+      '@tauri-apps/api':
+        specifier: ^2.0.0
+        version: 2.10.1
+    devDependencies:
+      '@rollup/plugin-typescript':
+        specifier: ^12.0.0
+        version: 12.3.0(rollup@4.60.0)(tslib@2.8.1)(typescript@5.8.3)
+      rollup:
+        specifier: ^4.9.6
+        version: 4.60.0
+      tslib:
+        specifier: ^2.6.2
+        version: 2.8.1
+      typescript:
+        specifier: ^5.3.3
+        version: 5.8.3
+
+  plugins/tauri-plugin-spindle-project:
     dependencies:
       '@tauri-apps/api':
         specifier: ^2.0.0

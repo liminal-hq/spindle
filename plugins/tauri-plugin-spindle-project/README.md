@@ -182,72 +182,63 @@ cargo test -p tauri-plugin-spindle-project execute_build_plan_smoke_authors_titl
 
 That smoke test requires `ffmpeg`, `spumux`, and `dvdauthor` to be available on `PATH`.
 
-## Frontend usage
+## JavaScript bindings
 
-The plugin is invoked through Tauri core APIs:
+The plugin ships typed bindings in `tauri-plugin-spindle-project-api`, following the
+same `guest-js` convention as `tauri-plugin-display-awareness`. App code should
+import from the package rather than calling `invoke` with raw command strings:
 
 ```ts
-import { invoke } from '@tauri-apps/api/core';
+import { createProject, parseProject, serialiseProject } from 'tauri-plugin-spindle-project-api';
 
-const project = await invoke('plugin:spindle-project|create_project', {
-	payload: {
-		name: 'Wedding DVD',
-		standard: 'NTSC',
-		capacityTarget: 'DVD5',
-	},
+const project = await createProject({
+	name: 'Wedding DVD',
+	standard: 'NTSC',
+	capacityTarget: 'DVD5',
 });
 ```
 
 Parsing and saving typically look like this:
 
 ```ts
-const parsed = await invoke('plugin:spindle-project|parse_project', { json });
-
-const serialised = await invoke('plugin:spindle-project|serialise_project', {
-	project: parsed,
-});
+const parsed = await parseProject(json);
+const serialised = await serialiseProject(parsed);
 ```
 
 Validation and asset inspection use the same pattern:
 
 ```ts
-const issues = await invoke('plugin:spindle-project|validate_project', {
-	project,
-});
-
-const asset = await invoke('plugin:spindle-project|inspect_asset', {
-	path: '/media/clip.mpg',
-});
+const issues = await validateProject(project);
+const asset = await inspectAsset('/media/clip.mpg');
 ```
 
-Build planning and execution use the same `invoke` entry point:
+Build planning and execution share a `BuildOptions` argument:
 
 ```ts
-const plan = await invoke('plugin:spindle-project|generate_build_plan', {
-	project,
-	outputDirectory: '/tmp/spindle-output',
+const options = {
 	skipSidecar: false,
 	skipUnsupportedStreams: false,
-});
+	quantizeOverlayPalette: false,
+};
 
-const result = await invoke('plugin:spindle-project|execute_build', {
-	project,
-	outputDirectory: '/tmp/spindle-output',
-	skipSidecar: false,
-	skipUnsupportedStreams: false,
+const plan = await generateBuildPlan(project, '/tmp/spindle-output', options);
+const result = await executeBuild(project, '/tmp/spindle-output', options);
+```
+
+Subscribe to build progress instead of listening for the raw event name directly:
+
+```ts
+import { onBuildProgress } from 'tauri-plugin-spindle-project-api';
+
+const unlisten = await onBuildProgress((progress) => {
+	console.log(progress.currentLabel, progress.status);
 });
 ```
 
 Diagnostics export records the same developer-option context:
 
 ```ts
-const diagnostics = await invoke('plugin:spindle-project|export_diagnostics', {
-	project,
-	buildLog,
-	validationIssues,
-	skipSidecar: false,
-	skipUnsupportedStreams: false,
-});
+const diagnostics = await exportDiagnostics(project, buildLog, validationIssues, options);
 ```
 
 ## Types and schema notes
