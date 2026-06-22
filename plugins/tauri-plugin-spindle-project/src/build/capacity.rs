@@ -267,6 +267,16 @@ fn allocate_title_bitrates(
     // being (clamped to the encoder's 9.0 Mbps ceiling).
     let capped_rate = available_bits_per_second.min(super::ffmpeg::MAX_VIDEO_RATE_BPS);
 
+    // Unknown-duration titles get 0 bps below and aren't counted in
+    // `total_duration_secs`/the byte estimate at all, so they shouldn't
+    // dilute `equal-share`'s per-title divisor either — otherwise a single
+    // such title would unnecessarily lower every known-duration title's rate.
+    let budgeted_title_count = titles_with_duration
+        .iter()
+        .filter(|(_, duration, _)| *duration > 0.0)
+        .count()
+        .max(1) as f64;
+
     titles_with_duration
         .iter()
         .map(|(title, duration, audio_bps)| {
@@ -289,7 +299,7 @@ fn allocate_title_bitrates(
                     // of duration, so short titles get a higher per-second rate.
                     AllocationStrategy::EqualShare => {
                         let total_budget_bits = available_bits_per_second * total_duration_secs;
-                        let share_bits = total_budget_bits / titles_with_duration.len() as f64;
+                        let share_bits = total_budget_bits / budgeted_title_count;
                         (share_bits / duration).min(capped_rate)
                     }
                 };
@@ -593,6 +603,37 @@ mod tests {
             short_rate > long_rate,
             "expected the 60s title to get a higher rate than the 3600s title under equal-share, \
              got short={short_rate} long={long_rate}"
+        );
+    }
+
+    #[test]
+    fn equal_share_does_not_dilute_known_titles_for_unknown_duration_ones() {
+        // Regression test: an unknown-duration title gets 0 bps and is
+        // excluded from total_duration_secs/the byte estimate entirely, so
+        // it shouldn't shrink equal-share's per-title divisor either —
+        // otherwise adding such a title would unnecessarily lower every
+        // known-duration title's rate for no real reason.
+        let mut project = test_project();
+        project.assets[0].duration_secs = Some(3600.0);
+        project.build_settings.allocation_strategy = AllocationStrategy::EqualShare;
+        let baseline_rate = estimate_disc_capacity(&project).title_bitrates[0].bits_per_second;
+
+        let mut unknown_title = project.disc.titlesets[0].titles[0].clone();
+        unknown_title.id = "title-unknown-duration".to_string();
+        unknown_title.source_asset_id = None;
+        project.disc.titlesets[0].titles.push(unknown_title);
+
+        let estimate = estimate_disc_capacity(&project);
+        let known_rate = estimate
+            .title_bitrates
+            .iter()
+            .find(|a| a.title_id == "title-1")
+            .unwrap()
+            .bits_per_second;
+
+        assert_eq!(
+            known_rate, baseline_rate,
+            "adding an unknown-duration title should not change the known title's rate"
         );
     }
 
