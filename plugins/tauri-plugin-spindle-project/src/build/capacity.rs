@@ -78,6 +78,22 @@ pub fn estimate_disc_capacity(project: &SpindleProjectFile) -> CapacityEstimate 
 
     let total_duration_secs: f64 = titles_with_duration.iter().map(|(_, d)| d).sum();
 
+    // Audio is muxed alongside video at the same rates `build_ffmpeg_transcode_command`
+    // requests, so it must be reserved out of the budget before any of it is
+    // handed to video — otherwise the disc can be reported as fitting while the
+    // build encodes the full video budget *plus* audio and overflows the target.
+    let total_audio_bytes: f64 = titles_with_duration
+        .iter()
+        .filter(|(_, duration)| *duration > 0.0)
+        .map(|(title, duration)| {
+            let asset = title
+                .source_asset_id
+                .as_deref()
+                .and_then(|id| project.assets.iter().find(|a| a.id == id));
+            (estimate_title_audio_bitrate_bps(title, asset) * duration) / 8.0
+        })
+        .sum();
+
     let all_menus: Vec<&Menu> = disc
         .global_menus
         .iter()
@@ -99,10 +115,12 @@ pub fn estimate_disc_capacity(project: &SpindleProjectFile) -> CapacityEstimate 
     let estimated_overhead_bytes = 50_000_000.0 + estimated_menu_bytes;
     let usable_bytes = capacity_bytes - safety_margin_bytes - estimated_overhead_bytes;
 
-    // NOTE: this budgeted rate is advisory only until it's fed into the build —
-    // see liminal-hq/spindle#43.
+    // `available_bits_per_second` is the video-only budget: audio is reserved
+    // out of `usable_bytes` first, since the build muxes it in on top of
+    // whatever rate `title_bitrates` hands to `-b:v`.
+    let usable_video_bytes = (usable_bytes - total_audio_bytes).max(0.0);
     let raw_bits_per_second = if total_duration_secs > 0.0 {
-        (usable_bytes * 8.0) / total_duration_secs
+        (usable_video_bytes * 8.0) / total_duration_secs
     } else {
         0.0
     };
@@ -110,7 +128,8 @@ pub fn estimate_disc_capacity(project: &SpindleProjectFile) -> CapacityEstimate 
     let is_capacity_constrained = raw_bits_per_second < DVD_MAX_VIDEO_RATE_BPS;
 
     let estimated_output_bytes = if total_duration_secs > 0.0 {
-        (raw_bits_per_second.min(DVD_MAX_MUX_RATE_BPS) * total_duration_secs) / 8.0
+        let video_bps = raw_bits_per_second.min(DVD_MAX_MUX_RATE_BPS);
+        ((video_bps * total_duration_secs) / 8.0) + total_audio_bytes
     } else {
         0.0
     };
@@ -142,6 +161,41 @@ pub fn estimate_disc_capacity(project: &SpindleProjectFile) -> CapacityEstimate 
         is_over_capacity,
         title_bitrates,
     }
+}
+
+/// Estimate the total audio bitrate `build_ffmpeg_transcode_command` will
+/// actually request for this title, mirroring its re-encode targets and its
+/// silent-fallback track so the capacity budget can reserve real bytes for it
+/// instead of treating the whole disc as video.
+fn estimate_title_audio_bitrate_bps(title: &Title, asset: Option<&Asset>) -> f64 {
+    if title.audio_mappings.is_empty() {
+        return 192_000.0; // matches the anullsrc fallback track's `-b:a 192k`.
+    }
+
+    title
+        .audio_mappings
+        .iter()
+        .map(|mapping| match mapping.copy_mode {
+            CopyMode::ReEncode => match mapping.output_target {
+                AudioOutputTarget::Ac3 => 448_000.0,
+                AudioOutputTarget::Mp2 => 384_000.0,
+                AudioOutputTarget::Dts => 768_000.0,
+                // Stereo 16-bit/48kHz PCM; LPCM has no fixed rate of its own.
+                AudioOutputTarget::Lpcm => 1_536_000.0,
+            },
+            // Copied as-is: use the source stream's known bitrate, or fall
+            // back to the heaviest re-encode target (AC3) if unknown.
+            CopyMode::Copy => asset
+                .and_then(|a| {
+                    a.audio_streams
+                        .iter()
+                        .find(|s| s.index == mapping.source_stream_index)
+                })
+                .and_then(|stream| stream.bitrate_bps)
+                .map(|bps| bps as f64)
+                .unwrap_or(448_000.0),
+        })
+        .sum()
 }
 
 /// Distribute the disc-wide average bitrate budget across titles.
@@ -284,6 +338,42 @@ mod tests {
         assert_eq!(
             unknown_rate, 0.0,
             "unknown-duration titles must not receive a capacity-derived bitrate"
+        );
+    }
+
+    #[test]
+    fn video_budget_reserves_bytes_for_audio_instead_of_assuming_video_takes_the_whole_disc() {
+        // Regression test: the default test title has an AC3 (448 kbps)
+        // audio mapping. If the video budget didn't reserve for it,
+        // available_bits_per_second would equal the full usable-byte rate;
+        // it must instead be lower by roughly the audio share.
+        let mut project = test_project();
+        project.assets[0].duration_secs = Some(3600.0);
+
+        let estimate = estimate_disc_capacity(&project);
+        let usable_video_bytes_implied =
+            (estimate.available_bits_per_second * estimate.total_duration_secs) / 8.0;
+
+        assert!(
+            usable_video_bytes_implied < estimate.usable_bytes,
+            "expected audio to be reserved out of the usable budget before deriving the video rate"
+        );
+    }
+
+    #[test]
+    fn estimated_output_bytes_includes_audio_not_just_video() {
+        let mut project = test_project();
+        project.assets[0].duration_secs = Some(3600.0);
+
+        let estimate = estimate_disc_capacity(&project);
+        let video_only_bytes =
+            (estimate.available_bits_per_second * estimate.total_duration_secs) / 8.0;
+
+        assert!(
+            estimate.estimated_output_bytes > video_only_bytes,
+            "estimated_output_bytes ({}) should account for muxed audio on top of video ({})",
+            estimate.estimated_output_bytes,
+            video_only_bytes
         );
     }
 
