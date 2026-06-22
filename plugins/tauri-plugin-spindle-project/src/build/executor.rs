@@ -1075,6 +1075,87 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "requires ffmpeg, spumux, and dvdauthor on PATH"]
+    fn execute_build_plan_smoke_authors_disc_with_first_play_but_no_global_menus() {
+        // Regression test for a disc whose VMGM has a first-play action but no
+        // global menus of its own (all real menus, if any, live at the titleset
+        // level) — the exact shape that previously made the real `dvdauthor`
+        // binary fail at the final table-of-contents step with
+        // "no video format specified for VMGM", even though the generated XML
+        // looked fine to the fast in-process unit tests.
+        let Some(ffmpeg_bin) = find_tool_on_path("ffmpeg") else {
+            eprintln!("Skipping smoke test because `ffmpeg` is not available on PATH.");
+            return;
+        };
+        if find_tool_on_path("dvdauthor").is_none() {
+            eprintln!("Skipping smoke test because `dvdauthor` is not available on PATH.");
+            return;
+        }
+
+        let output_dir = unique_temp_dir("build-smoke-vmgm-no-menus");
+        let source_path = output_dir.join("source.mp4");
+        fs::create_dir_all(&output_dir).unwrap();
+
+        let ffmpeg_status = Command::new(ffmpeg_bin)
+            .args([
+                "-y",
+                "-f",
+                "lavfi",
+                "-i",
+                "color=c=black:s=640x360:d=1.5",
+                "-f",
+                "lavfi",
+                "-i",
+                "anullsrc=r=48000:cl=stereo",
+                "-shortest",
+                "-c:v",
+                "libx264",
+                "-pix_fmt",
+                "yuv420p",
+                "-c:a",
+                "aac",
+                "-b:a",
+                "128k",
+            ])
+            .arg(&source_path)
+            .status()
+            .expect("ffmpeg should launch for smoke test fixture generation");
+        assert!(
+            ffmpeg_status.success(),
+            "ffmpeg fixture generation failed with status {ffmpeg_status}"
+        );
+
+        let mut project = test_project();
+        project.assets[0].source_path = source_path.display().to_string();
+        project.assets[0].file_name = "source.mp4".to_string();
+        project.assets[0].duration_secs = Some(1.5);
+        // First-play action set, but `global_menus` is left empty — no VMGM-level
+        // menus at all, only the titleset's title.
+        project.disc.first_play_action = Some(PlaybackAction::PlayTitle {
+            title_id: "title-1".to_string(),
+        });
+        assert!(project.disc.global_menus.is_empty());
+
+        let plan = generate_build_plan(&project, output_dir.to_str().unwrap(), true).unwrap();
+        let result = execute_build_plan(&plan, |_| {});
+
+        if !result.success {
+            panic!(
+                "expected smoke build to succeed\n{}",
+                result.log_lines.join("\n")
+            );
+        }
+
+        assert!(
+            output_dir.join("DVD_DISC/VIDEO_TS/VIDEO_TS.IFO").exists(),
+            "expected VIDEO_TS.IFO in authored output for a disc with a first-play \
+             action but no global menus"
+        );
+
+        fs::remove_dir_all(&output_dir).unwrap();
+    }
+
+    #[test]
     #[ignore = "requires ffmpeg, ffprobe, spumux, and dvdauthor on PATH"]
     fn execute_build_plan_smoke_authors_text_subtitle_stream() {
         let Some(ffmpeg_bin) = find_tool_on_path("ffmpeg") else {
