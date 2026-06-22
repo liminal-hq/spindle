@@ -199,9 +199,13 @@ fn estimate_title_audio_bitrate_bps(title: &Title, asset: Option<&Asset>) -> f64
             };
 
             match mapping.copy_mode {
-                CopyMode::ReEncode => {
-                    output_target_rate_bps(mapping.output_target, source_channels())
-                }
+                // A re-encoded track's channel count is whatever the user
+                // selected (defaulting to the source's), since that's what
+                // `build_ffmpeg_transcode_command` actually requests via `-ac`.
+                CopyMode::ReEncode => output_target_rate_bps(
+                    mapping.output_target,
+                    mapping.channel_layout.unwrap_or_else(source_channels),
+                ),
                 // Copied as-is: use the source stream's known bitrate. When
                 // it's unknown, a copy stream isn't necessarily AC3-sized —
                 // it could be any DVD-legal format the source already used
@@ -630,9 +634,10 @@ mod tests {
 
     #[test]
     fn lpcm_audio_reservation_scales_with_source_channel_count() {
-        // Regression test: a 5.1 source re-encoded to LPCM keeps all 6
-        // channels (build_ffmpeg_transcode_command never forces `-ac`), so
-        // assuming stereo would reserve roughly a third of the real bytes.
+        // Regression test: with no explicit channel_layout selected, a 5.1
+        // source re-encoded to LPCM keeps all 6 channels (no `-ac` is
+        // requested), so assuming stereo would reserve roughly a third of
+        // the real bytes.
         let mut stereo_project = test_project();
         stereo_project.assets[0].duration_secs = Some(3600.0);
         stereo_project.assets[0].audio_streams[0].channels = 2;
@@ -654,6 +659,33 @@ mod tests {
              than a stereo one, got surround={} stereo={}",
             surround_estimate.available_bits_per_second,
             stereo_estimate.available_bits_per_second
+        );
+    }
+
+    #[test]
+    fn lpcm_audio_reservation_uses_the_selected_channel_layout_over_the_source() {
+        // Regression test: once a user explicitly downmixes a 5.1 LPCM
+        // source to stereo via channel_layout, the byte reservation must
+        // reflect what `-ac 2` will actually produce, not the source's 6
+        // channels — otherwise the budget overstates real audio bytes.
+        let mut project = test_project();
+        project.assets[0].duration_secs = Some(3600.0);
+        project.assets[0].audio_streams[0].channels = 6;
+        project.disc.titlesets[0].titles[0].audio_mappings[0].output_target =
+            AudioOutputTarget::Lpcm;
+        let surround_estimate = estimate_disc_capacity(&project);
+
+        project.disc.titlesets[0].titles[0].audio_mappings[0].channel_layout = Some(2);
+        let downmixed_estimate = estimate_disc_capacity(&project);
+
+        assert!(
+            downmixed_estimate.available_bits_per_second
+                > surround_estimate.available_bits_per_second,
+            "expected selecting a stereo channel_layout to reserve fewer audio bytes \
+             (leaving a larger video budget) than the unmixed 5.1 source, \
+             got downmixed={} surround={}",
+            downmixed_estimate.available_bits_per_second,
+            surround_estimate.available_bits_per_second
         );
     }
 

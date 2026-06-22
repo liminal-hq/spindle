@@ -556,6 +556,7 @@ function TitleEditor({
 			language: as_.language ?? 'und',
 			orderIndex: i,
 			isDefault: i === 0,
+			channelLayout: null,
 		}));
 
 		const subtitleMappings = asset.subtitleStreams.map((ss, i) => ({
@@ -766,17 +767,52 @@ function TitleEditor({
 							<select
 								className="titles__select titles__select--sm"
 								value={am.copyMode}
+								onChange={(e) => {
+									const copyMode = e.target.value as CopyMode;
+									onUpdate({
+										...title,
+										audioMappings: title.audioMappings.map((a) =>
+											a.id === am.id
+												? {
+														...a,
+														copyMode,
+														// Channel layout only applies to re-encoded tracks —
+														// clear it so a stale selection doesn't silently
+														// reappear if the user switches back later.
+														channelLayout: copyMode === 'copy' ? null : a.channelLayout,
+													}
+												: a,
+										),
+									});
+								}}
+							>
+								<option value="copy">Copy</option>
+								<option value="re-encode">Re-encode</option>
+							</select>
+							<select
+								className="titles__select titles__select--sm"
+								value={am.channelLayout ?? ''}
+								disabled={am.copyMode !== 're-encode'}
+								title="Channel layout (re-encoded tracks only)"
 								onChange={(e) =>
 									onUpdate({
 										...title,
 										audioMappings: title.audioMappings.map((a) =>
-											a.id === am.id ? { ...a, copyMode: e.target.value as CopyMode } : a,
+											a.id === am.id
+												? {
+														...a,
+														channelLayout: e.target.value === '' ? null : Number(e.target.value),
+													}
+												: a,
 										),
 									})
 								}
 							>
-								<option value="copy">Copy</option>
-								<option value="re-encode">Re-encode</option>
+								<option value="">Auto (source)</option>
+								<option value="1">Mono</option>
+								<option value="2">Stereo</option>
+								<option value="6">5.1</option>
+								<option value="8">7.1</option>
 							</select>
 							<input
 								className="titles__track-lang"

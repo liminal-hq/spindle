@@ -117,46 +117,53 @@ pub(crate) fn build_ffmpeg_transcode_command(
             CopyMode::Copy => {
                 cmd.extend([format!("-c:a:{i}"), "copy".to_string()]);
             }
-            CopyMode::ReEncode => match am.output_target {
-                AudioOutputTarget::Ac3 => {
-                    cmd.extend([
-                        format!("-c:a:{i}"),
-                        "ac3".to_string(),
-                        format!("-b:a:{i}"),
-                        "448k".to_string(),
-                        format!("-ar:a:{i}"),
-                        "48000".to_string(),
-                    ]);
+            CopyMode::ReEncode => {
+                match am.output_target {
+                    AudioOutputTarget::Ac3 => {
+                        cmd.extend([
+                            format!("-c:a:{i}"),
+                            "ac3".to_string(),
+                            format!("-b:a:{i}"),
+                            "448k".to_string(),
+                            format!("-ar:a:{i}"),
+                            "48000".to_string(),
+                        ]);
+                    }
+                    AudioOutputTarget::Mp2 => {
+                        cmd.extend([
+                            format!("-c:a:{i}"),
+                            "mp2".to_string(),
+                            format!("-b:a:{i}"),
+                            "384k".to_string(),
+                            format!("-ar:a:{i}"),
+                            "48000".to_string(),
+                        ]);
+                    }
+                    AudioOutputTarget::Lpcm => {
+                        cmd.extend([
+                            format!("-c:a:{i}"),
+                            "pcm_s16be".to_string(),
+                            format!("-ar:a:{i}"),
+                            "48000".to_string(),
+                        ]);
+                    }
+                    AudioOutputTarget::Dts => {
+                        cmd.extend([
+                            format!("-c:a:{i}"),
+                            "dts".to_string(),
+                            format!("-b:a:{i}"),
+                            "768k".to_string(),
+                            format!("-ar:a:{i}"),
+                            "48000".to_string(),
+                        ]);
+                    }
                 }
-                AudioOutputTarget::Mp2 => {
-                    cmd.extend([
-                        format!("-c:a:{i}"),
-                        "mp2".to_string(),
-                        format!("-b:a:{i}"),
-                        "384k".to_string(),
-                        format!("-ar:a:{i}"),
-                        "48000".to_string(),
-                    ]);
+                // Only re-encoded tracks can have their channel layout
+                // changed — a stream copy can't be downmixed/upmixed.
+                if let Some(channels) = am.channel_layout {
+                    cmd.extend([format!("-ac:{i}"), channels.to_string()]);
                 }
-                AudioOutputTarget::Lpcm => {
-                    cmd.extend([
-                        format!("-c:a:{i}"),
-                        "pcm_s16be".to_string(),
-                        format!("-ar:a:{i}"),
-                        "48000".to_string(),
-                    ]);
-                }
-                AudioOutputTarget::Dts => {
-                    cmd.extend([
-                        format!("-c:a:{i}"),
-                        "dts".to_string(),
-                        format!("-b:a:{i}"),
-                        "768k".to_string(),
-                        format!("-ar:a:{i}"),
-                        "48000".to_string(),
-                    ]);
-                }
-            },
+            }
         }
     }
 
@@ -502,6 +509,46 @@ mod tests {
         assert!(
             vf_arg.contains("pad=720:480:0:62"),
             "expected centred letterbox padding, got: {vf_arg}"
+        );
+    }
+
+    #[test]
+    fn ffmpeg_requests_ac_when_a_channel_layout_is_selected() {
+        let mut project = test_project();
+        project.disc.titlesets[0].titles[0].audio_mappings[0].channel_layout = Some(2);
+        let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+
+        let transcode = plan
+            .jobs
+            .iter()
+            .find(|j| matches!(j, crate::build::BuildJob::TranscodeTitle { .. }))
+            .unwrap();
+        let cmd = transcode.command().unwrap();
+
+        assert!(cmd.contains(&"-ac:0".to_string()), "expected -ac:0 flag");
+        let ac_val = cmd
+            .iter()
+            .skip_while(|a| *a != "-ac:0")
+            .nth(1)
+            .expect("-ac:0 value");
+        assert_eq!(ac_val, "2");
+    }
+
+    #[test]
+    fn ffmpeg_does_not_request_ac_when_no_channel_layout_is_selected() {
+        let project = test_project();
+        let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+
+        let transcode = plan
+            .jobs
+            .iter()
+            .find(|j| matches!(j, crate::build::BuildJob::TranscodeTitle { .. }))
+            .unwrap();
+        let cmd = transcode.command().unwrap();
+
+        assert!(
+            !cmd.iter().any(|a| a.starts_with("-ac:")),
+            "expected no -ac flag when channel_layout is unset (preserve source), got: {cmd:?}"
         );
     }
 }
