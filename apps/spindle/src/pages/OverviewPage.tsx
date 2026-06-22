@@ -7,7 +7,7 @@ import { useProjectStore } from '../store/project-store';
 import { useNavigation } from '../App';
 import { NoProjectState } from '../components/NoProjectState';
 import { CAPACITY_LABELS } from '../types/project';
-import { estimateDiscCapacity, formatBytes } from '../utils/capacity';
+import { formatBytes, useDiscCapacityEstimate } from '../utils/capacity';
 import type {
 	VideoStandard,
 	CapacityTarget,
@@ -21,6 +21,7 @@ export function OverviewPage() {
 	const project = useProjectStore((s) => s.project);
 	const updateProject = useProjectStore((s) => s.updateProject);
 	const validationIssues = useProjectStore((s) => s.validationIssues);
+	const capacity = useDiscCapacityEstimate(project);
 
 	if (!project) {
 		return (
@@ -51,16 +52,16 @@ export function OverviewPage() {
 	const errorCount = validationIssues.filter((i) => i.severity === 'error').length;
 	const warningCount = validationIssues.filter((i) => i.severity === 'warning').length;
 
-	// Same budget-aware estimate the Planner page uses, so the two pages never
-	// disagree about whether a project fits on its target disc.
-	const { capacityBytes, usableBytes, estimatedOutputBytes, usagePct, isOverCapacity } =
-		estimateDiscCapacity(project);
-	const barPct = `${Math.min(usagePct, 100).toFixed(1)}%`;
-	const barClass = isOverCapacity
-		? 'capacity-bar__segment--danger'
-		: usagePct > 80
-			? 'capacity-bar__segment--warn'
-			: '';
+	// Same budget-aware estimate the Planner page and the build pipeline use,
+	// so none of them disagree about whether a project fits on its target disc.
+	const barPct = capacity ? `${Math.min(capacity.usagePct, 100).toFixed(1)}%` : '0%';
+	const barClass = !capacity
+		? ''
+		: capacity.isOverCapacity
+			? 'capacity-bar__segment--danger'
+			: capacity.usagePct > 80
+				? 'capacity-bar__segment--warn'
+				: '';
 
 	return (
 		<div className="overview">
@@ -104,14 +105,16 @@ export function OverviewPage() {
 					/>
 				</div>
 				<div className="overview__capacity-legend">
-					{titleCount === 0 ? (
+					{!capacity ? (
+						<span className="text-muted">Calculating&hellip;</span>
+					) : titleCount === 0 ? (
 						<span className="text-muted">
-							No titles added yet &middot; {formatBytes(capacityBytes)} available
+							No titles added yet &middot; {formatBytes(capacity.capacityBytes)} available
 						</span>
 					) : (
 						<span className="text-muted">
-							~{formatBytes(estimatedOutputBytes)} estimated &middot;{' '}
-							{formatBytes(usableBytes - estimatedOutputBytes)} remaining
+							~{formatBytes(capacity.estimatedOutputBytes)} estimated &middot;{' '}
+							{formatBytes(capacity.usableBytes - capacity.estimatedOutputBytes)} remaining
 						</span>
 					)}
 				</div>

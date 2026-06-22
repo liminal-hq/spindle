@@ -48,6 +48,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::parse_project,
             commands::serialise_project,
             commands::validate_project,
+            commands::estimate_disc_capacity,
             commands::inspect_asset,
             commands::extract_video_thumbnail,
             commands::extract_image_thumbnail,

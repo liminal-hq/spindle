@@ -7,6 +7,17 @@ use std::path::Path;
 
 use crate::models::*;
 
+/// Default average video bitrate used when no disc-capacity budget could be
+/// computed for this title (e.g. zero-duration asset, or capacity estimation
+/// isn't available in this call path).
+pub(crate) const DEFAULT_VIDEO_BITRATE_BPS: f64 = 6_000_000.0;
+
+/// Encoder safety ceiling for `-maxrate`. Kept independent of the disc
+/// capacity budget's `DVD_MAX_VIDEO_RATE_BPS` (9.8 Mbps) — this is the
+/// short-term peak the encoder is allowed to burst to, not the requested
+/// average, and is clamped below the average if the average is unusually high.
+const MAX_VIDEO_RATE_BPS: f64 = 9_000_000.0;
+
 pub(crate) fn build_ffmpeg_transcode_command(
     source_path: &str,
     output_path: &Path,
@@ -14,7 +25,14 @@ pub(crate) fn build_ffmpeg_transcode_command(
     asset: &Asset,
     disc: &Disc,
     video_info: Option<&VideoStreamInfo>,
+    video_bitrate_bps: f64,
 ) -> Vec<String> {
+    let video_bitrate_bps = if video_bitrate_bps > 0.0 {
+        video_bitrate_bps.min(MAX_VIDEO_RATE_BPS)
+    } else {
+        DEFAULT_VIDEO_BITRATE_BPS
+    };
+    let maxrate_bps = MAX_VIDEO_RATE_BPS.max(video_bitrate_bps);
     let mut cmd = vec!["ffmpeg".to_string(), "-y".to_string()];
 
     cmd.extend(["-i".to_string(), source_path.to_string()]);
@@ -69,9 +87,9 @@ pub(crate) fn build_ffmpeg_transcode_command(
         "-r".to_string(),
         fps_rational_str(output_fps).to_string(),
         "-b:v".to_string(),
-        "6000k".to_string(),
+        format!("{}k", (video_bitrate_bps / 1000.0).round() as i64),
         "-maxrate".to_string(),
-        "9000k".to_string(),
+        format!("{}k", (maxrate_bps / 1000.0).round() as i64),
         "-bufsize".to_string(),
         "1835k".to_string(),
         "-g".to_string(),
@@ -392,6 +410,65 @@ mod tests {
         assert!(cmd.contains(&"mpeg2video".to_string()));
         let vf_arg = cmd.iter().find(|a| a.starts_with("scale="));
         assert!(vf_arg.is_some(), "expected scale=720:480 in -vf filter");
+    }
+
+    #[test]
+    fn ffmpeg_bitrate_reflects_disc_capacity_budget_not_a_hardcoded_default() {
+        // Regression test for liminal-hq/spindle#43: the transcode used to
+        // always request a flat 6000k regardless of disc capacity. The
+        // default test project (DVD5, one 3600s title, no menus) computes a
+        // budget above the 9.8 Mbps DVD spec ceiling, which the encoder
+        // safety ceiling then caps to 9000k.
+        let project = test_project();
+        let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+
+        let transcode = plan
+            .jobs
+            .iter()
+            .find(|j| matches!(j, crate::build::BuildJob::TranscodeTitle { .. }))
+            .unwrap();
+        let cmd = transcode.command().unwrap();
+
+        let bv_arg = cmd
+            .iter()
+            .skip_while(|a| *a != "-b:v")
+            .nth(1)
+            .expect("-b:v value");
+        assert_eq!(
+            bv_arg, "9000k",
+            "expected the capacity-budgeted rate (clamped to the encoder ceiling), not the old hardcoded 6000k"
+        );
+
+        let maxrate_arg = cmd
+            .iter()
+            .skip_while(|a| *a != "-maxrate")
+            .nth(1)
+            .expect("-maxrate value");
+        assert_eq!(maxrate_arg, "9000k");
+    }
+
+    #[test]
+    fn ffmpeg_falls_back_to_default_bitrate_when_no_budget_is_available() {
+        let project = test_project();
+        let title = &project.disc.titlesets[0].titles[0];
+        let asset = &project.assets[0];
+
+        let cmd = super::build_ffmpeg_transcode_command(
+            &asset.source_path,
+            std::path::Path::new("/tmp/out.mpg"),
+            title,
+            asset,
+            &project.disc,
+            None,
+            0.0,
+        );
+
+        let bv_arg = cmd
+            .iter()
+            .skip_while(|a| *a != "-b:v")
+            .nth(1)
+            .expect("-b:v value");
+        assert_eq!(bv_arg, "6000k");
     }
 
     #[test]

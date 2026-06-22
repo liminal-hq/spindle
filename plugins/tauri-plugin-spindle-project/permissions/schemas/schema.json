@@ -343,6 +343,18 @@
           "markdownDescription": "Denies the create_project command without any pre-configured scope."
         },
         {
+          "description": "Enables the estimate_disc_capacity command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-estimate-disc-capacity",
+          "markdownDescription": "Enables the estimate_disc_capacity command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the estimate_disc_capacity command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-estimate-disc-capacity",
+          "markdownDescription": "Denies the estimate_disc_capacity command without any pre-configured scope."
+        },
+        {
           "description": "Enables the execute_build command without any pre-configured scope.",
           "type": "string",
           "const": "allow-execute-build",
@@ -487,10 +499,10 @@
           "markdownDescription": "Denies the validate_project command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the spindle-project plugin\n#### This default permission set includes:\n\n- `allow-create-project`\n- `allow-parse-project`\n- `allow-serialise-project`\n- `allow-validate-project`\n- `allow-inspect-asset`\n- `allow-extract-video-thumbnail`\n- `allow-extract-image-thumbnail`\n- `allow-get-cache-dir`\n- `allow-generate-build-plan`\n- `allow-execute-build`\n- `allow-cancel-build`\n- `allow-auto-generate-menu-nav`\n- `allow-check-toolchain`\n- `allow-export-diagnostics`\n- `allow-list-available-fonts`\n- `allow-export-menu-render-preview`",
+          "description": "Default permissions for the spindle-project plugin\n#### This default permission set includes:\n\n- `allow-create-project`\n- `allow-parse-project`\n- `allow-serialise-project`\n- `allow-validate-project`\n- `allow-estimate-disc-capacity`\n- `allow-inspect-asset`\n- `allow-extract-video-thumbnail`\n- `allow-extract-image-thumbnail`\n- `allow-get-cache-dir`\n- `allow-generate-build-plan`\n- `allow-execute-build`\n- `allow-cancel-build`\n- `allow-auto-generate-menu-nav`\n- `allow-check-toolchain`\n- `allow-export-diagnostics`\n- `allow-list-available-fonts`\n- `allow-export-menu-render-preview`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the spindle-project plugin\n#### This default permission set includes:\n\n- `allow-create-project`\n- `allow-parse-project`\n- `allow-serialise-project`\n- `allow-validate-project`\n- `allow-inspect-asset`\n- `allow-extract-video-thumbnail`\n- `allow-extract-image-thumbnail`\n- `allow-get-cache-dir`\n- `allow-generate-build-plan`\n- `allow-execute-build`\n- `allow-cancel-build`\n- `allow-auto-generate-menu-nav`\n- `allow-check-toolchain`\n- `allow-export-diagnostics`\n- `allow-list-available-fonts`\n- `allow-export-menu-render-preview`"
+          "markdownDescription": "Default permissions for the spindle-project plugin\n#### This default permission set includes:\n\n- `allow-create-project`\n- `allow-parse-project`\n- `allow-serialise-project`\n- `allow-validate-project`\n- `allow-estimate-disc-capacity`\n- `allow-inspect-asset`\n- `allow-extract-video-thumbnail`\n- `allow-extract-image-thumbnail`\n- `allow-get-cache-dir`\n- `allow-generate-build-plan`\n- `allow-execute-build`\n- `allow-cancel-build`\n- `allow-auto-generate-menu-nav`\n- `allow-check-toolchain`\n- `allow-export-diagnostics`\n- `allow-list-available-fonts`\n- `allow-export-menu-render-preview`"
         }
       ]
     }

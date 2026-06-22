@@ -482,6 +482,33 @@ export interface PropertyCheck {
 	compatible: boolean;
 }
 
+// ── Disc Capacity ────────────────────────────────────────────────────────────
+
+/** Per-title average video bitrate after distributing the disc-wide budget
+ * according to `BuildSettings.allocationStrategy`. */
+export interface TitleBitrateAllocation {
+	titleId: string;
+	bitsPerSecond: number;
+}
+
+/** Disc-capacity usage and the per-title bitrate budget the build pipeline
+ * actually encodes at — the single source of truth shared by the
+ * Overview/Planner UI and the build pipeline. */
+export interface CapacityEstimate {
+	capacityBytes: number;
+	totalDurationSecs: number;
+	estimatedMenuBytes: number;
+	safetyMarginBytes: number;
+	estimatedOverheadBytes: number;
+	usableBytes: number;
+	availableBitsPerSecond: number;
+	isCapacityConstrained: boolean;
+	estimatedOutputBytes: number;
+	usagePct: number;
+	isOverCapacity: boolean;
+	titleBitrates: TitleBitrateAllocation[];
+}
+
 // ── Build Settings ──────────────────────────────────────────────────────────
 
 export interface BuildSettings {
@@ -690,6 +717,14 @@ export async function serialiseProject(project: SpindleProjectFile): Promise<str
 /** Validate a project and return any issues found. */
 export async function validateProject(project: SpindleProjectFile): Promise<ValidationIssue[]> {
 	return await invoke('plugin:spindle-project|validate_project', { project });
+}
+
+/** Estimate disc-capacity usage and the per-title bitrate budget the build
+ * pipeline will actually encode at. */
+export async function estimateDiscCapacity(
+	project: SpindleProjectFile,
+): Promise<CapacityEstimate> {
+	return await invoke('plugin:spindle-project|estimate_disc_capacity', { project });
 }
 
 /** Inspect a media file and return its metadata as an Asset. */

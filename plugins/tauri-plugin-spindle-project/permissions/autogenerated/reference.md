@@ -8,6 +8,7 @@ Default permissions for the spindle-project plugin
 - `allow-parse-project`
 - `allow-serialise-project`
 - `allow-validate-project`
+- `allow-estimate-disc-capacity`
 - `allow-inspect-asset`
 - `allow-extract-video-thumbnail`
 - `allow-extract-image-thumbnail`
@@ -130,6 +131,32 @@ Enables the create_project command without any pre-configured scope.
 <td>
 
 Denies the create_project command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`spindle-project:allow-estimate-disc-capacity`
+
+</td>
+<td>
+
+Enables the estimate_disc_capacity command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`spindle-project:deny-estimate-disc-capacity`
+
+</td>
+<td>
+
+Denies the estimate_disc_capacity command without any pre-configured scope.
 
 </td>
 </tr>
