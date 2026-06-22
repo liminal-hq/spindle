@@ -79,6 +79,7 @@ export function PlannerPage() {
 		usagePct,
 		isOverCapacity,
 		titleBitrates,
+		floorInfeasible,
 	} = capacity;
 	const titleBitrateById = new Map(
 		titleBitrates.map((alloc) => [alloc.titleId, alloc.bitsPerSecond]),
@@ -106,6 +107,13 @@ export function PlannerPage() {
 							<h3 className="card__title">Capacity Overview</h3>
 							{isOverCapacity && <span className="badge badge--unsupported">Over capacity</span>}
 						</div>
+						{floorInfeasible && (
+							<p className="planner__floor-infeasible">
+								This project doesn&rsquo;t fit at an acceptable quality: even giving every title its
+								configured bitrate floor exceeds the disc budget. Raise the capacity target, lower
+								one or more floors, or remove titles.
+							</p>
+						)}
 						<div className="capacity-bar">
 							<div
 								className="capacity-bar__segment"
@@ -201,6 +209,25 @@ export function PlannerPage() {
 												<span className="text-muted">{formatBitrate(titleRate)} video</span>
 											)}
 											<span className="text-muted">{durationPct.toFixed(1)}% of disc</span>
+											{title.pinnedBitrateBps !== null ? (
+												<span className="badge badge--neutral">Pinned</span>
+											) : (
+												<>
+													{title.bitrateWeight !== 1 && (
+														<span className="text-muted">weight {title.bitrateWeight}</span>
+													)}
+													{title.bitrateFloorBps !== null && (
+														<span className="text-muted">
+															floor {formatBitrate(title.bitrateFloorBps)}
+														</span>
+													)}
+													{title.bitrateCeilingBps !== null && (
+														<span className="text-muted">
+															ceiling {formatBitrate(title.bitrateCeilingBps)}
+														</span>
+													)}
+												</>
+											)}
 										</div>
 										<div className="planner__title-bar">
 											<div

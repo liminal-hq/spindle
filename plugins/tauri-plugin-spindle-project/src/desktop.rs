@@ -187,6 +187,34 @@ impl<R: Runtime> SpindleProject<R> {
                     });
                 }
 
+                // Floor/ceiling are ignored by the allocator once a title is
+                // pinned, so a stale floor>ceiling left over from before
+                // pinning shouldn't block the build over fields that no
+                // longer affect anything.
+                if title.pinned_bitrate_bps.is_none() {
+                    if let (Some(floor), Some(ceiling)) =
+                        (title.bitrate_floor_bps, title.bitrate_ceiling_bps)
+                    {
+                        if floor > ceiling {
+                            issues.push(ValidationIssue {
+                            severity: IssueSeverity::Error,
+                            code: "title.bitrate-floor-above-ceiling".to_string(),
+                            message: format!(
+                                "Title \"{}\" has a bitrate floor ({floor} bps) above its ceiling ({ceiling} bps).",
+                                title.name
+                            ),
+                            context: Some(title.id.clone()),
+                            entity_type: Some("title".to_string()),
+                            entity_name: Some(title.name.clone()),
+                            suggested_fix: Some(
+                                "Lower the bitrate floor or raise the ceiling so the floor no longer exceeds it."
+                                    .to_string(),
+                            ),
+                            });
+                        }
+                    }
+                }
+
                 // ── Chapter ordering checks ─────────────────────────────
                 if title.chapters.len() >= 2 {
                     for window in title.chapters.windows(2) {
@@ -1363,6 +1391,10 @@ mod tests {
                     }],
                     end_action: None,
                     order_index: 0,
+                    bitrate_weight: 1.0,
+                    bitrate_floor_bps: None,
+                    bitrate_ceiling_bps: None,
+                    pinned_bitrate_bps: None,
                 }],
                 menus: vec![],
             }],
@@ -1433,6 +1465,10 @@ mod tests {
                 chapters: vec![],
                 end_action: None,
                 order_index: 0,
+                bitrate_weight: 1.0,
+                bitrate_floor_bps: None,
+                bitrate_ceiling_bps: None,
+                pinned_bitrate_bps: None,
             }],
             menus: vec![],
         }
@@ -1459,6 +1495,10 @@ mod tests {
             chapters: vec![],
             end_action: None,
             order_index: 1,
+            bitrate_weight: 1.0,
+            bitrate_floor_bps: None,
+            bitrate_ceiling_bps: None,
+            pinned_bitrate_bps: None,
         });
         let (audio, subtitle) = titleset_stream_counts(&ts);
         assert_eq!(audio, 2);

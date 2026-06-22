@@ -246,6 +246,32 @@ pub struct Title {
     pub chapters: Vec<ChapterPoint>,
     pub end_action: Option<PlaybackAction>,
     pub order_index: u32,
+    /// Scales this title's share of the disc-wide bitrate budget above/below
+    /// the duration-proportional baseline under `priority-weighted` allocation.
+    /// Ignored by other allocation strategies and when `pinned_bitrate_bps`
+    /// is set.
+    #[serde(default = "default_bitrate_weight")]
+    pub bitrate_weight: f64,
+    /// Minimum per-title average video bitrate the allocator must honour,
+    /// even if doing so requires shrinking other titles' shares below their
+    /// own unconstrained allocation. Ignored when `pinned_bitrate_bps` is set.
+    #[serde(default)]
+    pub bitrate_floor_bps: Option<u64>,
+    /// Maximum per-title average video bitrate the allocator may hand to
+    /// this title, so it can't absorb disc-wide slack pointlessly. Ignored
+    /// when `pinned_bitrate_bps` is set.
+    #[serde(default)]
+    pub bitrate_ceiling_bps: Option<u64>,
+    /// When set, this title opts out of the allocator entirely and is
+    /// encoded at exactly this average video bitrate (still subject to the
+    /// encoder's ceiling and this title's own mux-rate headroom). The
+    /// remaining disc budget is then distributed only across unpinned titles.
+    #[serde(default)]
+    pub pinned_bitrate_bps: Option<u64>,
+}
+
+fn default_bitrate_weight() -> f64 {
+    1.0
 }
 
 impl Title {
@@ -261,6 +287,10 @@ impl Title {
             chapters: Vec::new(),
             end_action: None,
             order_index,
+            bitrate_weight: default_bitrate_weight(),
+            bitrate_floor_bps: None,
+            bitrate_ceiling_bps: None,
+            pinned_bitrate_bps: None,
         }
     }
 }
@@ -2328,6 +2358,10 @@ mod tests {
             chapters: vec![],
             end_action: None,
             order_index: 0,
+            bitrate_weight: 1.0,
+            bitrate_floor_bps: None,
+            bitrate_ceiling_bps: None,
+            pinned_bitrate_bps: None,
         });
         project.disc.titlesets[0].menus.push(Menu {
             id: "menu-1".to_string(),

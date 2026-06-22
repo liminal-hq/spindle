@@ -585,6 +585,10 @@ mod tests {
             }],
             end_action: None,
             order_index,
+            bitrate_weight: 1.0,
+            bitrate_floor_bps: None,
+            bitrate_ceiling_bps: None,
+            pinned_bitrate_bps: None,
         }
     }
 

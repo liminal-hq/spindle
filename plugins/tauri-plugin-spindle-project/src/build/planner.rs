@@ -951,6 +951,10 @@ mod tests {
             chapters: vec![],
             end_action: Some(PlaybackAction::Stop),
             order_index: 0,
+            bitrate_weight: 1.0,
+            bitrate_floor_bps: None,
+            bitrate_ceiling_bps: None,
+            pinned_bitrate_bps: None,
         };
 
         project.disc.titlesets.push(Titleset {

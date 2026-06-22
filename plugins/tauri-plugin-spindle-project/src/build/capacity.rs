@@ -6,6 +6,8 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: MIT
 
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
 
 use crate::models::*;
@@ -43,6 +45,12 @@ pub struct CapacityEstimate {
     /// Per-title average video bitrate, after distributing the disc-wide
     /// budget according to `BuildSettings.allocation_strategy`.
     pub title_bitrates: Vec<TitleBitrateAllocation>,
+    /// True when at least one title's `bitrate_floor_bps` could not be
+    /// honoured within the disc budget even after every other title was
+    /// pushed to its own floor — a distinct failure mode from
+    /// `is_over_capacity`: the project doesn't fit at an acceptable quality
+    /// at all, rather than fitting tightly at a lower one.
+    pub floor_infeasible: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -124,12 +132,13 @@ pub fn estimate_disc_capacity(project: &SpindleProjectFile) -> CapacityEstimate 
     let available_bits_per_second = raw_bits_per_second.min(DVD_MAX_VIDEO_RATE_BPS);
     let is_capacity_constrained = raw_bits_per_second < DVD_MAX_VIDEO_RATE_BPS;
 
-    let title_bitrates = allocate_title_bitrates(
+    let allocation = allocate_title_bitrates(
         &titles_with_duration,
         total_duration_secs,
         available_bits_per_second,
         project.build_settings.allocation_strategy,
     );
+    let title_bitrates = allocation.allocations;
 
     // Sum the *allocated* (encoder-clamped) per-title rates rather than the
     // raw disc-wide budget — when the raw budget exceeds the encoder's
@@ -161,6 +170,7 @@ pub fn estimate_disc_capacity(project: &SpindleProjectFile) -> CapacityEstimate 
         usage_pct,
         is_over_capacity,
         title_bitrates,
+        floor_infeasible: allocation.floor_infeasible,
     }
 }
 
@@ -227,37 +237,33 @@ fn output_target_rate_bps(target: AudioOutputTarget, channels: u32) -> f64 {
     }
 }
 
+struct AllocationOutcome {
+    allocations: Vec<TitleBitrateAllocation>,
+    floor_infeasible: bool,
+}
+
 /// Distribute the disc-wide average bitrate budget across titles.
 ///
-/// `priority-weighted` has no per-title weight data yet (tracked in
-/// liminal-hq/spindle#44), so it falls back to `duration-weighted` until that
-/// lands.
+/// Pinned titles (`Title.pinned_bitrate_bps`) opt out of the allocator
+/// entirely and take a fixed rate off the top; the remaining budget is then
+/// distributed across the unpinned titles via `strategy`, with each title's
+/// `bitrate_floor_bps`/`bitrate_ceiling_bps` enforced by iterative
+/// water-filling: any title whose unconstrained share would violate its
+/// floor/ceiling is fixed at that bound and removed from the pool, and the
+/// remaining budget is re-distributed across what's left. If even handing
+/// every floor-bound title its floor exceeds the total budget, the result is
+/// flagged `floor_infeasible` rather than silently degrading further.
 fn allocate_title_bitrates(
     titles_with_duration: &[(&Title, f64, f64)],
     total_duration_secs: f64,
     available_bits_per_second: f64,
     strategy: AllocationStrategy,
-) -> Vec<TitleBitrateAllocation> {
-    if titles_with_duration.is_empty() || available_bits_per_second <= 0.0 {
-        return titles_with_duration
-            .iter()
-            .map(|(title, duration, _)| TitleBitrateAllocation {
-                title_id: title.id.clone(),
-                // A known-duration title still gets encoded even with zero
-                // disc-wide video budget left — `build_ffmpeg_transcode_command`
-                // falls back to its own default rate for any non-positive
-                // input. Report that default here too, so estimated_output_bytes
-                // reflects what the build will really produce instead of
-                // letting a real "no room left" condition masquerade as zero
-                // bytes of video. Unknown-duration titles stay at 0 — that's
-                // the explicit "no data to estimate from" sentinel.
-                bits_per_second: if *duration > 0.0 {
-                    super::ffmpeg::DEFAULT_VIDEO_BITRATE_BPS
-                } else {
-                    0.0
-                },
-            })
-            .collect();
+) -> AllocationOutcome {
+    if titles_with_duration.is_empty() {
+        return AllocationOutcome {
+            allocations: Vec::new(),
+            floor_infeasible: false,
+        };
     }
 
     // Clamp to the encoder's actual ceiling (not just the looser DVD spec
@@ -265,44 +271,128 @@ fn allocate_title_bitrates(
     // will really request — otherwise Planner/the command can report a rate
     // (e.g. the DVD spec's 9.8 Mbps) above what the generated `-b:v` ends up
     // being (clamped to the encoder's 9.0 Mbps ceiling).
-    let capped_rate = available_bits_per_second.min(super::ffmpeg::MAX_VIDEO_RATE_BPS);
+    // This is the encoder's hard ceiling, not `available_bits_per_second` —
+    // strategies that intentionally give some titles more than the disc-wide
+    // average (equal-share, priority-weighted) must still be able to exceed
+    // that average up to the real hardware limit; only `DurationWeighted`
+    // happens to land exactly on the average anyway.
+    let capped_rate = super::ffmpeg::MAX_VIDEO_RATE_BPS;
+    let total_budget_bits = available_bits_per_second * total_duration_secs;
 
-    // Unknown-duration titles get 0 bps below and aren't counted in
-    // `total_duration_secs`/the byte estimate at all, so they shouldn't
-    // dilute `equal-share`'s per-title divisor either — otherwise a single
-    // such title would unnecessarily lower every known-duration title's rate.
-    let budgeted_title_count = titles_with_duration
+    // Pinned titles take their fixed rate off the top, independent of the
+    // disc-wide budget — they're encoded at exactly this rate even if no
+    // budget is left for anyone else.
+    let mut resolved_rates: HashMap<String, f64> = HashMap::new();
+    let mut pinned_budget_bits = 0.0;
+    for (title, duration, _) in titles_with_duration {
+        if let Some(pinned) = title.pinned_bitrate_bps {
+            let pinned_rate = (pinned as f64).min(super::ffmpeg::MAX_VIDEO_RATE_BPS);
+            resolved_rates.insert(title.id.clone(), pinned_rate);
+            if *duration > 0.0 {
+                pinned_budget_bits += pinned_rate * duration;
+            }
+        }
+    }
+
+    let mut remaining_budget_bits = (total_budget_bits - pinned_budget_bits).max(0.0);
+    let mut floor_infeasible = false;
+
+    // Unpinned, known-duration titles participate in strategy + water-filling.
+    // `resolved_rates` already holds every pinned title at this point, so
+    // membership there doubles as the "is pinned" check. Unknown-duration
+    // titles are excluded — they aren't counted in `total_duration_secs`/the
+    // byte estimate at all, so handing them a capacity-derived rate would let
+    // the build encode real, unaccounted-for bytes while the estimate still
+    // claims the project fits.
+    let mut active: Vec<(&Title, f64)> = titles_with_duration
         .iter()
-        .filter(|(_, duration, _)| *duration > 0.0)
-        .count()
-        .max(1) as f64;
+        .filter(|(title, duration, _)| !resolved_rates.contains_key(&title.id) && *duration > 0.0)
+        .map(|(title, duration, _)| (*title, *duration))
+        .collect();
 
-    titles_with_duration
+    loop {
+        let active_duration_secs: f64 = active.iter().map(|(_, d)| d).sum();
+        if active.is_empty() || active_duration_secs <= 0.0 {
+            break;
+        }
+
+        let active_count = active.len() as f64;
+        let weight_sum: f64 = active
+            .iter()
+            .map(|(title, duration)| duration * title.bitrate_weight.max(0.0))
+            .sum();
+
+        let provisional_rate = |title: &Title, duration: f64| -> f64 {
+            let raw = match strategy {
+                // Every title gets the same average rate; bytes naturally
+                // scale with each title's own duration.
+                AllocationStrategy::DurationWeighted => {
+                    remaining_budget_bits / active_duration_secs
+                }
+                // Scale each title's share of the remaining budget by its
+                // own weight relative to the active pool's weighted duration.
+                AllocationStrategy::PriorityWeighted => {
+                    if weight_sum > 0.0 {
+                        remaining_budget_bits * title.bitrate_weight.max(0.0) / weight_sum
+                    } else {
+                        0.0
+                    }
+                }
+                // Every title gets the same total byte budget regardless of
+                // duration, so short titles get a higher per-second rate.
+                AllocationStrategy::EqualShare => (remaining_budget_bits / active_count) / duration,
+            };
+            raw.min(capped_rate)
+        };
+
+        // Fix at most one floor/ceiling violator per round, then recompute
+        // the provisional rates for whoever's left — this is what lets a
+        // ceiling-clamped title's unused slack (or a floor top-up's deficit)
+        // actually reach the rest of the pool.
+        let violator = active.iter().find_map(|(title, duration)| {
+            let rate = provisional_rate(title, *duration);
+            if let Some(floor) = title.bitrate_floor_bps {
+                if rate < floor as f64 {
+                    return Some((title.id.clone(), floor as f64, *duration, true));
+                }
+            }
+            if let Some(ceiling) = title.bitrate_ceiling_bps {
+                if rate > ceiling as f64 {
+                    return Some((title.id.clone(), ceiling as f64, *duration, false));
+                }
+            }
+            None
+        });
+
+        match violator {
+            Some((title_id, fixed_rate, duration, is_floor)) => {
+                let consumed = fixed_rate * duration;
+                if is_floor && consumed > remaining_budget_bits {
+                    // Even dedicating the rest of the disc to this title's
+                    // floor isn't enough — the project doesn't fit at an
+                    // acceptable quality, full stop.
+                    floor_infeasible = true;
+                }
+                resolved_rates.insert(title_id.clone(), fixed_rate);
+                remaining_budget_bits = (remaining_budget_bits - consumed).max(0.0);
+                active.retain(|(t, _)| t.id != title_id);
+            }
+            None => {
+                for (title, duration) in &active {
+                    resolved_rates.insert(title.id.clone(), provisional_rate(title, *duration));
+                }
+                break;
+            }
+        }
+    }
+
+    let allocations = titles_with_duration
         .iter()
         .map(|(title, duration, audio_bps)| {
-            // Unknown-duration titles aren't counted in `total_duration_secs`
-            // or the disc-level byte estimate at all, so handing them a
-            // capacity-derived rate would let the build encode real,
-            // unaccounted-for bytes while the estimate still claims the
-            // project fits. Leave them at 0 so the encoder falls back to its
-            // own safe default instead of silently riding on the budget.
             let bits_per_second = if *duration <= 0.0 {
                 0.0
             } else {
-                let video_bps = match strategy {
-                    // Every title gets the same average rate; bytes naturally
-                    // scale with each title's own duration.
-                    AllocationStrategy::DurationWeighted | AllocationStrategy::PriorityWeighted => {
-                        capped_rate
-                    }
-                    // Every title gets the same total byte budget regardless
-                    // of duration, so short titles get a higher per-second rate.
-                    AllocationStrategy::EqualShare => {
-                        let total_budget_bits = available_bits_per_second * total_duration_secs;
-                        let share_bits = total_budget_bits / budgeted_title_count;
-                        (share_bits / duration).min(capped_rate)
-                    }
-                };
+                let video_bps = resolved_rates.get(&title.id).copied().unwrap_or(0.0);
                 // Video plus this title's own audio must still fit under the
                 // disc's `-muxrate` ceiling, even if the disc-wide video pool
                 // alone would not exceed it (a heavy per-title audio track,
@@ -324,7 +414,12 @@ fn allocate_title_bitrates(
                 bits_per_second,
             }
         })
-        .collect()
+        .collect();
+
+    AllocationOutcome {
+        allocations,
+        floor_infeasible,
+    }
 }
 
 #[cfg(test)]
@@ -635,6 +730,143 @@ mod tests {
             known_rate, baseline_rate,
             "adding an unknown-duration title should not change the known title's rate"
         );
+    }
+
+    /// Two equal-duration titles sharing the same (cloned) asset and audio
+    /// mapping, long enough that the disc-wide average rate sits comfortably
+    /// below the encoder's 9 Mbps ceiling — so the tests below exercise the
+    /// allocator's weighting/floor/ceiling math instead of just re-proving
+    /// the encoder-ceiling clamp.
+    fn two_equal_titles(duration_secs: f64) -> SpindleProjectFile {
+        let mut project = test_project();
+        project.assets[0].duration_secs = Some(duration_secs);
+
+        let mut second_title = project.disc.titlesets[0].titles[0].clone();
+        second_title.id = "title-2".to_string();
+        project.disc.titlesets[0].titles.push(second_title);
+
+        let mut second_asset = project.assets[0].clone();
+        second_asset.id = "asset-2".to_string();
+        project.assets.push(second_asset);
+        project.disc.titlesets[0].titles[1].source_asset_id = Some("asset-2".to_string());
+
+        project
+    }
+
+    #[test]
+    fn priority_weighted_scales_titles_by_their_bitrate_weight() {
+        let mut project = two_equal_titles(4000.0);
+        project.build_settings.allocation_strategy = AllocationStrategy::PriorityWeighted;
+        project.disc.titlesets[0].titles[1].bitrate_weight = 2.0;
+
+        let estimate = estimate_disc_capacity(&project);
+        let title1_rate = estimate.title_bitrates[0].bits_per_second;
+        let title2_rate = estimate.title_bitrates[1].bits_per_second;
+
+        assert!(
+            (title2_rate - 2.0 * title1_rate).abs() < 1.0,
+            "expected the weight-2.0 title to get exactly double the rate of the default-weight \
+             title, got title1={title1_rate} title2={title2_rate}"
+        );
+    }
+
+    #[test]
+    fn pinned_title_takes_a_fixed_rate_and_the_rest_share_what_remains() {
+        let mut project = two_equal_titles(4000.0);
+        project.build_settings.allocation_strategy = AllocationStrategy::DurationWeighted;
+        let baseline_rate = estimate_disc_capacity(&project).title_bitrates[0].bits_per_second;
+
+        let pinned_rate_bps: u64 = (baseline_rate / 2.0) as u64;
+        project.disc.titlesets[0].titles[1].pinned_bitrate_bps = Some(pinned_rate_bps);
+
+        let estimate = estimate_disc_capacity(&project);
+        let unpinned_rate = estimate.title_bitrates[0].bits_per_second;
+        let pinned_resolved_rate = estimate.title_bitrates[1].bits_per_second;
+
+        assert!(
+            (pinned_resolved_rate - pinned_rate_bps as f64).abs() < 1.0,
+            "expected the pinned title to be encoded at exactly its pin, got {pinned_resolved_rate}"
+        );
+        assert!(
+            unpinned_rate > baseline_rate,
+            "expected the unpinned title to absorb the budget the pin left unused, \
+             got unpinned={unpinned_rate} baseline={baseline_rate}"
+        );
+    }
+
+    #[test]
+    fn floor_protects_a_low_priority_title_from_being_starved() {
+        // Without a floor, a heavily down-weighted "extra" gets a tiny slice
+        // of the disc-wide budget under priority-weighted allocation.
+        let mut project = two_equal_titles(4000.0);
+        project.build_settings.allocation_strategy = AllocationStrategy::PriorityWeighted;
+        project.disc.titlesets[0].titles[1].bitrate_weight = 0.1;
+        let baseline = estimate_disc_capacity(&project);
+        let baseline_low_priority_rate = baseline.title_bitrates[1].bits_per_second;
+        let baseline_main_rate = baseline.title_bitrates[0].bits_per_second;
+
+        let floor_bps: u64 = 2_000_000;
+        assert!(
+            (floor_bps as f64) > baseline_low_priority_rate,
+            "test setup: the floor should exceed the unconstrained low-priority rate"
+        );
+        project.disc.titlesets[0].titles[1].bitrate_floor_bps = Some(floor_bps);
+
+        let estimate = estimate_disc_capacity(&project);
+        let low_priority_rate = estimate.title_bitrates[1].bits_per_second;
+        let main_rate = estimate.title_bitrates[0].bits_per_second;
+
+        assert!(
+            (low_priority_rate - floor_bps as f64).abs() < 1.0,
+            "expected the low-priority title to be lifted to its floor, \
+             got {low_priority_rate} vs floor {floor_bps}"
+        );
+        assert!(
+            main_rate < baseline_main_rate,
+            "expected the main title's share to shrink to make room for the floor top-up, \
+             got main={main_rate} baseline={baseline_main_rate}"
+        );
+        assert!(!estimate.floor_infeasible);
+    }
+
+    #[test]
+    fn ceiling_caps_a_title_and_redistributes_the_slack() {
+        let mut project = two_equal_titles(4000.0);
+        project.build_settings.allocation_strategy = AllocationStrategy::EqualShare;
+
+        let baseline_rate = estimate_disc_capacity(&project).title_bitrates[0].bits_per_second;
+        let ceiling_bps = (baseline_rate * 0.5) as u64;
+        project.disc.titlesets[0].titles[0].bitrate_ceiling_bps = Some(ceiling_bps);
+
+        let estimate = estimate_disc_capacity(&project);
+        let ceiling_bound_rate = estimate.title_bitrates[0].bits_per_second;
+        let other_rate = estimate.title_bitrates[1].bits_per_second;
+
+        assert!(
+            (ceiling_bound_rate - ceiling_bps as f64).abs() < 1.0,
+            "expected the ceiling-bound title to be capped at its ceiling, got {ceiling_bound_rate}"
+        );
+        assert!(
+            other_rate > baseline_rate,
+            "expected the other title to absorb the slack freed by the ceiling, \
+             got other={other_rate} baseline={baseline_rate}"
+        );
+    }
+
+    #[test]
+    fn floor_infeasible_flips_when_the_floor_exceeds_the_disc_budget() {
+        let mut project = test_project();
+        project.assets[0].duration_secs = Some(3600.0);
+        // Exhaust the disc-wide video budget entirely (mirrors
+        // `exhausted_disc_budget_reports_the_encoder_default_not_zero`).
+        project.build_settings.safety_margin_bytes = project.disc.capacity_target.capacity_bytes();
+        project.disc.titlesets[0].titles[0].bitrate_floor_bps = Some(2_000_000);
+
+        let estimate = estimate_disc_capacity(&project);
+
+        assert_eq!(estimate.available_bits_per_second, 0.0);
+        assert!(estimate.floor_infeasible);
+        assert_eq!(estimate.title_bitrates[0].bits_per_second, 2_000_000.0);
     }
 
     #[test]

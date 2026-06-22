@@ -153,6 +153,10 @@ function TitlesWorkspace() {
 			chapters: [],
 			endAction: null,
 			orderIndex: targetTitleset.titles.length,
+			bitrateWeight: 1.0,
+			bitrateFloorBps: null,
+			bitrateCeilingBps: null,
+			pinnedBitrateBps: null,
 		};
 		const allTitles = project.disc.titlesets.flatMap((ts) => ts.titles);
 		const isFirstTitle = allTitles.length === 0;
@@ -907,6 +911,78 @@ function TitleEditor({
 				</div>
 			)}
 
+			{/* Bitrate Allocation */}
+			<div className="titles__editor-section">
+				<h4 className="titles__editor-heading">Bitrate Allocation</h4>
+				<p className="titles__hint text-muted">
+					Controls how this title shares the disc-wide bitrate budget on the Planner page.
+				</p>
+				<div className="titles__editor-row">
+					<label className="titles__field-label" htmlFor={`pin-${title.id}`}>
+						Pin
+					</label>
+					<input
+						id={`pin-${title.id}`}
+						type="checkbox"
+						checked={title.pinnedBitrateBps !== null}
+						onChange={(e) =>
+							onUpdate({
+								...title,
+								pinnedBitrateBps: e.target.checked ? DEFAULT_PIN_BPS : null,
+							})
+						}
+					/>
+					{title.pinnedBitrateBps !== null && (
+						<>
+							<input
+								className="titles__select titles__select--sm"
+								type="number"
+								min="0"
+								step="0.1"
+								value={bpsToMbps(title.pinnedBitrateBps)}
+								onChange={(e) =>
+									onUpdate({ ...title, pinnedBitrateBps: mbpsToBps(e.target.value) ?? 0 })
+								}
+							/>
+							<span className="titles__field-label">Mbps</span>
+						</>
+					)}
+				</div>
+				{title.pinnedBitrateBps === null && (
+					<>
+						<div className="titles__editor-row">
+							<label className="titles__field-label" htmlFor={`weight-${title.id}`}>
+								Weight
+							</label>
+							<input
+								id={`weight-${title.id}`}
+								className="titles__select titles__select--sm"
+								type="number"
+								min="0"
+								step="0.1"
+								value={title.bitrateWeight}
+								onChange={(e) => onUpdate({ ...title, bitrateWeight: Number(e.target.value) || 0 })}
+							/>
+							<span className="titles__hint text-muted" style={{ marginBottom: 0 }}>
+								Used by priority-weighted allocation.
+							</span>
+						</div>
+						<BitrateBoundRow
+							label="Floor"
+							titleId={title.id}
+							valueBps={title.bitrateFloorBps}
+							onChangeBps={(bps) => onUpdate({ ...title, bitrateFloorBps: bps })}
+						/>
+						<BitrateBoundRow
+							label="Ceiling"
+							titleId={title.id}
+							valueBps={title.bitrateCeilingBps}
+							onChangeBps={(bps) => onUpdate({ ...title, bitrateCeilingBps: bps })}
+						/>
+					</>
+				)}
+			</div>
+
 			{/* End Action */}
 			<div className="titles__editor-section">
 				<h4 className="titles__editor-heading">End Action</h4>
@@ -960,6 +1036,49 @@ function TitleEditor({
 			</div>
 		</div>
 	);
+}
+
+const DEFAULT_PIN_BPS = 6_000_000;
+
+function BitrateBoundRow({
+	label,
+	titleId,
+	valueBps,
+	onChangeBps,
+}: {
+	label: string;
+	titleId: string;
+	valueBps: number | null;
+	onChangeBps: (bps: number | null) => void;
+}) {
+	const inputId = `${label.toLowerCase()}-${titleId}`;
+	return (
+		<div className="titles__editor-row">
+			<label className="titles__field-label" htmlFor={inputId}>
+				{label}
+			</label>
+			<input
+				id={inputId}
+				className="titles__select titles__select--sm"
+				type="number"
+				min="0"
+				step="0.1"
+				value={bpsToMbps(valueBps)}
+				onChange={(e) => onChangeBps(mbpsToBps(e.target.value))}
+			/>
+			<span className="titles__field-label">Mbps</span>
+		</div>
+	);
+}
+
+function bpsToMbps(bps: number | null): number | '' {
+	return bps === null ? '' : bps / 1_000_000;
+}
+
+function mbpsToBps(value: string): number | null {
+	if (value === '') return null;
+	const mbps = Number(value);
+	return Number.isFinite(mbps) ? Math.max(0, mbps) * 1_000_000 : null;
 }
 
 function endActionToString(action: PlaybackAction | null): string {

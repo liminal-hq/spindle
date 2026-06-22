@@ -10,6 +10,12 @@
 	margin-bottom: var(--space-4);
 }
 
+.planner__floor-infeasible {
+	color: var(--colour-error);
+	font-size: var(--text-sm);
+	margin-top: var(--space-2);
+}
+
 .planner__capacity-stats {
 	display: grid;
 	grid-template-columns: repeat(4, 1fr);
