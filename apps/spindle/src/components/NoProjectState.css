@@ -18,6 +18,11 @@
 	opacity: 0.2;
 }
 
+.no-project-state__icon svg {
+	width: 100%;
+	height: 100%;
+}
+
 .no-project-state h2 {
 	font-family: var(--font-heading);
 	margin-bottom: 0;
