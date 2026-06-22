@@ -176,40 +176,55 @@ fn estimate_title_audio_bitrate_bps(title: &Title, asset: Option<&Asset>) -> f64
     title
         .audio_mappings
         .iter()
-        .map(|mapping| match mapping.copy_mode {
-            CopyMode::ReEncode => match mapping.output_target {
-                AudioOutputTarget::Ac3 => 448_000.0,
-                AudioOutputTarget::Mp2 => 384_000.0,
-                AudioOutputTarget::Dts => 768_000.0,
-                // LPCM is uncompressed and has no fixed rate of its own —
-                // `build_ffmpeg_transcode_command` never forces `-ac`, so the
-                // encode keeps the source channel count. Derive the real rate
-                // from it instead of assuming stereo (16-bit/48kHz).
-                AudioOutputTarget::Lpcm => {
-                    let channels = asset
-                        .and_then(|a| {
-                            a.audio_streams
-                                .iter()
-                                .find(|s| s.index == mapping.source_stream_index)
-                        })
-                        .map(|stream| stream.channels)
-                        .unwrap_or(2);
-                    16.0 * 48_000.0 * channels as f64
+        .map(|mapping| {
+            let source_channels = || {
+                asset
+                    .and_then(|a| {
+                        a.audio_streams
+                            .iter()
+                            .find(|s| s.index == mapping.source_stream_index)
+                    })
+                    .map(|stream| stream.channels)
+                    .unwrap_or(2)
+            };
+
+            match mapping.copy_mode {
+                CopyMode::ReEncode => {
+                    output_target_rate_bps(mapping.output_target, source_channels())
                 }
-            },
-            // Copied as-is: use the source stream's known bitrate, or fall
-            // back to the heaviest re-encode target (AC3) if unknown.
-            CopyMode::Copy => asset
-                .and_then(|a| {
-                    a.audio_streams
-                        .iter()
-                        .find(|s| s.index == mapping.source_stream_index)
-                })
-                .and_then(|stream| stream.bitrate_bps)
-                .map(|bps| bps as f64)
-                .unwrap_or(448_000.0),
+                // Copied as-is: use the source stream's known bitrate. When
+                // it's unknown, a copy stream isn't necessarily AC3-sized —
+                // it could be any DVD-legal format the source already used
+                // (LPCM, DTS, etc.) — so estimate from `output_target` (what
+                // the user mapped this track as) rather than assuming AC3.
+                CopyMode::Copy => asset
+                    .and_then(|a| {
+                        a.audio_streams
+                            .iter()
+                            .find(|s| s.index == mapping.source_stream_index)
+                    })
+                    .and_then(|stream| stream.bitrate_bps)
+                    .map(|bps| bps as f64)
+                    .unwrap_or_else(|| {
+                        output_target_rate_bps(mapping.output_target, source_channels())
+                    }),
+            }
         })
         .sum()
+}
+
+/// The audio bitrate `build_ffmpeg_transcode_command` requests for a given
+/// re-encode target, or the best estimate for a copy-mode stream whose
+/// source bitrate is unknown.
+fn output_target_rate_bps(target: AudioOutputTarget, channels: u32) -> f64 {
+    match target {
+        AudioOutputTarget::Ac3 => 448_000.0,
+        AudioOutputTarget::Mp2 => 384_000.0,
+        AudioOutputTarget::Dts => 768_000.0,
+        // LPCM is uncompressed and has no fixed rate of its own — derive it
+        // from the channel count (16-bit/48kHz) instead of assuming stereo.
+        AudioOutputTarget::Lpcm => 16.0 * 48_000.0 * channels as f64,
+    }
 }
 
 /// Distribute the disc-wide average bitrate budget across titles.
@@ -226,11 +241,21 @@ fn allocate_title_bitrates(
     if titles_with_duration.is_empty() || available_bits_per_second <= 0.0 {
         return titles_with_duration
             .iter()
-            .map(|(title, _, audio_bps)| TitleBitrateAllocation {
+            .map(|(title, duration, _)| TitleBitrateAllocation {
                 title_id: title.id.clone(),
-                bits_per_second: available_bits_per_second
-                    .max(0.0)
-                    .min((super::ffmpeg::MUX_RATE_BPS - audio_bps).max(0.0)),
+                // A known-duration title still gets encoded even with zero
+                // disc-wide video budget left — `build_ffmpeg_transcode_command`
+                // falls back to its own default rate for any non-positive
+                // input. Report that default here too, so estimated_output_bytes
+                // reflects what the build will really produce instead of
+                // letting a real "no room left" condition masquerade as zero
+                // bytes of video. Unknown-duration titles stay at 0 — that's
+                // the explicit "no data to estimate from" sentinel.
+                bits_per_second: if *duration > 0.0 {
+                    super::ffmpeg::DEFAULT_VIDEO_BITRATE_BPS
+                } else {
+                    0.0
+                },
             })
             .collect();
     }
@@ -272,7 +297,17 @@ fn allocate_title_bitrates(
                 // disc's `-muxrate` ceiling, even if the disc-wide video pool
                 // alone would not exceed it (a heavy per-title audio track,
                 // e.g. multichannel LPCM, can still blow the combined mux rate).
-                video_bps.min((super::ffmpeg::MUX_RATE_BPS - audio_bps).max(0.0))
+                let mux_capped = video_bps.min((super::ffmpeg::MUX_RATE_BPS - audio_bps).max(0.0));
+                // If that leaves no room at all, the build still encodes this
+                // title — `build_ffmpeg_transcode_command` falls back to its
+                // own default rate for non-positive input — so report that
+                // default rather than 0, or the estimate would understate
+                // what the build actually produces.
+                if mux_capped > 0.0 {
+                    mux_capped
+                } else {
+                    super::ffmpeg::DEFAULT_VIDEO_BITRATE_BPS
+                }
             };
             TitleBitrateAllocation {
                 title_id: title.id.clone(),
@@ -326,6 +361,27 @@ mod tests {
                 super::super::ffmpeg::MAX_VIDEO_RATE_BPS
             );
         }
+    }
+
+    #[test]
+    fn exhausted_disc_budget_reports_the_encoder_default_not_zero() {
+        // Regression test: when there's no disc-wide video budget left (e.g.
+        // safety margin/overhead eats the whole disc), a known-duration
+        // title still gets encoded — `build_ffmpeg_transcode_command` falls
+        // back to its own default rate for non-positive input. The estimate
+        // must report that default, not a literal 0, or estimated_output_bytes
+        // would understate what the build actually produces.
+        let mut project = test_project();
+        project.assets[0].duration_secs = Some(3600.0);
+        project.build_settings.safety_margin_bytes = project.disc.capacity_target.capacity_bytes();
+
+        let estimate = estimate_disc_capacity(&project);
+
+        assert_eq!(estimate.available_bits_per_second, 0.0);
+        assert_eq!(
+            estimate.title_bitrates[0].bits_per_second,
+            super::super::ffmpeg::DEFAULT_VIDEO_BITRATE_BPS
+        );
     }
 
     #[test]
@@ -409,6 +465,35 @@ mod tests {
             clamped_video_bytes,
             audio_bytes,
             raw_video_bytes
+        );
+    }
+
+    #[test]
+    fn copy_mode_audio_with_unknown_bitrate_uses_its_output_target_not_always_ac3() {
+        // Regression test: `-c:a copy` doesn't cap the stream to AC3 size, so
+        // a copy-mode mapping with no known source bitrate shouldn't always
+        // be estimated at AC3's 448 kbps — a track mapped (and thus expected)
+        // as DTS or LPCM can be far heavier and so should reserve more.
+        let mut project = test_project();
+        project.assets[0].duration_secs = Some(3600.0);
+        project.assets[0].audio_streams[0].bitrate_bps = None;
+        project.disc.titlesets[0].titles[0].audio_mappings[0].copy_mode = CopyMode::Copy;
+        project.disc.titlesets[0].titles[0].audio_mappings[0].output_target =
+            AudioOutputTarget::Dts;
+
+        let ac3_estimate = {
+            let mut p = project.clone();
+            p.disc.titlesets[0].titles[0].audio_mappings[0].output_target = AudioOutputTarget::Ac3;
+            estimate_disc_capacity(&p)
+        };
+        let dts_estimate = estimate_disc_capacity(&project);
+
+        assert!(
+            dts_estimate.available_bits_per_second < ac3_estimate.available_bits_per_second,
+            "expected an unknown-bitrate copy mapped as DTS to reserve more than one mapped as AC3, \
+             got dts={} ac3={}",
+            dts_estimate.available_bits_per_second,
+            ac3_estimate.available_bits_per_second
         );
     }
 
