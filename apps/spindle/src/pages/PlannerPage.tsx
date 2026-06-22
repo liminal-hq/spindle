@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: MIT
 
 import { useProjectStore } from '../store/project-store';
+import { NoProjectState } from '../components/NoProjectState';
 import { CAPACITY_LABELS, CAPACITY_BYTES } from '../types/project';
 import type { Title, Asset, Menu } from '../types/project';
 import './PlannerPage.css';
@@ -15,7 +16,21 @@ const DVD_MAX_VIDEO_RATE_BPS = 9_800_000; // 9.8 Mbps max video ES
 export function PlannerPage() {
 	const project = useProjectStore((s) => s.project);
 
-	if (!project) return null;
+	if (!project) {
+		return (
+			<NoProjectState
+				title="No Project Open"
+				description="Open or create a project to budget disc capacity and allocate bitrates."
+				icon={
+					<svg viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="1.5">
+						<circle cx="32" cy="32" r="24" />
+						<circle cx="32" cy="32" r="10" />
+						<circle cx="32" cy="32" r="3" />
+					</svg>
+				}
+			/>
+		);
+	}
 
 	const disc = project.disc;
 	const capacityBytes = CAPACITY_BYTES[disc.capacityTarget];

@@ -52,6 +52,13 @@
 	font-weight: 500;
 }
 
+/* Greyed out while no project is open — still clickable, since the
+   destination page shows a "no project open" empty state with actions
+   to create or open one, rather than blocking navigation outright. */
+.sidebar__item--inactive {
+	opacity: 0.45;
+}
+
 .sidebar__item__icon {
 	width: 16px;
 	height: 16px;

@@ -6,6 +6,7 @@
 import { useEffect, useState } from 'react';
 import { BaseDirectory, readFile } from '@tauri-apps/plugin-fs';
 import { useProjectStore } from '../store/project-store';
+import { NoProjectState } from '../components/NoProjectState';
 import type {
 	Asset,
 	CompatibilityAssessment,
@@ -21,7 +22,22 @@ export function AssetsPage() {
 	const relinkAsset = useProjectStore((s) => s.relinkAsset);
 	const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
 
-	if (!project) return null;
+	if (!project) {
+		return (
+			<NoProjectState
+				title="No Project Open"
+				description="Open or create a project to import and manage media assets."
+				icon={
+					<svg viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="1.5">
+						<rect x="8" y="12" width="48" height="40" rx="4" />
+						<path d="M20 12V8M44 12V8" />
+						<circle cx="24" cy="32" r="6" />
+						<path d="M36 28h12M36 36h8" />
+					</svg>
+				}
+			/>
+		);
+	}
 
 	const assets = project.assets;
 	const selectedAsset = assets.find((a) => a.id === selectedAssetId) ?? null;

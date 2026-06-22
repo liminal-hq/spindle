@@ -11,6 +11,8 @@ interface NavItem {
 	label: string;
 	icon: React.ReactNode;
 	badge?: number;
+	/** Greyed out (but still clickable) when no project is open. */
+	requiresProject?: boolean;
 }
 
 interface NavSection {
@@ -93,23 +95,35 @@ export function Sidebar({ currentRoute, onNavigate }: SidebarProps) {
 			label: 'Project',
 			items: [
 				{ id: '/', label: 'Overview', icon: ICONS.overview },
-				{ id: '/assets', label: 'Assets', icon: ICONS.assets, badge: assetCount || undefined },
+				{
+					id: '/assets',
+					label: 'Assets',
+					icon: ICONS.assets,
+					badge: assetCount || undefined,
+					requiresProject: true,
+				},
 			],
 		},
 		{
 			label: 'Authoring',
 			items: [
-				{ id: '/titles', label: 'Titles', icon: ICONS.titles, badge: titleCount || undefined },
-				{ id: '/chapters', label: 'Chapters', icon: ICONS.chapters },
-				{ id: '/menus', label: 'Menus', icon: ICONS.menus },
+				{
+					id: '/titles',
+					label: 'Titles',
+					icon: ICONS.titles,
+					badge: titleCount || undefined,
+					requiresProject: true,
+				},
+				{ id: '/chapters', label: 'Chapters', icon: ICONS.chapters, requiresProject: true },
+				{ id: '/menus', label: 'Menus', icon: ICONS.menus, requiresProject: true },
 			],
 		},
 		{
 			label: 'Output',
 			items: [
-				{ id: '/planner', label: 'Planner', icon: ICONS.planner },
-				{ id: '/build', label: 'Build', icon: ICONS.build },
-				{ id: '/logs', label: 'Logs', icon: ICONS.logs },
+				{ id: '/planner', label: 'Planner', icon: ICONS.planner, requiresProject: true },
+				{ id: '/build', label: 'Build', icon: ICONS.build, requiresProject: true },
+				{ id: '/logs', label: 'Logs', icon: ICONS.logs, requiresProject: true },
 			],
 		},
 	];
@@ -122,7 +136,9 @@ export function Sidebar({ currentRoute, onNavigate }: SidebarProps) {
 					{section.items.map((item) => (
 						<button
 							key={item.id}
-							className={`sidebar__item ${currentRoute === item.id ? 'sidebar__item--active' : ''}`}
+							className={`sidebar__item ${currentRoute === item.id ? 'sidebar__item--active' : ''} ${
+								item.requiresProject && !project ? 'sidebar__item--inactive' : ''
+							}`}
 							onClick={() => onNavigate(item.id)}
 						>
 							<span className="sidebar__item__icon">{item.icon}</span>

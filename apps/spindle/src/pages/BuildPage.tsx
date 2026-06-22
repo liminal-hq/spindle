@@ -6,6 +6,7 @@
 import { useEffect } from 'react';
 import { useProjectStore } from '../store/project-store';
 import { useNavigation } from '../App';
+import { NoProjectState } from '../components/NoProjectState';
 import type { BuildJob, ValidationIssue } from '../types/project';
 import './BuildPage.css';
 
@@ -29,7 +30,20 @@ export function BuildPage() {
 		if (project) validateProject();
 	}, [project, validateProject]);
 
-	if (!project) return null;
+	if (!project) {
+		return (
+			<NoProjectState
+				title="No Project Open"
+				description="Open or create a project to configure build settings and export."
+				icon={
+					<svg viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="1.5">
+						<path d="M16 56V32l16-24 16 24v24" />
+						<line x1="16" y1="40" x2="48" y2="40" />
+					</svg>
+				}
+			/>
+		);
+	}
 
 	const disc = project.disc;
 	const titleCount = disc.titlesets.reduce((s, ts) => s + ts.titles.length, 0);

@@ -5,6 +5,7 @@
 
 import { useState } from 'react';
 import { useProjectStore } from '../store/project-store';
+import { NoProjectState } from '../components/NoProjectState';
 import type { ChapterPoint, SpindleProjectFile } from '../types/project';
 import './ChaptersPage.css';
 
@@ -13,7 +14,20 @@ export function ChaptersPage() {
 	const updateProject = useProjectStore((s) => s.updateProject);
 	const [selectedTitleId, setSelectedTitleId] = useState<string | null>(null);
 
-	if (!project) return null;
+	if (!project) {
+		return (
+			<NoProjectState
+				title="No Project Open"
+				description="Open or create a project to add and edit chapter points."
+				icon={
+					<svg viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="1.5">
+						<circle cx="32" cy="32" r="24" />
+						<path d="M32 16v16l12 8" />
+					</svg>
+				}
+			/>
+		);
+	}
 
 	const allTitles = project.disc.titlesets.flatMap((ts) => ts.titles);
 	const selectedTitle = allTitles.find((t) => t.id === selectedTitleId) ?? null;
