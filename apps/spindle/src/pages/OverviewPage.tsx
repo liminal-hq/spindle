@@ -53,7 +53,7 @@ export function OverviewPage() {
 
 	// Same budget-aware estimate the Planner page uses, so the two pages never
 	// disagree about whether a project fits on its target disc.
-	const { capacityBytes, estimatedOutputBytes, usagePct, isOverCapacity } =
+	const { capacityBytes, usableBytes, estimatedOutputBytes, usagePct, isOverCapacity } =
 		estimateDiscCapacity(project);
 	const barPct = `${Math.min(usagePct, 100).toFixed(1)}%`;
 	const barClass = isOverCapacity
@@ -111,7 +111,7 @@ export function OverviewPage() {
 					) : (
 						<span className="text-muted">
 							~{formatBytes(estimatedOutputBytes)} estimated &middot;{' '}
-							{formatBytes(capacityBytes - estimatedOutputBytes)} remaining
+							{formatBytes(usableBytes - estimatedOutputBytes)} remaining
 						</span>
 					)}
 				</div>

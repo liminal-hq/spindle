@@ -61,6 +61,10 @@ export function estimateDiscCapacity(project: SpindleProjectFile): CapacityEstim
 	const estimatedOverheadBytes = 50_000_000 + estimatedMenuBytes; // IFOs, NAV packs + menus
 	const usableBytes = capacityBytes - safetyMarginBytes - estimatedOverheadBytes;
 
+	// NOTE: this budgeted rate is advisory only — the build pipeline currently
+	// encodes at a fixed bitrate regardless of what's computed here, so a
+	// capacity-constrained project can still produce an output larger than this
+	// estimate predicts. Tracked separately as liminal-hq/spindle#43.
 	const rawBitsPerSecond = totalDurationSecs > 0 ? (usableBytes * 8) / totalDurationSecs : 0;
 	const availableBitsPerSecond = Math.min(rawBitsPerSecond, DVD_MAX_VIDEO_RATE_BPS);
 	const isCapacityConstrained = rawBitsPerSecond < DVD_MAX_VIDEO_RATE_BPS;
