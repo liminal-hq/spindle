@@ -5,13 +5,16 @@
 
 import { useProjectStore } from '../store/project-store';
 import { NoProjectState } from '../components/NoProjectState';
-import { CAPACITY_LABELS, CAPACITY_BYTES } from '../types/project';
+import { CAPACITY_LABELS } from '../types/project';
 import type { Title, Asset, Menu } from '../types/project';
+import {
+	estimateDiscCapacity,
+	formatBytes,
+	DVD_MAX_VIDEO_RATE_BPS,
+	STILL_MENU_BYTES,
+	MOTION_MENU_BITRATE,
+} from '../utils/capacity';
 import './PlannerPage.css';
-
-// DVD-Video spec limits (ISO/IEC 13818-1)
-const DVD_MAX_MUX_RATE_BPS = 10_080_000; // 10.08 Mbps total mux rate
-const DVD_MAX_VIDEO_RATE_BPS = 9_800_000; // 9.8 Mbps max video ES
 
 export function PlannerPage() {
 	const project = useProjectStore((s) => s.project);
@@ -33,7 +36,6 @@ export function PlannerPage() {
 	}
 
 	const disc = project.disc;
-	const capacityBytes = CAPACITY_BYTES[disc.capacityTarget];
 
 	// Gather all titles with their assets
 	const titlesWithAssets: { title: Title; asset: Asset | null }[] = disc.titlesets.flatMap((ts) =>
@@ -43,50 +45,27 @@ export function PlannerPage() {
 		})),
 	);
 
-	// Calculate total content size estimate
-	const totalDurationSecs = titlesWithAssets.reduce(
-		(sum, { asset }) => sum + (asset?.durationSecs ?? 0),
-		0,
-	);
-
-	// Gather all menus with their scope
+	// Gather all menus with their scope, for the per-menu breakdown table below.
 	const allMenus: { menu: Menu; scope: string }[] = [
 		...disc.globalMenus.map((m) => ({ menu: m, scope: 'Global' })),
 		...disc.titlesets.flatMap((ts) => ts.menus.map((m) => ({ menu: m, scope: ts.name }))),
 	];
 
-	// Estimate menu sizes: still menus are ~1-2 MB (MPEG-2 still + highlights),
-	// motion menus use their duration at a moderate bitrate.
-	const STILL_MENU_BYTES = 1_500_000; // ~1.5 MB per still menu
-	const MOTION_MENU_BITRATE = 5_000_000; // 5 Mbps for motion menus
-	const estimatedMenuBytes = allMenus.reduce((sum, { menu }) => {
-		if (menu.backgroundMode === 'motion' && menu.motionDurationSecs) {
-			return sum + (MOTION_MENU_BITRATE * menu.motionDurationSecs) / 8;
-		}
-		return sum + STILL_MENU_BYTES;
-	}, 0);
-
-	// Safety margin and overhead
-	const safetyMarginBytes = project.buildSettings.safetyMarginBytes;
-	const estimatedOverheadBytes = 50_000_000 + estimatedMenuBytes; // IFOs, NAV packs + menus
-	const usableBytes = capacityBytes - safetyMarginBytes - estimatedOverheadBytes;
 	// Note: usagePct and isOverCapacity use estimated output size (bitrate × duration),
 	// not source size, because source files will be re-encoded to DVD-compliant MPEG-2.
 	// Source size is only shown as a reference point.
-
-	// Per-title bitrate budget — capped to DVD spec limits
-	const rawBitsPerSecond = totalDurationSecs > 0 ? (usableBytes * 8) / totalDurationSecs : 0;
-	const maxVideoBitrate = Math.min(rawBitsPerSecond, DVD_MAX_VIDEO_RATE_BPS);
-	const availableBitsPerSecond = maxVideoBitrate;
-	const isCapacityConstrained = rawBitsPerSecond < DVD_MAX_VIDEO_RATE_BPS;
-
-	// Estimated output size at the budgeted rate
-	const estimatedOutputBytes =
-		totalDurationSecs > 0
-			? (Math.min(rawBitsPerSecond, DVD_MAX_MUX_RATE_BPS) * totalDurationSecs) / 8
-			: 0;
-	const usagePct = estimatedOutputBytes > 0 ? (estimatedOutputBytes / capacityBytes) * 100 : 0;
-	const isOverCapacity = estimatedOutputBytes > usableBytes;
+	const {
+		totalDurationSecs,
+		estimatedMenuBytes,
+		safetyMarginBytes,
+		estimatedOverheadBytes,
+		usableBytes,
+		availableBitsPerSecond,
+		isCapacityConstrained,
+		estimatedOutputBytes,
+		usagePct,
+		isOverCapacity,
+	} = estimateDiscCapacity(project);
 
 	return (
 		<div className="planner">
@@ -279,13 +258,6 @@ export function PlannerPage() {
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
-
-function formatBytes(bytes: number): string {
-	if (bytes >= 1_000_000_000) return `${(bytes / 1_000_000_000).toFixed(2)} GB`;
-	if (bytes >= 1_000_000) return `${(bytes / 1_000_000).toFixed(1)} MB`;
-	if (bytes >= 1_000) return `${(bytes / 1_000).toFixed(1)} KB`;
-	return `${bytes} B`;
-}
 
 function formatDuration(seconds: number): string {
 	const h = Math.floor(seconds / 3600);

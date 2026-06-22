@@ -6,7 +6,8 @@
 import { useProjectStore } from '../store/project-store';
 import { useNavigation } from '../App';
 import { NoProjectState } from '../components/NoProjectState';
-import { CAPACITY_LABELS, CAPACITY_BYTES } from '../types/project';
+import { CAPACITY_LABELS } from '../types/project';
+import { estimateDiscCapacity, formatBytes } from '../utils/capacity';
 import type {
 	VideoStandard,
 	CapacityTarget,
@@ -47,28 +48,19 @@ export function OverviewPage() {
 		0,
 	);
 
-	const capacityBytes = CAPACITY_BYTES[disc.capacityTarget];
 	const errorCount = validationIssues.filter((i) => i.severity === 'error').length;
 	const warningCount = validationIssues.filter((i) => i.severity === 'warning').length;
 
-	// Estimate encoded disc size from title durations.
-	// Uses ~6 Mbps video + ~192 kbps per audio track as a rough DVD budget.
-	const estimatedBytes = disc.titlesets
-		.flatMap((ts) => ts.titles)
-		.reduce((total, title) => {
-			const asset = project.assets.find((a) => a.id === title.sourceAssetId);
-			const dur = asset?.durationSecs ?? 0;
-			const audioBps = title.audioMappings.length * 192_000;
-			return total + Math.round((dur * (6_000_000 + audioBps)) / 8);
-		}, 0);
-	const usedFraction = Math.min(estimatedBytes / capacityBytes, 1);
-	const barPct = `${(usedFraction * 100).toFixed(1)}%`;
-	const barClass =
-		usedFraction > 0.95
-			? 'capacity-bar__segment--danger'
-			: usedFraction > 0.8
-				? 'capacity-bar__segment--warn'
-				: '';
+	// Same budget-aware estimate the Planner page uses, so the two pages never
+	// disagree about whether a project fits on its target disc.
+	const { capacityBytes, usableBytes, estimatedOutputBytes, usagePct, isOverCapacity } =
+		estimateDiscCapacity(project);
+	const barPct = `${Math.min(usagePct, 100).toFixed(1)}%`;
+	const barClass = isOverCapacity
+		? 'capacity-bar__segment--danger'
+		: usagePct > 80
+			? 'capacity-bar__segment--warn'
+			: '';
 
 	return (
 		<div className="overview">
@@ -118,8 +110,8 @@ export function OverviewPage() {
 						</span>
 					) : (
 						<span className="text-muted">
-							~{formatBytes(estimatedBytes)} estimated &middot;{' '}
-							{formatBytes(capacityBytes - estimatedBytes)} remaining
+							~{formatBytes(estimatedOutputBytes)} estimated &middot;{' '}
+							{formatBytes(usableBytes - estimatedOutputBytes)} remaining
 						</span>
 					)}
 				</div>
@@ -321,12 +313,6 @@ function StatCard({ label, value }: { label: string; value: number; icon: string
 			<div className="overview__stat-label text-muted">{label}</div>
 		</div>
 	);
-}
-
-function formatBytes(bytes: number): string {
-	if (bytes >= 1_000_000_000) return `${(bytes / 1_000_000_000).toFixed(1)} GB`;
-	if (bytes >= 1_000_000) return `${(bytes / 1_000_000).toFixed(1)} MB`;
-	return `${bytes} B`;
 }
 
 function firstPlayToString(action: PlaybackAction | null): string {
