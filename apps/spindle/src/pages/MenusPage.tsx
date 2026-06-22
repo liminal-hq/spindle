@@ -90,34 +90,19 @@ const DEFAULT_TEXT_STYLE: TextStyle = {
 	letterSpacing: 0,
 };
 
+/**
+ * Thin wrapper so the no-project guard doesn't sit between hooks.
+ *
+ * `MenusWorkspace` below calls many hooks unconditionally; if this component
+ * rendered `<NoProjectState>` and then `<MenusWorkspace>` from the *same*
+ * function on a later render (project going from null to non-null without
+ * unmounting), React would see a different number of hooks called between
+ * renders and throw. Returning a different child *component* for each case
+ * means React unmounts/remounts the subtree on that transition instead,
+ * so `MenusWorkspace` only ever mounts once a project already exists.
+ */
 export function MenusPage() {
 	const project = useProjectStore((s) => s.project);
-	const updateProject = useProjectStore((s) => s.updateProject);
-	const autoGenerateMenuNav = useProjectStore((s) => s.autoGenerateMenuNav);
-	const selectedMenuId = useProjectStore((s) => s.selectedMenuId);
-	const setSelectedMenuId = useProjectStore((s) => s.setSelectedMenuId);
-	const menuEditorMode = useProjectStore((s) => s.menuEditorMode);
-	const setMenuEditorMode = useProjectStore((s) => s.setMenuEditorMode);
-	const { consumePendingEntityId } = useNavigation();
-	// Measured against the workspace container, not the window — the window
-	// also contains the app's own sidebar and padding, so window width
-	// overstates how much room the workspace actually has. `containerRef` is
-	// a callback ref attached to the `.menus` div below, which re-measures
-	// correctly even though that div doesn't exist yet on the render where
-	// `project` is still null (see the early return a few lines down).
-	const { containerRef: menusContainerRef, ...density } = useDisplayDensity();
-	// Below 'wide' the rail becomes an overlay, but starts open — picking a
-	// menu to work on is the first thing an author does, so it should not be
-	// hidden by default the way the inspector (a detail panel) is.
-	const [railOpenOverlay, setRailOpenOverlay] = useState(true);
-	const railIsOverlay = !density.isWide;
-	const railVisible = density.isWide || railOpenOverlay;
-
-	// Consume navigation target from validation issue click
-	useEffect(() => {
-		const entityId = consumePendingEntityId();
-		if (entityId) setSelectedMenuId(entityId);
-	}, []); // eslint-disable-line react-hooks/exhaustive-deps
 
 	if (!project) {
 		return (
@@ -135,6 +120,42 @@ export function MenusPage() {
 			/>
 		);
 	}
+
+	return <MenusWorkspace />;
+}
+
+function MenusWorkspace() {
+	const project = useProjectStore((s) => s.project);
+	const updateProject = useProjectStore((s) => s.updateProject);
+	const autoGenerateMenuNav = useProjectStore((s) => s.autoGenerateMenuNav);
+	const selectedMenuId = useProjectStore((s) => s.selectedMenuId);
+	const setSelectedMenuId = useProjectStore((s) => s.setSelectedMenuId);
+	const menuEditorMode = useProjectStore((s) => s.menuEditorMode);
+	const setMenuEditorMode = useProjectStore((s) => s.setMenuEditorMode);
+	const { consumePendingEntityId } = useNavigation();
+	// Measured against the workspace container, not the window — the window
+	// also contains the app's own sidebar and padding, so window width
+	// overstates how much room the workspace actually has. `containerRef` is
+	// a callback ref attached to the `.menus` div below, which re-measures
+	// correctly even though that div doesn't exist yet on the first render.
+	const { containerRef: menusContainerRef, ...density } = useDisplayDensity();
+	// Below 'wide' the rail becomes an overlay, but starts open — picking a
+	// menu to work on is the first thing an author does, so it should not be
+	// hidden by default the way the inspector (a detail panel) is.
+	const [railOpenOverlay, setRailOpenOverlay] = useState(true);
+	const railIsOverlay = !density.isWide;
+	const railVisible = density.isWide || railOpenOverlay;
+
+	// Consume navigation target from validation issue click
+	useEffect(() => {
+		const entityId = consumePendingEntityId();
+		if (entityId) setSelectedMenuId(entityId);
+	}, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+	// Unreachable in practice — MenusPage only mounts this component once a
+	// project exists, and swaps to a different component (unmounting this
+	// one) if it closes. Needed purely for TypeScript's narrowing below.
+	if (!project) return null;
 
 	const disc = project.disc;
 	const allMenus = [

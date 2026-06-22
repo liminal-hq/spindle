@@ -23,7 +23,42 @@ import type {
 } from '../types/project';
 import './TitlesPage.css';
 
+/**
+ * Thin wrapper so the no-project guard doesn't sit between hooks.
+ *
+ * `TitlesWorkspace` below calls `useState` after where the guard used to be;
+ * if this component rendered `<NoProjectState>` and then `<TitlesWorkspace>`
+ * from the *same* function on a later render (project going from null to
+ * non-null without unmounting), React would see a different number of hooks
+ * called between renders and throw. Returning a different child *component*
+ * for each case means React unmounts/remounts the subtree on that
+ * transition instead, so `TitlesWorkspace` only ever mounts once a project
+ * already exists.
+ */
 export function TitlesPage() {
+	const project = useProjectStore((s) => s.project);
+
+	if (!project) {
+		return (
+			<NoProjectState
+				title="No Project Open"
+				description="Open or create a project to organise titles and configure output profiles."
+				icon={
+					<svg viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="1.5">
+						<rect x="8" y="8" width="48" height="48" rx="4" />
+						<line x1="16" y1="20" x2="48" y2="20" />
+						<line x1="16" y1="32" x2="40" y2="32" />
+						<line x1="16" y1="44" x2="32" y2="44" />
+					</svg>
+				}
+			/>
+		);
+	}
+
+	return <TitlesWorkspace />;
+}
+
+function TitlesWorkspace() {
 	const project = useProjectStore((s) => s.project);
 	const updateProject = useProjectStore((s) => s.updateProject);
 	const { consumePendingEntityId } = useNavigation();
@@ -49,22 +84,10 @@ export function TitlesPage() {
 		}
 	}, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-	if (!project) {
-		return (
-			<NoProjectState
-				title="No Project Open"
-				description="Open or create a project to organise titles and configure output profiles."
-				icon={
-					<svg viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="1.5">
-						<rect x="8" y="8" width="48" height="48" rx="4" />
-						<line x1="16" y1="20" x2="48" y2="20" />
-						<line x1="16" y1="32" x2="40" y2="32" />
-						<line x1="16" y1="44" x2="32" y2="44" />
-					</svg>
-				}
-			/>
-		);
-	}
+	// Unreachable in practice — TitlesPage only mounts this component once a
+	// project exists, and swaps to a different component (unmounting this
+	// one) if it closes. Needed purely for TypeScript's narrowing below.
+	if (!project) return null;
 
 	// Select first titleset by default, or follow user selection
 	const titleset =
