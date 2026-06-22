@@ -10,8 +10,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::models::*;
 
-/// DVD-Video spec limits (ISO/IEC 13818-1).
-const DVD_MAX_MUX_RATE_BPS: f64 = 10_080_000.0; // 10.08 Mbps total mux rate
+/// DVD-Video spec limit (ISO/IEC 13818-1).
 pub(crate) const DVD_MAX_VIDEO_RATE_BPS: f64 = 9_800_000.0; // 9.8 Mbps max video ES
 
 /// Still menus are ~1-2 MB (MPEG-2 still + highlights); motion menus use
@@ -127,25 +126,29 @@ pub fn estimate_disc_capacity(project: &SpindleProjectFile) -> CapacityEstimate 
     let available_bits_per_second = raw_bits_per_second.min(DVD_MAX_VIDEO_RATE_BPS);
     let is_capacity_constrained = raw_bits_per_second < DVD_MAX_VIDEO_RATE_BPS;
 
-    let estimated_output_bytes = if total_duration_secs > 0.0 {
-        let video_bps = raw_bits_per_second.min(DVD_MAX_MUX_RATE_BPS);
-        ((video_bps * total_duration_secs) / 8.0) + total_audio_bytes
-    } else {
-        0.0
-    };
-    let usage_pct = if estimated_output_bytes > 0.0 {
-        (estimated_output_bytes / capacity_bytes) * 100.0
-    } else {
-        0.0
-    };
-    let is_over_capacity = estimated_output_bytes > usable_bytes;
-
     let title_bitrates = allocate_title_bitrates(
         &titles_with_duration,
         total_duration_secs,
         available_bits_per_second,
         project.build_settings.allocation_strategy,
     );
+
+    // Sum the *allocated* (encoder-clamped) per-title rates rather than the
+    // raw disc-wide budget — when the raw budget exceeds the encoder's
+    // ceiling, `title_bitrates` is clamped below it, so deriving output size
+    // from the raw rate would report bytes the build cannot actually produce.
+    let video_output_bytes: f64 = titles_with_duration
+        .iter()
+        .zip(title_bitrates.iter())
+        .map(|((_, duration), alloc)| (alloc.bits_per_second * duration) / 8.0)
+        .sum();
+    let estimated_output_bytes = video_output_bytes + total_audio_bytes;
+    let usage_pct = if estimated_output_bytes > 0.0 {
+        (estimated_output_bytes / capacity_bytes) * 100.0
+    } else {
+        0.0
+    };
+    let is_over_capacity = estimated_output_bytes > usable_bytes;
 
     CapacityEstimate {
         capacity_bytes,
@@ -374,6 +377,37 @@ mod tests {
     }
 
     #[test]
+    fn estimated_output_bytes_uses_the_clamped_rate_not_the_raw_disc_wide_budget() {
+        // Regression test: when the raw disc-wide budget exceeds the
+        // encoder's ceiling, `title_bitrates` is clamped below it (see
+        // `title_bitrates_are_clamped_to_the_encoder_ceiling_...` above), so
+        // estimated_output_bytes/usage_pct must reflect what the build will
+        // really emit, not the looser raw rate.
+        let mut project = test_project();
+        project.assets[0].duration_secs = Some(3600.0);
+
+        let estimate = estimate_disc_capacity(&project);
+        assert!(estimate.available_bits_per_second > super::super::ffmpeg::MAX_VIDEO_RATE_BPS);
+
+        let raw_video_bytes =
+            (estimate.available_bits_per_second * estimate.total_duration_secs) / 8.0;
+        let clamped_video_bytes =
+            (estimate.title_bitrates[0].bits_per_second * estimate.total_duration_secs) / 8.0;
+        // The default test title has one AC3 (448 kbps) re-encode mapping.
+        let audio_bytes = (448_000.0 * estimate.total_duration_secs) / 8.0;
+
+        assert!(clamped_video_bytes < raw_video_bytes);
+        assert!(
+            (estimate.estimated_output_bytes - (clamped_video_bytes + audio_bytes)).abs() < 1.0,
+            "expected estimated_output_bytes ({}) to equal clamped video bytes ({}) plus audio bytes ({}), not the raw budget ({})",
+            estimate.estimated_output_bytes,
+            clamped_video_bytes,
+            audio_bytes,
+            raw_video_bytes
+        );
+    }
+
+    #[test]
     fn lpcm_audio_reservation_scales_with_source_channel_count() {
         // Regression test: a 5.1 source re-encoded to LPCM keeps all 6
         // channels (build_ffmpeg_transcode_command never forces `-ac`), so
@@ -409,7 +443,7 @@ mod tests {
 
         let estimate = estimate_disc_capacity(&project);
         let video_only_bytes =
-            (estimate.available_bits_per_second * estimate.total_duration_secs) / 8.0;
+            (estimate.title_bitrates[0].bits_per_second * estimate.total_duration_secs) / 8.0;
 
         assert!(
             estimate.estimated_output_bytes > video_only_bytes,
