@@ -173,4 +173,46 @@ describe('useDisplayDensity', () => {
 			expect(unlisten).toHaveBeenCalledTimes(1);
 		});
 	});
+
+	it('re-measures the attached container, not the window, on a display-change event', () => {
+		// Regression test: a display-change event used to call
+		// setSize(readWindowSize()) unconditionally, clobbering a correct
+		// container-based measurement with the window's width — with nothing
+		// to correct it afterwards unless the container's own size also
+		// happened to change. The handler must re-measure the container
+		// directly when one is attached, and only fall back to the window
+		// when none is.
+		getActiveDisplay.mockResolvedValue(null);
+		let displayChangeHandler: (() => void) | undefined;
+		onDisplayChanged.mockImplementation((handler: () => void) => {
+			displayChangeHandler = handler;
+			return Promise.resolve(() => {});
+		});
+
+		const { result } = renderHook(() => useDisplayDensity());
+
+		const node = document.createElement('div');
+		vi.spyOn(node, 'getBoundingClientRect').mockReturnValue({
+			width: 700,
+			height: 500,
+			top: 0,
+			left: 0,
+			right: 700,
+			bottom: 500,
+			x: 0,
+			y: 0,
+			toJSON: () => ({}),
+		});
+
+		act(() => {
+			result.current.containerRef(node);
+		});
+
+		act(() => {
+			displayChangeHandler?.();
+		});
+
+		expect(result.current.viewportWidth).toBe(700);
+		expect(result.current.viewportWidth).not.toBe(window.innerWidth);
+	});
 });

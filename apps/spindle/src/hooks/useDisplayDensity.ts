@@ -31,7 +31,7 @@
 // want them, and drives re-evaluation when the window moves between monitors
 // with different scale factors.
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
 	getActiveDisplay,
 	onDisplayChanged,
@@ -96,12 +96,17 @@ export function useDisplayDensity(): DisplayDensity {
 	);
 	const [activeDisplay, setActiveDisplay] = useState<DisplayGeometry | null>(null);
 	const [containerNode, setContainerNode] = useState<HTMLElement | null>(null);
+	// Mirrors containerNode for synchronous reads from the display-change
+	// effect below, without making that effect depend on (and resubscribe
+	// its listener whenever) the container changes.
+	const containerNodeRef = useRef<HTMLElement | null>(null);
 
 	// A callback ref re-fires whenever the node actually attaches/detaches —
 	// unlike a plain useRef object, which doesn't notify anything when its
 	// .current changes, so an effect that captured it before the node existed
 	// would never know to re-measure once it mounted.
 	const containerRef = useCallback((node: HTMLElement | null) => {
+		containerNodeRef.current = node;
 		setContainerNode(node);
 	}, []);
 
@@ -143,7 +148,20 @@ export function useDisplayDensity(): DisplayDensity {
 
 		void refresh();
 		const unlisten = onDisplayChanged(() => {
-			setSize(readWindowSize());
+			// Re-measure whichever source is actually driving the breakpoint.
+			// Falling back to the window unconditionally here would clobber a
+			// correct container measurement with the window's width the moment
+			// the window moves to a monitor with a different scale, with
+			// nothing to correct it afterwards unless the container's actual
+			// size also happened to change (which a ResizeObserver would catch,
+			// but isn't guaranteed here).
+			const node = containerNodeRef.current;
+			if (node) {
+				const rect = node.getBoundingClientRect();
+				setSize({ width: rect.width, height: rect.height });
+			} else {
+				setSize(readWindowSize());
+			}
 			void refresh();
 		});
 
