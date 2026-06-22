@@ -33,5 +33,11 @@ tauri-plugin-os = "2"
 tauri-plugin-log = "2"
 log = "0.4"
 
+# Dev/debug tooling. This is a normal (non-optional) dependency, always
+# compiled in; the plugin is only *registered* under `#[cfg(debug_assertions)]`
+# in src/lib.rs, so it is present but inert in release builds.
+tauri-plugin-mcp-bridge = "0.11"
+
 # Spindle plugins (workspace)
+tauri-plugin-display-awareness = { path = "../../../plugins/tauri-plugin-display-awareness" }
 tauri-plugin-spindle-project = { path = "../../../plugins/tauri-plugin-spindle-project" }

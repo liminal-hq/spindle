@@ -9,6 +9,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { save } from '@tauri-apps/plugin-dialog';
 import { useProjectStore } from '../store/project-store';
 import { useNavigation } from '../App';
+import { useDisplayDensity, type DisplayDensity } from '../hooks/useDisplayDensity';
 import type {
 	AspectMode,
 	ButtonStyleMap,
@@ -97,6 +98,19 @@ export function MenusPage() {
 	const menuEditorMode = useProjectStore((s) => s.menuEditorMode);
 	const setMenuEditorMode = useProjectStore((s) => s.setMenuEditorMode);
 	const { consumePendingEntityId } = useNavigation();
+	// Measured against the workspace container, not the window — the window
+	// also contains the app's own sidebar and padding, so window width
+	// overstates how much room the workspace actually has. `containerRef` is
+	// a callback ref attached to the `.menus` div below, which re-measures
+	// correctly even though that div doesn't exist yet on the render where
+	// `project` is still null (see the early return a few lines down).
+	const { containerRef: menusContainerRef, ...density } = useDisplayDensity();
+	// Below 'wide' the rail becomes an overlay, but starts open — picking a
+	// menu to work on is the first thing an author does, so it should not be
+	// hidden by default the way the inspector (a detail panel) is.
+	const [railOpenOverlay, setRailOpenOverlay] = useState(true);
+	const railIsOverlay = !density.isWide;
+	const railVisible = density.isWide || railOpenOverlay;
 
 	// Consume navigation target from validation issue click
 	useEffect(() => {
@@ -149,7 +163,14 @@ export function MenusPage() {
 	const audioSetupCount = selectedTitleset ? getMaxAudioTrackCount(selectedTitleset) : 0;
 	const subtitleSetupCount = selectedTitleset ? getMaxSubtitleTrackCount(selectedTitleset) : 0;
 	const [templatesOpen, setTemplatesOpen] = useState(false);
-	const [generatorsOpen, setGeneratorsOpen] = useState(true);
+	// Collapsed by default, matching Templates — an always-expanded generator
+	// list crowds out the menu list and nav map above it, especially in the
+	// rail's overlay form below 'wide'.
+	const [generatorsOpen, setGeneratorsOpen] = useState(false);
+	// Open by default (orientation at a glance is the point of the mini map),
+	// but collapsible like its siblings so it can be tucked away on request
+	// rather than always claiming rail space.
+	const [navMapOpen, setNavMapOpen] = useState(true);
 
 	useEffect(() => {
 		if (!firstMenuId) {
@@ -322,10 +343,32 @@ export function MenusPage() {
 	};
 
 	return (
-		<div className="menus">
+		<div className="menus" data-breakpoint={density.breakpoint} ref={menusContainerRef}>
 			<div className="menus-content">
-				<aside className="menu-nav">
+				{railIsOverlay && railVisible && (
+					<button
+						type="button"
+						className="menu-nav-scrim"
+						aria-label="Close menu rail"
+						onClick={() => setRailOpenOverlay(false)}
+					/>
+				)}
+				<aside
+					className={`menu-nav ${railIsOverlay ? 'menu-nav--overlay' : ''} ${
+						railIsOverlay && !railVisible ? 'menu-nav--hidden' : ''
+					}`}
+				>
 					<div className="menu-nav__header">
+						{railIsOverlay && (
+							<button
+								type="button"
+								className="menu-nav__rail-toggle"
+								aria-label="Close menu rail"
+								onClick={() => setRailOpenOverlay(false)}
+							>
+								✕
+							</button>
+						)}
 						<span className="menu-nav__title">Menus</span>
 						<div className="menu-nav__view-toggle" role="group" aria-label="Workspace view">
 							<button
@@ -427,6 +470,8 @@ export function MenusPage() {
 									selectedMenuId={selectedMenuId}
 									onSelect={setSelectedMenuId}
 									onExpand={() => setMenuEditorMode('map')}
+									collapsed={!navMapOpen}
+									onToggleCollapsed={() => setNavMapOpen((open) => !open)}
 								/>
 								<div className="menu-nav__panel">
 									<button
@@ -532,18 +577,28 @@ export function MenusPage() {
 					</div>
 				</aside>
 
-				{selectedEntry ? (
-					<MenuEditor
-						menu={selectedEntry.menu}
-						project={project}
-						canvasHeight={MENU_HEIGHT[disc.standard]}
-						onUpdate={(updater) => handleUpdateMenu(selectedEntry.menu.id, updater)}
-						onRemove={() => handleRemoveMenu(selectedEntry.menu.id)}
-						onAutoNav={() => autoGenerateMenuNav(selectedEntry.menu.id)}
-					/>
-				) : (
-					<EmptyMenuWorkspace />
-				)}
+				<div className="menus__editor-column">
+					{selectedEntry ? (
+						<MenuEditor
+							menu={selectedEntry.menu}
+							project={project}
+							canvasHeight={MENU_HEIGHT[disc.standard]}
+							onUpdate={(updater) => handleUpdateMenu(selectedEntry.menu.id, updater)}
+							onRemove={() => handleRemoveMenu(selectedEntry.menu.id)}
+							onAutoNav={() => autoGenerateMenuNav(selectedEntry.menu.id)}
+							density={density}
+							railIsOverlay={railIsOverlay}
+							railVisible={railVisible}
+							onOpenRail={() => setRailOpenOverlay(true)}
+						/>
+					) : (
+						<EmptyMenuWorkspace
+							railIsOverlay={railIsOverlay}
+							railVisible={railVisible}
+							onOpenRail={() => setRailOpenOverlay(true)}
+						/>
+					)}
+				</div>
 			</div>
 		</div>
 	);
@@ -631,11 +686,29 @@ function MenuListItem({
 	);
 }
 
-function EmptyMenuWorkspace() {
+function EmptyMenuWorkspace({
+	railIsOverlay,
+	railVisible,
+	onOpenRail,
+}: {
+	railIsOverlay: boolean;
+	railVisible: boolean;
+	onOpenRail: () => void;
+}) {
 	return (
 		<section className="editor-area">
 			<div className="editor-toolbar card">
 				<div className="editor-toolbar__left">
+					{railIsOverlay && !railVisible && (
+						<button
+							type="button"
+							className="editor-toolbar__toggle"
+							onClick={onOpenRail}
+							title="Show menus rail"
+						>
+							☰ Menus
+						</button>
+					)}
 					<h2 className="editor-toolbar__title">Menu Workspace</h2>
 				</div>
 			</div>
@@ -672,6 +745,10 @@ function MenuEditor({
 	onUpdate,
 	onRemove,
 	onAutoNav,
+	density,
+	railIsOverlay,
+	railVisible,
+	onOpenRail,
 }: {
 	menu: Menu;
 	project: SpindleProjectFile;
@@ -679,6 +756,10 @@ function MenuEditor({
 	onUpdate: (updater: (m: Menu) => Menu) => void;
 	onRemove: () => void;
 	onAutoNav: () => void;
+	density: Omit<DisplayDensity, 'containerRef'>;
+	railIsOverlay: boolean;
+	railVisible: boolean;
+	onOpenRail: () => void;
 }) {
 	const handleExportRenderPreview = useCallback(async () => {
 		const outputPath = await save({
@@ -727,6 +808,12 @@ function MenuEditor({
 	const [activeTool, setActiveTool] = useState<'select' | 'button' | 'text' | 'image' | 'shape'>(
 		'select',
 	);
+	// At wide widths the inspector is a persistent column; below that it becomes
+	// an overlay the author opens deliberately, since there isn't room for it
+	// alongside a useable canvas.
+	const [inspectorOpenOverlay, setInspectorOpenOverlay] = useState(false);
+	const inspectorIsOverlay = !density.isWide;
+	const inspectorVisible = density.isWide || inspectorOpenOverlay;
 	const [availableFonts, setAvailableFonts] = useState<FontEntry[] | undefined>(undefined);
 
 	// Load available fonts once when the menu is selected or when project assets change.
@@ -1249,6 +1336,16 @@ function MenuEditor({
 		<section className="editor-area">
 			<div className={`editor-toolbar ${activeView === 'map' ? 'editor-toolbar--map' : ''}`}>
 				<div className="editor-toolbar__left">
+					{railIsOverlay && !railVisible && (
+						<button
+							type="button"
+							className="editor-toolbar__toggle"
+							onClick={onOpenRail}
+							title="Show menus rail"
+						>
+							☰ Menus
+						</button>
+					)}
 					{activeView === 'editor' ? (
 						<input
 							className="editor-toolbar__name"
@@ -1361,6 +1458,31 @@ function MenuEditor({
 								Delete Menu
 							</button>
 						</div>
+						{inspectorIsOverlay && (
+							<button
+								type="button"
+								className={`editor-toolbar__toggle editor-toolbar__toggle--inspector ${
+									inspectorVisible ? 'editor-toolbar__toggle--active' : ''
+								}`}
+								onClick={() => setInspectorOpenOverlay((v) => !v)}
+								aria-pressed={inspectorVisible}
+								title="Toggle inspector panel"
+							>
+								Inspector
+								<svg
+									width="14"
+									height="14"
+									viewBox="0 0 16 16"
+									fill="none"
+									stroke="currentColor"
+									strokeWidth="1.5"
+									aria-hidden="true"
+								>
+									<rect x="1.5" y="2.5" width="13" height="11" rx="1.5" />
+									<line x1="10" y1="2.5" x2="10" y2="13.5" />
+								</svg>
+							</button>
+						)}
 					</>
 				) : (
 					<div className="editor-toolbar__legend" aria-label="Map legend">
@@ -1381,7 +1503,11 @@ function MenuEditor({
 			</div>
 
 			{activeView === 'editor' ? (
-				<div className="editor-body">
+				<div
+					className={`editor-body ${
+						inspectorIsOverlay && !inspectorVisible ? 'editor-body--inspector-closed' : ''
+					}`}
+				>
 					<div className="menus__canvas-zone">
 						<div className="menus__tools-floating" role="toolbar" aria-label="Scene tools">
 							<button
@@ -1484,45 +1610,49 @@ function MenuEditor({
 						</div>
 					</div>
 
-					<div className="menus__side-panel">
-						<InspectorPanel
-							selectedNode={selectedNode}
-							selectedButton={selectedButton}
-							highlightColours={highlightColours}
-							allTitles={allTitles}
-							allMenus={allMenus}
-							currentMenuId={menu.id}
-							onUpdateButton={handleUpdateButton}
-							onUpdateHighlightColours={handleUpdateHighlightColours}
-							onRemoveButton={handleRemoveButton}
-							onUpdateSceneNode={handleUpdateSceneNode}
-							onRemoveNode={handleRemoveNode}
-							assets={project.assets}
-							buttons={currentButtons}
-							interactionNodes={menu.authoredDocument?.interaction.nodes ?? []}
-							defaultFocusId={defaultFocusId}
-							document={menu.authoredDocument ?? null}
-							canvasHeight={canvasHeight}
-							onSetDefaultFocus={handleSetDefaultFocus}
-							sceneNodes={sceneNodes}
-							selectedNodeId={selectedNodeId}
-							onSelectSceneNode={setSelectedNodeId}
-							menu={menu}
-							onUpdateBackgroundAsset={handleBackgroundChange}
-							onUpdateBackgroundColour={handleBackgroundColourChange}
-							onUpdateBackgroundMode={handleBackgroundModeChange}
-							onUpdateMotionAudioAsset={handleMotionAudioChange}
-							onUpdateMotionDurationSecs={handleMotionDurationChange}
-							onUpdateMotionLoopCount={handleMotionLoopCountChange}
-							onAutoNav={onAutoNav}
-							onExportRenderPreview={menu.authoredDocument ? handleExportRenderPreview : undefined}
-							buttonPreviewState={buttonPreviewState}
-							onButtonPreviewStateChange={setButtonPreviewState}
-							displayAspect={displayAspect}
-							onDisplayAspectChange={handleDisplayAspectChange}
-							availableFonts={availableFonts}
-						/>
-					</div>
+					{(!inspectorIsOverlay || inspectorVisible) && (
+						<div className="menus__side-panel">
+							<InspectorPanel
+								selectedNode={selectedNode}
+								selectedButton={selectedButton}
+								highlightColours={highlightColours}
+								allTitles={allTitles}
+								allMenus={allMenus}
+								currentMenuId={menu.id}
+								onUpdateButton={handleUpdateButton}
+								onUpdateHighlightColours={handleUpdateHighlightColours}
+								onRemoveButton={handleRemoveButton}
+								onUpdateSceneNode={handleUpdateSceneNode}
+								onRemoveNode={handleRemoveNode}
+								assets={project.assets}
+								buttons={currentButtons}
+								interactionNodes={menu.authoredDocument?.interaction.nodes ?? []}
+								defaultFocusId={defaultFocusId}
+								document={menu.authoredDocument ?? null}
+								canvasHeight={canvasHeight}
+								onSetDefaultFocus={handleSetDefaultFocus}
+								sceneNodes={sceneNodes}
+								selectedNodeId={selectedNodeId}
+								onSelectSceneNode={setSelectedNodeId}
+								menu={menu}
+								onUpdateBackgroundAsset={handleBackgroundChange}
+								onUpdateBackgroundColour={handleBackgroundColourChange}
+								onUpdateBackgroundMode={handleBackgroundModeChange}
+								onUpdateMotionAudioAsset={handleMotionAudioChange}
+								onUpdateMotionDurationSecs={handleMotionDurationChange}
+								onUpdateMotionLoopCount={handleMotionLoopCountChange}
+								onAutoNav={onAutoNav}
+								onExportRenderPreview={
+									menu.authoredDocument ? handleExportRenderPreview : undefined
+								}
+								buttonPreviewState={buttonPreviewState}
+								onButtonPreviewStateChange={setButtonPreviewState}
+								displayAspect={displayAspect}
+								onDisplayAspectChange={handleDisplayAspectChange}
+								availableFonts={availableFonts}
+							/>
+						</div>
+					)}
 				</div>
 			) : (
 				<div className="editor-body editor-body--map">
