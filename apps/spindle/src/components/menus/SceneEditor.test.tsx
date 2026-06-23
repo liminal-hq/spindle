@@ -14,7 +14,7 @@ import {
 	buildAudioSetupMenu,
 	buildSubtitleSetupMenu,
 	createGeneratedMenuFromButtons,
-} from '../../pages/MenusPage';
+} from './menuGenerators';
 
 // ── LayersPanel ────────────────────────────────────────────────────────────
 
