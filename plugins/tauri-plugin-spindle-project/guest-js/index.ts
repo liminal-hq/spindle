@@ -654,10 +654,21 @@ export interface BuildProgress {
 	stepLabel?: string | null;
 	/** Estimated completion of the current sub-operation, clamped to 0-100. */
 	stepPercent?: number | null;
-	/** Freeform detail such as media timestamp or encoding phase. */
+	/**
+	 * Freeform detail not covered by `elapsedSecs`/`etaSecs`, such as a file
+	 * path for non-FFmpeg-progress steps.
+	 */
 	stepDetail?: string | null;
 	/** Lifecycle state of the sub-operation. */
 	stepStatus?: 'starting' | 'running' | 'complete' | 'failed' | null;
+	/** Wall-clock seconds elapsed since the current sub-operation started. */
+	elapsedSecs?: number | null;
+	/**
+	 * Estimated remaining seconds for the current sub-operation, derived from
+	 * FFmpeg's realtime `speed` multiplier rather than averaged elapsed time,
+	 * so it reacts to the encode speeding up or slowing down.
+	 */
+	etaSecs?: number | null;
 }
 
 export interface BuildResult {

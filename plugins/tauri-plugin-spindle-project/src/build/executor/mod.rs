@@ -331,6 +331,8 @@ where
                     step_percent: None,
                     step_detail: Some(subtitle_path.clone()),
                     step_status: Some(BuildJobStatus::Running),
+                    elapsed_secs: None,
+                    eta_secs: None,
                 });
 
                 match run_ffmpeg_command(
@@ -389,6 +391,8 @@ where
                             step_percent: Some(100.0),
                             step_detail: Some(subtitle_path.clone()),
                             step_status: Some(BuildJobStatus::Complete),
+                            elapsed_secs: None,
+                            eta_secs: None,
                         });
                         on_progress(BuildProgress::job(
                             i,
@@ -433,6 +437,8 @@ where
                     step_percent: None,
                     step_detail: Some(output_path.clone()),
                     step_status: Some(BuildJobStatus::Running),
+                    elapsed_secs: None,
+                    eta_secs: None,
                 });
 
                 match run_spumux_command(command, input_path, output_path) {
