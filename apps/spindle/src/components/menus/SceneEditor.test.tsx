@@ -8,7 +8,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { LayersPanel } from './LayersPanel';
 import { InspectorPanel } from './InspectorPanel';
 import { SceneCanvas } from './SceneCanvas';
-import type { SceneNode, MenuButton, MenuHighlightColours, Asset } from '../../types/project';
+import type { SceneNode, MenuButton, MenuHighlightColours, Asset, Menu } from '../../types/project';
 import { DEFAULT_HIGHLIGHT_COLOURS, createDefaultMenuCompilePolicy } from '../../types/project';
 import {
 	buildAudioSetupMenu,
@@ -245,6 +245,358 @@ describe('InspectorPanel', () => {
 				'16:9 here is anamorphic DVD output of the same raster, not a larger canvas.',
 			),
 		).toBeTruthy();
+	});
+
+	it('renders text node fields and propagates content/remove changes', () => {
+		const onUpdate = vi.fn();
+		const onRemove = vi.fn();
+		const textNode: SceneNode = {
+			type: 'text',
+			id: 'txt-1',
+			content: 'Welcome',
+			x: 10,
+			y: 20,
+			width: 200,
+			height: 40,
+		};
+		render(
+			<InspectorPanel
+				selectedNode={textNode}
+				selectedButton={null}
+				highlightColours={colours}
+				allTitles={[]}
+				allMenus={[]}
+				currentMenuId="menu-1"
+				onUpdateButton={vi.fn()}
+				onUpdateHighlightColours={vi.fn()}
+				onRemoveButton={vi.fn()}
+				onUpdateSceneNode={onUpdate}
+				onRemoveNode={onRemove}
+			/>,
+		);
+
+		const contentInput = screen.getByDisplayValue('Welcome');
+		fireEvent.change(contentInput, { target: { value: 'Hello' } });
+		expect(onUpdate).toHaveBeenCalledWith('txt-1', { content: 'Hello' });
+
+		fireEvent.click(screen.getByText('Remove Text'));
+		expect(onRemove).toHaveBeenCalledWith('txt-1');
+	});
+
+	it('renders image node fields and propagates asset/remove changes', () => {
+		const onUpdate = vi.fn();
+		const onRemove = vi.fn();
+		const imageNode: SceneNode = {
+			type: 'image',
+			id: 'img-1',
+			assetId: '',
+			x: 10,
+			y: 20,
+			width: 200,
+			height: 150,
+		};
+		const assets: Asset[] = [
+			{
+				id: 'asset-1',
+				fileName: 'background.png',
+				sourcePath: '/tmp/background.png',
+				fileSizeBytes: null,
+				durationSecs: null,
+				containerFormat: null,
+				videoStreams: [],
+				audioStreams: [],
+				subtitleStreams: [],
+				compatibility: null,
+				compatibilityDetail: null,
+				fingerprint: null,
+				warnings: [],
+				thumbnailPath: null,
+				thumbnailError: null,
+				sourceChapters: [],
+				formatTitle: null,
+			},
+		];
+		render(
+			<InspectorPanel
+				selectedNode={imageNode}
+				selectedButton={null}
+				highlightColours={colours}
+				allTitles={[]}
+				allMenus={[]}
+				currentMenuId="menu-1"
+				onUpdateButton={vi.fn()}
+				onUpdateHighlightColours={vi.fn()}
+				onRemoveButton={vi.fn()}
+				onUpdateSceneNode={onUpdate}
+				onRemoveNode={onRemove}
+				assets={assets}
+			/>,
+		);
+
+		expect(screen.getByText('background.png')).toBeTruthy();
+		const assetSelect = screen.getByDisplayValue('None');
+		fireEvent.change(assetSelect, { target: { value: 'asset-1' } });
+		expect(onUpdate).toHaveBeenCalledWith('img-1', { assetId: 'asset-1' });
+
+		fireEvent.click(screen.getByText('Remove Image'));
+		expect(onRemove).toHaveBeenCalledWith('img-1');
+	});
+
+	it('renders shape node fields and propagates fill/remove changes', () => {
+		const onUpdate = vi.fn();
+		const onRemove = vi.fn();
+		const shapeNode: SceneNode = {
+			type: 'shape',
+			id: 'shape-1',
+			x: 10,
+			y: 20,
+			width: 200,
+			height: 100,
+			fill: '#333333',
+		};
+		render(
+			<InspectorPanel
+				selectedNode={shapeNode}
+				selectedButton={null}
+				highlightColours={colours}
+				allTitles={[]}
+				allMenus={[]}
+				currentMenuId="menu-1"
+				onUpdateButton={vi.fn()}
+				onUpdateHighlightColours={vi.fn()}
+				onRemoveButton={vi.fn()}
+				onUpdateSceneNode={onUpdate}
+				onRemoveNode={onRemove}
+			/>,
+		);
+
+		const hexInput = screen
+			.getAllByDisplayValue('#333333')
+			.find((el) => el.classList.contains('inspector-panel__input--hex'))!;
+		fireEvent.change(hexInput, { target: { value: '#ff0000' } });
+		expect(onUpdate).toHaveBeenCalledWith('shape-1', { fill: '#ff0000' });
+
+		fireEvent.click(screen.getByText('Remove Shape'));
+		expect(onRemove).toHaveBeenCalledWith('shape-1');
+	});
+
+	it('falls back to the generic inspector for node types without a dedicated panel', () => {
+		const groupNode: SceneNode = { type: 'group', id: 'group-1', name: 'Group', children: [] };
+		render(
+			<InspectorPanel
+				selectedNode={groupNode}
+				selectedButton={null}
+				highlightColours={colours}
+				allTitles={[]}
+				allMenus={[]}
+				currentMenuId="menu-1"
+				onUpdateButton={vi.fn()}
+				onUpdateHighlightColours={vi.fn()}
+				onRemoveButton={vi.fn()}
+			/>,
+		);
+
+		expect(screen.getAllByText('Group').length).toBeGreaterThanOrEqual(2);
+		expect(
+			screen.getByText('Properties for group nodes will be available in a future update.'),
+		).toBeTruthy();
+	});
+
+	it('switches the menu-level background tab between solid/image/video/audio sources', () => {
+		const menu: Menu = {
+			id: 'menu-1',
+			name: 'Menu',
+			backgroundAssetId: null,
+			buttons: [button],
+			defaultButtonId: null,
+			highlightColours: colours,
+			backgroundMode: 'still',
+			motionDurationSecs: null,
+			motionAudioAssetId: null,
+			motionLoopCount: 0,
+			timeoutAction: null,
+		};
+		const assets: Asset[] = [
+			{
+				id: 'video-asset',
+				fileName: 'loop.mp4',
+				sourcePath: '/tmp/loop.mp4',
+				fileSizeBytes: null,
+				durationSecs: null,
+				containerFormat: null,
+				videoStreams: [
+					{
+						index: 0,
+						codec: 'h264',
+						width: 720,
+						height: 480,
+						frameRate: null,
+						aspectRatio: null,
+						scanType: null,
+						bitrateBps: null,
+						title: null,
+						colorTransfer: null,
+						colorPrimaries: null,
+						dolbyVisionProfile: null,
+					},
+				],
+				audioStreams: [],
+				subtitleStreams: [],
+				compatibility: null,
+				compatibilityDetail: null,
+				fingerprint: null,
+				warnings: [],
+				thumbnailPath: null,
+				thumbnailError: null,
+				sourceChapters: [],
+				formatTitle: null,
+			},
+		];
+
+		render(
+			<InspectorPanel
+				selectedNode={null}
+				selectedButton={null}
+				highlightColours={colours}
+				allTitles={[]}
+				allMenus={[]}
+				currentMenuId="menu-1"
+				onUpdateButton={vi.fn()}
+				onUpdateHighlightColours={vi.fn()}
+				onRemoveButton={vi.fn()}
+				buttons={[button]}
+				menu={menu}
+				assets={assets}
+			/>,
+		);
+
+		// Defaults to the Solid tab for a still menu.
+		expect(screen.getAllByDisplayValue('#0f0e1a').length).toBeGreaterThan(0);
+
+		fireEvent.click(screen.getByText('Video'));
+		expect(screen.getByText('loop.mp4')).toBeTruthy();
+
+		fireEvent.click(screen.getByText('Audio'));
+		expect(screen.getByText('Audio bed')).toBeTruthy();
+	});
+
+	it('switches ButtonStyleSection state tabs and edits the active state only', () => {
+		const onUpdateSceneNode = vi.fn();
+		const onButtonPreviewStateChange = vi.fn();
+
+		render(
+			<InspectorPanel
+				selectedNode={buttonNode}
+				selectedButton={button}
+				highlightColours={colours}
+				allTitles={[]}
+				allMenus={[]}
+				currentMenuId="menu-1"
+				onUpdateButton={vi.fn()}
+				onUpdateHighlightColours={vi.fn()}
+				onRemoveButton={vi.fn()}
+				onUpdateSceneNode={onUpdateSceneNode}
+				buttonPreviewState="normal"
+				onButtonPreviewStateChange={onButtonPreviewStateChange}
+			/>,
+		);
+
+		fireEvent.click(screen.getByText('Focus'));
+		expect(onButtonPreviewStateChange).toHaveBeenCalledWith('focus');
+	});
+
+	it('serialises and parses button actions via the Action select', () => {
+		const onUpdate = vi.fn();
+		const playTitleButton: MenuButton = {
+			...button,
+			action: { type: 'playTitle', titleId: 'title-1' },
+		};
+		render(
+			<InspectorPanel
+				selectedNode={buttonNode}
+				selectedButton={playTitleButton}
+				highlightColours={colours}
+				allTitles={[
+					{
+						id: 'title-1',
+						name: 'Feature',
+						sourceAssetId: null,
+						videoMapping: null,
+						videoOutputProfile: null,
+						audioMappings: [],
+						subtitleMappings: [],
+						chapters: [],
+						endAction: null,
+						orderIndex: 0,
+						bitrateWeight: 1,
+						bitrateFloorBps: null,
+						bitrateCeilingBps: null,
+						pinnedBitrateBps: null,
+					},
+				]}
+				allMenus={[]}
+				currentMenuId="menu-1"
+				onUpdateButton={onUpdate}
+				onUpdateHighlightColours={vi.fn()}
+				onRemoveButton={vi.fn()}
+			/>,
+		);
+
+		// actionToString: the select reflects the current action as 'playTitle:title-1'.
+		const actionSelect = screen.getByDisplayValue('Feature');
+		expect((actionSelect as HTMLSelectElement).value).toBe('playTitle:title-1');
+
+		// stringToAction: choosing "Stop" must produce the Stop action object.
+		fireEvent.change(actionSelect, { target: { value: 'stop' } });
+		expect(onUpdate).toHaveBeenCalledWith('btn-1', { action: { type: 'stop' } });
+	});
+
+	it('reports diagnostics for button-count, unbound actions, and broken nav refs', () => {
+		const manyButtons: MenuButton[] = Array.from({ length: 37 }, (_, i) => ({
+			...button,
+			id: `btn-${i}`,
+			label: `Button ${i}`,
+			action: null,
+			navUp: i === 0 ? 'missing-button' : null,
+		}));
+
+		render(
+			<InspectorPanel
+				selectedNode={null}
+				selectedButton={null}
+				highlightColours={colours}
+				allTitles={[]}
+				allMenus={[]}
+				currentMenuId="menu-1"
+				onUpdateButton={vi.fn()}
+				onUpdateHighlightColours={vi.fn()}
+				onRemoveButton={vi.fn()}
+				buttons={manyButtons}
+			/>,
+		);
+
+		expect(screen.getByText('Too many buttons (37). DVD supports a maximum of 36.')).toBeTruthy();
+		expect(screen.getByText('37 buttons have no action assigned.')).toBeTruthy();
+		expect(screen.getByText('Button "Button 0" has a broken navUp reference.')).toBeTruthy();
+	});
+
+	it('shows the no-issues diagnostic message for a clean menu', () => {
+		render(
+			<InspectorPanel
+				selectedNode={null}
+				selectedButton={null}
+				highlightColours={colours}
+				allTitles={[]}
+				allMenus={[]}
+				currentMenuId="menu-1"
+				onUpdateButton={vi.fn()}
+				onUpdateHighlightColours={vi.fn()}
+				onRemoveButton={vi.fn()}
+				buttons={[]}
+			/>,
+		);
+
+		expect(screen.getByText('No issues — menu is DVD-safe.')).toBeTruthy();
 	});
 });
 
