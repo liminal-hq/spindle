@@ -15,6 +15,7 @@ import type {
 	VideoRaster,
 	AspectMode,
 	AudioOutputTarget,
+	AudioTrackMapping,
 	CopyMode,
 	PlaybackAction,
 	SpindleProjectFile,
@@ -792,23 +793,26 @@ function TitleEditor({
 							<select
 								className="titles__select titles__select--sm"
 								value={am.channelLayout ?? ''}
-								disabled={am.copyMode !== 're-encode'}
-								title="Channel layout (re-encoded tracks only)"
-								onChange={(e) =>
+								title="Selecting a channel layout switches this track to Re-encode, since a stream copy can't change channels."
+								onChange={(e) => {
+									const channelLayout = e.target.value === '' ? null : Number(e.target.value);
 									onUpdate({
 										...title,
 										audioMappings: title.audioMappings.map((a) =>
 											a.id === am.id
 												? {
 														...a,
-														channelLayout: e.target.value === '' ? null : Number(e.target.value),
+														channelLayout,
+														// A stream copy can't change channels — picking a
+														// real layout implies re-encoding.
+														copyMode: channelLayout !== null ? 're-encode' : a.copyMode,
 													}
 												: a,
 										),
-									})
-								}
+									});
+								}}
 							>
-								<option value="">Auto (source)</option>
+								<option value="">{`Auto (source${sourceChannelLabel(selectedAsset, am) ? `, ${sourceChannelLabel(selectedAsset, am)}` : ''})`}</option>
 								<option value="1">Mono</option>
 								<option value="2">Stereo</option>
 								<option value="6">5.1</option>
@@ -1075,6 +1079,19 @@ function TitleEditor({
 }
 
 const DEFAULT_PIN_BPS = 6_000_000;
+
+const CHANNEL_COUNT_LABELS: Record<number, string> = {
+	1: 'mono',
+	2: 'stereo',
+	6: '5.1',
+	8: '7.1',
+};
+
+function sourceChannelLabel(asset: Asset | null, mapping: AudioTrackMapping): string | null {
+	const channels = asset?.audioStreams.find((s) => s.index === mapping.sourceStreamIndex)?.channels;
+	if (!channels) return null;
+	return CHANNEL_COUNT_LABELS[channels] ?? `${channels}ch`;
+}
 
 function BitrateBoundRow({
 	label,
