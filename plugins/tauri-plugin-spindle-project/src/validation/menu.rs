@@ -8,7 +8,7 @@ use std::collections::{HashMap, HashSet};
 
 use crate::models::*;
 
-use super::menu_action::validate_action;
+use super::menu_action::{validate_action, ActionSubject};
 use super::menu_aspect::titleset_stream_counts;
 use super::scene::{
     count_scene_buttons, validate_button_video_usage, validate_motion_keyframes,
@@ -19,6 +19,8 @@ pub(super) fn validate_menus(
     project: &SpindleProjectFile,
     asset_ids: &HashSet<&str>,
     asset_map: &HashMap<&str, &Asset>,
+    all_title_ids: &HashSet<&str>,
+    all_menu_ids: &HashSet<&str>,
     issues: &mut Vec<ValidationIssue>,
 ) {
     // Pair each menu with its owning titleset so stream index validation has context.
@@ -37,15 +39,6 @@ pub(super) fn validate_menus(
         )
         .collect();
 
-    let all_menu_ids: HashSet<&str> = all_menus.iter().map(|(m, _)| m.id.as_str()).collect();
-
-    let all_title_ids: HashSet<&str> = project
-        .disc
-        .titlesets
-        .iter()
-        .flat_map(|ts| ts.titles.iter().map(|t| t.id.as_str()))
-        .collect();
-
     for (menu, titleset_opt) in &all_menus {
         let stream_counts = titleset_opt.map(titleset_stream_counts);
         let background_mode = menu.resolved_background_mode();
@@ -53,6 +46,34 @@ pub(super) fn validate_menus(
         let motion_loop_start_secs = menu.resolved_motion_loop_start_secs();
         let background_asset_id = menu.resolved_background_asset_id();
         let motion_audio_asset_id = menu.resolved_motion_audio_asset_id();
+
+        // Validate the timeout action's target. Runs ahead of the
+        // empty-buttons check below since a menu can have a valid timeout
+        // action (or authored scene buttons) even with an empty legacy
+        // `buttons[]` array. Mirrors the authored-document-vs-legacy split
+        // used for button actions: the authored document's interaction
+        // graph is authoritative when present, otherwise the legacy field.
+        let timeout_action = menu
+            .authored_document
+            .as_ref()
+            .map(|doc| &doc.interaction.timeout_action)
+            .unwrap_or(&menu.timeout_action);
+        if let Some(action) = timeout_action {
+            validate_action(
+                action,
+                all_title_ids,
+                all_menu_ids,
+                &project.disc,
+                &ActionSubject {
+                    subject: format!("Timeout action in menu \"{}\"", menu.name),
+                    entity_type: "menu",
+                    entity_name: Some(&menu.name),
+                    context_id: Some(&menu.id),
+                },
+                stream_counts,
+                issues,
+            );
+        }
 
         // Hard limit: 36 buttons per menu (DVD spec limit for most players/configurations)
         if menu.buttons.len() > 36 {
@@ -154,12 +175,18 @@ pub(super) fn validate_menus(
                 if let Some(action) = &button.action {
                     validate_action(
                         action,
-                        &all_title_ids,
-                        &all_menu_ids,
+                        all_title_ids,
+                        all_menu_ids,
                         &project.disc,
-                        &menu.name,
-                        &menu.id,
-                        &button.label,
+                        &ActionSubject {
+                            subject: format!(
+                                "Action \"{}\" in menu \"{}\"",
+                                button.label, menu.name
+                            ),
+                            entity_type: "menu",
+                            entity_name: Some(&menu.name),
+                            context_id: Some(&menu.id),
+                        },
                         stream_counts,
                         issues,
                     );
@@ -262,12 +289,18 @@ pub(super) fn validate_menus(
                 if let Some(action) = &focus_node.action {
                     validate_action(
                         action,
-                        &all_title_ids,
-                        &all_menu_ids,
+                        all_title_ids,
+                        all_menu_ids,
                         &project.disc,
-                        &menu.name,
-                        &menu.id,
-                        &format!("Interaction: {}", focus_node.node_id),
+                        &ActionSubject {
+                            subject: format!(
+                                "Action \"Interaction: {}\" in menu \"{}\"",
+                                focus_node.node_id, menu.name
+                            ),
+                            entity_type: "menu",
+                            entity_name: Some(&menu.name),
+                            context_id: Some(&menu.id),
+                        },
                         stream_counts,
                         issues,
                     );
@@ -424,5 +457,160 @@ pub(super) fn validate_menus(
         if let Some(doc) = &menu.authored_document {
             validate_motion_keyframes(doc, menu, motion_duration_secs, issues);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn project_with_menu(menu: Menu) -> SpindleProjectFile {
+        let mut project = SpindleProjectFile::default();
+        project.disc.global_menus.push(menu);
+        project
+    }
+
+    fn authored_document_with_timeout(action: Option<PlaybackAction>) -> MenuDocument {
+        MenuDocument {
+            id: "menu-1".to_string(),
+            name: "Main Menu".to_string(),
+            domain: MenuDomain::Vmgm,
+            scene: MenuScene {
+                design_size: MenuSize {
+                    width: 720.0,
+                    height: 480.0,
+                    aspect: AspectMode::SixteenByNine,
+                },
+                background: SceneBackground {
+                    asset_id: None,
+                    colour: Some("#000000".to_string()),
+                },
+                nodes: vec![],
+                guides: vec![],
+            },
+            interaction: MenuInteractionGraph {
+                default_focus_id: None,
+                nodes: vec![],
+                timeout_action: action,
+            },
+            timing: MenuTiming::default(),
+            highlight_colours: MenuHighlightColours::default(),
+            background_mode: BackgroundMode::Still,
+            theme_ref: None,
+            generation_meta: None,
+            compile_policy: MenuCompilePolicy::default(),
+        }
+    }
+
+    #[test]
+    fn legacy_timeout_action_targeting_a_deleted_title_is_flagged() {
+        let mut menu = Menu {
+            id: "menu-1".to_string(),
+            name: "Main Menu".to_string(),
+            timeout_action: Some(PlaybackAction::PlayTitle {
+                title_id: "stale-title-id".to_string(),
+            }),
+            ..Menu::default()
+        };
+        // No buttons at all — regression guard: the timeout action must still
+        // be validated even though the empty-buttons check below would
+        // otherwise `continue` past it.
+        menu.buttons.clear();
+        let project = project_with_menu(menu);
+
+        let asset_ids = HashSet::new();
+        let asset_map = HashMap::new();
+        let all_title_ids = HashSet::new();
+        let all_menu_ids: HashSet<&str> = ["menu-1"].into_iter().collect();
+        let mut issues = Vec::new();
+
+        validate_menus(
+            &project,
+            &asset_ids,
+            &asset_map,
+            &all_title_ids,
+            &all_menu_ids,
+            &mut issues,
+        );
+
+        assert!(
+            issues
+                .iter()
+                .any(|i| i.code == "menu.dangling-title-ref"
+                    && i.context.as_deref() == Some("menu-1")),
+            "expected a dangling-title-ref issue for the menu's timeout action, got {issues:?}"
+        );
+    }
+
+    #[test]
+    fn authored_document_timeout_action_targeting_a_deleted_menu_is_flagged() {
+        let menu = Menu {
+            id: "menu-1".to_string(),
+            name: "Main Menu".to_string(),
+            authored_document: Some(authored_document_with_timeout(Some(
+                PlaybackAction::ShowMenu {
+                    menu_id: "stale-menu-id".to_string(),
+                },
+            ))),
+            ..Menu::default()
+        };
+        let project = project_with_menu(menu);
+
+        let asset_ids = HashSet::new();
+        let asset_map = HashMap::new();
+        let all_title_ids = HashSet::new();
+        let all_menu_ids: HashSet<&str> = ["menu-1"].into_iter().collect();
+        let mut issues = Vec::new();
+
+        validate_menus(
+            &project,
+            &asset_ids,
+            &asset_map,
+            &all_title_ids,
+            &all_menu_ids,
+            &mut issues,
+        );
+
+        assert!(
+            issues
+                .iter()
+                .any(|i| i.code == "menu.dangling-menu-ref"
+                    && i.context.as_deref() == Some("menu-1")),
+            "expected a dangling-menu-ref issue for the authored timeout action, got {issues:?}"
+        );
+    }
+
+    #[test]
+    fn timeout_action_targeting_an_existing_title_is_not_flagged() {
+        let mut menu = Menu {
+            id: "menu-1".to_string(),
+            name: "Main Menu".to_string(),
+            timeout_action: Some(PlaybackAction::PlayTitle {
+                title_id: "title-1".to_string(),
+            }),
+            ..Menu::default()
+        };
+        menu.buttons.clear();
+        let project = project_with_menu(menu);
+
+        let asset_ids = HashSet::new();
+        let asset_map = HashMap::new();
+        let all_title_ids: HashSet<&str> = ["title-1"].into_iter().collect();
+        let all_menu_ids: HashSet<&str> = ["menu-1"].into_iter().collect();
+        let mut issues = Vec::new();
+
+        validate_menus(
+            &project,
+            &asset_ids,
+            &asset_map,
+            &all_title_ids,
+            &all_menu_ids,
+            &mut issues,
+        );
+
+        assert!(
+            !issues.iter().any(|i| i.code.starts_with("menu.dangling")),
+            "valid timeout action target should not raise a dangling-reference issue, got {issues:?}"
+        );
     }
 }
