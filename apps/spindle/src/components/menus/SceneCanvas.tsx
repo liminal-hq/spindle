@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: MIT
 
 import { readFile, BaseDirectory } from '@tauri-apps/plugin-fs';
+import { convertFileSrc } from '@tauri-apps/api/core';
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import type {
 	MenuButton,
@@ -952,17 +953,31 @@ function RenderedSceneNode({
 }
 
 function BackgroundImage({ asset }: { asset: Asset }) {
-	const [imageSrc, setImageSrc] = useState<string | null>(null);
+	// Falls back to the original source file (via the asset:// protocol) when
+	// no cached thumbnail exists yet or the cached read fails, so a background
+	// still renders instead of silently showing nothing — see issue #57.
+	const [imageSrc, setImageSrc] = useState<string | null>(() =>
+		asset.thumbnailPath ? null : convertFileSrc(asset.sourcePath),
+	);
+	const [loadFailed, setLoadFailed] = useState(false);
 
 	useEffect(() => {
 		let revokedUrl: string | null = null;
 		let cancelled = false;
 
 		async function load() {
-			if (!asset.thumbnailPath) return;
+			if (!asset.thumbnailPath) {
+				setImageSrc(convertFileSrc(asset.sourcePath));
+				setLoadFailed(false);
+				return;
+			}
 
 			const fileName = asset.thumbnailPath.split(/[/\\]/).pop();
-			if (!fileName) return;
+			if (!fileName) {
+				setImageSrc(convertFileSrc(asset.sourcePath));
+				setLoadFailed(false);
+				return;
+			}
 
 			try {
 				const bytes = await readFile(`thumbnails/${fileName}`, {
@@ -973,8 +988,16 @@ function BackgroundImage({ asset }: { asset: Asset }) {
 				const url = URL.createObjectURL(blob);
 				revokedUrl = url;
 				setImageSrc(url);
-			} catch {
-				if (!cancelled) setImageSrc(null);
+				setLoadFailed(false);
+			} catch (error) {
+				if (cancelled) return;
+				console.warn('[scene-canvas] Background thumbnail load failed, falling back to source', {
+					assetId: asset.id,
+					thumbnailPath: asset.thumbnailPath,
+					error,
+				});
+				setImageSrc(convertFileSrc(asset.sourcePath));
+				setLoadFailed(false);
 			}
 		}
 		void load();
@@ -983,9 +1006,22 @@ function BackgroundImage({ asset }: { asset: Asset }) {
 			cancelled = true;
 			if (revokedUrl) URL.revokeObjectURL(revokedUrl);
 		};
-	}, [asset.id, asset.thumbnailPath]);
+	}, [asset.id, asset.thumbnailPath, asset.sourcePath]);
 
-	if (!imageSrc) return null;
+	if (!imageSrc || loadFailed) {
+		return (
+			<div className="scene-canvas__image-placeholder" aria-hidden="true">
+				<div className="scene-canvas__image-placeholder-sun" />
+				<div className="scene-canvas__image-placeholder-horizon" />
+				<div className="scene-canvas__image-overlay">
+					<span className="scene-canvas__image-kicker">Background</span>
+					<span className="scene-canvas__image-caption">
+						{loadFailed ? 'Preview unavailable' : 'Loading…'}
+					</span>
+				</div>
+			</div>
+		);
+	}
 
 	return (
 		<img
@@ -993,6 +1029,7 @@ function BackgroundImage({ asset }: { asset: Asset }) {
 			src={imageSrc}
 			alt="Menu background"
 			draggable={false}
+			onError={() => setLoadFailed(true)}
 		/>
 	);
 }
