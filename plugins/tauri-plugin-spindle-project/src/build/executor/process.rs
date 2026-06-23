@@ -67,7 +67,9 @@ where
 
     let mut reader = std::io::BufReader::new(stderr);
     let mut stderr_buf = String::new();
+    let job_start = Instant::now();
     let mut last_emit = Instant::now();
+    let mut last_speed: Option<f64> = None;
     let mut raw_line = Vec::new();
 
     // Read stderr as raw bytes and decode lossily so non-UTF-8 metadata
@@ -88,11 +90,19 @@ where
         let line = String::from_utf8_lossy(&raw_line);
         let line = line.trim_end_matches('\n').trim_end_matches('\r');
 
+        // `speed=` lines arrive separately from `out_time=` lines within the
+        // same `-progress` block; remember the latest value so it's available
+        // when the next `out_time=` line triggers an emit below.
+        if let Some(speed_val) = ffmpeg_progress::extract_progress_value(line, "speed") {
+            last_speed = ffmpeg_progress::parse_speed(speed_val);
+        }
+
         // Try to extract progress from `-progress pipe:2` output.
         if let Some(time_val) = ffmpeg_progress::extract_progress_value(line, "out_time") {
             if let Some(elapsed) = ffmpeg_progress::parse_out_time_secs(time_val) {
                 let pct = ffmpeg_progress::step_percent(elapsed, duration_secs);
-                let detail = ffmpeg_progress::format_timestamp(elapsed);
+                let eta = last_speed
+                    .and_then(|speed| ffmpeg_progress::eta_secs(elapsed, duration_secs, speed));
 
                 // Throttle emissions to avoid flooding the frontend.
                 if last_emit.elapsed().as_millis() >= PROGRESS_THROTTLE_MS {
@@ -104,8 +114,10 @@ where
                         output: None,
                         step_label: Some(step_label.to_string()),
                         step_percent: pct,
-                        step_detail: Some(detail),
+                        step_detail: None,
                         step_status: Some(BuildJobStatus::Running),
+                        elapsed_secs: Some(job_start.elapsed().as_secs_f64()),
+                        eta_secs: eta,
                     });
                     last_emit = Instant::now();
                 }

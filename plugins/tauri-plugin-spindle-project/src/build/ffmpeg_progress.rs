@@ -48,13 +48,35 @@ pub fn step_percent(elapsed_secs: f64, duration_secs: Option<f64>) -> Option<f64
     Some(pct.clamp(0.0, 100.0))
 }
 
-/// Format elapsed seconds as a human-readable `HH:MM:SS` string.
-pub fn format_timestamp(secs: f64) -> String {
-    let total = secs.max(0.0) as u64;
-    let h = total / 3600;
-    let m = (total % 3600) / 60;
-    let s = total % 60;
-    format!("{h:02}:{m:02}:{s:02}")
+/// Parse a `speed` value from FFmpeg `-progress` output, e.g. `2.3x`.
+///
+/// FFmpeg emits `N/A` before the encode has produced any timed output, and
+/// `0x` momentarily at the very start — both treated as "no usable speed
+/// yet" since they can't drive an ETA estimate.
+pub fn parse_speed(value: &str) -> Option<f64> {
+    let value = value.trim().trim_end_matches('x');
+    let speed: f64 = value.parse().ok()?;
+    if speed > 0.0 {
+        Some(speed)
+    } else {
+        None
+    }
+}
+
+/// Estimate remaining seconds for an FFmpeg encode from progress so far and
+/// the current realtime `speed` multiplier (see `parse_speed`).
+///
+/// Returns `None` when there's no usable duration or speed to estimate from.
+/// Reacting to the live `speed` value (rather than averaging elapsed
+/// wall-clock time) means the estimate adjusts as the encode speeds up or
+/// slows down across different scenes.
+pub fn eta_secs(out_time_secs: f64, duration_secs: Option<f64>, speed: f64) -> Option<f64> {
+    let dur = duration_secs.filter(|&d| d > 0.0)?;
+    if speed <= 0.0 {
+        return None;
+    }
+    let remaining_source_secs = (dur - out_time_secs).max(0.0);
+    Some(remaining_source_secs / speed)
 }
 
 #[cfg(test)]
@@ -132,17 +154,43 @@ mod tests {
     }
 
     #[test]
-    fn format_timestamp_basic() {
-        assert_eq!(format_timestamp(3661.0), "01:01:01");
+    fn parse_speed_basic() {
+        assert_eq!(parse_speed("2.3x"), Some(2.3));
     }
 
     #[test]
-    fn format_timestamp_zero() {
-        assert_eq!(format_timestamp(0.0), "00:00:00");
+    fn parse_speed_not_available() {
+        assert_eq!(parse_speed("N/A"), None);
     }
 
     #[test]
-    fn format_timestamp_negative_clamps() {
-        assert_eq!(format_timestamp(-5.0), "00:00:00");
+    fn parse_speed_zero_is_not_usable() {
+        assert_eq!(parse_speed("0x"), None);
+    }
+
+    #[test]
+    fn parse_speed_whitespace() {
+        assert_eq!(parse_speed("  1.0x  "), Some(1.0));
+    }
+
+    #[test]
+    fn eta_secs_normal() {
+        // 50s into a 100s source at 2x speed → 50s of source remaining / 2x = 25s.
+        assert_eq!(eta_secs(50.0, Some(100.0), 2.0), Some(25.0));
+    }
+
+    #[test]
+    fn eta_secs_none_without_duration() {
+        assert_eq!(eta_secs(50.0, None, 2.0), None);
+    }
+
+    #[test]
+    fn eta_secs_none_for_zero_speed() {
+        assert_eq!(eta_secs(50.0, Some(100.0), 0.0), None);
+    }
+
+    #[test]
+    fn eta_secs_clamps_when_past_duration() {
+        assert_eq!(eta_secs(150.0, Some(100.0), 2.0), Some(0.0));
     }
 }

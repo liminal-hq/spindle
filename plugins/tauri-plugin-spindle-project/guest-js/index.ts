@@ -658,6 +658,14 @@ export interface BuildProgress {
 	stepDetail?: string | null;
 	/** Lifecycle state of the sub-operation. */
 	stepStatus?: 'starting' | 'running' | 'complete' | 'failed' | null;
+	/** Wall-clock seconds elapsed since the current sub-operation started. */
+	elapsedSecs?: number | null;
+	/**
+	 * Estimated remaining seconds for the current sub-operation, derived from
+	 * FFmpeg's realtime `speed` multiplier rather than averaged elapsed time,
+	 * so it reacts to the encode speeding up or slowing down.
+	 */
+	etaSecs?: number | null;
 }
 
 export interface BuildResult {

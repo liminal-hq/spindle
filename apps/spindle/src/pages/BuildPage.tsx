@@ -181,8 +181,16 @@ export function BuildPage() {
 								{buildProgress.stepLabel && (
 									<span className="build__step-label text-muted">{buildProgress.stepLabel}</span>
 								)}
-								{buildProgress.stepDetail && (
-									<span className="build__step-detail text-muted">{buildProgress.stepDetail}</span>
+								{buildProgress.elapsedSecs != null ? (
+									<span className="build__step-detail text-muted">
+										{formatElapsedEta(buildProgress.elapsedSecs, buildProgress.etaSecs ?? null)}
+									</span>
+								) : (
+									buildProgress.stepDetail && (
+										<span className="build__step-detail text-muted">
+											{buildProgress.stepDetail}
+										</span>
+									)
 								)}
 							</div>
 						</div>
@@ -293,6 +301,23 @@ export function BuildPage() {
 			)}
 		</div>
 	);
+}
+
+/** Format wall-clock elapsed time and an optional ETA, e.g. "12m34s elapsed · ~8m20s remaining". */
+function formatElapsedEta(elapsedSecs: number, etaSecs: number | null): string {
+	const elapsed = formatShortDuration(elapsedSecs);
+	if (etaSecs == null) return `${elapsed} elapsed`;
+	return `${elapsed} elapsed · ~${formatShortDuration(etaSecs)} remaining`;
+}
+
+function formatShortDuration(seconds: number): string {
+	const total = Math.max(0, Math.round(seconds));
+	const h = Math.floor(total / 3600);
+	const m = Math.floor((total % 3600) / 60);
+	const s = total % 60;
+	if (h > 0) return `${h}h${String(m).padStart(2, '0')}m`;
+	if (m > 0) return `${m}m${String(s).padStart(2, '0')}s`;
+	return `${s}s`;
 }
 
 function buildIssueRoute(issue: ValidationIssue): string | null {

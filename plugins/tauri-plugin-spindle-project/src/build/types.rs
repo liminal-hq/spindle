@@ -187,6 +187,14 @@ pub struct BuildProgress {
     /// Lifecycle state of the sub-operation.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub step_status: Option<BuildJobStatus>,
+    /// Wall-clock seconds elapsed since the current sub-operation started.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub elapsed_secs: Option<f64>,
+    /// Estimated remaining seconds for the current sub-operation, derived
+    /// from FFmpeg's realtime `speed` multiplier rather than averaged
+    /// elapsed time, so it reacts to the encode speeding up or slowing down.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub eta_secs: Option<f64>,
 }
 
 impl BuildProgress {
@@ -208,6 +216,8 @@ impl BuildProgress {
             step_percent: None,
             step_detail: None,
             step_status: None,
+            elapsed_secs: None,
+            eta_secs: None,
         }
     }
 }
