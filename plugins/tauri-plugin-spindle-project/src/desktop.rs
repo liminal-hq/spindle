@@ -537,19 +537,26 @@ impl<R: Runtime> SpindleProject<R> {
                     });
                 }
 
-                // Validate action targets exist
-                if let Some(action) = &button.action {
-                    validate_action(
-                        action,
-                        &all_title_ids,
-                        &all_menu_ids,
-                        &project.disc,
-                        &menu.name,
-                        &menu.id,
-                        &button.label,
-                        stream_counts,
-                        &mut issues,
-                    );
+                // Validate action targets exist. Skipped when this menu has
+                // an authored document: `buttons[]` is then just a best-effort
+                // mirror of `authored_document.interaction.nodes[]` (kept in
+                // sync by the frontend, not guaranteed authoritative), and
+                // that authored-document action is validated below — checking
+                // both would report the same dangling/invalid target twice.
+                if menu.authored_document.is_none() {
+                    if let Some(action) = &button.action {
+                        validate_action(
+                            action,
+                            &all_title_ids,
+                            &all_menu_ids,
+                            &project.disc,
+                            &menu.name,
+                            &menu.id,
+                            &button.label,
+                            stream_counts,
+                            &mut issues,
+                        );
+                    }
                 }
 
                 // Navigation link validation
