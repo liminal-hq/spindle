@@ -21,6 +21,8 @@ mod error;
 mod inspect;
 mod models;
 pub mod toolchain;
+#[cfg(desktop)]
+mod validation;
 
 pub use error::{Error, Result};
 
