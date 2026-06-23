@@ -22,14 +22,35 @@ mod titleset;
 pub(crate) fn run(project: &SpindleProjectFile) -> Vec<ValidationIssue> {
     let mut issues = Vec::new();
 
-    let total_titles = disc::validate_disc(project, &mut issues);
+    let all_title_ids: HashSet<&str> = project
+        .disc
+        .titlesets
+        .iter()
+        .flat_map(|ts| ts.titles.iter().map(|t| t.id.as_str()))
+        .collect();
+    let all_menu_ids: HashSet<&str> = project
+        .disc
+        .global_menus
+        .iter()
+        .chain(project.disc.titlesets.iter().flat_map(|ts| ts.menus.iter()))
+        .map(|m| m.id.as_str())
+        .collect();
+
+    let total_titles = disc::validate_disc(project, &all_title_ids, &all_menu_ids, &mut issues);
 
     let asset_ids: HashSet<&str> = project.assets.iter().map(|a| a.id.as_str()).collect();
     let asset_map: HashMap<&str, &Asset> =
         project.assets.iter().map(|a| (a.id.as_str(), a)).collect();
 
     title::validate_titles(project, &asset_ids, &asset_map, &mut issues);
-    menu::validate_menus(project, &asset_ids, &asset_map, &mut issues);
+    menu::validate_menus(
+        project,
+        &asset_ids,
+        &asset_map,
+        &all_title_ids,
+        &all_menu_ids,
+        &mut issues,
+    );
     menu_aspect::validate_menu_aspect_sections(project, &mut issues);
     titleset::validate_titleset_formats(project, &mut issues);
     build_settings::validate_build_settings(project, total_titles, &mut issues);
@@ -51,7 +72,7 @@ mod tests {
     };
 
     use super::chapter::{chapter_target_exists, dangling_play_chapter_issue};
-    use super::menu_action::validate_action;
+    use super::menu_action::{validate_action, ActionSubject};
     use super::menu_aspect::{titleset_stream_counts, validate_menu_aspect_section};
     use super::scene::{validate_button_video_usage, validate_motion_keyframes};
 
@@ -217,9 +238,12 @@ mod tests {
             &all_title_ids,
             &all_menu_ids,
             &disc,
-            "Setup Menu",
-            "menu-1",
-            "Audio English",
+            &ActionSubject {
+                subject: "Action \"Audio English\" in menu \"Setup Menu\"".to_string(),
+                entity_type: "menu",
+                entity_name: Some("Setup Menu"),
+                context_id: Some("menu-1"),
+            },
             stream_counts,
             &mut issues,
         );
