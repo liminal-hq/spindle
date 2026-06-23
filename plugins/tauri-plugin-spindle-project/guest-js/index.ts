@@ -108,6 +108,8 @@ export interface AudioTrackMapping {
 	language: string;
 	orderIndex: number;
 	isDefault: boolean;
+	/** Target output channel count for a re-encoded track. `null` preserves the source's channel count. Ignored when `copyMode` is `'copy'`. */
+	channelLayout: number | null;
 }
 
 export interface SubtitleTrackMapping {

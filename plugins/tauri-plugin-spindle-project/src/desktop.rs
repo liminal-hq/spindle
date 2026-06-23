@@ -215,6 +215,63 @@ impl<R: Runtime> SpindleProject<R> {
                     }
                 }
 
+                // ── Audio channel-layout checks ─────────────────────────
+                let source_asset = title
+                    .source_asset_id
+                    .as_deref()
+                    .and_then(|id| asset_map.get(id));
+                for mapping in &title.audio_mappings {
+                    if mapping.copy_mode != CopyMode::ReEncode {
+                        continue;
+                    }
+                    if mapping.channel_layout == Some(0) {
+                        issues.push(ValidationIssue {
+                            severity: IssueSeverity::Error,
+                            code: "title.audio-zero-channel-layout".to_string(),
+                            message: format!(
+                                "Title \"{}\" has an audio track re-encoded to 0 channels, which ffmpeg cannot produce.",
+                                title.name
+                            ),
+                            context: Some(title.id.clone()),
+                            entity_type: Some("title".to_string()),
+                            entity_name: Some(title.name.clone()),
+                            suggested_fix: Some(
+                                "Choose a real channel layout (mono, stereo, 5.1, 7.1) or leave it set to auto."
+                                    .to_string(),
+                            ),
+                        });
+                    }
+                    if mapping.output_target != AudioOutputTarget::Lpcm {
+                        continue;
+                    }
+                    let source_channels = source_asset
+                        .and_then(|a| {
+                            a.audio_streams
+                                .iter()
+                                .find(|s| s.index == mapping.source_stream_index)
+                        })
+                        .map(|s| s.channels)
+                        .unwrap_or(2);
+                    let channels = mapping.channel_layout.unwrap_or(source_channels);
+                    if channels >= 6 {
+                        issues.push(ValidationIssue {
+                            severity: IssueSeverity::Warning,
+                            code: "title.lpcm-high-channel-count".to_string(),
+                            message: format!(
+                                "Title \"{}\" has an LPCM audio track at {channels} channels, which is much more expensive than a compressed surround codec at the same channel count and can burn a large share of the disc's mux budget.",
+                                title.name
+                            ),
+                            context: Some(title.id.clone()),
+                            entity_type: Some("title".to_string()),
+                            entity_name: Some(title.name.clone()),
+                            suggested_fix: Some(
+                                "Consider AC3 or DTS for this track, or select a lower channel layout."
+                                    .to_string(),
+                            ),
+                        });
+                    }
+                }
+
                 // ── Chapter ordering checks ─────────────────────────────
                 if title.chapters.len() >= 2 {
                     for window in title.chapters.windows(2) {
@@ -1433,6 +1490,7 @@ mod tests {
             language: "eng".to_string(),
             order_index,
             is_default: order_index == 0,
+            channel_layout: None,
         }
     }
 

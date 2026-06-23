@@ -317,6 +317,12 @@ pub struct AudioTrackMapping {
     pub language: String,
     pub order_index: u32,
     pub is_default: bool,
+    /// Target output channel count for a re-encoded track (e.g. downmixing a
+    /// 5.1 source to stereo). `None` preserves the source's channel count.
+    /// Ignored when `copy_mode` is `Copy`, since stream-copied audio can't
+    /// have its channel layout changed.
+    #[serde(default)]
+    pub channel_layout: Option<u32>,
 }
 
 /// Maps a source subtitle stream.

@@ -946,6 +946,7 @@ mod tests {
                 language: "eng".to_string(),
                 order_index: 0,
                 is_default: true,
+                channel_layout: None,
             }],
             subtitle_mappings: vec![],
             chapters: vec![],

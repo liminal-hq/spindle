@@ -15,6 +15,7 @@ import type {
 	VideoRaster,
 	AspectMode,
 	AudioOutputTarget,
+	AudioTrackMapping,
 	CopyMode,
 	PlaybackAction,
 	SpindleProjectFile,
@@ -556,6 +557,7 @@ function TitleEditor({
 			language: as_.language ?? 'und',
 			orderIndex: i,
 			isDefault: i === 0,
+			channelLayout: null,
 		}));
 
 		const subtitleMappings = asset.subtitleStreams.map((ss, i) => ({
@@ -766,17 +768,55 @@ function TitleEditor({
 							<select
 								className="titles__select titles__select--sm"
 								value={am.copyMode}
-								onChange={(e) =>
+								onChange={(e) => {
+									const copyMode = e.target.value as CopyMode;
 									onUpdate({
 										...title,
 										audioMappings: title.audioMappings.map((a) =>
-											a.id === am.id ? { ...a, copyMode: e.target.value as CopyMode } : a,
+											a.id === am.id
+												? {
+														...a,
+														copyMode,
+														// Channel layout only applies to re-encoded tracks —
+														// clear it so a stale selection doesn't silently
+														// reappear if the user switches back later.
+														channelLayout: copyMode === 'copy' ? null : a.channelLayout,
+													}
+												: a,
 										),
-									})
-								}
+									});
+								}}
 							>
 								<option value="copy">Copy</option>
 								<option value="re-encode">Re-encode</option>
+							</select>
+							<select
+								className="titles__select titles__select--sm"
+								value={am.channelLayout ?? ''}
+								title="Selecting a channel layout switches this track to Re-encode, since a stream copy can't change channels."
+								onChange={(e) => {
+									const channelLayout = e.target.value === '' ? null : Number(e.target.value);
+									onUpdate({
+										...title,
+										audioMappings: title.audioMappings.map((a) =>
+											a.id === am.id
+												? {
+														...a,
+														channelLayout,
+														// A stream copy can't change channels — picking a
+														// real layout implies re-encoding.
+														copyMode: channelLayout !== null ? 're-encode' : a.copyMode,
+													}
+												: a,
+										),
+									});
+								}}
+							>
+								<option value="">{`Auto (source${sourceChannelLabel(selectedAsset, am) ? `, ${sourceChannelLabel(selectedAsset, am)}` : ''})`}</option>
+								<option value="1">Mono</option>
+								<option value="2">Stereo</option>
+								<option value="6">5.1</option>
+								<option value="8">7.1</option>
 							</select>
 							<input
 								className="titles__track-lang"
@@ -1039,6 +1079,19 @@ function TitleEditor({
 }
 
 const DEFAULT_PIN_BPS = 6_000_000;
+
+const CHANNEL_COUNT_LABELS: Record<number, string> = {
+	1: 'mono',
+	2: 'stereo',
+	6: '5.1',
+	8: '7.1',
+};
+
+function sourceChannelLabel(asset: Asset | null, mapping: AudioTrackMapping): string | null {
+	const channels = asset?.audioStreams.find((s) => s.index === mapping.sourceStreamIndex)?.channels;
+	if (!channels) return null;
+	return CHANNEL_COUNT_LABELS[channels] ?? `${channels}ch`;
+}
 
 function BitrateBoundRow({
 	label,
