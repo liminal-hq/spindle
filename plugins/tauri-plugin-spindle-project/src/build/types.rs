@@ -181,7 +181,8 @@ pub struct BuildProgress {
     /// Estimated completion of the current sub-operation, clamped to 0–100.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub step_percent: Option<f64>,
-    /// Freeform detail such as media timestamp or encoding phase.
+    /// Freeform detail not covered by `elapsed_secs`/`eta_secs`, such as a
+    /// file path for non-FFmpeg-progress steps.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub step_detail: Option<String>,
     /// Lifecycle state of the sub-operation.

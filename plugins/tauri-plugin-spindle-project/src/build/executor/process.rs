@@ -69,6 +69,7 @@ where
     let mut stderr_buf = String::new();
     let job_start = Instant::now();
     let mut last_emit = Instant::now();
+    let mut last_out_time: Option<f64> = None;
     let mut last_speed: Option<f64> = None;
     let mut raw_line = Vec::new();
 
@@ -90,16 +91,21 @@ where
         let line = String::from_utf8_lossy(&raw_line);
         let line = line.trim_end_matches('\n').trim_end_matches('\r');
 
-        // `speed=` lines arrive separately from `out_time=` lines within the
-        // same `-progress` block; remember the latest value so it's available
-        // when the next `out_time=` line triggers an emit below.
+        // FFmpeg's `-progress` output writes one key=value pair per line,
+        // in a fixed order per block: ..., out_time, ..., speed,
+        // progress=continue|end. Remember out_time/speed as they arrive and
+        // only act once `progress=` closes the block, so the percent/ETA
+        // computed below always pairs same-block values rather than mixing
+        // this block's out_time with the previous block's speed.
+        if let Some(time_val) = ffmpeg_progress::extract_progress_value(line, "out_time") {
+            last_out_time = ffmpeg_progress::parse_out_time_secs(time_val);
+        }
         if let Some(speed_val) = ffmpeg_progress::extract_progress_value(line, "speed") {
             last_speed = ffmpeg_progress::parse_speed(speed_val);
         }
 
-        // Try to extract progress from `-progress pipe:2` output.
-        if let Some(time_val) = ffmpeg_progress::extract_progress_value(line, "out_time") {
-            if let Some(elapsed) = ffmpeg_progress::parse_out_time_secs(time_val) {
+        if ffmpeg_progress::extract_progress_value(line, "progress").is_some() {
+            if let Some(elapsed) = last_out_time {
                 let pct = ffmpeg_progress::step_percent(elapsed, duration_secs);
                 let eta = last_speed
                     .and_then(|speed| ffmpeg_progress::eta_secs(elapsed, duration_secs, speed));
