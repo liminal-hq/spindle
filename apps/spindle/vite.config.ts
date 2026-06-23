@@ -20,6 +20,12 @@ export default defineConfig(async () => ({
 		environment: 'happy-dom',
 		globals: true,
 		setupFiles: ['./src/test/setup.ts'],
+		coverage: {
+			provider: 'v8',
+			reporter: ['text', 'html'],
+			include: ['src/**/*.{ts,tsx}'],
+			exclude: ['src/**/*.test.{ts,tsx}', 'src/test/**'],
+		},
 	},
 	server: {
 		port: 1420,
