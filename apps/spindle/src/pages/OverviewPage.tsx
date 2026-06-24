@@ -220,6 +220,25 @@ export function OverviewPage() {
 						</label>
 					</div>
 					<div className="overview__setting">
+						<label className="overview__setting-label">Video Encoding</label>
+						<label className="overview__setting-checkbox">
+							<input
+								type="checkbox"
+								checked={project.buildSettings.twoPassVideoEncoding ?? false}
+								onChange={(e) =>
+									updateProject((p) => ({
+										...p,
+										buildSettings: {
+											...p.buildSettings,
+											twoPassVideoEncoding: e.target.checked,
+										},
+									}))
+								}
+							/>
+							Two-pass encoding (slower, more accurate sizing &amp; quality)
+						</label>
+					</div>
+					<div className="overview__setting">
 						<label className="overview__setting-label">First Play</label>
 						<select
 							className="overview__setting-select"

@@ -45,6 +45,11 @@ pub enum BuildJob {
         title_name: String,
         source_path: String,
         output_path: String,
+        /// When two-pass encoding is enabled, the analysis-only first pass
+        /// run before `command` (the real encode). Its output is discarded;
+        /// it only writes the `-passlogfile` stats `command` reads.
+        #[serde(default)]
+        pass1_command: Option<Vec<String>>,
         command: Vec<String>,
         label: String,
         /// Source asset duration in seconds, used for step-progress estimation.

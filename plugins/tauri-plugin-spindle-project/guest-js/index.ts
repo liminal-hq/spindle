@@ -529,6 +529,10 @@ export interface BuildSettings {
 	safetyMarginBytes: number;
 	allocationStrategy: AllocationStrategy;
 	subtitleRenderMode?: 'one-pass' | 'two-pass';
+	/** Two-pass title-video encoding for more accurate output sizing and
+	 * better quality-per-byte, at roughly double the per-title encode time.
+	 * Defaults to false. */
+	twoPassVideoEncoding?: boolean;
 }
 
 // ── Validation ──────────────────────────────────────────────────────────────

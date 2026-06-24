@@ -393,6 +393,7 @@ mod tests {
             settings.allocation_strategy,
             AllocationStrategy::DurationWeighted
         );
+        assert!(!settings.two_pass_video_encoding);
     }
 
     #[test]
