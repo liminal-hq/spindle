@@ -410,7 +410,7 @@ pub(crate) fn fps_rational_str(fps: f64) -> &'static str {
     }
 }
 
-fn source_display_aspect_ratio(info: &VideoStreamInfo) -> Option<f64> {
+pub(crate) fn source_display_aspect_ratio(info: &VideoStreamInfo) -> Option<f64> {
     parse_display_aspect_ratio(info.aspect_ratio.as_deref()).or_else(|| {
         if info.width > 0 && info.height > 0 {
             Some(info.width as f64 / info.height as f64)
@@ -452,13 +452,18 @@ pub(crate) fn dvd_sample_aspect_ratio(
     format!("{num}/{den}")
 }
 
-fn build_dvd_scale_filter(
+/// Compute the active (non-padded) pixel dimensions for fitting a source of
+/// `source_dar` into a `width`x`height` raster targeting `target_dar`,
+/// letterboxing/pillarboxing as needed. Both DARs must be *display* aspect
+/// ratios (not raw pixel ratios) — comparing raw pixel dimensions directly
+/// is wrong whenever the target raster uses non-square pixels, which is
+/// always the case for DVD-Video's anamorphic 16:9 mode.
+pub(crate) fn dvd_active_dimensions(
     width: u32,
     height: u32,
     source_dar: f64,
     target_dar: f64,
-    target_sar: &str,
-) -> String {
+) -> (u32, u32) {
     let mut active_width = width;
     let mut active_height = height;
 
@@ -468,6 +473,20 @@ fn build_dvd_scale_filter(
         active_width = round_even((width as f64 * source_dar / target_dar).min(width as f64));
     }
 
+    (active_width, active_height)
+}
+
+/// Build a `scale=...,pad=...,setsar=...` filter chain for fitting `source_dar`
+/// content into a `width`x`height` DVD raster targeting `target_dar`.
+pub(crate) fn build_dvd_scale_filter(
+    width: u32,
+    height: u32,
+    source_dar: f64,
+    target_dar: f64,
+    target_sar: &str,
+) -> String {
+    let (active_width, active_height) =
+        dvd_active_dimensions(width, height, source_dar, target_dar);
     let pad_x = (width.saturating_sub(active_width)) / 2;
     let pad_y = (height.saturating_sub(active_height)) / 2;
 

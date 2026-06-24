@@ -8,7 +8,10 @@ use std::path::Path;
 
 use crate::models::*;
 
-use super::ffmpeg::fps_rational_str;
+use super::ffmpeg::{
+    dvd_active_dimensions, fps_rational_str, output_display_aspect_ratio_parts,
+    source_display_aspect_ratio,
+};
 use super::skia::{render_menu_overlay_image_skia, render_menu_overlay_image_skia_quantized};
 use super::types::MenuOverlayButton;
 use super::util::{sanitise_filename, xml_escape};
@@ -229,6 +232,9 @@ pub(crate) fn build_ffmpeg_menu_command(
     };
     let fps = fps_rational_str(standard.frame_rate());
 
+    let (target_dar_num, target_dar_den) = output_display_aspect_ratio_parts(aspect);
+    let target_dar = target_dar_num as f64 / target_dar_den as f64;
+
     let mut cmd = vec![ffmpeg_bin.to_string(), "-y".to_string()];
     let mut filter_complex_parts = Vec::new();
     let next_input_index;
@@ -241,6 +247,16 @@ pub(crate) fn build_ffmpeg_menu_command(
                 menu_ref.name()
             ))
         })?;
+
+        let source_dar = asset
+            .video_streams
+            .first()
+            .and_then(source_display_aspect_ratio)
+            .unwrap_or(target_dar);
+        let (active_width, active_height) =
+            dvd_active_dimensions(width, height, source_dar, target_dar);
+        let pad_x = (width.saturating_sub(active_width)) / 2;
+        let pad_y = (height.saturating_sub(active_height)) / 2;
 
         if asset.is_still_image() {
             cmd.extend([
@@ -256,7 +272,7 @@ pub(crate) fn build_ffmpeg_menu_command(
                 asset.source_path.clone(),
             ]);
             filter_complex_parts.push(format!(
-                "[1:v]scale={width}:{height}:force_original_aspect_ratio=decrease,pad={width}:{height}:(ow-iw)/2:(oh-ih)/2[background_fill]"
+                "[1:v]scale={active_width}:{active_height},pad={width}:{height}:{pad_x}:{pad_y}[background_fill]"
             ));
             filter_complex_parts.push(format!(
                 "[0:v][background_fill]overlay=0:0[{background_label}]"
@@ -265,7 +281,7 @@ pub(crate) fn build_ffmpeg_menu_command(
         } else {
             cmd.extend(["-i".to_string(), asset.source_path.clone()]);
             filter_complex_parts.push(format!(
-                "[0:v]fps={fps},scale={width}:{height}:force_original_aspect_ratio=decrease,pad={width}:{height}:(ow-iw)/2:(oh-ih)/2,trim=start_frame=0:end_frame=1,loop=loop={}:size=1:start=0[{background_label}]",
+                "[0:v]fps={fps},scale={active_width}:{active_height},pad={width}:{height}:{pad_x}:{pad_y},trim=start_frame=0:end_frame=1,loop=loop={}:size=1:start=0[{background_label}]",
                 menu_loop_frame_count(standard).saturating_sub(1)
             ));
             next_input_index = 1;
@@ -793,7 +809,185 @@ mod tests {
         let cmd_str = cmd.join(" ");
 
         assert!(cmd_str.contains("-loop 1 -i /tmp/background.png"));
-        assert!(cmd_str.contains("[1:v]scale=720:480:force_original_aspect_ratio=decrease,pad=720:480:(ow-iw)/2:(oh-ih)/2[background_fill]"));
+        assert!(cmd_str.contains("[1:v]scale=720:480,pad=720:480:0:0[background_fill]"));
         assert!(cmd_str.contains("[0:v][background_fill]overlay=0:0[canvas0]"));
+    }
+
+    #[test]
+    fn build_ffmpeg_menu_command_fills_frame_for_16x9_background_on_16x9_menu() {
+        // Regression test: a genuinely 16:9 background image (e.g. 1920x1080)
+        // composited into a 16:9 anamorphic 720x480 DVD raster must fill the
+        // frame exactly with no letterbox/pillarbox padding. Comparing the
+        // image's aspect against the raw 720x480 pixel box (1.5:1) instead of
+        // the true anamorphic display aspect (16:9, via the 32:27 SAR) used
+        // to introduce spurious black bars even when source and target
+        // aspect ratios matched.
+        let menu = Menu {
+            id: "menu-1".to_string(),
+            name: "Image Menu".to_string(),
+            authored_document: Some(MenuDocument {
+                id: "menu-1".to_string(),
+                name: "Image Menu".to_string(),
+                domain: crate::models::MenuDomain::Vmgm,
+                scene: MenuScene {
+                    design_size: MenuSize {
+                        width: 720.0,
+                        height: 480.0,
+                        aspect: AspectMode::SixteenByNine,
+                    },
+                    background: SceneBackground {
+                        asset_id: Some("asset-image".to_string()),
+                        colour: Some("#101014".to_string()),
+                    },
+                    nodes: vec![],
+                    guides: vec![],
+                },
+                interaction: MenuInteractionGraph {
+                    default_focus_id: None,
+                    nodes: vec![],
+                    timeout_action: None,
+                },
+                timing: MenuTiming::default(),
+                highlight_colours: MenuHighlightColours::default(),
+                background_mode: BackgroundMode::Still,
+                theme_ref: None,
+                generation_meta: None,
+                compile_policy: MenuCompilePolicy::default(),
+            }),
+            ..Default::default()
+        };
+
+        let project = SpindleProjectFile::default();
+        let menu_ref = AuthorableMenuRef {
+            menu: &menu,
+            domain: super::MenuDomain::Vmgm,
+        };
+        let mut assets = std::collections::HashMap::new();
+        let mut image_asset = Asset::new(
+            "background.jpg".to_string(),
+            "/tmp/background.jpg".to_string(),
+        );
+        image_asset.container_format = Some("jpeg_pipe".to_string());
+        image_asset.video_streams = vec![VideoStreamInfo {
+            index: 0,
+            codec: "mjpeg".to_string(),
+            width: 1920,
+            height: 1080,
+            frame_rate: None,
+            aspect_ratio: None,
+            scan_type: None,
+            bitrate_bps: None,
+            title: None,
+            color_transfer: None,
+            color_primaries: None,
+            dolby_vision_profile: None,
+        }];
+        assets.insert("asset-image", &image_asset);
+
+        let cmd = super::build_ffmpeg_menu_command(
+            "ffmpeg",
+            &menu_ref,
+            &assets,
+            &project,
+            VideoStandard::Ntsc,
+            std::path::Path::new("/tmp/output.mpg"),
+            std::path::Path::new("/tmp/output_scene.png"),
+        )
+        .unwrap();
+
+        let cmd_str = cmd.join(" ");
+
+        assert!(
+            cmd_str.contains("[1:v]scale=720:480,pad=720:480:0:0[background_fill]"),
+            "expected a 16:9 background to fill the frame with no padding, got: {cmd_str}"
+        );
+    }
+
+    #[test]
+    fn build_ffmpeg_menu_command_pillarboxes_4x3_background_on_16x9_menu() {
+        // A genuinely narrower-than-16:9 background should still be
+        // letterboxed/pillarboxed appropriately, proving the fix didn't just
+        // remove padding outright.
+        let menu = Menu {
+            id: "menu-1".to_string(),
+            name: "Image Menu".to_string(),
+            authored_document: Some(MenuDocument {
+                id: "menu-1".to_string(),
+                name: "Image Menu".to_string(),
+                domain: crate::models::MenuDomain::Vmgm,
+                scene: MenuScene {
+                    design_size: MenuSize {
+                        width: 720.0,
+                        height: 480.0,
+                        aspect: AspectMode::SixteenByNine,
+                    },
+                    background: SceneBackground {
+                        asset_id: Some("asset-image".to_string()),
+                        colour: Some("#101014".to_string()),
+                    },
+                    nodes: vec![],
+                    guides: vec![],
+                },
+                interaction: MenuInteractionGraph {
+                    default_focus_id: None,
+                    nodes: vec![],
+                    timeout_action: None,
+                },
+                timing: MenuTiming::default(),
+                highlight_colours: MenuHighlightColours::default(),
+                background_mode: BackgroundMode::Still,
+                theme_ref: None,
+                generation_meta: None,
+                compile_policy: MenuCompilePolicy::default(),
+            }),
+            ..Default::default()
+        };
+
+        let project = SpindleProjectFile::default();
+        let menu_ref = AuthorableMenuRef {
+            menu: &menu,
+            domain: super::MenuDomain::Vmgm,
+        };
+        let mut assets = std::collections::HashMap::new();
+        let mut image_asset = Asset::new(
+            "background.jpg".to_string(),
+            "/tmp/background.jpg".to_string(),
+        );
+        image_asset.container_format = Some("jpeg_pipe".to_string());
+        image_asset.video_streams = vec![VideoStreamInfo {
+            index: 0,
+            codec: "mjpeg".to_string(),
+            width: 1440,
+            height: 1080,
+            frame_rate: None,
+            aspect_ratio: None,
+            scan_type: None,
+            bitrate_bps: None,
+            title: None,
+            color_transfer: None,
+            color_primaries: None,
+            dolby_vision_profile: None,
+        }];
+        assets.insert("asset-image", &image_asset);
+
+        let cmd = super::build_ffmpeg_menu_command(
+            "ffmpeg",
+            &menu_ref,
+            &assets,
+            &project,
+            VideoStandard::Ntsc,
+            std::path::Path::new("/tmp/output.mpg"),
+            std::path::Path::new("/tmp/output_scene.png"),
+        )
+        .unwrap();
+
+        let cmd_str = cmd.join(" ");
+
+        // 4:3 (1.333) is narrower than 16:9 (1.778), so width should shrink
+        // and the frame should be pillarboxed left/right, not letterboxed.
+        assert!(
+            cmd_str.contains("[1:v]scale=540:480,pad=720:480:90:0[background_fill]"),
+            "expected pillarboxed 4:3 background, got: {cmd_str}"
+        );
     }
 }
