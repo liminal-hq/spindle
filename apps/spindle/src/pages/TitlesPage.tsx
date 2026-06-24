@@ -317,6 +317,7 @@ function TitlesWorkspace() {
 											project.disc.titlesets.length > 1 && (
 												<button
 													className="titles__titleset-remove"
+													tabIndex={-1}
 													onClick={() => handleRemoveTitleset(ts.id)}
 													title="Remove empty titleset"
 												>
@@ -503,6 +504,7 @@ function TitleRow({
 			</div>
 			<button
 				className="titles__row-remove"
+				tabIndex={-1}
 				onClick={(e) => {
 					e.stopPropagation();
 					onRemove();
@@ -548,17 +550,25 @@ function TitleEditor({
 				? { sourceStreamIndex: asset.videoStreams[0].index, copyMode: 'copy' as CopyMode }
 				: null;
 
-		const audioMappings = asset.audioStreams.map((as_, i) => ({
-			id: crypto.randomUUID(),
-			sourceStreamIndex: as_.index,
-			outputTarget: 'AC3' as AudioOutputTarget,
-			copyMode: (as_.codec === 'ac3' ? 'copy' : 're-encode') as CopyMode,
-			label: languageLabel(as_.language ?? null, `Audio ${i + 1}`),
-			language: as_.language ?? 'und',
-			orderIndex: i,
-			isDefault: i === 0,
-			channelLayout: null,
-		}));
+		const audioCompatByStream = new Map(
+			asset.compatibilityDetail?.audioStreams.map((c) => [c.streamIndex, c.codec.compatible]) ?? [],
+		);
+		const audioMappings = asset.audioStreams.map((as_, i) => {
+			const compatible = audioCompatByStream.get(as_.index) ?? false;
+			const outputTarget = compatible ? (AUDIO_CODEC_TARGETS[as_.codec] ?? 'AC3') : 'AC3';
+			return {
+				id: crypto.randomUUID(),
+				sourceStreamIndex: as_.index,
+				outputTarget: outputTarget as AudioOutputTarget,
+				copyMode: (compatible ? 'copy' : 're-encode') as CopyMode,
+				label: languageLabel(as_.language ?? null, `Audio ${i + 1}`),
+				language: as_.language ?? 'und',
+				orderIndex: i,
+				isDefault: i === 0,
+				channelLayout: null,
+				bitrateBps: null,
+			};
+		});
 
 		const subtitleMappings = asset.subtitleStreams.map((ss, i) => ({
 			id: crypto.randomUUID(),
@@ -731,107 +741,198 @@ function TitleEditor({
 			{/* Audio Mappings */}
 			{title.audioMappings.length > 0 && (
 				<div className="titles__editor-section">
-					<h4 className="titles__editor-heading">Audio Tracks</h4>
+					<h4 className="titles__editor-heading">
+						Audio Tracks
+						<span className="titles__track-count text-muted">
+							{` (${title.audioMappings.length}/8)`}
+						</span>
+					</h4>
+					{title.audioMappings.length > 8 && (
+						<p className="titles__hint titles__hint--warn">
+							DVD-Video supports at most 8 audio streams. Remove tracks to stay within the limit.
+						</p>
+					)}
 					{title.audioMappings.map((am) => (
-						<div key={am.id} className="titles__track-row">
-							<input
-								className="titles__track-label"
-								value={am.label}
-								onChange={(e) =>
-									onUpdate({
-										...title,
-										audioMappings: title.audioMappings.map((a) =>
-											a.id === am.id ? { ...a, label: e.target.value } : a,
-										),
-									})
-								}
-							/>
-							<select
-								className="titles__select titles__select--sm"
-								value={am.outputTarget}
-								onChange={(e) =>
-									onUpdate({
-										...title,
-										audioMappings: title.audioMappings.map((a) =>
-											a.id === am.id
-												? { ...a, outputTarget: e.target.value as AudioOutputTarget }
-												: a,
-										),
-									})
-								}
-							>
-								<option value="AC3">AC3 (Dolby Digital)</option>
-								<option value="LPCM">LPCM</option>
-								<option value="MP2">MP2</option>
-								<option value="DTS">DTS</option>
-							</select>
-							<select
-								className="titles__select titles__select--sm"
-								value={am.copyMode}
-								onChange={(e) => {
-									const copyMode = e.target.value as CopyMode;
-									onUpdate({
-										...title,
-										audioMappings: title.audioMappings.map((a) =>
-											a.id === am.id
-												? {
-														...a,
-														copyMode,
-														// Channel layout only applies to re-encoded tracks —
-														// clear it so a stale selection doesn't silently
-														// reappear if the user switches back later.
-														channelLayout: copyMode === 'copy' ? null : a.channelLayout,
-													}
-												: a,
-										),
-									});
-								}}
-							>
-								<option value="copy">Copy</option>
-								<option value="re-encode">Re-encode</option>
-							</select>
-							<select
-								className="titles__select titles__select--sm"
-								value={am.channelLayout ?? ''}
-								title="Selecting a channel layout switches this track to Re-encode, since a stream copy can't change channels."
-								onChange={(e) => {
-									const channelLayout = e.target.value === '' ? null : Number(e.target.value);
-									onUpdate({
-										...title,
-										audioMappings: title.audioMappings.map((a) =>
-											a.id === am.id
-												? {
-														...a,
-														channelLayout,
-														// A stream copy can't change channels — picking a
-														// real layout implies re-encoding.
-														copyMode: channelLayout !== null ? 're-encode' : a.copyMode,
-													}
-												: a,
-										),
-									});
-								}}
-							>
-								<option value="">{`Auto (source${sourceChannelLabel(selectedAsset, am) ? `, ${sourceChannelLabel(selectedAsset, am)}` : ''})`}</option>
-								<option value="1">Mono</option>
-								<option value="2">Stereo</option>
-								<option value="6">5.1</option>
-								<option value="8">7.1</option>
-							</select>
-							<input
-								className="titles__track-lang"
-								value={am.language}
-								onChange={(e) =>
-									onUpdate({
-										...title,
-										audioMappings: title.audioMappings.map((a) =>
-											a.id === am.id ? { ...a, language: e.target.value } : a,
-										),
-									})
-								}
-								maxLength={3}
-								title="ISO 639-2 language code"
-							/>
+						<div key={am.id} className="titles__track-row titles__track-row--audio">
+							<div className="titles__track-header">
+								<input
+									className="titles__track-label"
+									value={am.label}
+									onChange={(e) =>
+										onUpdate({
+											...title,
+											audioMappings: title.audioMappings.map((a) =>
+												a.id === am.id ? { ...a, label: e.target.value } : a,
+											),
+										})
+									}
+								/>
+								<button
+									className="titles__row-remove"
+									tabIndex={-1}
+									title="Remove audio track"
+									onClick={() =>
+										onUpdate({
+											...title,
+											audioMappings: title.audioMappings
+												.filter((a) => a.id !== am.id)
+												.map((a, i) => ({ ...a, orderIndex: i })),
+										})
+									}
+								>
+									×
+								</button>
+							</div>
+							{audioSourceSummary(selectedAsset, am) && (
+								<div className="titles__track-source">{audioSourceSummary(selectedAsset, am)}</div>
+							)}
+							<div className="titles__track-controls--row1">
+								<select
+									className="titles__select"
+									value={am.outputTarget}
+									onChange={(e) => {
+										const outputTarget = e.target.value as AudioOutputTarget;
+										onUpdate({
+											...title,
+											audioMappings: title.audioMappings.map((a) =>
+												a.id === am.id
+													? {
+															...a,
+															outputTarget,
+															// LPCM's bitrate is derived from channel count/sample
+															// depth, not independently selectable — clear any
+															// override so it doesn't silently reapply if the user
+															// switches back to a codec where it's meaningful.
+															bitrateBps:
+																outputTarget === 'LPCM' ||
+																!AUDIO_BITRATE_OPTIONS[outputTarget]?.some(
+																	(o) => o.bps === a.bitrateBps,
+																)
+																	? null
+																	: a.bitrateBps,
+														}
+													: a,
+											),
+										});
+									}}
+								>
+									<option value="AC3">AC3 (Dolby Digital)</option>
+									<option value="LPCM">LPCM</option>
+									<option value="MP2">MP2</option>
+									<option value="DTS">DTS</option>
+								</select>
+								<select
+									className="titles__select"
+									value={am.copyMode}
+									title={
+										!isCopyCompatible(selectedAsset, am)
+											? "This stream's codec is not DVD-compatible and cannot be copied as-is."
+											: undefined
+									}
+									onChange={(e) => {
+										const copyMode = e.target.value as CopyMode;
+										onUpdate({
+											...title,
+											audioMappings: title.audioMappings.map((a) =>
+												a.id === am.id
+													? {
+															...a,
+															copyMode,
+															// Channel layout and bitrate only apply to re-encoded
+															// tracks — clear them so a stale selection doesn't
+															// silently reappear if the user switches back later.
+															channelLayout: copyMode === 'copy' ? null : a.channelLayout,
+															bitrateBps: copyMode === 'copy' ? null : a.bitrateBps,
+														}
+													: a,
+											),
+										});
+									}}
+								>
+									<option value="copy" disabled={!isCopyCompatible(selectedAsset, am)}>
+										Copy
+									</option>
+									<option value="re-encode">Re-encode</option>
+								</select>
+							</div>
+							<div className="titles__track-controls--row2">
+								<select
+									className="titles__select"
+									value={am.channelLayout ?? ''}
+									title="Selecting a channel layout switches this track to Re-encode, since a stream copy can't change channels."
+									onChange={(e) => {
+										const channelLayout = e.target.value === '' ? null : Number(e.target.value);
+										onUpdate({
+											...title,
+											audioMappings: title.audioMappings.map((a) =>
+												a.id === am.id
+													? {
+															...a,
+															channelLayout,
+															// A stream copy can't change channels — picking a
+															// real layout implies re-encoding.
+															copyMode: channelLayout !== null ? 're-encode' : a.copyMode,
+														}
+													: a,
+											),
+										});
+									}}
+								>
+									<option value="">{`Auto Channels${sourceChannelLabel(selectedAsset, am) ? ` (${sourceChannelLabel(selectedAsset, am)})` : ''}`}</option>
+									<option value="1">Mono</option>
+									<option value="2">Stereo</option>
+									<option value="6">5.1</option>
+									<option value="8">7.1</option>
+								</select>
+								<select
+									className="titles__select"
+									value={am.bitrateBps ?? ''}
+									disabled={am.outputTarget === 'LPCM'}
+									title={
+										am.outputTarget === 'LPCM'
+											? "LPCM's bitrate is derived from its channel count and sample depth, not independently selectable."
+											: "Selecting a bitrate switches this track to Re-encode, since a stream copy can't change bitrate."
+									}
+									onChange={(e) => {
+										const bitrateBps = e.target.value === '' ? null : Number(e.target.value);
+										onUpdate({
+											...title,
+											audioMappings: title.audioMappings.map((a) =>
+												a.id === am.id
+													? {
+															...a,
+															bitrateBps,
+															// A stream copy can't change bitrate — picking a
+															// real value implies re-encoding.
+															copyMode: bitrateBps !== null ? 're-encode' : a.copyMode,
+														}
+													: a,
+											),
+										});
+									}}
+								>
+									<option value="">{`Auto Bitrate${CODEC_DEFAULT_BPS[am.outputTarget] ? ` (${Math.round(CODEC_DEFAULT_BPS[am.outputTarget]! / 1000)} kbps)` : ''}`}</option>
+									{(AUDIO_BITRATE_OPTIONS[am.outputTarget] ?? []).map(({ bps, label }) => (
+										<option key={bps} value={bps}>
+											{label}
+										</option>
+									))}
+								</select>
+								<input
+									className="titles__track-lang"
+									value={am.language}
+									onChange={(e) =>
+										onUpdate({
+											...title,
+											audioMappings: title.audioMappings.map((a) =>
+												a.id === am.id ? { ...a, language: e.target.value } : a,
+											),
+										})
+									}
+									maxLength={3}
+									title="ISO 639-2 language code"
+								/>
+							</div>
 						</div>
 					))}
 				</div>
@@ -911,6 +1012,7 @@ function TitleEditor({
 							</label>
 							<button
 								className="titles__row-remove"
+								tabIndex={-1}
 								title="Remove subtitle track"
 								onClick={() =>
 									onUpdate({
@@ -1080,6 +1182,18 @@ function TitleEditor({
 
 const DEFAULT_PIN_BPS = 6_000_000;
 
+// Which AudioOutputTarget a DVD-compatible source codec maps to 1:1.
+// Compliance itself (the compatible/incompatible judgment) comes from
+// asset.compatibilityDetail, computed once in the Rust backend — this table
+// only picks the matching output enum once compatibility is already known.
+const AUDIO_CODEC_TARGETS: Record<string, AudioOutputTarget> = {
+	ac3: 'AC3',
+	dts: 'DTS',
+	mp2: 'MP2',
+	pcm_s16le: 'LPCM',
+	pcm_s16be: 'LPCM',
+};
+
 const CHANNEL_COUNT_LABELS: Record<number, string> = {
 	1: 'mono',
 	2: 'stereo',
@@ -1087,10 +1201,64 @@ const CHANNEL_COUNT_LABELS: Record<number, string> = {
 	8: '7.1',
 };
 
+// Default bitrate each codec uses when no override is set (matches ffmpeg.rs hard-coded defaults).
+const CODEC_DEFAULT_BPS: Partial<Record<AudioOutputTarget, number>> = {
+	AC3: 448_000,
+	MP2: 384_000,
+	DTS: 768_000,
+};
+
+const AUDIO_BITRATE_OPTIONS: Partial<Record<AudioOutputTarget, { bps: number; label: string }[]>> =
+	{
+		// AC3 (Dolby Digital): 32–640 kbps per DVD-Video spec; 192–640 kbps are the useful encoding targets
+		AC3: [
+			{ bps: 192_000, label: '192 kbps' },
+			{ bps: 256_000, label: '256 kbps' },
+			{ bps: 320_000, label: '320 kbps' },
+			{ bps: 384_000, label: '384 kbps' },
+			{ bps: 448_000, label: '448 kbps' },
+			{ bps: 640_000, label: '640 kbps' },
+		],
+		// MP2 (MPEG-1 Layer II): 32–384 kbps; 192–384 kbps covers normal use
+		MP2: [
+			{ bps: 192_000, label: '192 kbps' },
+			{ bps: 256_000, label: '256 kbps' },
+			{ bps: 320_000, label: '320 kbps' },
+			{ bps: 384_000, label: '384 kbps' },
+		],
+		// DTS on DVD-Video: standard ~768 kbps or high-bitrate ~1536 kbps (1.5 Mbps)
+		DTS: [
+			{ bps: 768_000, label: '768 kbps' },
+			{ bps: 1_536_000, label: '1.5 Mbps' },
+		],
+		// LPCM: rate is derived from channel count × sample depth, not requestable — no options
+	};
+
+function isCopyCompatible(asset: Asset | null, mapping: AudioTrackMapping): boolean {
+	const compat = asset?.compatibilityDetail?.audioStreams.find(
+		(c) => c.streamIndex === mapping.sourceStreamIndex,
+	);
+	return compat?.codec.compatible ?? true;
+}
+
 function sourceChannelLabel(asset: Asset | null, mapping: AudioTrackMapping): string | null {
 	const channels = asset?.audioStreams.find((s) => s.index === mapping.sourceStreamIndex)?.channels;
 	if (!channels) return null;
 	return CHANNEL_COUNT_LABELS[channels] ?? `${channels}ch`;
+}
+
+function audioSourceSummary(asset: Asset | null, mapping: AudioTrackMapping): string | null {
+	const stream = asset?.audioStreams.find((s) => s.index === mapping.sourceStreamIndex);
+	if (!stream) return null;
+	const parts = [
+		stream.codec.toUpperCase(),
+		CHANNEL_COUNT_LABELS[stream.channels] ?? `${stream.channels}ch`,
+	];
+	if (stream.sampleRate) parts.push(`${Math.round(stream.sampleRate / 1000)}kHz`);
+	if (stream.bitrateBps) parts.push(`${Math.round(stream.bitrateBps / 1000)}kbps`);
+	if (stream.language) parts.push(stream.language);
+	if (stream.title) parts.push(`"${stream.title}"`);
+	return `#${stream.index} — ${parts.join(' · ')}`;
 }
 
 function BitrateBoundRow({

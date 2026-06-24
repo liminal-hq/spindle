@@ -36,6 +36,7 @@ fn make_title(id: &str, name: &str, order_index: u32) -> Title {
             order_index: 0,
             is_default: true,
             channel_layout: None,
+            bitrate_bps: None,
         }],
         subtitle_mappings: vec![],
         chapters: vec![ChapterPoint {

@@ -183,6 +183,7 @@ function buildProject(): SpindleProjectFile {
 									orderIndex: 0,
 									isDefault: true,
 									channelLayout: null,
+									bitrateBps: null,
 								},
 							],
 							subtitleMappings: [

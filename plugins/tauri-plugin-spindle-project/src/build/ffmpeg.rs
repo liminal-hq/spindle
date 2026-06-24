@@ -143,13 +143,23 @@ pub(crate) fn build_ffmpeg_transcode_command(
                 cmd.extend([format!("-c:a:{i}"), "copy".to_string()]);
             }
             CopyMode::ReEncode => {
+                // The user's explicit bitrate override takes precedence over
+                // the codec default, except for LPCM — its rate is derived
+                // from channel count/sample depth, not independently
+                // requestable, so it never gets a `-b:a` flag at all.
+                let bitrate_str = |default_bps: u32| -> String {
+                    am.bitrate_bps
+                        .map(|bps| format!("{}k", bps / 1000))
+                        .unwrap_or_else(|| format!("{}k", default_bps / 1000))
+                };
+
                 match am.output_target {
                     AudioOutputTarget::Ac3 => {
                         cmd.extend([
                             format!("-c:a:{i}"),
                             "ac3".to_string(),
                             format!("-b:a:{i}"),
-                            "448k".to_string(),
+                            bitrate_str(448_000),
                             format!("-ar:a:{i}"),
                             "48000".to_string(),
                         ]);
@@ -159,7 +169,7 @@ pub(crate) fn build_ffmpeg_transcode_command(
                             format!("-c:a:{i}"),
                             "mp2".to_string(),
                             format!("-b:a:{i}"),
-                            "384k".to_string(),
+                            bitrate_str(384_000),
                             format!("-ar:a:{i}"),
                             "48000".to_string(),
                         ]);
@@ -177,7 +187,7 @@ pub(crate) fn build_ffmpeg_transcode_command(
                             format!("-c:a:{i}"),
                             "dts".to_string(),
                             format!("-b:a:{i}"),
-                            "768k".to_string(),
+                            bitrate_str(768_000),
                             format!("-ar:a:{i}"),
                             "48000".to_string(),
                         ]);
@@ -410,7 +420,7 @@ pub(crate) fn fps_rational_str(fps: f64) -> &'static str {
     }
 }
 
-fn source_display_aspect_ratio(info: &VideoStreamInfo) -> Option<f64> {
+pub(crate) fn source_display_aspect_ratio(info: &VideoStreamInfo) -> Option<f64> {
     parse_display_aspect_ratio(info.aspect_ratio.as_deref()).or_else(|| {
         if info.width > 0 && info.height > 0 {
             Some(info.width as f64 / info.height as f64)
@@ -452,13 +462,18 @@ pub(crate) fn dvd_sample_aspect_ratio(
     format!("{num}/{den}")
 }
 
-fn build_dvd_scale_filter(
+/// Compute the active (non-padded) pixel dimensions for fitting a source of
+/// `source_dar` into a `width`x`height` raster targeting `target_dar`,
+/// letterboxing/pillarboxing as needed. Both DARs must be *display* aspect
+/// ratios (not raw pixel ratios) — comparing raw pixel dimensions directly
+/// is wrong whenever the target raster uses non-square pixels, which is
+/// always the case for DVD-Video's anamorphic 16:9 mode.
+pub(crate) fn dvd_active_dimensions(
     width: u32,
     height: u32,
     source_dar: f64,
     target_dar: f64,
-    target_sar: &str,
-) -> String {
+) -> (u32, u32) {
     let mut active_width = width;
     let mut active_height = height;
 
@@ -468,6 +483,20 @@ fn build_dvd_scale_filter(
         active_width = round_even((width as f64 * source_dar / target_dar).min(width as f64));
     }
 
+    (active_width, active_height)
+}
+
+/// Build a `scale=...,pad=...,setsar=...` filter chain for fitting `source_dar`
+/// content into a `width`x`height` DVD raster targeting `target_dar`.
+pub(crate) fn build_dvd_scale_filter(
+    width: u32,
+    height: u32,
+    source_dar: f64,
+    target_dar: f64,
+    target_sar: &str,
+) -> String {
+    let (active_width, active_height) =
+        dvd_active_dimensions(width, height, source_dar, target_dar);
     let pad_x = (width.saturating_sub(active_width)) / 2;
     let pad_y = (height.saturating_sub(active_height)) / 2;
 
@@ -505,6 +534,7 @@ fn is_hdr_source(info: &VideoStreamInfo) -> bool {
 mod tests {
     use crate::build::generate_build_plan;
     use crate::build::test_support::test_project;
+    use crate::models::AudioOutputTarget;
 
     #[test]
     fn ffmpeg_vf_has_scale_and_pad() {
@@ -852,6 +882,74 @@ mod tests {
         assert!(
             !cmd.iter().any(|a| a.starts_with("-ac:")),
             "expected no -ac flag when channel_layout is unset (preserve source), got: {cmd:?}"
+        );
+    }
+
+    #[test]
+    fn ffmpeg_uses_bitrate_override_when_set() {
+        let mut project = test_project();
+        project.disc.titlesets[0].titles[0].audio_mappings[0].bitrate_bps = Some(192_000);
+        let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+
+        let transcode = plan
+            .jobs
+            .iter()
+            .find(|j| matches!(j, crate::build::BuildJob::TranscodeTitle { .. }))
+            .unwrap();
+        let cmd = transcode.command().unwrap();
+
+        let ba_val = cmd
+            .iter()
+            .skip_while(|a| *a != "-b:a:0")
+            .nth(1)
+            .expect("-b:a:0 value");
+        assert_eq!(
+            ba_val, "192k",
+            "expected the override bitrate, not AC3's 448k default"
+        );
+    }
+
+    #[test]
+    fn ffmpeg_falls_back_to_codec_default_bitrate_when_no_override_is_set() {
+        let project = test_project();
+        let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+
+        let transcode = plan
+            .jobs
+            .iter()
+            .find(|j| matches!(j, crate::build::BuildJob::TranscodeTitle { .. }))
+            .unwrap();
+        let cmd = transcode.command().unwrap();
+
+        let ba_val = cmd
+            .iter()
+            .skip_while(|a| *a != "-b:a:0")
+            .nth(1)
+            .expect("-b:a:0 value");
+        assert_eq!(
+            ba_val, "448k",
+            "expected the default test project's AC3 mapping default"
+        );
+    }
+
+    #[test]
+    fn ffmpeg_ignores_bitrate_override_for_lpcm() {
+        let mut project = test_project();
+        project.disc.titlesets[0].titles[0].audio_mappings[0].output_target =
+            AudioOutputTarget::Lpcm;
+        project.disc.titlesets[0].titles[0].audio_mappings[0].bitrate_bps = Some(192_000);
+        let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+
+        let transcode = plan
+            .jobs
+            .iter()
+            .find(|j| matches!(j, crate::build::BuildJob::TranscodeTitle { .. }))
+            .unwrap();
+        let cmd = transcode.command().unwrap();
+
+        assert!(
+            !cmd.iter().any(|a| a.starts_with("-b:a:")),
+            "expected no -b:a flag for LPCM regardless of any bitrate override, got: {cmd:?}"
         );
     }
 }
