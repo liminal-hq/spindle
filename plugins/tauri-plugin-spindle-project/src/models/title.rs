@@ -118,6 +118,15 @@ pub struct AudioTrackMapping {
     /// have its channel layout changed.
     #[serde(default)]
     pub channel_layout: Option<u32>,
+    /// Target output bitrate in bits per second for a re-encoded track.
+    /// `None` falls back to the codec's hardcoded default bitrate (AC3
+    /// 448 kbps, MP2 384 kbps, DTS 768 kbps — see the per-codec defaults
+    /// in `build::capacity` and `build::ffmpeg`). Ignored when `copy_mode`
+    /// is `Copy`, since stream-copied audio can't have its bitrate
+    /// changed, and for `AudioOutputTarget::Lpcm`, whose rate is derived
+    /// from channel count/sample depth rather than independently set.
+    #[serde(default)]
+    pub bitrate_bps: Option<u32>,
 }
 
 /// Maps a source subtitle stream.

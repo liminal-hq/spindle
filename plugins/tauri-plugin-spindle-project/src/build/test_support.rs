@@ -72,6 +72,7 @@ pub(crate) fn test_project() -> SpindleProjectFile {
             order_index: 0,
             is_default: true,
             channel_layout: None,
+            bitrate_bps: None,
         }],
         subtitle_mappings: vec![],
         chapters: vec![
@@ -215,6 +216,7 @@ pub(crate) fn add_second_titleset(project: &mut SpindleProjectFile) {
             order_index: 0,
             is_default: true,
             channel_layout: None,
+            bitrate_bps: None,
         }],
         subtitle_mappings: vec![],
         chapters: vec![ChapterPoint {

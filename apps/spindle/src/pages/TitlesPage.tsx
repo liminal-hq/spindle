@@ -564,6 +564,7 @@ function TitleEditor({
 				orderIndex: i,
 				isDefault: i === 0,
 				channelLayout: null,
+				bitrateBps: null,
 			};
 		});
 
@@ -786,16 +787,25 @@ function TitleEditor({
 								<select
 									className="titles__select titles__select--sm"
 									value={am.outputTarget}
-									onChange={(e) =>
+									onChange={(e) => {
+										const outputTarget = e.target.value as AudioOutputTarget;
 										onUpdate({
 											...title,
 											audioMappings: title.audioMappings.map((a) =>
 												a.id === am.id
-													? { ...a, outputTarget: e.target.value as AudioOutputTarget }
+													? {
+															...a,
+															outputTarget,
+															// LPCM's bitrate is derived from channel count/sample
+															// depth, not independently selectable — clear any
+															// override so it doesn't silently reapply if the user
+															// switches back to a codec where it's meaningful.
+															bitrateBps: outputTarget === 'LPCM' ? null : a.bitrateBps,
+														}
 													: a,
 											),
-										})
-									}
+										});
+									}}
 								>
 									<option value="AC3">AC3 (Dolby Digital)</option>
 									<option value="LPCM">LPCM</option>
@@ -814,10 +824,11 @@ function TitleEditor({
 													? {
 															...a,
 															copyMode,
-															// Channel layout only applies to re-encoded tracks —
-															// clear it so a stale selection doesn't silently
-															// reappear if the user switches back later.
+															// Channel layout and bitrate only apply to re-encoded
+															// tracks — clear them so a stale selection doesn't
+															// silently reappear if the user switches back later.
 															channelLayout: copyMode === 'copy' ? null : a.channelLayout,
+															bitrateBps: copyMode === 'copy' ? null : a.bitrateBps,
 														}
 													: a,
 											),
@@ -854,6 +865,42 @@ function TitleEditor({
 									<option value="2">Stereo</option>
 									<option value="6">5.1</option>
 									<option value="8">7.1</option>
+								</select>
+								<select
+									className="titles__select titles__select--sm"
+									value={am.bitrateBps ?? ''}
+									disabled={am.outputTarget === 'LPCM'}
+									title={
+										am.outputTarget === 'LPCM'
+											? "LPCM's bitrate is derived from its channel count and sample depth, not independently selectable."
+											: "Selecting a bitrate switches this track to Re-encode, since a stream copy can't change bitrate."
+									}
+									onChange={(e) => {
+										const bitrateBps = e.target.value === '' ? null : Number(e.target.value);
+										onUpdate({
+											...title,
+											audioMappings: title.audioMappings.map((a) =>
+												a.id === am.id
+													? {
+															...a,
+															bitrateBps,
+															// A stream copy can't change bitrate — picking a
+															// real value implies re-encoding.
+															copyMode: bitrateBps !== null ? 're-encode' : a.copyMode,
+														}
+													: a,
+											),
+										});
+									}}
+								>
+									<option value="">Auto (codec default)</option>
+									<option value="192000">192 kbps</option>
+									<option value="256000">256 kbps</option>
+									<option value="320000">320 kbps</option>
+									<option value="384000">384 kbps</option>
+									<option value="448000">448 kbps</option>
+									<option value="640000">640 kbps</option>
+									<option value="768000">768 kbps</option>
 								</select>
 								<input
 									className="titles__track-lang"

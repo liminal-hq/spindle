@@ -314,6 +314,7 @@ fn build_plan_deduplicates_identical_transcodes_with_different_mapping_ids() {
             order_index: 0,
             is_default: true,
             channel_layout: None,
+            bitrate_bps: None,
         }],
         subtitle_mappings: vec![],
         chapters: vec![],

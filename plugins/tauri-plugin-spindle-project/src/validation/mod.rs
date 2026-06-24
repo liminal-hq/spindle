@@ -142,6 +142,7 @@ mod tests {
             order_index,
             is_default: order_index == 0,
             channel_layout: None,
+            bitrate_bps: None,
         }
     }
 

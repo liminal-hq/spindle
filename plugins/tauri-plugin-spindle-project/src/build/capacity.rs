@@ -202,10 +202,19 @@ fn estimate_title_audio_bitrate_bps(title: &Title, asset: Option<&Asset>) -> f64
                 // A re-encoded track's channel count is whatever the user
                 // selected (defaulting to the source's), since that's what
                 // `build_ffmpeg_transcode_command` actually requests via `-ac`.
-                CopyMode::ReEncode => output_target_rate_bps(
-                    mapping.output_target,
-                    mapping.channel_layout.unwrap_or_else(source_channels),
-                ),
+                // The user's explicit bitrate override takes precedence over
+                // the codec default, except for LPCM — its rate is derived
+                // from channel count/sample depth, not independently
+                // requestable (`build_ffmpeg_transcode_command` never emits
+                // `-b:a` for it), so an override would misrepresent what
+                // actually gets encoded.
+                CopyMode::ReEncode => match (mapping.output_target, mapping.bitrate_bps) {
+                    (AudioOutputTarget::Lpcm, _) | (_, None) => output_target_rate_bps(
+                        mapping.output_target,
+                        mapping.channel_layout.unwrap_or_else(source_channels),
+                    ),
+                    (_, Some(bitrate_bps)) => bitrate_bps as f64,
+                },
                 // Copied as-is: use the source stream's known bitrate. When
                 // it's unknown, a copy stream isn't necessarily AC3-sized —
                 // it could be any DVD-legal format the source already used
@@ -574,6 +583,59 @@ mod tests {
             clamped_video_bytes,
             audio_bytes,
             raw_video_bytes
+        );
+    }
+
+    #[test]
+    fn reencode_audio_bitrate_override_replaces_the_codec_default() {
+        // Regression test for liminal-hq/spindle#71: a re-encoded track's
+        // explicit bitrate_bps must replace the hardcoded per-codec default
+        // (AC3's 448 kbps) in the capacity estimate, since that's what the
+        // user actually asked the encoder to produce.
+        let mut project = test_project();
+        project.assets[0].duration_secs = Some(3600.0);
+        project.disc.titlesets[0].titles[0].audio_mappings[0].copy_mode = CopyMode::ReEncode;
+        project.disc.titlesets[0].titles[0].audio_mappings[0].output_target =
+            AudioOutputTarget::Ac3;
+        project.disc.titlesets[0].titles[0].audio_mappings[0].bitrate_bps = Some(192_000);
+
+        let default_estimate = {
+            let mut p = project.clone();
+            p.disc.titlesets[0].titles[0].audio_mappings[0].bitrate_bps = None;
+            estimate_disc_capacity(&p)
+        };
+        let override_estimate = estimate_disc_capacity(&project);
+
+        assert!(
+            override_estimate.available_bits_per_second
+                > default_estimate.available_bits_per_second,
+            "expected a lower (192k) audio override to reserve less and leave more for video, \
+             got override={} default={}",
+            override_estimate.available_bits_per_second,
+            default_estimate.available_bits_per_second
+        );
+    }
+
+    #[test]
+    fn lpcm_ignores_a_bitrate_override_since_its_rate_is_derived_not_requestable() {
+        // LPCM's bitrate is derived from channel count/sample depth — ffmpeg
+        // never gets a `-b:a` flag for it (see build_ffmpeg_transcode_command),
+        // so a bitrate_bps override must not change the estimate.
+        let mut project = test_project();
+        project.assets[0].duration_secs = Some(3600.0);
+        project.disc.titlesets[0].titles[0].audio_mappings[0].copy_mode = CopyMode::ReEncode;
+        project.disc.titlesets[0].titles[0].audio_mappings[0].output_target =
+            AudioOutputTarget::Lpcm;
+
+        let no_override_estimate = estimate_disc_capacity(&project);
+
+        project.disc.titlesets[0].titles[0].audio_mappings[0].bitrate_bps = Some(64_000);
+        let with_override_estimate = estimate_disc_capacity(&project);
+
+        assert_eq!(
+            no_override_estimate.available_bits_per_second,
+            with_override_estimate.available_bits_per_second,
+            "expected an LPCM bitrate override to have no effect on the estimate"
         );
     }
 

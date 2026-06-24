@@ -110,6 +110,8 @@ export interface AudioTrackMapping {
 	isDefault: boolean;
 	/** Target output channel count for a re-encoded track. `null` preserves the source's channel count. Ignored when `copyMode` is `'copy'`. */
 	channelLayout: number | null;
+	/** Target output bitrate in bits per second for a re-encoded track. `null` falls back to the codec's default bitrate. Ignored when `copyMode` is `'copy'`. */
+	bitrateBps: number | null;
 }
 
 export interface SubtitleTrackMapping {
