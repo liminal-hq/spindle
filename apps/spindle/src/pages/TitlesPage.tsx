@@ -804,12 +804,12 @@ function TitleEditor({
 															// override so it doesn't silently reapply if the user
 															// switches back to a codec where it's meaningful.
 															bitrateBps:
-										outputTarget === 'LPCM' ||
-										!AUDIO_BITRATE_OPTIONS[outputTarget]?.some(
-											(o) => o.bps === a.bitrateBps,
-										)
-											? null
-											: a.bitrateBps,
+																outputTarget === 'LPCM' ||
+																!AUDIO_BITRATE_OPTIONS[outputTarget]?.some(
+																	(o) => o.bps === a.bitrateBps,
+																)
+																	? null
+																	: a.bitrateBps,
 														}
 													: a,
 											),
@@ -849,10 +849,7 @@ function TitleEditor({
 										});
 									}}
 								>
-									<option
-										value="copy"
-										disabled={!isCopyCompatible(selectedAsset, am)}
-									>
+									<option value="copy" disabled={!isCopyCompatible(selectedAsset, am)}>
 										Copy
 									</option>
 									<option value="re-encode">Re-encode</option>
@@ -1211,30 +1208,31 @@ const CODEC_DEFAULT_BPS: Partial<Record<AudioOutputTarget, number>> = {
 	DTS: 768_000,
 };
 
-const AUDIO_BITRATE_OPTIONS: Partial<Record<AudioOutputTarget, { bps: number; label: string }[]>> = {
-	// AC3 (Dolby Digital): 32–640 kbps per DVD-Video spec; 192–640 kbps are the useful encoding targets
-	AC3: [
-		{ bps: 192_000, label: '192 kbps' },
-		{ bps: 256_000, label: '256 kbps' },
-		{ bps: 320_000, label: '320 kbps' },
-		{ bps: 384_000, label: '384 kbps' },
-		{ bps: 448_000, label: '448 kbps' },
-		{ bps: 640_000, label: '640 kbps' },
-	],
-	// MP2 (MPEG-1 Layer II): 32–384 kbps; 192–384 kbps covers normal use
-	MP2: [
-		{ bps: 192_000, label: '192 kbps' },
-		{ bps: 256_000, label: '256 kbps' },
-		{ bps: 320_000, label: '320 kbps' },
-		{ bps: 384_000, label: '384 kbps' },
-	],
-	// DTS on DVD-Video: standard ~768 kbps or high-bitrate ~1536 kbps (1.5 Mbps)
-	DTS: [
-		{ bps: 768_000, label: '768 kbps' },
-		{ bps: 1_536_000, label: '1.5 Mbps' },
-	],
-	// LPCM: rate is derived from channel count × sample depth, not requestable — no options
-};
+const AUDIO_BITRATE_OPTIONS: Partial<Record<AudioOutputTarget, { bps: number; label: string }[]>> =
+	{
+		// AC3 (Dolby Digital): 32–640 kbps per DVD-Video spec; 192–640 kbps are the useful encoding targets
+		AC3: [
+			{ bps: 192_000, label: '192 kbps' },
+			{ bps: 256_000, label: '256 kbps' },
+			{ bps: 320_000, label: '320 kbps' },
+			{ bps: 384_000, label: '384 kbps' },
+			{ bps: 448_000, label: '448 kbps' },
+			{ bps: 640_000, label: '640 kbps' },
+		],
+		// MP2 (MPEG-1 Layer II): 32–384 kbps; 192–384 kbps covers normal use
+		MP2: [
+			{ bps: 192_000, label: '192 kbps' },
+			{ bps: 256_000, label: '256 kbps' },
+			{ bps: 320_000, label: '320 kbps' },
+			{ bps: 384_000, label: '384 kbps' },
+		],
+		// DTS on DVD-Video: standard ~768 kbps or high-bitrate ~1536 kbps (1.5 Mbps)
+		DTS: [
+			{ bps: 768_000, label: '768 kbps' },
+			{ bps: 1_536_000, label: '1.5 Mbps' },
+		],
+		// LPCM: rate is derived from channel count × sample depth, not requestable — no options
+	};
 
 function isCopyCompatible(asset: Asset | null, mapping: AudioTrackMapping): boolean {
 	const compat = asset?.compatibilityDetail?.audioStreams.find(
