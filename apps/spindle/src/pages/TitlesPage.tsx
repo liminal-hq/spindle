@@ -878,7 +878,7 @@ function TitleEditor({
 										});
 									}}
 								>
-									<option value="">{`Auto (source${sourceChannelLabel(selectedAsset, am) ? `, ${sourceChannelLabel(selectedAsset, am)}` : ''})`}</option>
+									<option value="">{`Auto Channels${sourceChannelLabel(selectedAsset, am) ? ` (${sourceChannelLabel(selectedAsset, am)})` : ''}`}</option>
 									<option value="1">Mono</option>
 									<option value="2">Stereo</option>
 									<option value="6">5.1</option>
@@ -911,7 +911,7 @@ function TitleEditor({
 										});
 									}}
 								>
-									<option value="">Auto (codec default)</option>
+									<option value="">{`Auto Bitrate${CODEC_DEFAULT_BPS[am.outputTarget] ? ` (${Math.round(CODEC_DEFAULT_BPS[am.outputTarget]! / 1000)} kbps)` : ''}`}</option>
 									{(AUDIO_BITRATE_OPTIONS[am.outputTarget] ?? []).map(({ bps, label }) => (
 										<option key={bps} value={bps}>
 											{label}
@@ -1198,6 +1198,13 @@ const CHANNEL_COUNT_LABELS: Record<number, string> = {
 	2: 'stereo',
 	6: '5.1',
 	8: '7.1',
+};
+
+// Default bitrate each codec uses when no override is set (matches ffmpeg.rs hard-coded defaults).
+const CODEC_DEFAULT_BPS: Partial<Record<AudioOutputTarget, number>> = {
+	AC3: 448_000,
+	MP2: 384_000,
+	DTS: 768_000,
 };
 
 const AUDIO_BITRATE_OPTIONS: Partial<Record<AudioOutputTarget, { bps: number; label: string }[]>> = {

@@ -175,7 +175,7 @@ describe('TitlesPage', () => {
 			useProjectStore.setState({ project: buildProjectWithAudioMapping() });
 		});
 
-		it('defaults to Auto (codec default) for a track with no override', () => {
+		it('defaults to Auto Bitrate (no override) for a track with no override', () => {
 			render(<TitlesPage />);
 
 			const select = selectFeatureTitleAndGetBitrateSelect();
