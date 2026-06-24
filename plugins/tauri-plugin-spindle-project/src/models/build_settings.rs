@@ -15,6 +15,14 @@ pub struct BuildSettings {
     pub allocation_strategy: AllocationStrategy,
     #[serde(default)]
     pub subtitle_render_mode: SubtitleRenderMode,
+    /// Two-pass title-video encoding: analyzes the whole title first, then
+    /// allocates bits per actual scene complexity on the real encode. Gets
+    /// both more accurate output sizing (closely tracking the disc-capacity
+    /// budget) and better quality-per-byte than single-pass, at the cost of
+    /// roughly doubling per-title encode time. Off by default so existing
+    /// projects keep their current (faster) build time unless a user opts in.
+    #[serde(default)]
+    pub two_pass_video_encoding: bool,
 }
 
 impl Default for BuildSettings {
@@ -26,6 +34,7 @@ impl Default for BuildSettings {
             safety_margin_bytes: 50_000_000,
             allocation_strategy: AllocationStrategy::DurationWeighted,
             subtitle_render_mode: SubtitleRenderMode::TwoPass,
+            two_pass_video_encoding: false,
         }
     }
 }

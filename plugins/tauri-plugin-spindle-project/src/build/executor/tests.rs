@@ -9,6 +9,7 @@ use std::path::PathBuf;
 use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use crate::build::ffmpeg::{build_ffmpeg_transcode_command, build_ffmpeg_transcode_pass1_command};
 use crate::build::test_support::{test_menu_with_action, test_project};
 use crate::build::{
     execute_build_plan, generate_build_plan, BuildJob, BuildPlan, BuildProgress, BuildSummary,
@@ -162,6 +163,129 @@ fn execute_build_plan_skips_empty_text_subtitle_passes() {
             .as_ref()
             .is_some_and(|line| line.contains("had no cues"))),
         "expected progress updates to mention the skipped subtitle pass"
+    );
+
+    fs::remove_dir_all(&output_dir).unwrap();
+}
+
+#[test]
+#[ignore = "requires ffmpeg on PATH"]
+fn execute_build_plan_smoke_runs_two_pass_transcode_sequentially() {
+    // Real-subprocess regression test for the pass1 -> pass2 sequencing
+    // added for two-pass title encoding: pass 1 must actually run and write
+    // its -passlogfile stats *before* pass 2 starts, or pass 2 fails to find
+    // them. Unit tests on the generated argv can't catch ordering bugs in
+    // the executor; this exercises real ffmpeg end to end.
+    let Some(ffmpeg_bin) = find_tool_on_path("ffmpeg") else {
+        eprintln!("Skipping smoke test because `ffmpeg` is not available on PATH.");
+        return;
+    };
+
+    let output_dir = unique_temp_dir("build-smoke-two-pass");
+    let source_path = output_dir.join("source.mp4");
+    let titles_dir = output_dir.join("_spindle_work").join("titles");
+    fs::create_dir_all(&titles_dir).unwrap();
+
+    let ffmpeg_status = Command::new(&ffmpeg_bin)
+        .args([
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "color=c=black:s=640x360:d=1.5",
+            "-c:v",
+            "libx264",
+            "-pix_fmt",
+            "yuv420p",
+        ])
+        .arg(&source_path)
+        .status()
+        .expect("ffmpeg should launch for smoke test fixture generation");
+    assert!(
+        ffmpeg_status.success(),
+        "ffmpeg fixture generation failed with status {ffmpeg_status}"
+    );
+
+    let mut project = test_project();
+    project.assets[0].source_path = source_path.display().to_string();
+    project.assets[0].duration_secs = Some(1.5);
+    project.disc.titlesets[0].titles[0].audio_mappings = vec![];
+
+    let title = &project.disc.titlesets[0].titles[0];
+    let asset = &project.assets[0];
+    let video_info = Some(&asset.video_streams[0]);
+    let output_path = titles_dir.join("title-1.mpg");
+
+    let mut pass1_command = build_ffmpeg_transcode_pass1_command(
+        &asset.source_path,
+        &output_path,
+        title,
+        &project.disc,
+        video_info,
+        1_500_000.0,
+    );
+    pass1_command[0] = ffmpeg_bin.to_string_lossy().into_owned();
+
+    let mut command = build_ffmpeg_transcode_command(
+        &asset.source_path,
+        &output_path,
+        title,
+        asset,
+        &project.disc,
+        video_info,
+        1_500_000.0,
+        true,
+    );
+    command[0] = ffmpeg_bin.to_string_lossy().into_owned();
+
+    let plan = BuildPlan {
+        jobs: vec![BuildJob::TranscodeTitle {
+            title_id: "title-1".to_string(),
+            title_name: "Main Feature".to_string(),
+            source_path: asset.source_path.clone(),
+            output_path: output_path.display().to_string(),
+            pass1_command: Some(pass1_command),
+            command,
+            label: "Transcode \"Main Feature\"".to_string(),
+            duration_secs: Some(1.5),
+        }],
+        output_directory: output_dir.display().to_string(),
+        working_directory: output_dir.join("_spindle_work").display().to_string(),
+        dvdauthor_xml: String::new(),
+        summary: BuildSummary {
+            total_jobs: 1,
+            transcode_jobs: 1,
+            titles_count: 1,
+            menus_count: 0,
+            generate_iso: false,
+            estimated_commands: vec![],
+        },
+    };
+
+    let result = execute_build_plan(&plan, |_| {});
+
+    if !result.success {
+        panic!(
+            "expected two-pass smoke build to succeed\n{}",
+            result.log_lines.join("\n")
+        );
+    }
+
+    assert!(
+        output_path.exists(),
+        "expected pass 2 to produce the final title output"
+    );
+
+    let ffprobe_bin =
+        find_tool_on_path("ffprobe").expect("ffprobe should be alongside ffmpeg on PATH");
+    let probe_status = Command::new(ffprobe_bin)
+        .args(["-v", "error"])
+        .arg(&output_path)
+        .status()
+        .expect("ffprobe should launch");
+    assert!(
+        probe_status.success(),
+        "expected pass 2 output to be a valid, readable MPEG file"
     );
 
     fs::remove_dir_all(&output_dir).unwrap();

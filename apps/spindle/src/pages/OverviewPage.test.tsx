@@ -172,4 +172,18 @@ describe('OverviewPage', () => {
 
 		expect(useProjectStore.getState().project?.buildSettings.generateIso).toBe(true);
 	});
+
+	it('updates twoPassVideoEncoding when the two-pass checkbox is toggled', () => {
+		useProjectStore.setState({ project: createDefaultProject(), validationIssues: [] });
+
+		render(<OverviewPage />);
+		fireEvent.click(
+			screen
+				.getByText('Two-pass encoding (slower, more accurate sizing & quality)')
+				.closest('label')!
+				.querySelector('input')!,
+		);
+
+		expect(useProjectStore.getState().project?.buildSettings.twoPassVideoEncoding).toBe(true);
+	});
 });

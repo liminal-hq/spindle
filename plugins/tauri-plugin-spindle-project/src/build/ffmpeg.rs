@@ -22,6 +22,7 @@ pub(crate) const MAX_VIDEO_RATE_BPS: f64 = 9_000_000.0;
 /// requests. Video and audio together must fit under it.
 pub(crate) const MUX_RATE_BPS: f64 = 10_080_000.0;
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn build_ffmpeg_transcode_command(
     source_path: &str,
     output_path: &Path,
@@ -30,6 +31,7 @@ pub(crate) fn build_ffmpeg_transcode_command(
     disc: &Disc,
     video_info: Option<&VideoStreamInfo>,
     video_bitrate_bps: f64,
+    two_pass: bool,
 ) -> Vec<String> {
     let video_bitrate_bps = if video_bitrate_bps > 0.0 {
         video_bitrate_bps.min(MAX_VIDEO_RATE_BPS)
@@ -41,6 +43,23 @@ pub(crate) fn build_ffmpeg_transcode_command(
 
     cmd.extend(["-i".to_string(), source_path.to_string()]);
 
+    // ffmpeg requires every -i input to be declared before any output-file
+    // option (-c:v, -b:v, -map for the output mapping, etc.) — interleaving
+    // a later -i after output options have already started confuses its
+    // parser into misattributing the next -map to the new input rather than
+    // the output. The synthesized silent-audio input must therefore be
+    // declared here, immediately after the real source, not down near the
+    // rest of the audio options where it used to live.
+    let synthesise_silent_audio = title.audio_mappings.is_empty();
+    if synthesise_silent_audio {
+        cmd.extend([
+            "-f".to_string(),
+            "lavfi".to_string(),
+            "-i".to_string(),
+            "anullsrc=r=48000:cl=stereo".to_string(),
+        ]);
+    }
+
     if let Some(ref vm) = title.video_mapping {
         cmd.extend(["-map".to_string(), format!("0:{}", vm.source_stream_index)]);
     }
@@ -49,41 +68,11 @@ pub(crate) fn build_ffmpeg_transcode_command(
         raster: VideoRaster::FullD1,
         aspect: AspectMode::SixteenByNine,
     });
-    let (width, height) = profile.raster.resolution(disc.standard);
+    let (output_fps, vf) = build_title_video_filter(profile, disc, video_info);
 
-    let source_fps = video_info.and_then(|v| v.frame_rate);
-    let output_fps = choose_output_fps(source_fps, disc.standard);
+    cmd.extend(["-vf".to_string(), vf]);
 
-    let mut vf_parts: Vec<String> = Vec::new();
-
-    if video_info.is_some_and(is_hdr_source) {
-        vf_parts.push(
-            "zscale=t=linear:npl=100,format=gbrpf32le,zscale=p=bt709,\
-             tonemap=hable,zscale=t=bt709:m=bt709:r=tv,format=yuv420p"
-                .to_string(),
-        );
-    }
-
-    let source_dar = video_info
-        .and_then(source_display_aspect_ratio)
-        .unwrap_or_else(|| width as f64 / height as f64);
-    let (target_dar_num, target_dar_den) = output_display_aspect_ratio_parts(profile.aspect);
-    let target_dar = target_dar_num as f64 / target_dar_den as f64;
-    let target_sar = dvd_sample_aspect_ratio(width, height, target_dar_num, target_dar_den);
-
-    vf_parts.push(build_dvd_scale_filter(
-        width,
-        height,
-        source_dar,
-        target_dar,
-        &target_sar,
-    ));
-
-    if source_fps.is_some_and(|fps| (fps - output_fps).abs() > 0.1) {
-        vf_parts.push(format!("fps={}", fps_rational_str(output_fps)));
-    }
-
-    cmd.extend(["-vf".to_string(), vf_parts.join(",")]);
+    let bv_str = format!("{}k", (video_bitrate_bps / 1000.0).round() as i64);
 
     cmd.extend([
         "-c:v".to_string(),
@@ -91,11 +80,47 @@ pub(crate) fn build_ffmpeg_transcode_command(
         "-r".to_string(),
         fps_rational_str(output_fps).to_string(),
         "-b:v".to_string(),
-        format!("{}k", (video_bitrate_bps / 1000.0).round() as i64),
-        "-maxrate".to_string(),
-        format!("{}k", (maxrate_bps / 1000.0).round() as i64),
-        "-bufsize".to_string(),
-        "1835k".to_string(),
+        bv_str.clone(),
+    ]);
+
+    if two_pass {
+        // Two-pass: pass 1 (see build_ffmpeg_transcode_pass1_command) already
+        // analysed the whole title, so the encoder allocates bits per actual
+        // scene complexity here rather than needing a CBR floor — that's
+        // what makes two-pass both more accurate *and* better quality than
+        // forced CBR. -maxrate stays at the wide safety ceiling so complex
+        // scenes can still burst.
+        cmd.extend([
+            "-pass".to_string(),
+            "2".to_string(),
+            "-passlogfile".to_string(),
+            ffmpeg_passlogfile_prefix(output_path),
+            "-maxrate".to_string(),
+            format!("{}k", (maxrate_bps / 1000.0).round() as i64),
+            "-bufsize".to_string(),
+            "1835k".to_string(),
+        ]);
+    } else {
+        // Single-pass: force near-CBR (-minrate == -maxrate == -b:v) so the
+        // encoder can't drift in either direction. Without this, single-pass
+        // mpeg2video is free to undershoot the target substantially on
+        // low-complexity content (observed dropping to ~64% of target on a
+        // real animated feature) or, if only a floor were added without
+        // matching the ceiling, overshoot on content with complexity bursts.
+        // This is the safe baseline; two-pass (above) is the better option
+        // when quality-per-byte matters, since it doesn't need a CBR floor
+        // to hit its target accurately.
+        cmd.extend([
+            "-minrate".to_string(),
+            bv_str.clone(),
+            "-maxrate".to_string(),
+            bv_str,
+            "-bufsize".to_string(),
+            "1835k".to_string(),
+        ]);
+    }
+
+    cmd.extend([
         "-g".to_string(),
         if disc.standard == VideoStandard::Pal {
             "12"
@@ -189,12 +214,8 @@ pub(crate) fn build_ffmpeg_transcode_command(
         ]);
     }
 
-    if title.audio_mappings.is_empty() {
+    if synthesise_silent_audio {
         cmd.extend([
-            "-f".to_string(),
-            "lavfi".to_string(),
-            "-i".to_string(),
-            "anullsrc=r=48000:cl=stereo".to_string(),
             "-map".to_string(),
             "1:a".to_string(),
             "-shortest".to_string(),
@@ -211,6 +232,132 @@ pub(crate) fn build_ffmpeg_transcode_command(
         "-muxrate".to_string(),
         (MUX_RATE_BPS as i64).to_string(),
         output_path.display().to_string(),
+    ]);
+
+    cmd
+}
+
+/// Shared HDR-tonemap / scale-pad-setsar / fps-conform video filter chain
+/// used by both the real title transcode and its two-pass analysis pass.
+/// Returns `(output_fps, vf_filter_string)`.
+fn build_title_video_filter(
+    profile: VideoOutputProfile,
+    disc: &Disc,
+    video_info: Option<&VideoStreamInfo>,
+) -> (f64, String) {
+    let (width, height) = profile.raster.resolution(disc.standard);
+
+    let source_fps = video_info.and_then(|v| v.frame_rate);
+    let output_fps = choose_output_fps(source_fps, disc.standard);
+
+    let mut vf_parts: Vec<String> = Vec::new();
+
+    if video_info.is_some_and(is_hdr_source) {
+        vf_parts.push(
+            "zscale=t=linear:npl=100,format=gbrpf32le,zscale=p=bt709,\
+             tonemap=hable,zscale=t=bt709:m=bt709:r=tv,format=yuv420p"
+                .to_string(),
+        );
+    }
+
+    let source_dar = video_info
+        .and_then(source_display_aspect_ratio)
+        .unwrap_or_else(|| width as f64 / height as f64);
+    let (target_dar_num, target_dar_den) = output_display_aspect_ratio_parts(profile.aspect);
+    let target_dar = target_dar_num as f64 / target_dar_den as f64;
+    let target_sar = dvd_sample_aspect_ratio(width, height, target_dar_num, target_dar_den);
+
+    vf_parts.push(build_dvd_scale_filter(
+        width,
+        height,
+        source_dar,
+        target_dar,
+        &target_sar,
+    ));
+
+    if source_fps.is_some_and(|fps| (fps - output_fps).abs() > 0.1) {
+        vf_parts.push(format!("fps={}", fps_rational_str(output_fps)));
+    }
+
+    (output_fps, vf_parts.join(","))
+}
+
+/// Deterministic ffmpeg `-passlogfile` prefix for a title's two-pass stats,
+/// placed alongside the title's output file so it's cleaned up with the rest
+/// of the build workspace. ffmpeg appends `-0.log` to this prefix itself.
+fn ffmpeg_passlogfile_prefix(output_path: &Path) -> String {
+    let stem = output_path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("title");
+    output_path
+        .with_file_name(format!("{stem}_2pass"))
+        .display()
+        .to_string()
+}
+
+/// Build the analysis-only first pass of a two-pass title encode: the same
+/// video filter chain and bitrate target as the real encode
+/// (`build_ffmpeg_transcode_command` with `two_pass: true`), but with audio
+/// and subtitles stripped and the output discarded via the null muxer. Must
+/// run before the second pass so the `-passlogfile` stats it writes are
+/// available for the real encode to read.
+pub(crate) fn build_ffmpeg_transcode_pass1_command(
+    source_path: &str,
+    output_path: &Path,
+    title: &Title,
+    disc: &Disc,
+    video_info: Option<&VideoStreamInfo>,
+    video_bitrate_bps: f64,
+) -> Vec<String> {
+    let video_bitrate_bps = if video_bitrate_bps > 0.0 {
+        video_bitrate_bps.min(MAX_VIDEO_RATE_BPS)
+    } else {
+        DEFAULT_VIDEO_BITRATE_BPS
+    };
+    let maxrate_bps = MAX_VIDEO_RATE_BPS.max(video_bitrate_bps);
+
+    let profile = title.video_output_profile.unwrap_or(VideoOutputProfile {
+        raster: VideoRaster::FullD1,
+        aspect: AspectMode::SixteenByNine,
+    });
+    let (output_fps, vf) = build_title_video_filter(profile, disc, video_info);
+
+    let mut cmd = vec!["ffmpeg".to_string(), "-y".to_string()];
+    cmd.extend(["-i".to_string(), source_path.to_string()]);
+
+    if let Some(ref vm) = title.video_mapping {
+        cmd.extend(["-map".to_string(), format!("0:{}", vm.source_stream_index)]);
+    }
+
+    cmd.extend(["-vf".to_string(), vf]);
+
+    cmd.extend([
+        "-c:v".to_string(),
+        "mpeg2video".to_string(),
+        "-r".to_string(),
+        fps_rational_str(output_fps).to_string(),
+        "-b:v".to_string(),
+        format!("{}k", (video_bitrate_bps / 1000.0).round() as i64),
+        "-maxrate".to_string(),
+        format!("{}k", (maxrate_bps / 1000.0).round() as i64),
+        "-bufsize".to_string(),
+        "1835k".to_string(),
+        "-g".to_string(),
+        if disc.standard == VideoStandard::Pal {
+            "12"
+        } else {
+            "18"
+        }
+        .to_string(),
+        "-pass".to_string(),
+        "1".to_string(),
+        "-passlogfile".to_string(),
+        ffmpeg_passlogfile_prefix(output_path),
+        "-an".to_string(),
+        "-f".to_string(),
+        "null".to_string(),
+        "-".to_string(),
     ]);
 
     cmd
@@ -472,6 +619,7 @@ mod tests {
             &project.disc,
             None,
             0.0,
+            false,
         );
 
         let bv_arg = cmd
@@ -480,6 +628,161 @@ mod tests {
             .nth(1)
             .expect("-b:v value");
         assert_eq!(bv_arg, "6000k");
+    }
+
+    #[test]
+    fn ffmpeg_single_pass_forces_symmetric_cbr_below_the_safety_ceiling() {
+        // Regression test: single-pass mpeg2video must not just float a
+        // -minrate floor while leaving -maxrate at the independent 9 Mbps
+        // safety ceiling — that asymmetry (floor at target, ceiling far
+        // above it) can only ever push the realized average bitrate UP from
+        // target, risking overshoot on content with complexity bursts. True
+        // CBR (minrate == maxrate == target) is required so the encoder
+        // can't drift in either direction. Uses a below-ceiling target
+        // (5759k, matching a real reported undershoot case) so maxrate
+        // would differ from the target if the old asymmetric logic were
+        // still in place.
+        let project = test_project();
+        let title = &project.disc.titlesets[0].titles[0];
+        let asset = &project.assets[0];
+
+        let cmd = super::build_ffmpeg_transcode_command(
+            &asset.source_path,
+            std::path::Path::new("/tmp/out.mpg"),
+            title,
+            asset,
+            &project.disc,
+            Some(&asset.video_streams[0]),
+            5_759_000.0,
+            false,
+        );
+
+        let bv_arg = cmd
+            .iter()
+            .skip_while(|a| *a != "-b:v")
+            .nth(1)
+            .expect("-b:v value")
+            .clone();
+        let minrate_arg = cmd
+            .iter()
+            .skip_while(|a| *a != "-minrate")
+            .nth(1)
+            .expect("-minrate value");
+        let maxrate_arg = cmd
+            .iter()
+            .skip_while(|a| *a != "-maxrate")
+            .nth(1)
+            .expect("-maxrate value");
+
+        assert_eq!(bv_arg, "5759k");
+        assert_eq!(
+            minrate_arg, &bv_arg,
+            "minrate must equal the target bitrate"
+        );
+        assert_eq!(maxrate_arg, &bv_arg, "maxrate must also equal the target bitrate (true CBR), not the independent safety ceiling");
+        assert!(
+            !cmd.contains(&"-pass".to_string()),
+            "single-pass must not set -pass"
+        );
+    }
+
+    #[test]
+    fn ffmpeg_two_pass_omits_cbr_floor_and_sets_pass2_passlogfile() {
+        // Two-pass doesn't need a CBR floor to hit its target accurately —
+        // pass 1's lookahead already informs accurate allocation — and
+        // forcing one would defeat the point of allocating more bits to
+        // complex scenes. -maxrate should stay at the wide safety ceiling.
+        let project = test_project();
+        let title = &project.disc.titlesets[0].titles[0];
+        let asset = &project.assets[0];
+
+        let cmd = super::build_ffmpeg_transcode_command(
+            &asset.source_path,
+            std::path::Path::new("/tmp/out.mpg"),
+            title,
+            asset,
+            &project.disc,
+            Some(&asset.video_streams[0]),
+            5_759_000.0,
+            true,
+        );
+
+        assert!(
+            !cmd.contains(&"-minrate".to_string()),
+            "two-pass must not force a CBR floor"
+        );
+
+        let maxrate_arg = cmd
+            .iter()
+            .skip_while(|a| *a != "-maxrate")
+            .nth(1)
+            .expect("-maxrate value");
+        assert_eq!(
+            maxrate_arg, "9000k",
+            "two-pass should keep the wide safety ceiling, not clamp to the target"
+        );
+
+        let pass_arg = cmd
+            .iter()
+            .skip_while(|a| *a != "-pass")
+            .nth(1)
+            .expect("-pass value");
+        assert_eq!(pass_arg, "2");
+
+        assert!(
+            cmd.contains(&"-passlogfile".to_string()),
+            "expected -passlogfile for pass 2 to read pass 1's stats"
+        );
+    }
+
+    #[test]
+    fn ffmpeg_pass1_command_is_video_only_analysis_discarded_via_null_muxer() {
+        let project = test_project();
+        let title = &project.disc.titlesets[0].titles[0];
+        let asset = &project.assets[0];
+
+        let cmd = super::build_ffmpeg_transcode_pass1_command(
+            &asset.source_path,
+            std::path::Path::new("/tmp/out.mpg"),
+            title,
+            &project.disc,
+            Some(&asset.video_streams[0]),
+            5_759_000.0,
+        );
+
+        assert!(
+            cmd.contains(&"-an".to_string()),
+            "pass 1 must disable audio"
+        );
+        assert!(
+            !cmd.iter().any(|a| a == "-c:a" || a.starts_with("-c:a:")),
+            "pass 1 must not configure any audio codec"
+        );
+
+        let pass_arg = cmd
+            .iter()
+            .skip_while(|a| *a != "-pass")
+            .nth(1)
+            .expect("-pass value");
+        assert_eq!(pass_arg, "1");
+
+        assert_eq!(cmd.last().map(String::as_str), Some("-"));
+        let f_arg = cmd
+            .iter()
+            .skip_while(|a| *a != "-f")
+            .nth(1)
+            .expect("-f value");
+        assert_eq!(f_arg, "null", "pass 1 output must be discarded");
+
+        let bv_arg = cmd
+            .iter()
+            .skip_while(|a| *a != "-b:v")
+            .nth(1)
+            .expect("-b:v value");
+        assert_eq!(
+            bv_arg, "5759k",
+            "pass 1 must target the same bitrate as the real encode"
+        );
     }
 
     #[test]

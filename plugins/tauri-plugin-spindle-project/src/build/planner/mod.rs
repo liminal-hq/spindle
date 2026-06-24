@@ -8,7 +8,10 @@ use std::collections::HashMap;
 use crate::models::*;
 
 use super::authoring::generate_dvdauthor_xml;
-use super::ffmpeg::{build_ffmpeg_text_subtitle_prepare_command, build_ffmpeg_transcode_command};
+use super::ffmpeg::{
+    build_ffmpeg_text_subtitle_prepare_command, build_ffmpeg_transcode_command,
+    build_ffmpeg_transcode_pass1_command,
+};
 use super::menu::{
     authorable_menus, build_ffmpeg_menu_command, generate_spumux_xml, menu_scene_png_path,
 };
@@ -169,6 +172,7 @@ pub fn generate_build_plan_with_options(
                 .get(title.id.as_str())
                 .copied()
                 .unwrap_or(0.0);
+            let two_pass = project.build_settings.two_pass_video_encoding;
             let mut command = build_ffmpeg_transcode_command(
                 &asset.source_path,
                 &output_path,
@@ -177,8 +181,24 @@ pub fn generate_build_plan_with_options(
                 &project.disc,
                 video_info,
                 video_bitrate_bps,
+                two_pass,
             );
             command[0] = tools.ffmpeg.clone();
+
+            let pass1_command = if two_pass {
+                let mut cmd = build_ffmpeg_transcode_pass1_command(
+                    &asset.source_path,
+                    &output_path,
+                    title,
+                    &project.disc,
+                    video_info,
+                    video_bitrate_bps,
+                );
+                cmd[0] = tools.ffmpeg.clone();
+                Some(cmd)
+            } else {
+                None
+            };
 
             if !has_text_subtitles {
                 transcode_cache.insert(cache_key, output_path.clone());
@@ -190,6 +210,7 @@ pub fn generate_build_plan_with_options(
                 title_name: title.name.clone(),
                 source_path: asset.source_path.clone(),
                 output_path: output_path.display().to_string(),
+                pass1_command,
                 command,
                 label: format!("Transcode \"{}\"", title.name),
                 duration_secs: asset.duration_secs,

@@ -132,6 +132,48 @@ fn build_plan_renders_text_subtitles_after_base_transcode() {
 }
 
 #[test]
+fn build_plan_populates_pass1_command_when_two_pass_encoding_is_enabled() {
+    let mut project = test_project();
+    project.build_settings.two_pass_video_encoding = true;
+
+    let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+
+    let pass1_command = plan.jobs.iter().find_map(|job| match job {
+        BuildJob::TranscodeTitle { pass1_command, .. } => Some(pass1_command),
+        _ => None,
+    });
+
+    let pass1_command = pass1_command
+        .expect("expected a TranscodeTitle job")
+        .as_ref()
+        .expect("expected pass1_command to be populated when two_pass_video_encoding is on");
+
+    assert!(
+        pass1_command.contains(&"-pass".to_string()),
+        "expected pass 1 command to set -pass 1"
+    );
+}
+
+#[test]
+fn build_plan_omits_pass1_command_when_two_pass_encoding_is_disabled() {
+    let project = test_project();
+    assert!(!project.build_settings.two_pass_video_encoding);
+
+    let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+
+    let pass1_command = plan.jobs.iter().find_map(|job| match job {
+        BuildJob::TranscodeTitle { pass1_command, .. } => Some(pass1_command),
+        _ => None,
+    });
+
+    assert_eq!(
+        pass1_command.expect("expected a TranscodeTitle job"),
+        &None,
+        "expected no pass1_command when two_pass_video_encoding is off"
+    );
+}
+
+#[test]
 fn build_plan_preserves_mixed_subtitle_stream_order() {
     let mut project = test_project();
     project.assets[0].subtitle_streams.push(SubtitleStreamInfo {

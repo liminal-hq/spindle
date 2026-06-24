@@ -269,10 +269,50 @@ where
                 }
             }
             BuildJob::TranscodeTitle {
+                pass1_command,
                 command,
                 duration_secs,
                 ..
             } => {
+                if let Some(pass1_command) = pass1_command {
+                    log_lines.push(format!("  $ {}", pass1_command.join(" ")));
+
+                    on_progress(BuildProgress::job(
+                        i,
+                        total,
+                        label.clone(),
+                        BuildJobStatus::Running,
+                        None,
+                    ));
+
+                    match run_ffmpeg_command(
+                        pass1_command,
+                        *duration_secs,
+                        i,
+                        total,
+                        &label,
+                        "Two-pass analysis (pass 1/2)",
+                        &mut on_progress,
+                    ) {
+                        Ok(output) => {
+                            if !output.is_empty() {
+                                log_lines.push(output);
+                            }
+                        }
+                        Err(msg) => {
+                            log_lines.push(msg.clone());
+                            on_progress(BuildProgress::job(
+                                i,
+                                total,
+                                label,
+                                BuildJobStatus::Failed,
+                                Some(msg.clone()),
+                            ));
+                            return failure(plan, log_lines, i, msg);
+                        }
+                    }
+                }
+
                 log_lines.push(format!("  $ {}", command.join(" ")));
 
                 on_progress(BuildProgress::job(
@@ -289,7 +329,11 @@ where
                     i,
                     total,
                     &label,
-                    "FFmpeg transcode",
+                    if pass1_command.is_some() {
+                        "Two-pass encode (pass 2/2)"
+                    } else {
+                        "FFmpeg transcode"
+                    },
                     &mut on_progress,
                 ) {
                     Ok(output) => {
