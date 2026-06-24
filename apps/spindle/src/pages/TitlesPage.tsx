@@ -783,9 +783,9 @@ function TitleEditor({
 							{audioSourceSummary(selectedAsset, am) && (
 								<div className="titles__track-source">{audioSourceSummary(selectedAsset, am)}</div>
 							)}
-							<div className="titles__track-controls">
+							<div className="titles__track-controls--row1">
 								<select
-									className="titles__select titles__select--sm"
+									className="titles__select"
 									value={am.outputTarget}
 									onChange={(e) => {
 										const outputTarget = e.target.value as AudioOutputTarget;
@@ -813,7 +813,7 @@ function TitleEditor({
 									<option value="DTS">DTS</option>
 								</select>
 								<select
-									className="titles__select titles__select--sm"
+									className="titles__select"
 									value={am.copyMode}
 									onChange={(e) => {
 										const copyMode = e.target.value as CopyMode;
@@ -838,8 +838,10 @@ function TitleEditor({
 									<option value="copy">Copy</option>
 									<option value="re-encode">Re-encode</option>
 								</select>
+							</div>
+							<div className="titles__track-controls--row2">
 								<select
-									className="titles__select titles__select--sm"
+									className="titles__select"
 									value={am.channelLayout ?? ''}
 									title="Selecting a channel layout switches this track to Re-encode, since a stream copy can't change channels."
 									onChange={(e) => {
@@ -867,7 +869,7 @@ function TitleEditor({
 									<option value="8">7.1</option>
 								</select>
 								<select
-									className="titles__select titles__select--sm"
+									className="titles__select"
 									value={am.bitrateBps ?? ''}
 									disabled={am.outputTarget === 'LPCM'}
 									title={
