@@ -317,6 +317,7 @@ function TitlesWorkspace() {
 											project.disc.titlesets.length > 1 && (
 												<button
 													className="titles__titleset-remove"
+													tabIndex={-1}
 													onClick={() => handleRemoveTitleset(ts.id)}
 													title="Remove empty titleset"
 												>
@@ -503,6 +504,7 @@ function TitleRow({
 			</div>
 			<button
 				className="titles__row-remove"
+				tabIndex={-1}
 				onClick={(e) => {
 					e.stopPropagation();
 					onRemove();
@@ -767,6 +769,7 @@ function TitleEditor({
 								/>
 								<button
 									className="titles__row-remove"
+									tabIndex={-1}
 									title="Remove audio track"
 									onClick={() =>
 										onUpdate({
@@ -1012,6 +1015,7 @@ function TitleEditor({
 							</label>
 							<button
 								className="titles__row-remove"
+								tabIndex={-1}
 								title="Remove subtitle track"
 								onClick={() =>
 									onUpdate({
