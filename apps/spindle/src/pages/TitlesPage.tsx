@@ -815,6 +815,11 @@ function TitleEditor({
 								<select
 									className="titles__select"
 									value={am.copyMode}
+									title={
+										!isCopyCompatible(selectedAsset, am)
+											? "This stream's codec is not DVD-compatible and cannot be copied as-is."
+											: undefined
+									}
 									onChange={(e) => {
 										const copyMode = e.target.value as CopyMode;
 										onUpdate({
@@ -835,7 +840,12 @@ function TitleEditor({
 										});
 									}}
 								>
-									<option value="copy">Copy</option>
+									<option
+										value="copy"
+										disabled={!isCopyCompatible(selectedAsset, am)}
+									>
+										Copy
+									</option>
 									<option value="re-encode">Re-encode</option>
 								</select>
 							</div>
@@ -1186,6 +1196,13 @@ const CHANNEL_COUNT_LABELS: Record<number, string> = {
 	8: '7.1',
 };
 
+function isCopyCompatible(asset: Asset | null, mapping: AudioTrackMapping): boolean {
+	const compat = asset?.compatibilityDetail?.audioStreams.find(
+		(c) => c.streamIndex === mapping.sourceStreamIndex,
+	);
+	return compat?.codec.compatible ?? true;
+}
+
 function sourceChannelLabel(asset: Asset | null, mapping: AudioTrackMapping): string | null {
 	const channels = asset?.audioStreams.find((s) => s.index === mapping.sourceStreamIndex)?.channels;
 	if (!channels) return null;
@@ -1200,6 +1217,7 @@ function audioSourceSummary(asset: Asset | null, mapping: AudioTrackMapping): st
 		CHANNEL_COUNT_LABELS[stream.channels] ?? `${stream.channels}ch`,
 	];
 	if (stream.sampleRate) parts.push(`${Math.round(stream.sampleRate / 1000)}kHz`);
+	if (stream.bitrateBps) parts.push(`${Math.round(stream.bitrateBps / 1000)}kbps`);
 	if (stream.language) parts.push(stream.language);
 	if (stream.title) parts.push(`"${stream.title}"`);
 	return `#${stream.index} — ${parts.join(' · ')}`;
