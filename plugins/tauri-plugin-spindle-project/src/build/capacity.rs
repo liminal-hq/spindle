@@ -58,6 +58,10 @@ pub struct CapacityEstimate {
 pub struct TitleBitrateAllocation {
     pub title_id: String,
     pub bits_per_second: f64,
+    /// Sum of all audio track bitrates for this title, as estimated by
+    /// `estimate_title_audio_bitrate_bps`. Exposed so the Planner UI can
+    /// show audio alongside video in the per-title breakdown.
+    pub audio_bits_per_second: f64,
 }
 
 /// Estimate encoded disc size and bitrate budget from total title duration,
@@ -425,6 +429,7 @@ fn allocate_title_bitrates(
             TitleBitrateAllocation {
                 title_id: title.id.clone(),
                 bits_per_second,
+                audio_bits_per_second: *audio_bps,
             }
         })
         .collect();

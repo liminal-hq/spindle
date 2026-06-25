@@ -81,9 +81,7 @@ export function PlannerPage() {
 		titleBitrates,
 		floorInfeasible,
 	} = capacity;
-	const titleBitrateById = new Map(
-		titleBitrates.map((alloc) => [alloc.titleId, alloc.bitsPerSecond]),
-	);
+	const titleBitrateById = new Map(titleBitrates.map((alloc) => [alloc.titleId, alloc]));
 
 	return (
 		<div className="planner">
@@ -206,7 +204,14 @@ export function PlannerPage() {
 											<span>{formatDuration(duration)}</span>
 											<span>{formatBytes(sourceSize)}</span>
 											{titleRate != null && (
-												<span className="text-muted">{formatBitrate(titleRate)} video</span>
+												<span className="text-muted">
+													{formatBitrate(titleRate.bitsPerSecond)} video
+												</span>
+											)}
+											{titleRate != null && titleRate.audioBitsPerSecond > 0 && (
+												<span className="text-muted">
+													{formatBitrate(titleRate.audioBitsPerSecond)} audio
+												</span>
 											)}
 											<span className="text-muted">{durationPct.toFixed(1)}% of disc</span>
 											{title.pinnedBitrateBps !== null ? (

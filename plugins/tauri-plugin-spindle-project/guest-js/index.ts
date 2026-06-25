@@ -501,6 +501,8 @@ export interface PropertyCheck {
 export interface TitleBitrateAllocation {
 	titleId: string;
 	bitsPerSecond: number;
+	/** Sum of all audio track bitrates for this title. Shown alongside video in the Planner breakdown. */
+	audioBitsPerSecond: number;
 }
 
 /** Disc-capacity usage and the per-title bitrate budget the build pipeline
