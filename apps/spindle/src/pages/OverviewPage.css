@@ -2,6 +2,7 @@
 
 .overview {
 	max-width: 960px;
+	margin-inline: auto;
 }
 
 .page-header {

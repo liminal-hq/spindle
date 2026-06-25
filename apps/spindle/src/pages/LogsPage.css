@@ -2,6 +2,7 @@
 
 .logs {
 	max-width: 960px;
+	margin-inline: auto;
 }
 
 /* ── Report ───────────────────────────────────────────────── */

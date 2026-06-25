@@ -2,6 +2,7 @@
 
 .planner {
 	max-width: 960px;
+	margin-inline: auto;
 }
 
 /* ── Capacity card ────────────────────────────────────────── */
