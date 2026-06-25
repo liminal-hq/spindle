@@ -25,7 +25,7 @@ mod toolchain;
 
 use helpers::{
     ensure_supported_menu_backend, generate_text_subtitle_spumux_xml,
-    strip_unsupported_subtitle_mappings,
+    strip_unknown_codec_subtitle_mappings,
 };
 use paths::BuildPaths;
 use toolchain::ResolvedToolchain;
@@ -47,7 +47,7 @@ pub fn generate_build_plan_with_options(
 ) -> crate::Result<BuildPlan> {
     let mut owned_project = project.clone();
     if skip_unsupported_streams {
-        strip_unsupported_subtitle_mappings(&mut owned_project);
+        strip_unknown_codec_subtitle_mappings(&mut owned_project);
     }
     let project = &owned_project;
 

@@ -64,8 +64,13 @@ pub(super) fn generate_text_subtitle_spumux_xml(
     )
 }
 
-/// Remove subtitle mappings that the escape hatch should skip during build.
-pub(super) fn strip_unsupported_subtitle_mappings(project: &mut SpindleProjectFile) {
+/// Remove subtitle mappings whose source codec is genuinely unknown/unrecognised.
+///
+/// `Bitmap` and `Text` subtitle types both have working build pipelines
+/// (bitmap passthrough and `RenderTextSubtitles` respectively), so they are
+/// kept. Only `SubtitleType::Unknown` — codecs ffprobe returned but Spindle
+/// has no handler for — are stripped.
+pub(super) fn strip_unknown_codec_subtitle_mappings(project: &mut SpindleProjectFile) {
     let assets: HashMap<&str, &Asset> = project.assets.iter().map(|a| (a.id.as_str(), a)).collect();
 
     for titleset in &mut project.disc.titlesets {
@@ -77,7 +82,8 @@ pub(super) fn strip_unsupported_subtitle_mappings(project: &mut SpindleProjectFi
             {
                 title.subtitle_mappings.retain(|sm| {
                     asset.subtitle_streams.iter().any(|s| {
-                        s.index == sm.source_stream_index && s.subtitle_type == SubtitleType::Bitmap
+                        s.index == sm.source_stream_index
+                            && s.subtitle_type != SubtitleType::Unknown
                     })
                 });
             }

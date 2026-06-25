@@ -245,7 +245,9 @@ fn build_plan_preserves_mixed_subtitle_stream_order() {
 }
 
 #[test]
-fn build_plan_skip_unsupported_streams_removes_text_subtitles() {
+fn build_plan_skip_unsupported_streams_keeps_text_subtitles() {
+    // Regression test for liminal-hq/spindle#93: text subtitles have a working
+    // RenderTextSubtitles pipeline and must not be dropped by the escape hatch.
     let mut project = test_project();
     project.assets[0].subtitle_streams.push(SubtitleStreamInfo {
         index: 2,
@@ -270,19 +272,57 @@ fn build_plan_skip_unsupported_streams_removes_text_subtitles() {
         generate_build_plan_with_options(&project, "/tmp/dvd_output", false, true, false).unwrap();
 
     assert!(
+        plan.jobs
+            .iter()
+            .any(|job| matches!(job, BuildJob::RenderTextSubtitles { .. })),
+        "skip unsupported streams must not strip text subtitle render jobs"
+    );
+}
+
+#[test]
+fn build_plan_skip_unsupported_streams_removes_unknown_codec_subtitles() {
+    // Only SubtitleType::Unknown streams — codecs Spindle has no handler for —
+    // should be stripped by the escape hatch.
+    let mut project = test_project();
+    project.assets[0].subtitle_streams.push(SubtitleStreamInfo {
+        index: 2,
+        codec: "some_future_codec".to_string(),
+        language: Some("eng".to_string()),
+        subtitle_type: SubtitleType::Unknown,
+        title: None,
+    });
+    project.disc.titlesets[0].titles[0]
+        .subtitle_mappings
+        .push(SubtitleTrackMapping {
+            id: "sm-unknown".to_string(),
+            source_stream_index: 2,
+            label: "English".to_string(),
+            language: "eng".to_string(),
+            order_index: 0,
+            is_default: false,
+            is_forced: false,
+        });
+
+    let plan =
+        generate_build_plan_with_options(&project, "/tmp/dvd_output", false, true, false).unwrap();
+
+    // After stripping, no subtitle jobs of any kind should appear.
+    assert!(
         !plan
             .jobs
             .iter()
             .any(|job| matches!(job, BuildJob::RenderTextSubtitles { .. })),
-        "skip unsupported streams should strip text subtitle render jobs"
+        "unknown-codec subtitle mapping should produce no RenderTextSubtitles job"
     );
+    let transcode = plan
+        .jobs
+        .iter()
+        .find(|j| matches!(j, BuildJob::TranscodeTitle { .. }))
+        .expect("expected a TranscodeTitle job");
+    let cmd = transcode.command().unwrap();
     assert!(
-        plan.jobs
-            .iter()
-            .any(|job| matches!(job, BuildJob::TranscodeTitle {
-            output_path, ..
-        } if output_path.ends_with("title-1.mpg"))),
-        "text subtitle stripping should fall back to the direct title output path"
+        !cmd.iter().any(|a| a.starts_with("-c:s")),
+        "unknown-codec subtitle mapping should produce no -c:s flag in the transcode command"
     );
 }
 
