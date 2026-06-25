@@ -122,7 +122,7 @@ function buildCapacity(overrides: Partial<CapacityEstimate> = {}): CapacityEstim
 		estimatedOutputBytes: 3_600_000_000,
 		usagePct: 80,
 		isOverCapacity: false,
-		titleBitrates: [{ titleId: 'title-1', bitsPerSecond: 8_000_000 }],
+		titleBitrates: [{ titleId: 'title-1', bitsPerSecond: 8_000_000, audioBitsPerSecond: 448_000 }],
 		floorInfeasible: false,
 		...overrides,
 	};
@@ -176,6 +176,7 @@ describe('PlannerPage', () => {
 		expect(screen.getByText('feature.mkv')).toBeInTheDocument();
 		expect(screen.getByText('80.0%')).toBeInTheDocument();
 		expect(screen.getByText('8.00 Mbps video')).toBeInTheDocument();
+		expect(screen.getByText('448 kbps audio')).toBeInTheDocument();
 		expect(screen.getByText('100.0% of disc')).toBeInTheDocument();
 	});
 
