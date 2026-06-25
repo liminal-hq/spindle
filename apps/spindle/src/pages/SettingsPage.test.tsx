@@ -169,7 +169,7 @@ describe('SettingsPage', () => {
 		checkToolchain.mockClear();
 
 		fireEvent.click(
-			screen.getByText('Skip unsupported streams').closest('label')!.querySelector('input')!,
+			screen.getByText('Skip unknown-codec streams').closest('label')!.querySelector('input')!,
 		);
 
 		expect(setDevSkipUnsupportedStreams).toHaveBeenCalledWith(true);

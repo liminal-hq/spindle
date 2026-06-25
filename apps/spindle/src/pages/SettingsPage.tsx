@@ -229,10 +229,10 @@ export function SettingsPage() {
 					</label>
 					<label className="settings__toggle-row">
 						<div className="settings__toggle-text">
-							<span className="settings__toggle-label">Skip unsupported streams</span>
+							<span className="settings__toggle-label">Skip unknown-codec streams</span>
 							<span className="settings__toggle-desc text-muted">
-								Automatically strip text-based subtitle mappings during build instead of blocking.
-								Useful when sources only have text subtitles and you want to author without them.
+								Strip subtitle mappings whose codec is unrecognised (not bitmap or text) instead
+								of letting the build fail. Text subtitles are still rendered normally.
 							</span>
 						</div>
 						<input
