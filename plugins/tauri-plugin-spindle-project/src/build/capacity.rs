@@ -429,7 +429,7 @@ fn allocate_title_bitrates(
             TitleBitrateAllocation {
                 title_id: title.id.clone(),
                 bits_per_second,
-                audio_bits_per_second: *audio_bps,
+                audio_bits_per_second: if *duration > 0.0 { *audio_bps } else { 0.0 },
             }
         })
         .collect();
