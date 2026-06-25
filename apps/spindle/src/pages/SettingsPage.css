@@ -2,6 +2,7 @@
 
 .settings {
 	max-width: 720px;
+	margin-inline: auto;
 }
 
 /* ── Section cards ────────────────────────────────────────── */

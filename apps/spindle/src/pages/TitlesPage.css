@@ -2,6 +2,7 @@
 
 .titles {
 	max-width: 1200px;
+	margin-inline: auto;
 	overflow-x: hidden;
 }
 

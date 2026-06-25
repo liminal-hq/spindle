@@ -2,6 +2,7 @@
 
 .build {
 	max-width: 800px;
+	margin-inline: auto;
 }
 
 /* ── Controls ─────────────────────────────────────────────── */
