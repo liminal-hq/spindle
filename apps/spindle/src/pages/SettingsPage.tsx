@@ -231,8 +231,8 @@ export function SettingsPage() {
 						<div className="settings__toggle-text">
 							<span className="settings__toggle-label">Skip unknown-codec streams</span>
 							<span className="settings__toggle-desc text-muted">
-								Strip subtitle mappings whose codec is unrecognised (not bitmap or text) instead
-								of letting the build fail. Text subtitles are still rendered normally.
+								Strip subtitle mappings whose codec is unrecognised (not bitmap or text) instead of
+								letting the build fail. Text subtitles are still rendered normally.
 							</span>
 						</div>
 						<input
