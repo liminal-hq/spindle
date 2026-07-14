@@ -217,12 +217,26 @@ Vmgm | Titleset` is DVD's physical layout leaking into authored intent.
 
    `MenuDocument.role` is authoritative; `MenuDomain` stays only as the DVD
    backend's placement output. Existing projects infer a role on load, in
-   order: generator metadata → `Chapter`/`Setup`; then, among `Vmgm` menus,
-   only the disc's entry menu (the default/first global menu a player reaches
-   via the title-menu key) → `Root` — a project can hold several VMGM pages
-   (title-select, extras), and all remaining `Vmgm` menus infer `TitleSelect`;
-   all other titleset menus → `TitleSelect`. Inference is a one-time default —
-   the inspector lets the user reassign any role afterwards.
+   order:
+   1. **Generation metadata, once it can discriminate.** Today it cannot:
+      `createGeneratedMenuFromButtons` writes the same
+      `generationMeta.generatorId: 'menu-workspace'` for chapter, audio, and
+      subtitle menus (`menuGenerators.ts`). The role slice therefore also adds
+      a `generatorKind` (or per-generator ids) to `MenuGenerationMeta`, written
+      by the generators from then on.
+   2. **Interaction-content detection for existing projects**, where metadata
+      is uniform: a menu whose button actions are predominantly `PlayChapter`
+      → `Chapter`; predominantly `SetAudioStream`/`SetSubtitleStream` →
+      `Setup`; menu-name hints ("Chapter", "Audio", "Subtitle") as a weak
+      tiebreaker only.
+   3. Among `Vmgm` menus, only the disc's entry menu (the default/first global
+      menu a player reaches via the title-menu key) → `Root` — a project can
+      hold several VMGM pages (title-select, extras), and all remaining `Vmgm`
+      menus infer `TitleSelect`.
+   4. Everything else → `TitleSelect`.
+
+   Inference is a one-time default — the inspector lets the user reassign any
+   role afterwards.
 
 4. **Constraint profiles, not constants.** Button limits, palette depth,
    raster, safe-area, and minimum font sizes become a per-format data table
@@ -233,8 +247,19 @@ Vmgm | Titleset` is DVD's physical layout leaking into authored intent.
    and the 720-raster remnants; the authored document (already
    resolution-agnostic, with a 1920×1080 BluRay arm in `MenuSize::default_for`)
    becomes the single model.
-6. **Actions stay semantic.** `PlaybackAction` ports to BD's VM as-is. Popup
-   show/hide, button sounds, and auto-action buttons are additive later.
+6. **Actions stay semantic — with the titleset-relative variants normalised
+   per backend.** Most of `PlaybackAction` (play title/chapter, show menu, set
+   streams, sequence, stop, return) ports to BD's VM as-is. The exceptions are
+   the grouping-relative variants: `PlayNextInTitleset` is documented DVD-only
+   in the model, and `PlayAllInTitleset` expands against titleset order at
+   authoring time (`models/mod.rs`). Since BD abstracts titlesets away
+   (`blu-ray-integration-plan.md` §1.6), each backend must define its mapping
+   for these — DVD keeps the current expansion; BD maps them onto its grouping
+   unit (playlist order) or normalises them into expanded `PlayTitle`/
+   `Sequence` forms at compile — and the `FormatProfile` gains a
+   supported-actions list so validation flags any variant the target cannot
+   express. Popup show/hide, button sounds, and auto-action buttons are
+   additive later.
 7. **A `MenuCompiler` backend boundary is carved during the motion slice** —
    scene render → per-state assets → format mux — so ffmpeg/dvdauthor
    specifics stop spreading into shared code and a BD backend becomes "add a
