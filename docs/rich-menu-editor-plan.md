@@ -493,16 +493,28 @@ block is removed.
 - **Property-track animation model** (design decision 2): keyframes + fixed
   easing set, evaluated in Rust; editor preview evaluates the same tracks
   (parity-tested). First lowered targets: highlight colour/opacity → spumux
-  multi-`<spu>` DCSQ sequences per `motion-menus.md`. A pulsing highlight
-  (`0s → #ffaa40@0.6`, `1s → #ffaa40@0.2`, `2s → #ffaa40@0.6`, Hold easing,
-  sampled at keyframes) lowers to:
+  multi-`<spu>` sequences per `motion-menus.md`. spumux's `image`/`select`/
+  `highlight` attributes take overlay **bitmap paths**, not colours — each
+  keyframe's colour/opacity is baked into per-keyframe rendered overlay PNGs
+  (as the existing still-menu builder already does for its single overlay). A
+  pulsing highlight (`0s → #ffaa40@0.6`, `1s → #ffaa40@0.2`,
+  `2s → #ffaa40@0.6`, Hold easing, sampled at keyframes) lowers to:
 
   ```xml
-  <spu start="00:00:00.000" end="00:00:01.000" image="hl_k0.png"
-       select="#ffaa40" ... />   <!-- opacity 0.6 via palette contrast -->
-  <spu start="00:00:01.000" end="00:00:02.000" image="hl_k1.png" ... />
-  <spu start="00:00:02.000" end="00:00:14.000" image="hl_k2.png" ... />
+  <!-- hl_k*_sel.png / hl_k*_hl.png are rendered per keyframe with the
+       sampled colour+opacity baked into the indexed-PNG palette -->
+  <spu start="00:00:00.000" end="00:00:01.000"
+       image="hl_k0.png" select="hl_k0_sel.png" highlight="hl_k0_hl.png" />
+  <spu start="00:00:01.000" end="00:00:02.000"
+       image="hl_k1.png" select="hl_k1_sel.png" highlight="hl_k1_hl.png" />
+  <spu start="00:00:02.000" end="00:00:14.000"
+       image="hl_k2.png" select="hl_k2_sel.png" highlight="hl_k2_hl.png" />
   ```
+
+  If per-keyframe overlay swaps prove too coarse or bloaty in practice, the
+  fallback is a lower-level DCSQ writer emitting palette/contrast updates
+  directly (bypassing spumux for menus with animated tracks) — the DCSQ
+  player-compatibility research issue covers evaluating both routes.
 
 - Keyframe editor UI replaces the dead Static/Animated dropdown; Preview mode
   animates highlights over the loop.
