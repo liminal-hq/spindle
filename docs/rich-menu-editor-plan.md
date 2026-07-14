@@ -42,6 +42,34 @@ model, the editor, and the seams between them and the backends**.
   composites it over the background and encodes an MPEG-2 still, and highlights
   are emitted as a 4-colour subpicture overlay.
 
+### Today's pipeline, and where it diverges
+
+```mermaid
+flowchart LR
+    subgraph webview [Editor webview]
+        Store["project-store\nMenuDocument"]
+        Canvas["SceneCanvas\nDOM/CSS render"]
+        Store --> Canvas
+    end
+
+    subgraph plugin [tauri-plugin-spindle-project]
+        Skia["Skia scene render\n→ PNG"]
+        FF["ffmpeg\nMPEG-2 still"]
+        Spu["spumux\n4-colour subpicture"]
+        DA["dvdauthor\nVMGM / VTSM"]
+        Skia --> FF --> Spu --> DA
+    end
+
+    Store -- "save / build" --> Skia
+    Store -. "legacy Menu.buttons mirror\n(sync on every edit)" .-> Skia
+
+    Canvas -. "no parity check\n(shadows render here…)" .-> Skia
+```
+
+The two dotted edges are the structural problems: the legacy mirror keeps a
+second model alive that cannot express the roadmap below, and nothing forces
+the DOM render and the Skia render to agree.
+
 ### The gap: the model is two phases ahead of everything else
 
 | Capability                                   | Model              | Editor                             | DVD build                               |
@@ -104,6 +132,66 @@ expresses the rich intent; each format backend owns the degradation.**
    sequences (DCSQ palette updates). Nothing browser-only (CSS transitions,
    open-ended easing) goes into the model. `HighlightKeyframe` becomes a
    special case of this system, not a parallel one.
+
+   ```rust
+   /// A keyframed animation on one property of one scene node (or button
+   /// state). Every track is offline-sampleable: `evaluate(t)` is pure and
+   /// deterministic, so the editor preview, the DVD DCSQ compiler, and the
+   /// BD frame-sequence sampler all agree by construction.
+   #[derive(Debug, Clone, Serialize, Deserialize)]
+   #[serde(rename_all = "camelCase")]
+   pub struct AnimationTrack {
+       pub node_id: String,
+       pub target: AnimatableProperty,
+       pub keyframes: Vec<Keyframe>, // sorted by timestamp_secs
+   }
+
+   #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+   #[serde(rename_all = "kebab-case")]
+   pub enum AnimatableProperty {
+       HighlightColour,   // DVD: DCSQ palette update · BD: state frames
+       HighlightOpacity,  // DVD: DCSQ contrast update · BD: state frames
+       Opacity,           // BD only (DVD diagnostics flag it)
+       Position,          // BD only
+   }
+
+   #[derive(Debug, Clone, Serialize, Deserialize)]
+   #[serde(rename_all = "camelCase")]
+   pub struct Keyframe {
+       pub timestamp_secs: f64,
+       pub value: KeyValue, // colour | scalar | point
+       pub easing: Easing,  // closed set — see below
+   }
+
+   /// Closed easing set. Every member must be implementable in the Rust
+   /// evaluator AND cheaply in the webview preview. No cubic-bezier free-for-all.
+   #[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
+   #[serde(rename_all = "kebab-case")]
+   pub enum Easing {
+       #[default]
+       Linear,
+       Hold,     // step function — required for DCSQ, which cannot interpolate
+       EaseIn,
+       EaseOut,
+       EaseInOut,
+   }
+   ```
+
+   How one authored track reaches each disc format:
+
+   ```mermaid
+   flowchart TD
+       T["AnimationTrack\nhighlightColour: 0s #ffaa40 → 5s #ff4040"]
+       EV["Rust evaluator\nevaluate(track, t)"]
+       T --> EV
+       EV -->|"sample at keyframe times\n(Hold semantics)"| DCSQ["DVD: spumux multi-&lt;spu&gt;\nDCSQ palette updates"]
+       EV -->|"sample at frame rate\n(e.g. 23.976 fps)"| IGS["BD: per-state bitmap\nframe sequence → igs-author"]
+       EV -->|"requestAnimationFrame\n(same evaluate, TS port + parity tests)"| PREV["Editor: animated\nPreview mode"]
+   ```
+
+   The DVD lowering is lossy by design (palette/contrast only, hold-steps);
+   the diagnostics layer says exactly what survives, per Section 3.3.
+
 3. **Menus carry a semantic role, not just a physical domain.** `MenuDomain::
 Vmgm | Titleset` is DVD's physical layout leaking into authored intent.
    Menus gain a `role` (root, title-select, chapter, setup, popup, extras);
@@ -111,6 +199,27 @@ Vmgm | Titleset` is DVD's physical layout leaking into authored intent.
    Top Menu / popup IG stream. This reconciles with `blu-ray-integration-plan.md`
    §1.7 (`BdMenuType`) — role is the shared concept, `BdMenuType` and
    `MenuDomain` become backend mappings of it.
+
+   ```rust
+   /// What the user means this menu to be. Backends map role → physical
+   /// placement; the terminology layer maps role → on-screen wording.
+   #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+   #[serde(rename_all = "kebab-case")]
+   pub enum MenuRole {
+       Root,        // DVD: VMGM title menu   · BD: Top Menu
+       TitleSelect, // DVD: VMGM or VTSM      · BD: Top Menu page
+       Chapter,     // DVD: VTSM (per group)  · BD: playlist menu page
+       Setup,       // DVD: VTSM              · BD: Top Menu page
+       Extras,      // DVD: VTSM              · BD: Top Menu page
+       Popup,       // DVD: unsupported (validation error) · BD: popup IG
+   }
+   ```
+
+   `MenuDocument.role` is authoritative; `MenuDomain` stays only as the DVD
+   backend's placement output. Existing projects infer a role on load:
+   `domain == Vmgm → Root`, generator metadata → `Chapter`/`Setup`, else
+   `TitleSelect`.
+
 4. **Constraint profiles, not constants.** Button limits, palette depth,
    raster, safe-area, and minimum font sizes become a per-format data table
    consumed by diagnostics, the compile preview, and validation — replacing
@@ -144,6 +253,17 @@ language, with an honest preview of what the disc will actually do.**
   Generalise this into a **format badge** sourced from the constraint profile:
   DVD shows raster/standard/aspect; BD will show `1920 × 1080 · 23.976p ·
 BD-25`. The badge is also the entry point to the compile-policy inspector.
+
+  ```text
+  DVD project                              BD project (later)
+  ┌──────────────────────────────────┐    ┌──────────────────────────────────┐
+  │ ☰ Menus   Main Menu              │    │ ☰ Menus   Top Menu               │
+  │ ● DVD-Video · 720×480 NTSC ·     │    │ ● BDMV · 1920×1080 · 23.976p ·   │
+  │   16:9 anamorphic · VMGM         │    │   BD-25 · Top Menu               │
+  │ [Safe Area][DVD Preview][Preview]│    │ [Safe Area][BD Preview][Preview] │
+  └──────────────────────────────────┘    └──────────────────────────────────┘
+  ```
+
 - Diagnostics, planner rows, and validation messages quote the profile's
   limits ("36-button DVD limit", "4-colour subpicture palette") rather than
   bare numbers, so the same message renders correctly for BD ("255-button IG
@@ -167,6 +287,24 @@ by `DiscFamily`, colocated with the constraint profile):
 The editor never invents a neutral vocabulary that satisfies neither format —
 per `dvd_bd_architecture_note.md`, shared concepts live in the model, but the
 _words on screen_ are the target format's.
+
+```typescript
+// apps/spindle/src/format/terminology.ts (new)
+export interface FormatTerminology {
+	menuRole: Record<MenuRole, string>;
+	highlightTreatment: string; // 'Subpicture highlight' | 'Button state bitmaps'
+	highlightPalette: string; // '4-colour CLUT' | '256-colour palette'
+	groupingUnit: string; // 'Titleset' | 'Playlist'
+	compilePreviewLabel: string; // 'DVD Preview' | 'BD Preview'
+}
+
+export function terminologyFor(family: DiscFamily): FormatTerminology { ... }
+```
+
+Components stop writing `"DVD Preview"` inline and render
+`terminologyFor(project.disc.family).compilePreviewLabel` — mechanical, but it
+is the difference between "BD support means a new profile row" and "BD support
+means auditing every string in `components/menus/`".
 
 ### 3.3 Honest target preview
 
@@ -201,7 +339,38 @@ because of Section 2.
   project): raster, design-size defaults, max buttons per menu/page, palette
   model (`FourColourSubpicture` | `Palette256`), min font size, safe-area
   defaults, supported menu roles, supported background modes.
-- Add the terminology map (frontend) keyed by `DiscFamily`.
+
+  ```rust
+  /// Format law as data. One row per DiscFamily; consumed by diagnostics,
+  /// CompileMode, validation, and the canvas chrome. Replaces scattered
+  /// constants like MAX_DVD_BUTTONS / DVD_PALETTE_COLOURS / MENU_WIDTH.
+  #[derive(Debug, Clone, Serialize)]
+  #[serde(rename_all = "camelCase")]
+  pub struct FormatProfile {
+      pub family: DiscFamily,
+      pub display_name: &'static str,        // "DVD-Video", "BDMV"
+      pub design_sizes: &'static [MenuSize], // per aspect
+      pub max_buttons_per_menu: u32,         // 36 | 255
+      pub highlight_model: HighlightModel,
+      pub min_font_size_pt: f32,             // already per-family in skia/fonts
+      pub supported_roles: &'static [MenuRole],
+      pub supported_background_modes: &'static [BackgroundMode],
+      pub supports_state_animation: bool,    // false (DCSQ-only) | true (IGS)
+  }
+
+  #[derive(Debug, Clone, Copy, Serialize)]
+  #[serde(rename_all = "kebab-case")]
+  pub enum HighlightModel {
+      /// DVD: one subpicture overlay, 4-colour CLUT, palette-only animation.
+      FourColourSubpicture,
+      /// BD: per-state 256-colour bitmaps, frame-sequence animation.
+      StateBitmaps256,
+  }
+
+  pub fn profile_for(family: DiscFamily) -> &'static FormatProfile { ... }
+  ```
+
+- Add the terminology map (frontend) keyed by `DiscFamily` (Section 3.2).
 - Drive `CompileMode`, `inspectorDiagnostics.ts`, and canvas chrome from the
   profile; delete `MAX_DVD_BUTTONS`, `DVD_PALETTE_COLOURS`, `MENU_WIDTH`
   constants.
@@ -243,6 +412,51 @@ block is removed.
 - Carve the **`MenuCompiler` boundary** while writing it: trait with
   `render_states → compose_background → mux` stages; the DVD implementation is
   the only one, but ffmpeg/dvdauthor types stop appearing in shared build code.
+
+  ```rust
+  /// Format backend seam for menu compilation. Stage 1 is shared (Skia);
+  /// stages 2–3 are format law. The BD implementation slots in later with
+  /// igs-author + tsMuxeR without touching shared build code.
+  pub trait MenuCompiler {
+      /// Shared: render every button state + base scene via Skia.
+      /// Animation tracks are sampled here when the profile supports it.
+      fn render_states(
+          &self,
+          doc: &MenuDocument,
+          assets: &AssetMap,
+      ) -> Result<RenderedMenu>; // base PNG + per-state, per-button bitmaps
+
+      /// Format-specific: produce the menu's video/background unit.
+      /// DVD: ffmpeg still or looping MPEG-2 PS.  BD: H.264 clip.
+      fn compose_background(
+          &self,
+          rendered: &RenderedMenu,
+          timing: &MenuTiming,
+      ) -> Result<ComposedBackground>;
+
+      /// Format-specific: attach interactivity and emit muxable output.
+      /// DVD: spumux subpicture + dvdauthor PGC.  BD: IGS stream + tsMuxeR.
+      fn mux(
+          &self,
+          composed: &ComposedBackground,
+          interaction: &MenuInteractionGraph,
+      ) -> Result<CompiledMenu>;
+  }
+  ```
+
+  ```mermaid
+  flowchart TD
+      DOC["MenuDocument\n(scene · interaction · timing · role)"]
+      RS["render_states (shared, Skia)\nbase scene + per-state bitmaps\n+ sampled animation frames"]
+      DOC --> RS
+
+      RS --> DVDC["DVD backend\ncompose: ffmpeg MPEG-2\nmux: spumux + dvdauthor"]
+      RS --> BDC["BD backend (later)\ncompose: H.264 clip\nmux: igs-author + tsMuxeR"]
+
+      DVDC --> VOB["VIDEO_TS"]
+      BDC --> M2TS["BDMV"]
+  ```
+
 - Planner: replace the "switch these menus back to still mode" error with real
   motion jobs (capacity model already estimates motion sizes).
 - Editor: motion settings stay in the inspector but gain a working
@@ -256,10 +470,36 @@ block is removed.
 - **Timeline strip** under the canvas (visible when the menu is motion, or
   when any animation track exists): intro region, loop region, scrubber,
   per-node keyframe lanes.
+
+  ```text
+  ┌─ Canvas ────────────────────────────────────────────────────────────────┐
+  │                        (scene, scrubbed to 7.2 s)                       │
+  └──────────────────────────────────────────────────────────────────────---┘
+  ┌─ Timeline ──────────────────────────────────────────────────────────────┐
+  │        0s      2s      4s      6s   ▼7.2s   10s     12s     14s         │
+  │ ▐ intro ▌▐──────────────── loop (2.0 s → 14.0 s) ────────────────▌      │
+  │ ♪ audio  ▐████████████████████ bed.ac3 ██████████████████████▌          │
+  │ ▸ Play All   highlightColour  ◆────────◆─────────────◆                  │
+  │ ▸ Chapters   highlightOpacity ◆──────────────◆                          │
+  │ ▸ tile-3     video            ▐■■■■■■ chapter3.mp4 (poster 00:12) ■■▌   │
+  └──────────────────────────────────────────────────────────────────────---┘
+     ◆ = keyframe (drag to retime; double-click to edit value/easing)
+  ```
+
 - **Property-track animation model** (design decision 2): keyframes + fixed
   easing set, evaluated in Rust; editor preview evaluates the same tracks
   (parity-tested). First lowered targets: highlight colour/opacity → spumux
-  multi-`<spu>` DCSQ sequences per `motion-menus.md`.
+  multi-`<spu>` DCSQ sequences per `motion-menus.md`. A pulsing highlight
+  (`0s → #ffaa40@0.6`, `1s → #ffaa40@0.2`, `2s → #ffaa40@0.6`, Hold easing,
+  sampled at keyframes) lowers to:
+
+  ```xml
+  <spu start="00:00:00.000" end="00:00:01.000" image="hl_k0.png"
+       select="#ffaa40" ... />   <!-- opacity 0.6 via palette contrast -->
+  <spu start="00:00:01.000" end="00:00:02.000" image="hl_k1.png" ... />
+  <spu start="00:00:02.000" end="00:00:14.000" image="hl_k2.png" ... />
+  ```
+
 - Keyframe editor UI replaces the dead Static/Animated dropdown; Preview mode
   animates highlights over the loop.
 - Migration: existing `HighlightKeyframe` arrays lift into tracks on load.
@@ -288,6 +528,30 @@ restyle without regeneration.
 - Theme document: typography set, button `ButtonStyleMap`, highlight palette,
   spacing tokens, background treatment. `theme_ref` resolves against project
   themes; unset properties inherit from the theme.
+
+  ```jsonc
+  // A theme is data the existing style structs already understand —
+  // no new rendering capability, only a resolution layer.
+  {
+  	"id": "theme-archival",
+  	"name": "Archival",
+  	"typography": {
+  		"heading": { "fontFamily": "Inter", "fontSize": 42, "fontWeight": "bold" },
+  		"label": { "fontFamily": "Inter", "fontSize": 16 },
+  	},
+  	"buttonStyle": {
+  		/* ButtonStyleMap: normal / focus / activate */
+  	},
+  	"highlightColours": { "selectColour": "#ffaa40", "selectOpacity": 0.6 },
+  	"spacing": { "gridGap": 24, "buttonPaddingH": 16 },
+  	"background": { "colour": "#101014" },
+  }
+  ```
+
+  Resolution order per property: explicit node override → component default →
+  theme token → model default. Only the explicit override is stored in the
+  scene, which is what makes re-theming and regeneration non-destructive.
+
 - Templates rail lists starter themes; applying one is undoable and
   non-destructive (explicit overrides survive).
 - Generators become theme-aware (SPEC §14.8) and emit `generation_meta` so
@@ -343,6 +607,31 @@ decisions surfaces four corrections:
    palettes for multi-page menus). Worth stating in the plan because per-image
    quantisation is the natural-but-wrong first implementation.
 
+Corrections 2 and 3 as an API revision:
+
+```rust
+/// Revised from lib-igs-author-plan.md §Public API.
+pub struct AuthorButton {
+    pub button_id: u16,
+    pub overlap_group: u16,
+    // Frame sequences, not single images. len() == 1 → static state.
+    // Sampled from Spindle AnimationTracks at page.animation_frame_rate.
+    pub normal: Vec<ButtonImage>,
+    pub selected: Vec<ButtonImage>,
+    pub activated: Vec<ButtonImage>,
+    pub nav: ButtonNav,                       // up/down/left/right ids
+    pub commands: Vec<[u8; 12]>,              // from hdmv_insn::encode ✅ exists
+}
+
+/// Spindle-side converter (lives behind the MenuCompiler seam, not in
+/// libhdmv): MenuDocument + rendered state bitmaps → author pages.
+pub fn author_pages_from_document(
+    doc: &MenuDocument,          // scene + interaction + role — NOT Menu/MenuButton
+    rendered: &RenderedMenu,     // per-state RGBA from render_states()
+    profile: &FormatProfile,
+) -> Vec<AuthorPage>;
+```
+
 Sequencing: igs-author Phases A–C are pure libhdmv work and can proceed in
 parallel with Slices A–D here. Phase D depends on Slice B (per-state Skia
 rendering), the menu `role` model, and the mirror retirement — which is
@@ -354,13 +643,17 @@ they attach at the composition/mux layer later.
 
 ## 6. Sequencing and rationale
 
-```
-A (profiles/terminology)
-→ B (fidelity + mirror retirement)
-→ C (motion backend, MenuCompiler seam)
-→ D (timeline + tracks)
-→ E (video buttons)
-→ F (themes/components — parallel-friendly after B)
+```mermaid
+flowchart LR
+    A["A · profiles\n& terminology"] --> B["B · fidelity +\nmirror retirement"]
+    B --> C["C · motion backend\n(MenuCompiler seam)"]
+    C --> D["D · timeline +\nanimation tracks"]
+    D --> E["E · video\nbuttons"]
+    B --> F["F · themes &\ncomponents"]
+
+    B -.-> IGSD["igs-author Phase D\n(libhdmv, later)"]
+    D -.-> IGSD
+    IGSA["igs-author Phases A–C\n(libhdmv, parallel)"] -.-> IGSD
 ```
 
 - A before B: the parity tests and preview treatments B adds should read the
