@@ -225,10 +225,12 @@ Vmgm | Titleset` is DVD's physical layout leaking into authored intent.
       a `generatorKind` (or per-generator ids) to `MenuGenerationMeta`, written
       by the generators from then on.
    2. **Interaction-content detection for existing projects**, where metadata
-      is uniform: a menu whose button actions are predominantly `PlayChapter`
-      → `Chapter`; predominantly `SetAudioStream`/`SetSubtitleStream` →
-      `Setup`; menu-name hints ("Chapter", "Audio", "Subtitle") as a weak
-      tiebreaker only.
+      is uniform — counting actions after **recursively flattening
+      `Sequence`**, because the setup generators wrap the stream setter in a
+      `sequence` with an optional `showMenu` return (`menuGenerators.ts`):
+      predominantly `PlayChapter` → `Chapter`; predominantly
+      `SetAudioStream`/`SetSubtitleStream` → `Setup`; menu-name hints
+      ("Chapter", "Audio", "Subtitle") as a weak tiebreaker only.
    3. Among `Vmgm` menus, only the disc's entry menu (the default/first global
       menu a player reaches via the title-menu key) → `Root` — a project can
       hold several VMGM pages (title-select, extras), and all remaining `Vmgm`
@@ -527,13 +529,27 @@ block is removed.
 
   ```xml
   <!-- hl_k*_sel.png / hl_k*_hl.png are rendered per keyframe with the
-       sampled colour+opacity baked into the indexed-PNG palette -->
-  <spu start="00:00:00.000" end="00:00:01.000"
-       image="hl_k0.png" select="hl_k0_sel.png" highlight="hl_k0_hl.png" />
-  <spu start="00:00:01.000" end="00:00:02.000"
-       image="hl_k1.png" select="hl_k1_sel.png" highlight="hl_k1_hl.png" />
-  <spu start="00:00:02.000" end="00:00:14.000"
-       image="hl_k2.png" select="hl_k2_sel.png" highlight="hl_k2_hl.png" />
+       sampled colour+opacity baked into the indexed-PNG palette.
+       force="yes" and the <button> children are required for menu use,
+       exactly as the existing still-menu builder emits them; remaining
+       button rectangles elided for brevity. -->
+  <spu start="00:00:00.000" end="00:00:01.000" force="yes"
+       image="hl_k0.png" select="hl_k0_sel.png" highlight="hl_k0_hl.png"
+       transparent="#000000">
+    <button name="btn-1" x0="100" y0="280" x1="320" y1="328"
+            up="btn-3" down="btn-2" />
+    <!-- … one <button> per menu button, identical across keyframes … -->
+  </spu>
+  <spu start="00:00:01.000" end="00:00:02.000" force="yes"
+       image="hl_k1.png" select="hl_k1_sel.png" highlight="hl_k1_hl.png"
+       transparent="#000000">
+    <!-- same <button> children -->
+  </spu>
+  <spu start="00:00:02.000" end="00:00:14.000" force="yes"
+       image="hl_k2.png" select="hl_k2_sel.png" highlight="hl_k2_hl.png"
+       transparent="#000000">
+    <!-- same <button> children -->
+  </spu>
   ```
 
   If per-keyframe overlay swaps prove too coarse or bloaty in practice, the
