@@ -216,9 +216,13 @@ Vmgm | Titleset` is DVD's physical layout leaking into authored intent.
    ```
 
    `MenuDocument.role` is authoritative; `MenuDomain` stays only as the DVD
-   backend's placement output. Existing projects infer a role on load:
-   `domain == Vmgm → Root`, generator metadata → `Chapter`/`Setup`, else
-   `TitleSelect`.
+   backend's placement output. Existing projects infer a role on load, in
+   order: generator metadata → `Chapter`/`Setup`; then, among `Vmgm` menus,
+   only the disc's entry menu (the default/first global menu a player reaches
+   via the title-menu key) → `Root` — a project can hold several VMGM pages
+   (title-select, extras), and all remaining `Vmgm` menus infer `TitleSelect`;
+   all other titleset menus → `TitleSelect`. Inference is a one-time default —
+   the inspector lets the user reassign any role afterwards.
 
 4. **Constraint profiles, not constants.** Button limits, palette depth,
    raster, safe-area, and minimum font sizes become a per-format data table
