@@ -418,6 +418,12 @@ because of Section 2.
   glows, and `Group` nodes (position offset + z-order container). The DVD
   compiler keeps consuming `normal` plus subpicture, but the compile preview
   and render-preview export can now show true focus/activate appearance.
+  Rendering groups is not enough on its own: `AuthorableMenuRef::buttons()`
+  (`build/menu.rs`) only scans top-level `scene.nodes`, so a button inside a
+  group would become visible without gaining spumux rectangles or navigation.
+  Authoring/interaction extraction must **recursively flatten grouped
+  buttons** (with accumulated group offsets), as scene validation already
+  does — this is an explicit acceptance criterion.
 - New shared visual properties on positioned scene nodes: opacity, rotation,
   corner radius (shape/image), 2-stop linear gradient fill, image fit/crop.
   Implemented in **both** renderers in the same PR — a renderer-parity golden
@@ -428,6 +434,10 @@ because of Section 2.
 - **Retire the legacy `Menu.buttons` mirror**: migrate remaining readers
   (planner, validation, compiler fallback) onto `authored_document`, keep the
   one-time `migrate_to_document` lift on load, delete the write-back sync.
+  This includes moving the fields that today live **only** on the legacy
+  `Menu` onto `MenuDocument` — notably the audio bed
+  (`resolved_motion_audio_asset_id()` reads just `Menu.motion_audio_asset_id`)
+  — so retiring the mirror doesn't orphan them.
 
 Intersecting issues: #28, #29, #53, #55, #63, #64.
 
@@ -459,10 +469,15 @@ block is removed.
 
       /// Format-specific: produce the menu's video/background unit.
       /// DVD: ffmpeg still or looping MPEG-2 PS.  BD: H.264 clip.
+      /// Takes the document and asset map, not just rendered output: motion
+      /// menus need the background video (`scene.background.asset_id`) and
+      /// the audio bed to trim, loop, and mux — media that never passes
+      /// through `render_states`.
       fn compose_background(
           &self,
+          doc: &MenuDocument,
           rendered: &RenderedMenu,
-          timing: &MenuTiming,
+          assets: &AssetMap,
       ) -> Result<ComposedBackground>;
 
       /// Format-specific: attach interactivity and emit muxable output.
