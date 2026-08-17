@@ -111,8 +111,9 @@ pub fn estimate_disc_capacity(project: &SpindleProjectFile) -> CapacityEstimate 
     let estimated_menu_bytes: f64 = all_menus
         .iter()
         .map(|menu| {
-            if menu.background_mode == BackgroundMode::Motion {
-                if let Some(secs) = menu.motion_duration_secs {
+            let doc = menu.doc();
+            if doc.background_mode == BackgroundMode::Motion {
+                if let Some(secs) = doc.motion_loop_duration() {
                     return (MOTION_MENU_BITRATE_BPS * secs) / 8.0;
                 }
             }

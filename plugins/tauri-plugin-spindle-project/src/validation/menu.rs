@@ -41,24 +41,22 @@ pub(super) fn validate_menus(
 
     for (menu, titleset_opt) in &all_menus {
         let stream_counts = titleset_opt.map(titleset_stream_counts);
+        let doc = menu.doc();
         let background_mode = menu.resolved_background_mode();
         let motion_duration_secs = menu.resolved_motion_duration_secs();
         let motion_loop_start_secs = menu.resolved_motion_loop_start_secs();
         let background_asset_id = menu.resolved_background_asset_id();
         let motion_audio_asset_id = menu.resolved_motion_audio_asset_id();
+        let buttons = doc.buttons();
 
-        // Validate the timeout action's target. Runs ahead of the
-        // empty-buttons check below since a menu can have a valid timeout
-        // action (or authored scene buttons) even with an empty legacy
-        // `buttons[]` array. Mirrors the authored-document-vs-legacy split
-        // used for button actions: the authored document's interaction
-        // graph is authoritative when present, otherwise the legacy field.
-        let timeout_action = menu
-            .authored_document
-            .as_ref()
-            .map(|doc| &doc.interaction.timeout_action)
-            .unwrap_or(&menu.timeout_action);
-        if let Some(action) = timeout_action {
+        // Menu-level checks below (background asset, motion, timeout action)
+        // always run, regardless of button count — an empty-buttons menu can
+        // still have a broken background or motion configuration worth
+        // reporting. See `menu.no-buttons` below, which is a Warning and
+        // does NOT short-circuit the rest of these checks.
+
+        // Validate the timeout action's target.
+        if let Some(action) = &doc.interaction.timeout_action {
             validate_action(
                 action,
                 all_title_ids,
@@ -76,14 +74,14 @@ pub(super) fn validate_menus(
         }
 
         // Hard limit: 36 buttons per menu (DVD spec limit for most players/configurations)
-        if menu.buttons.len() > 36 {
+        if buttons.len() > 36 {
             issues.push(ValidationIssue {
                 severity: IssueSeverity::Error,
                 code: "menu.too-many-buttons".to_string(),
                 message: format!(
                     "Menu \"{}\" has {} buttons, which exceeds the DVD-Video limit of 36.",
                     menu.name,
-                    menu.buttons.len()
+                    buttons.len()
                 ),
                 context: Some(menu.id.clone()),
                 entity_type: Some("menu".to_string()),
@@ -92,7 +90,7 @@ pub(super) fn validate_menus(
                     "Remove some buttons or split the menu into multiple pages.".to_string(),
                 ),
             });
-        } else if menu.buttons.len() > 18 {
+        } else if buttons.len() > 18 {
             // Safe Zone warning (12-18 buttons is the recommended target)
             issues.push(ValidationIssue {
                 severity: IssueSeverity::Warning,
@@ -100,7 +98,7 @@ pub(super) fn validate_menus(
                 message: format!(
                     "Menu \"{}\" has {} buttons. High button density may exceed the safe zone for some TV displays.",
                     menu.name,
-                    menu.buttons.len()
+                    buttons.len()
                 ),
                 context: Some(menu.id.clone()),
                 entity_type: Some("menu".to_string()),
@@ -111,8 +109,11 @@ pub(super) fn validate_menus(
             });
         }
 
-        // Empty menus
-        if menu.buttons.is_empty() {
+        // Empty menus — a Warning only; it must NOT skip the menu-level
+        // checks below (background asset, motion, timeout action already
+        // ran above regardless), nor should it prevent per-button checks
+        // from running on whatever buttons *do* exist.
+        if buttons.is_empty() {
             issues.push(ValidationIssue {
                 severity: IssueSeverity::Warning,
                 code: "menu.no-buttons".to_string(),
@@ -124,11 +125,10 @@ pub(super) fn validate_menus(
                     "Add at least one button to define user interaction.".to_string(),
                 ),
             });
-            continue;
         }
 
         // No default button
-        if menu.default_button_id.is_none() {
+        if !buttons.is_empty() && doc.interaction.default_focus_id.is_none() {
             issues.push(ValidationIssue {
                 severity: IssueSeverity::Warning,
                 code: "menu.no-default-button".to_string(),
@@ -143,9 +143,9 @@ pub(super) fn validate_menus(
             });
         }
 
-        let button_ids: HashSet<&str> = menu.buttons.iter().map(|b| b.id.as_str()).collect();
+        let button_ids: HashSet<&str> = buttons.iter().map(|b| b.id).collect();
 
-        for button in &menu.buttons {
+        for button in &buttons {
             // Dead-end detection: button with no action
             if button.action.is_none() {
                 issues.push(ValidationIssue {
@@ -165,43 +165,33 @@ pub(super) fn validate_menus(
                 });
             }
 
-            // Validate action targets exist. Skipped when this menu has
-            // an authored document: `buttons[]` is then just a best-effort
-            // mirror of `authored_document.interaction.nodes[]` (kept in
-            // sync by the frontend, not guaranteed authoritative), and
-            // that authored-document action is validated below — checking
-            // both would report the same dangling/invalid target twice.
-            if menu.authored_document.is_none() {
-                if let Some(action) = &button.action {
-                    validate_action(
-                        action,
-                        all_title_ids,
-                        all_menu_ids,
-                        &project.disc,
-                        &ActionSubject {
-                            subject: format!(
-                                "Action \"{}\" in menu \"{}\"",
-                                button.label, menu.name
-                            ),
-                            entity_type: "menu",
-                            entity_name: Some(&menu.name),
-                            context_id: Some(&menu.id),
-                        },
-                        stream_counts,
-                        issues,
-                    );
-                }
+            // Validate action targets exist.
+            if let Some(action) = button.action {
+                validate_action(
+                    action,
+                    all_title_ids,
+                    all_menu_ids,
+                    &project.disc,
+                    &ActionSubject {
+                        subject: format!("Action \"{}\" in menu \"{}\"", button.label, menu.name),
+                        entity_type: "menu",
+                        entity_name: Some(&menu.name),
+                        context_id: Some(&menu.id),
+                    },
+                    stream_counts,
+                    issues,
+                );
             }
 
             // Navigation link validation
             for (dir, nav_id) in [
-                ("up", &button.nav_up),
-                ("down", &button.nav_down),
-                ("left", &button.nav_left),
-                ("right", &button.nav_right),
+                ("up", button.nav_up),
+                ("down", button.nav_down),
+                ("left", button.nav_left),
+                ("right", button.nav_right),
             ] {
                 if let Some(id) = nav_id {
-                    if !button_ids.contains(id.as_str()) {
+                    if !button_ids.contains(id) {
                         issues.push(ValidationIssue {
                             severity: IssueSeverity::Error,
                             code: "menu.dangling-nav-ref".to_string(),
@@ -224,7 +214,7 @@ pub(super) fn validate_menus(
                 || button.nav_left.is_some()
                 || button.nav_right.is_some();
 
-            if !has_any_nav && menu.buttons.len() > 1 {
+            if !has_any_nav && buttons.len() > 1 {
                 issues.push(ValidationIssue {
                     severity: IssueSeverity::Info,
                     code: "menu.button-no-navigation".to_string(),
@@ -240,73 +230,50 @@ pub(super) fn validate_menus(
             }
         }
 
-        // ── Authored Document (Scene) Checks ───────────────────────────
-        if let Some(doc) = &menu.authored_document {
-            // Count buttons in scene nodes (including groups)
-            let scene_button_count = count_scene_buttons(&doc.scene.nodes);
-            if scene_button_count > 36 {
+        // ── Authored Scene Checks ───────────────────────────────────────
+        // Count buttons in scene nodes (including groups) — a menu can stay
+        // under the top-level 36-button limit above yet exceed it once
+        // buttons nested in groups are counted too.
+        let scene_button_count = count_scene_buttons(&doc.scene.nodes);
+        if scene_button_count > 36 {
+            issues.push(ValidationIssue {
+                severity: IssueSeverity::Error,
+                code: "menu.scene-too-many-buttons".to_string(),
+                message: format!(
+                    "Authored scene for menu \"{}\" has {} buttons, which exceeds the DVD-Video limit of 36.",
+                    menu.name, scene_button_count
+                ),
+                context: Some(menu.id.clone()),
+                entity_type: Some("menu".to_string()),
+                entity_name: Some(menu.name.clone()),
+                suggested_fix: Some(
+                    "Remove some buttons or split the scene into multiple pages.".to_string(),
+                ),
+            });
+        }
+
+        // Check background asset
+        if let Some(asset_id) = &doc.scene.background.asset_id {
+            if !asset_ids.contains(asset_id.as_str()) {
                 issues.push(ValidationIssue {
                     severity: IssueSeverity::Error,
-                    code: "menu.scene-too-many-buttons".to_string(),
+                    code: "menu.scene-dangling-background".to_string(),
                     message: format!(
-                        "Authored scene for menu \"{}\" has {} buttons, which exceeds the DVD-Video limit of 36.",
-                        menu.name, scene_button_count
+                        "Authored scene for menu \"{}\" references a background asset that no longer exists.",
+                        menu.name
                     ),
                     context: Some(menu.id.clone()),
                     entity_type: Some("menu".to_string()),
                     entity_name: Some(menu.name.clone()),
                     suggested_fix: Some(
-                        "Remove some buttons or split the scene into multiple pages.".to_string(),
+                        "Re-assign a background asset in the menu editor.".to_string(),
                     ),
                 });
             }
-
-            // Check background asset
-            if let Some(asset_id) = &doc.scene.background.asset_id {
-                if !asset_ids.contains(asset_id.as_str()) {
-                    issues.push(ValidationIssue {
-                        severity: IssueSeverity::Error,
-                        code: "menu.scene-dangling-background".to_string(),
-                        message: format!(
-                            "Authored scene for menu \"{}\" references a background asset that no longer exists.",
-                            menu.name
-                        ),
-                        context: Some(menu.id.clone()),
-                        entity_type: Some("menu".to_string()),
-                        entity_name: Some(menu.name.clone()),
-                        suggested_fix: Some(
-                            "Re-assign a background asset in the menu editor.".to_string(),
-                        ),
-                    });
-                }
-            }
-
-            // Validate all scene nodes recursively
-            validate_scene_nodes(&doc.scene.nodes, asset_ids, &menu.name, &menu.id, issues);
-
-            // Validate interaction graph actions
-            for focus_node in &doc.interaction.nodes {
-                if let Some(action) = &focus_node.action {
-                    validate_action(
-                        action,
-                        all_title_ids,
-                        all_menu_ids,
-                        &project.disc,
-                        &ActionSubject {
-                            subject: format!(
-                                "Action \"Interaction: {}\" in menu \"{}\"",
-                                focus_node.node_id, menu.name
-                            ),
-                            entity_type: "menu",
-                            entity_name: Some(&menu.name),
-                            context_id: Some(&menu.id),
-                        },
-                        stream_counts,
-                        issues,
-                    );
-                }
-            }
         }
+
+        // Validate all scene nodes recursively
+        validate_scene_nodes(&doc.scene.nodes, asset_ids, &menu.name, &menu.id, issues);
 
         if matches!(background_mode, BackgroundMode::Motion) {
             issues.push(ValidationIssue {
@@ -395,7 +362,7 @@ pub(super) fn validate_menus(
                 });
             }
 
-            if motion_loop_start_secs.is_some_and(|secs| secs <= 0.0) {
+            if motion_loop_start_secs <= 0.0 {
                 issues.push(ValidationIssue {
                     severity: IssueSeverity::Warning,
                     code: "menu.motion-loop-start-default".to_string(),
@@ -453,10 +420,7 @@ pub(super) fn validate_menus(
         }
 
         validate_button_video_usage(menu, background_mode, asset_map, issues);
-
-        if let Some(doc) = &menu.authored_document {
-            validate_motion_keyframes(doc, menu, motion_duration_secs, issues);
-        }
+        validate_motion_keyframes(doc, menu, motion_duration_secs, issues);
     }
 }
 
@@ -503,19 +467,15 @@ mod tests {
     }
 
     #[test]
-    fn legacy_timeout_action_targeting_a_deleted_title_is_flagged() {
-        let mut menu = Menu {
-            id: "menu-1".to_string(),
-            name: "Main Menu".to_string(),
-            timeout_action: Some(PlaybackAction::PlayTitle {
+    fn timeout_action_targeting_a_deleted_title_is_flagged_even_with_no_buttons() {
+        // Regression guard: the timeout action must still be validated even
+        // though the menu has no buttons — `menu.no-buttons` is a Warning
+        // and must not short-circuit the rest of the menu-level checks.
+        let menu = Menu::new("menu-1", "Main Menu").with_document(authored_document_with_timeout(
+            Some(PlaybackAction::PlayTitle {
                 title_id: "stale-title-id".to_string(),
             }),
-            ..Menu::default()
-        };
-        // No buttons at all — regression guard: the timeout action must still
-        // be validated even though the empty-buttons check below would
-        // otherwise `continue` past it.
-        menu.buttons.clear();
+        ));
         let project = project_with_menu(menu);
 
         let asset_ids = HashSet::new();
@@ -544,16 +504,11 @@ mod tests {
 
     #[test]
     fn authored_document_timeout_action_targeting_a_deleted_menu_is_flagged() {
-        let menu = Menu {
-            id: "menu-1".to_string(),
-            name: "Main Menu".to_string(),
-            authored_document: Some(authored_document_with_timeout(Some(
-                PlaybackAction::ShowMenu {
-                    menu_id: "stale-menu-id".to_string(),
-                },
-            ))),
-            ..Menu::default()
-        };
+        let menu = Menu::new("menu-1", "Main Menu").with_document(authored_document_with_timeout(
+            Some(PlaybackAction::ShowMenu {
+                menu_id: "stale-menu-id".to_string(),
+            }),
+        ));
         let project = project_with_menu(menu);
 
         let asset_ids = HashSet::new();
@@ -582,15 +537,11 @@ mod tests {
 
     #[test]
     fn timeout_action_targeting_an_existing_title_is_not_flagged() {
-        let mut menu = Menu {
-            id: "menu-1".to_string(),
-            name: "Main Menu".to_string(),
-            timeout_action: Some(PlaybackAction::PlayTitle {
+        let menu = Menu::new("menu-1", "Main Menu").with_document(authored_document_with_timeout(
+            Some(PlaybackAction::PlayTitle {
                 title_id: "title-1".to_string(),
             }),
-            ..Menu::default()
-        };
-        menu.buttons.clear();
+        ));
         let project = project_with_menu(menu);
 
         let asset_ids = HashSet::new();
@@ -611,6 +562,88 @@ mod tests {
         assert!(
             !issues.iter().any(|i| i.code.starts_with("menu.dangling")),
             "valid timeout action target should not raise a dangling-reference issue, got {issues:?}"
+        );
+    }
+
+    #[test]
+    fn scene_only_menu_with_buttons_gets_no_no_buttons_warning_and_full_check_suite() {
+        // Issue #29 regression: a menu authored purely as a scene document
+        // (whose legacy `buttons[]` never existed) must not be flagged as
+        // having no buttons — and the rest of the per-menu checks (here: a
+        // dangling background asset) must still run rather than being
+        // short-circuited.
+        let menu = Menu::new("menu-1", "Scene Menu").with_document(MenuDocument {
+            id: "menu-1".to_string(),
+            name: "Scene Menu".to_string(),
+            domain: MenuDomain::Vmgm,
+            scene: MenuScene {
+                design_size: MenuSize {
+                    width: 720.0,
+                    height: 480.0,
+                    aspect: AspectMode::SixteenByNine,
+                },
+                background: SceneBackground {
+                    asset_id: Some("missing-asset".to_string()),
+                    colour: None,
+                },
+                nodes: vec![SceneNode::Button {
+                    id: "btn-1".to_string(),
+                    label: "Play".to_string(),
+                    x: 0.0,
+                    y: 0.0,
+                    width: 100.0,
+                    height: 40.0,
+                    highlight_mode: HighlightMode::Static,
+                    highlight_keyframes: vec![],
+                    video_asset_id: None,
+                    button_style: None,
+                    label_style: None,
+                }],
+                guides: vec![],
+            },
+            interaction: MenuInteractionGraph {
+                default_focus_id: Some("btn-1".to_string()),
+                nodes: vec![FocusNode {
+                    node_id: "btn-1".to_string(),
+                    action: Some(PlaybackAction::Stop),
+                    ..FocusNode::default()
+                }],
+                timeout_action: None,
+            },
+            timing: MenuTiming::default(),
+            highlight_colours: MenuHighlightColours::default(),
+            background_mode: BackgroundMode::Still,
+            theme_ref: None,
+            generation_meta: None,
+            compile_policy: MenuCompilePolicy::default(),
+        });
+        let project = project_with_menu(menu);
+
+        // "missing-asset" is deliberately absent from asset_ids/asset_map.
+        let asset_ids = HashSet::new();
+        let asset_map = HashMap::new();
+        let all_title_ids = HashSet::new();
+        let all_menu_ids: HashSet<&str> = ["menu-1"].into_iter().collect();
+        let mut issues = Vec::new();
+
+        validate_menus(
+            &project,
+            &asset_ids,
+            &asset_map,
+            &all_title_ids,
+            &all_menu_ids,
+            &mut issues,
+        );
+
+        assert!(
+            !issues.iter().any(|i| i.code == "menu.no-buttons"),
+            "menu with authored scene buttons must not be flagged as having no buttons, got {issues:?}"
+        );
+        assert!(
+            issues
+                .iter()
+                .any(|i| i.code == "menu.scene-dangling-background"),
+            "expected the dangling background asset to still be reported, got {issues:?}"
         );
     }
 }

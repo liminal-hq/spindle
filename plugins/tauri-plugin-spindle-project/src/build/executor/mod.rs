@@ -181,11 +181,7 @@ where
 
                 use super::menu::{AuthorableMenuRef, MenuDomain};
                 use crate::models::Menu;
-                let menu = Menu {
-                    id: menu_id.clone(),
-                    authored_document: Some(menu_doc),
-                    ..Menu::default()
-                };
+                let menu = Menu::new(menu_id.clone(), "Untitled Menu").with_document(menu_doc);
                 let menu_ref = AuthorableMenuRef {
                     menu: &menu,
                     domain: MenuDomain::Vmgm,

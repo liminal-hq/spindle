@@ -97,8 +97,8 @@ pub(super) fn validate_button_video_usage(
     asset_map: &HashMap<&str, &Asset>,
     issues: &mut Vec<ValidationIssue>,
 ) {
-    for button in &menu.buttons {
-        if let Some(asset_id) = button.video_asset_id.as_deref() {
+    for button in menu.doc().buttons() {
+        if let Some(asset_id) = button.video_asset_id {
             if matches!(background_mode, BackgroundMode::Still) {
                 issues.push(ValidationIssue {
                     severity: IssueSeverity::Warning,
