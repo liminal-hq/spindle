@@ -19,7 +19,11 @@ import type {
 	SpindleProjectFile,
 	SceneNode,
 } from '../../types/project';
-import { createDefaultMenuCompilePolicy, inferDefaultMenuDisplayAspect } from '../../types/project';
+import {
+	DEFAULT_HIGHLIGHT_COLOURS,
+	createDefaultMenuCompilePolicy,
+	inferDefaultMenuDisplayAspect,
+} from '../../types/project';
 import { SceneCanvas } from './SceneCanvas';
 import { InspectorPanel } from './InspectorPanel';
 import { FullMenuMap } from './MenuMap';
@@ -158,37 +162,39 @@ export function MenuEditor({
 		return () => document.removeEventListener('keydown', handler);
 	}, [undo, redo]);
 
-	// Derive the scene nodes and button projections from authoredDocument
+	// Derive the scene nodes and button projections from authoredDocument,
+	// which is guaranteed present for any menu loaded via parseProject or
+	// created in-app (see MenusPage's createMenu).
 	const sceneNodes: SceneNode[] = menu.authoredDocument?.scene.nodes ?? [];
-	const currentButtons: MenuButton[] = menu.authoredDocument
-		? menu.authoredDocument.scene.nodes
-				.filter((n): n is Extract<SceneNode, { type: 'button' }> => n.type === 'button')
-				.map((node) => {
-					const interaction = menu.authoredDocument!.interaction.nodes.find(
-						(i) => i.nodeId === node.id,
-					);
-					return {
-						id: node.id,
-						label: node.label,
-						bounds: { x: node.x, y: node.y, width: node.width, height: node.height },
-						action: interaction?.action ?? null,
-						navUp: interaction?.navUp ?? null,
-						navDown: interaction?.navDown ?? null,
-						navLeft: interaction?.navLeft ?? null,
-						navRight: interaction?.navRight ?? null,
-						highlightMode: node.highlightMode ?? 'static',
-						highlightKeyframes: node.highlightKeyframes ?? [],
-						videoAssetId: node.videoAssetId ?? null,
-					};
-				})
-		: menu.buttons;
+	const currentButtons: MenuButton[] =
+		menu.authoredDocument?.scene.nodes
+			.filter((n): n is Extract<SceneNode, { type: 'button' }> => n.type === 'button')
+			.map((node) => {
+				const interaction = menu.authoredDocument!.interaction.nodes.find(
+					(i) => i.nodeId === node.id,
+				);
+				return {
+					id: node.id,
+					label: node.label,
+					bounds: { x: node.x, y: node.y, width: node.width, height: node.height },
+					action: interaction?.action ?? null,
+					navUp: interaction?.navUp ?? null,
+					navDown: interaction?.navDown ?? null,
+					navLeft: interaction?.navLeft ?? null,
+					navRight: interaction?.navRight ?? null,
+					highlightMode: node.highlightMode ?? 'static',
+					highlightKeyframes: node.highlightKeyframes ?? [],
+					videoAssetId: node.videoAssetId ?? null,
+				};
+			}) ?? [];
 
-	const backgroundAsset = menu.backgroundAssetId
-		? (project.assets.find((a) => a.id === menu.backgroundAssetId) ?? null)
+	const backgroundAssetId = menu.authoredDocument?.scene.background.assetId ?? null;
+	const backgroundAsset = backgroundAssetId
+		? (project.assets.find((a) => a.id === backgroundAssetId) ?? null)
 		: null;
 	const backgroundAssetLabel = backgroundAsset ? backgroundAsset.fileName : null;
-	const highlightColours = menu.authoredDocument?.highlightColours ?? menu.highlightColours;
-	const defaultFocusId = menu.authoredDocument?.interaction.defaultFocusId ?? menu.defaultButtonId;
+	const highlightColours = menu.authoredDocument?.highlightColours ?? DEFAULT_HIGHLIGHT_COLOURS;
+	const defaultFocusId = menu.authoredDocument?.interaction.defaultFocusId ?? null;
 	const displayAspect = resolveMenuDisplayAspect(project, menu);
 
 	const selectedNode = sceneNodes.find((n) => n.id === selectedNodeId) ?? null;
@@ -205,75 +211,41 @@ export function MenuEditor({
 	const handleAddButton = () => {
 		const id = crypto.randomUUID();
 		const btnCount =
-			menu.authoredDocument?.scene.nodes.filter((n) => n.type === 'button').length ??
-			menu.buttons.length;
+			menu.authoredDocument?.scene.nodes.filter((n) => n.type === 'button').length ?? 0;
 		const label = `Button ${btnCount + 1}`;
 		const x = 100 + btnCount * 20;
 		const y = Math.min(300 + btnCount * 20, canvasHeight - 60);
 
-		onUpdate((m) => {
-			if (m.authoredDocument) {
-				return {
-					...m,
-					authoredDocument: {
-						...m.authoredDocument,
-						scene: {
-							...m.authoredDocument.scene,
-							nodes: [
-								...m.authoredDocument.scene.nodes,
-								{
-									type: 'button' as const,
-									id,
-									label,
-									x,
-									y,
-									width: 200,
-									height: 40,
-									highlightMode: 'static' as const,
-									highlightKeyframes: [],
-									videoAssetId: null,
-									buttonStyle: { ...DEFAULT_BUTTON_STYLE_MAP },
-									labelStyle: { ...DEFAULT_TEXT_STYLE },
-								},
-							],
-						},
-						interaction: {
-							...m.authoredDocument.interaction,
-							nodes: [
-								...m.authoredDocument.interaction.nodes,
-								{
-									nodeId: id,
-									navUp: null,
-									navDown: null,
-									navLeft: null,
-									navRight: null,
-									action: null,
-								},
-							],
-						},
-					},
-				};
-			}
-			return {
-				...m,
-				buttons: [
-					...m.buttons,
+		updateMenuDocument(menu.id, (document) => ({
+			...document,
+			scene: {
+				...document.scene,
+				nodes: [
+					...document.scene.nodes,
 					{
+						type: 'button' as const,
 						id,
 						label,
-						bounds: { x, y, width: 200, height: 40 },
-						action: null,
-						navUp: null,
-						navDown: null,
-						navLeft: null,
-						navRight: null,
+						x,
+						y,
+						width: 200,
+						height: 40,
 						highlightMode: 'static' as const,
 						highlightKeyframes: [],
 						videoAssetId: null,
+						buttonStyle: { ...DEFAULT_BUTTON_STYLE_MAP },
+						labelStyle: { ...DEFAULT_TEXT_STYLE },
 					},
 				],
-			};
-		});
+			},
+			interaction: {
+				...document.interaction,
+				nodes: [
+					...document.interaction.nodes,
+					{ nodeId: id, navUp: null, navDown: null, navLeft: null, navRight: null, action: null },
+				],
+			},
+		}));
 		setSelectedNodeId(id);
 	};
 
@@ -325,9 +297,11 @@ export function MenuEditor({
 	// ── Update handlers
 
 	const handleUpdateButton = (buttonId: string, updates: Partial<MenuButton>) => {
-		onUpdate((m) => {
-			if (m.authoredDocument) {
-				const nodes = m.authoredDocument.scene.nodes.map((node) => {
+		updateMenuDocument(menu.id, (document) => ({
+			...document,
+			scene: {
+				...document.scene,
+				nodes: document.scene.nodes.map((node) => {
 					if (node.type === 'button' && node.id === buttonId) {
 						return {
 							...node,
@@ -342,9 +316,11 @@ export function MenuEditor({
 						};
 					}
 					return node;
-				});
-
-				const interactionNodes = m.authoredDocument.interaction.nodes.map((node) => {
+				}),
+			},
+			interaction: {
+				...document.interaction,
+				nodes: document.interaction.nodes.map((node) => {
 					if (node.nodeId === buttonId) {
 						return {
 							...node,
@@ -356,74 +332,27 @@ export function MenuEditor({
 						};
 					}
 					return node;
-				});
-
-				// Mirror button changes back to the legacy buttons array so that
-				// validation, planning, and compiler fallbacks see current state.
-				const syncedButtons = nodes
-					.filter((n): n is Extract<SceneNode, { type: 'button' }> => n.type === 'button')
-					.map((node) => {
-						const inode = interactionNodes.find((i) => i.nodeId === node.id);
-						return {
-							id: node.id,
-							label: node.label,
-							bounds: { x: node.x, y: node.y, width: node.width, height: node.height },
-							action: inode?.action ?? null,
-							navUp: inode?.navUp ?? null,
-							navDown: inode?.navDown ?? null,
-							navLeft: inode?.navLeft ?? null,
-							navRight: inode?.navRight ?? null,
-							highlightMode: node.highlightMode ?? ('static' as const),
-							highlightKeyframes: node.highlightKeyframes ?? [],
-							videoAssetId: node.videoAssetId ?? null,
-						};
-					});
-
-				return {
-					...m,
-					buttons: syncedButtons,
-					authoredDocument: {
-						...m.authoredDocument,
-						scene: { ...m.authoredDocument.scene, nodes },
-						interaction: { ...m.authoredDocument.interaction, nodes: interactionNodes },
-					},
-				};
-			}
-			return {
-				...m,
-				buttons: m.buttons.map((b) => (b.id === buttonId ? { ...b, ...updates } : b)),
-			};
-		});
+				}),
+			},
+		}));
 	};
 
 	const handleRemoveButton = (buttonId: string) => {
-		onUpdate((m) => {
-			if (m.authoredDocument) {
-				return {
-					...m,
-					authoredDocument: {
-						...m.authoredDocument,
-						scene: {
-							...m.authoredDocument.scene,
-							nodes: m.authoredDocument.scene.nodes.filter((n) => n.id !== buttonId),
-						},
-						interaction: {
-							...m.authoredDocument.interaction,
-							nodes: m.authoredDocument.interaction.nodes.filter((n) => n.nodeId !== buttonId),
-							defaultFocusId:
-								m.authoredDocument.interaction.defaultFocusId === buttonId
-									? null
-									: m.authoredDocument.interaction.defaultFocusId,
-						},
-					},
-				};
-			}
-			return {
-				...m,
-				buttons: m.buttons.filter((b) => b.id !== buttonId),
-				defaultButtonId: m.defaultButtonId === buttonId ? null : m.defaultButtonId,
-			};
-		});
+		updateMenuDocument(menu.id, (document) => ({
+			...document,
+			scene: {
+				...document.scene,
+				nodes: document.scene.nodes.filter((n) => n.id !== buttonId),
+			},
+			interaction: {
+				...document.interaction,
+				nodes: document.interaction.nodes.filter((n) => n.nodeId !== buttonId),
+				defaultFocusId:
+					document.interaction.defaultFocusId === buttonId
+						? null
+						: document.interaction.defaultFocusId,
+			},
+		}));
 		if (selectedNodeId === buttonId) setSelectedNodeId(null);
 	};
 
@@ -494,122 +423,58 @@ export function MenuEditor({
 	}); // re-registers each render to close over current handlers
 
 	const handleUpdateHighlightColours = (colours: MenuHighlightColours) => {
-		onUpdate((m) => {
-			if (m.authoredDocument) {
-				return {
-					...m,
-					highlightColours: colours,
-					authoredDocument: { ...m.authoredDocument, highlightColours: colours },
-				};
-			}
-			return { ...m, highlightColours: colours };
-		});
+		updateMenuDocument(menu.id, (document) => ({ ...document, highlightColours: colours }));
 	};
 
 	// Set default focus — updates authoredDocument interaction graph
 	const handleSetDefaultFocus = (buttonId: string) => {
-		onUpdate((m) => {
-			if (m.authoredDocument) {
-				return {
-					...m,
-					authoredDocument: {
-						...m.authoredDocument,
-						interaction: {
-							...m.authoredDocument.interaction,
-							defaultFocusId: buttonId,
-						},
-					},
-				};
-			}
-			return { ...m, defaultButtonId: buttonId };
-		});
+		updateMenuDocument(menu.id, (document) => ({
+			...document,
+			interaction: { ...document.interaction, defaultFocusId: buttonId },
+		}));
 	};
 
 	// ── Background assignment (kept in canvas toolbar for now)
 
 	const handleBackgroundChange = (newAssetId: string | null) => {
-		onUpdate((m) => ({
-			...m,
-			backgroundAssetId: newAssetId,
-			authoredDocument: m.authoredDocument
-				? {
-						...m.authoredDocument,
-						scene: {
-							...m.authoredDocument.scene,
-							background: { ...m.authoredDocument.scene.background, assetId: newAssetId },
-						},
-					}
-				: m.authoredDocument,
+		updateMenuDocument(menu.id, (document) => ({
+			...document,
+			scene: {
+				...document.scene,
+				background: { ...document.scene.background, assetId: newAssetId },
+			},
 		}));
 	};
 
 	const handleBackgroundColourChange = (colour: string) => {
-		onUpdate((m) => {
-			if (m.authoredDocument) {
-				return {
-					...m,
-					authoredDocument: {
-						...m.authoredDocument,
-						scene: {
-							...m.authoredDocument.scene,
-							background: { ...m.authoredDocument.scene.background, colour },
-						},
-					},
-				};
-			}
-			return m;
-		});
-	};
-
-	const handleBackgroundModeChange = (mode: 'still' | 'motion') => {
-		onUpdate((m) => ({
-			...m,
-			backgroundMode: mode,
-			authoredDocument: m.authoredDocument
-				? {
-						...m.authoredDocument,
-						backgroundMode: mode,
-					}
-				: m.authoredDocument,
+		updateMenuDocument(menu.id, (document) => ({
+			...document,
+			scene: { ...document.scene, background: { ...document.scene.background, colour } },
 		}));
 	};
 
+	const handleBackgroundModeChange = (mode: 'still' | 'motion') => {
+		updateMenuDocument(menu.id, (document) => ({ ...document, backgroundMode: mode }));
+	};
+
 	const handleMotionAudioChange = (assetId: string | null) => {
-		onUpdate((m) => ({
-			...m,
-			motionAudioAssetId: assetId,
+		updateMenuDocument(menu.id, (document) => ({
+			...document,
+			timing: { ...document.timing, audioAssetId: assetId },
 		}));
 	};
 
 	const handleMotionDurationChange = (secs: number | null) => {
-		onUpdate((m) => ({
-			...m,
-			motionDurationSecs: secs,
-			authoredDocument: m.authoredDocument
-				? {
-						...m.authoredDocument,
-						timing: {
-							...m.authoredDocument.timing,
-							loopDurationSecs: secs ?? m.authoredDocument.timing.loopDurationSecs,
-						},
-					}
-				: m.authoredDocument,
+		updateMenuDocument(menu.id, (document) => ({
+			...document,
+			timing: { ...document.timing, loopDurationSecs: secs ?? document.timing.loopDurationSecs },
 		}));
 	};
 
 	const handleMotionLoopCountChange = (count: number) => {
-		onUpdate((m) => ({
-			...m,
-			motionLoopCount: count,
-			authoredDocument: m.authoredDocument
-				? {
-						...m.authoredDocument,
-						timing: {
-							...m.authoredDocument.timing,
-							loopCount: count,
-						},
-					}
-				: m.authoredDocument,
+		updateMenuDocument(menu.id, (document) => ({
+			...document,
+			timing: { ...document.timing, loopCount: count },
 		}));
 	};
 
