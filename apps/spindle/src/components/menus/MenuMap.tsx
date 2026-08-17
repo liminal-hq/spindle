@@ -202,16 +202,8 @@ function computeMapLayout(project: SpindleProjectFile, compact: boolean): MapLay
 				extractEdgesFromAction(inode.action, menu.id, rawEdges, returnIds);
 			}
 		}
-		// Also scan legacy buttons
-		if (!menu.authoredDocument) {
-			for (const btn of menu.buttons) {
-				if (btn.action) {
-					extractEdgesFromAction(btn.action, menu.id, rawEdges, returnIds);
-				}
-			}
-		}
 		// Timeout action
-		const timeoutAction = menu.authoredDocument?.interaction.timeoutAction ?? menu.timeoutAction;
+		const timeoutAction = menu.authoredDocument?.interaction.timeoutAction ?? null;
 		if (timeoutAction) {
 			extractEdgesFromAction(timeoutAction, menu.id, rawEdges, returnIds);
 		}
@@ -656,7 +648,7 @@ export function FullMenuMap({
 	const selectedMenu = allMenus.find((m) => m.id === selectedMenuId) ?? null;
 	const selectedMenuButtonCount = selectedMenu
 		? (selectedMenu.authoredDocument?.scene.nodes.filter((node) => node.type === 'button').length ??
-			selectedMenu.buttons.length)
+			0)
 		: 0;
 	const selectedMenuHeight = project.disc.standard === 'PAL' ? 576 : 480;
 
@@ -696,7 +688,9 @@ export function FullMenuMap({
 								{selectedMenuButtonCount === 1 ? '' : 's'}
 							</div>
 							<div className="menu-map__inspector-stat">
-								<strong>{selectedMenu.backgroundMode === 'motion' ? 'Motion' : 'Still'}</strong>{' '}
+								<strong>
+									{selectedMenu.authoredDocument?.backgroundMode === 'motion' ? 'Motion' : 'Still'}
+								</strong>{' '}
 								menu
 							</div>
 							<div className="menu-map__inspector-stat">

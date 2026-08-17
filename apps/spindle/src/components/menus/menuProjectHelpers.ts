@@ -4,7 +4,41 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: MIT
 
-import type { Menu, SpindleProjectFile } from '../../types/project';
+import type { Menu, PlaybackAction, SceneNode, SpindleProjectFile } from '../../types/project';
+
+/** A top-level scene button joined with its interaction-graph node — the
+ * shared "what counts as a button" view, mirroring
+ * `MenuDocument::buttons()` on the Rust side, so every reader here agrees.
+ * Scans only top-level `scene.nodes` `button` variants; recursive group
+ * flattening is deferred to a later PR (matching the Rust side). */
+export interface MenuButtonView {
+	id: string;
+	label: string;
+	action: PlaybackAction | null;
+	navUp: string | null;
+	navDown: string | null;
+	navLeft: string | null;
+	navRight: string | null;
+}
+
+export function getMenuButtons(menu: Menu): MenuButtonView[] {
+	const doc = menu.authoredDocument;
+	if (!doc) return [];
+	return doc.scene.nodes
+		.filter((n): n is Extract<SceneNode, { type: 'button' }> => n.type === 'button')
+		.map((node) => {
+			const interaction = doc.interaction.nodes.find((i) => i.nodeId === node.id);
+			return {
+				id: node.id,
+				label: node.label,
+				action: interaction?.action ?? null,
+				navUp: interaction?.navUp ?? null,
+				navDown: interaction?.navDown ?? null,
+				navLeft: interaction?.navLeft ?? null,
+				navRight: interaction?.navRight ?? null,
+			};
+		});
+}
 
 export function updateMenuInProject(
 	project: SpindleProjectFile,
@@ -55,7 +89,7 @@ export function computeMenuConnectionCounts(
 		ensureCounts(menuId).incoming.add(key);
 	};
 
-	const inspectAction = (action: Menu['timeoutAction'], source: string, menuId?: string) => {
+	const inspectAction = (action: PlaybackAction | null, source: string, menuId?: string) => {
 		if (!action) return;
 		switch (action.type) {
 			case 'showMenu':
@@ -104,18 +138,11 @@ export function computeMenuConnectionCounts(
 	];
 
 	authoredMenus.forEach((menu) => {
-		const interactionNodes = menu.authoredDocument?.interaction.nodes ?? [];
-		if (interactionNodes.length > 0) {
-			interactionNodes.forEach((node, index) =>
-				inspectAction(node.action, `menu:${menu.id}:node:${index}`, menu.id),
-			);
-		} else {
-			menu.buttons.forEach((button) =>
-				inspectAction(button.action, `menu:${menu.id}:button:${button.id}`, menu.id),
-			);
-		}
+		getMenuButtons(menu).forEach((button) =>
+			inspectAction(button.action, `menu:${menu.id}:button:${button.id}`, menu.id),
+		);
 		inspectAction(
-			menu.authoredDocument?.interaction.timeoutAction ?? menu.timeoutAction,
+			menu.authoredDocument?.interaction.timeoutAction ?? null,
 			`menu:${menu.id}:timeout`,
 			menu.id,
 		);

@@ -108,12 +108,17 @@ export const CAPACITY_BYTES: Record<CapacityTarget, number> = {
 	DVD9: 8_500_000_000,
 };
 
+/** Mirrors the Rust migration's defaults (`Menu::migrate_to_document`) — the
+ * single canonical set of authored-document defaults, shared by every
+ * in-app menu construction path. */
+export const DEFAULT_MENU_BACKGROUND_COLOUR = '#101014';
+
 export function createDefaultMenuCompilePolicy(
 	displayAspect: AspectMode = 'four-by-three',
 ): MenuCompilePolicy {
 	return {
 		displayAspect,
-		safeAreaMode: 'title-safe',
+		safeAreaMode: 'action-safe',
 		paletteStrategy: 'auto',
 	};
 }

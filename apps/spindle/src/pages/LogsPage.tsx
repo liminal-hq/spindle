@@ -5,6 +5,7 @@
 
 import { useProjectStore } from '../store/project-store';
 import { NoProjectState } from '../components/NoProjectState';
+import { getMenuButtons } from '../components/menus/menuProjectHelpers';
 import './LogsPage.css';
 
 export function LogsPage() {
@@ -35,8 +36,11 @@ export function LogsPage() {
 	const menuCount =
 		disc.globalMenus.length + disc.titlesets.reduce((s, ts) => s + ts.menus.length, 0);
 	const buttonCount =
-		disc.globalMenus.reduce((s, m) => s + m.buttons.length, 0) +
-		disc.titlesets.reduce((s, ts) => s + ts.menus.reduce((c, m) => c + m.buttons.length, 0), 0);
+		disc.globalMenus.reduce((s, m) => s + getMenuButtons(m).length, 0) +
+		disc.titlesets.reduce(
+			(s, ts) => s + ts.menus.reduce((c, m) => c + getMenuButtons(m).length, 0),
+			0,
+		);
 
 	return (
 		<div className="logs">

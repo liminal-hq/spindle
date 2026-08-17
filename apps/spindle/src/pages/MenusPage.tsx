@@ -11,6 +11,7 @@ import { useDisplayDensity } from '../hooks/useDisplayDensity';
 import type { Menu } from '../types/project';
 import {
 	DEFAULT_HIGHLIGHT_COLOURS,
+	DEFAULT_MENU_BACKGROUND_COLOUR,
 	createDefaultMenuCompilePolicy,
 	inferDefaultMenuDisplayAspect,
 } from '../types/project';
@@ -173,22 +174,17 @@ function MenusWorkspace() {
 		return {
 			id,
 			name,
-			backgroundAssetId: null,
-			buttons: [],
-			defaultButtonId: null,
-			highlightColours: { ...DEFAULT_HIGHLIGHT_COLOURS },
-			backgroundMode: 'still',
-			motionDurationSecs: null,
-			motionAudioAssetId: null,
-			motionLoopCount: 0,
-			timeoutAction: null,
 			authoredDocument: {
 				id,
 				name,
 				domain,
 				scene: {
-					designSize: { width: 720, height: MENU_HEIGHT[project.disc.standard] },
-					background: { assetId: null, colour: null },
+					designSize: {
+						width: 720,
+						height: MENU_HEIGHT[project.disc.standard],
+						aspect: displayAspect,
+					},
+					background: { assetId: null, colour: DEFAULT_MENU_BACKGROUND_COLOUR },
 					nodes: [],
 					guides: [],
 				},
@@ -203,6 +199,7 @@ function MenusWorkspace() {
 					loopStartSecs: 0,
 					loopDurationSecs: 0,
 					loopCount: 0,
+					audioAssetId: null,
 				},
 				highlightColours: { ...DEFAULT_HIGHLIGHT_COLOURS },
 				backgroundMode: 'still',

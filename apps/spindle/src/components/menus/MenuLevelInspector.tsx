@@ -17,6 +17,7 @@ import type {
 	Asset,
 	AspectMode,
 } from '../../types/project';
+import { DEFAULT_MENU_BACKGROUND_COLOUR } from '../../types/project';
 import { CollapsibleSection } from './InspectorCollapsibleSection';
 import { ActionOptions, HighlightColourFields } from './InspectorSharedFields';
 import { actionToString, stringToAction } from './inspectorHelpers';
@@ -81,7 +82,7 @@ export function MenuLevelInspector({
 	);
 	const audioAssets = assets.filter((asset) => asset.audioStreams.length > 0);
 	const [backgroundTab, setBackgroundTab] = useState<'solid' | 'image' | 'video' | 'audio'>(
-		menu?.backgroundMode === 'motion' ? 'video' : 'solid',
+		document?.backgroundMode === 'motion' ? 'video' : 'solid',
 	);
 
 	return (
@@ -137,7 +138,7 @@ export function MenuLevelInspector({
 								<button
 									key={mode}
 									type="button"
-									className={`inspector-panel__style-pill ${menu.backgroundMode === mode ? 'inspector-panel__style-pill--active' : ''}`}
+									className={`inspector-panel__style-pill ${document?.backgroundMode === mode ? 'inspector-panel__style-pill--active' : ''}`}
 									onClick={() => onUpdateBackgroundMode?.(mode)}
 									title={mode === 'still' ? 'Still background' : 'Motion background'}
 								>
@@ -154,12 +155,12 @@ export function MenuLevelInspector({
 								<input
 									type="color"
 									className="inspector-panel__colour-input"
-									value={document?.scene.background.colour ?? '#0f0e1a'}
+									value={document?.scene.background.colour ?? DEFAULT_MENU_BACKGROUND_COLOUR}
 									onChange={(e) => onUpdateBackgroundColour?.(e.target.value)}
 								/>
 								<input
 									className="inspector-panel__input inspector-panel__input--hex"
-									value={document?.scene.background.colour ?? '#0f0e1a'}
+									value={document?.scene.background.colour ?? DEFAULT_MENU_BACKGROUND_COLOUR}
 									onChange={(e) => onUpdateBackgroundColour?.(e.target.value)}
 									maxLength={7}
 								/>
@@ -174,7 +175,7 @@ export function MenuLevelInspector({
 							</span>
 							<select
 								className="inspector-panel__select"
-								value={menu.backgroundAssetId ?? ''}
+								value={document?.scene.background.assetId ?? ''}
 								onChange={(e) => onUpdateBackgroundAsset?.(e.target.value || null)}
 							>
 								<option value="">
@@ -194,9 +195,9 @@ export function MenuLevelInspector({
 							<span className="inspector-panel__field-label">Audio bed</span>
 							<select
 								className="inspector-panel__select"
-								value={menu.motionAudioAssetId ?? ''}
+								value={document?.timing.audioAssetId ?? ''}
 								onChange={(e) => onUpdateMotionAudioAsset?.(e.target.value || null)}
-								disabled={menu.backgroundMode !== 'motion'}
+								disabled={document?.backgroundMode !== 'motion'}
 							>
 								<option value="">No background audio</option>
 								{audioAssets.map((asset) => (
@@ -209,7 +210,7 @@ export function MenuLevelInspector({
 					)}
 
 					<div
-						className={`inspector-panel__fieldset ${menu.backgroundMode !== 'motion' ? 'inspector-panel__fieldset--disabled' : ''}`}
+						className={`inspector-panel__fieldset ${document?.backgroundMode !== 'motion' ? 'inspector-panel__fieldset--disabled' : ''}`}
 					>
 						<div className="inspector-panel__sub-label">Motion Settings</div>
 						<p className="inspector-panel__hint text-muted">
@@ -225,13 +226,13 @@ export function MenuLevelInspector({
 										type="number"
 										min="0"
 										step="0.5"
-										value={menu.motionDurationSecs ?? ''}
+										value={document?.timing.loopDurationSecs ?? ''}
 										onChange={(e) =>
 											onUpdateMotionDurationSecs?.(
 												e.target.value === '' ? null : Number(e.target.value),
 											)
 										}
-										disabled={menu.backgroundMode !== 'motion'}
+										disabled={document?.backgroundMode !== 'motion'}
 									/>
 									<span className="inspector-panel__unit">s</span>
 								</div>
@@ -243,9 +244,9 @@ export function MenuLevelInspector({
 										className="inspector-panel__input inspector-panel__input--num"
 										type="number"
 										min="0"
-										value={menu.motionLoopCount}
+										value={document?.timing.loopCount ?? 0}
 										onChange={(e) => onUpdateMotionLoopCount?.(Number(e.target.value))}
-										disabled={menu.backgroundMode !== 'motion'}
+										disabled={document?.backgroundMode !== 'motion'}
 									/>
 									<span className="inspector-panel__unit">x</span>
 								</div>
@@ -255,9 +256,9 @@ export function MenuLevelInspector({
 							<span className="inspector-panel__field-label">Audio asset</span>
 							<select
 								className="inspector-panel__select"
-								value={menu.motionAudioAssetId ?? ''}
+								value={document?.timing.audioAssetId ?? ''}
 								onChange={(e) => onUpdateMotionAudioAsset?.(e.target.value || null)}
-								disabled={menu.backgroundMode !== 'motion'}
+								disabled={document?.backgroundMode !== 'motion'}
 							>
 								<option value="">No background audio</option>
 								{audioAssets.map((asset) => (

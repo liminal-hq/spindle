@@ -14,22 +14,16 @@ function clampPercent(value: number, minimum: number, maximum: number): number {
 function getMenuPreviewBlocks(menu: Menu): Array<{ x: number; y: number; width: number }> {
 	const designWidth = menu.authoredDocument?.scene.designSize.width ?? 720;
 	const designHeight = menu.authoredDocument?.scene.designSize.height ?? 480;
-	const authoredButtons = menu.authoredDocument?.scene.nodes
-		.filter((node): node is Extract<SceneNode, { type: 'button' }> => node.type === 'button')
-		.map((button) => ({
-			x: button.x,
-			y: button.y,
-			width: button.width,
-		}));
-	const legacyButtons =
-		authoredButtons ??
-		menu.buttons.map((button) => ({
-			x: button.bounds.x,
-			y: button.bounds.y,
-			width: button.bounds.width,
-		}));
+	const buttons =
+		menu.authoredDocument?.scene.nodes
+			.filter((node): node is Extract<SceneNode, { type: 'button' }> => node.type === 'button')
+			.map((button) => ({
+				x: button.x,
+				y: button.y,
+				width: button.width,
+			})) ?? [];
 
-	return legacyButtons
+	return buttons
 		.slice()
 		.sort((left, right) => left.y - right.y || left.x - right.x)
 		.map((button) => ({
@@ -63,7 +57,7 @@ export function MenuListItem({
 	const previewBackground = getMenuPreviewBackground(menu);
 	const hasWarning =
 		buttonCount === 0 || (connectionCounts.incoming === 0 && connectionCounts.outgoing === 0);
-	const modeLabel = menu.backgroundMode === 'motion' ? 'Motion' : 'Still';
+	const modeLabel = menu.authoredDocument?.backgroundMode === 'motion' ? 'Motion' : 'Still';
 
 	return (
 		<div

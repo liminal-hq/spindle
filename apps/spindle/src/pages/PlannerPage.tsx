@@ -7,6 +7,7 @@ import { useProjectStore } from '../store/project-store';
 import { NoProjectState } from '../components/NoProjectState';
 import { CAPACITY_LABELS } from '../types/project';
 import type { Title, Asset, Menu } from '../types/project';
+import { getMenuButtons } from '../components/menus/menuProjectHelpers';
 import {
 	formatBytes,
 	useDiscCapacityEstimate,
@@ -257,17 +258,19 @@ export function PlannerPage() {
 							</div>
 							<div className="planner__title-list">
 								{allMenus.map(({ menu, scope }) => {
-									const isMotion = menu.backgroundMode === 'motion' && menu.motionDurationSecs;
+									const doc = menu.authoredDocument;
+									const loopDurationSecs = doc?.timing.loopDurationSecs ?? 0;
+									const isMotion = doc?.backgroundMode === 'motion' && loopDurationSecs > 0;
 									const menuSize = isMotion
-										? (MOTION_MENU_BITRATE * menu.motionDurationSecs!) / 8
+										? (MOTION_MENU_BITRATE * loopDurationSecs) / 8
 										: STILL_MENU_BYTES;
 									return (
 										<div key={menu.id} className="planner__title-row">
 											<div className="planner__title-info">
 												<span className="planner__title-name">{menu.name}</span>
 												<span className="planner__title-meta text-muted">
-													{scope} · {isMotion ? `Motion (${menu.motionDurationSecs}s)` : 'Still'} ·{' '}
-													{menu.buttons.length} buttons
+													{scope} · {isMotion ? `Motion (${loopDurationSecs}s)` : 'Still'} ·{' '}
+													{getMenuButtons(menu).length} buttons
 												</span>
 											</div>
 											<div className="planner__title-stats">
