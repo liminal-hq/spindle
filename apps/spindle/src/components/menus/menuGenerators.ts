@@ -6,13 +6,19 @@
 
 import type {
 	AspectMode,
+	FocusNode,
 	Menu,
-	MenuButton,
+	MenuDocument,
 	PlaybackAction,
+	SceneNode,
 	SpindleProjectFile,
 	VideoStandard,
 } from '../../types/project';
-import { DEFAULT_HIGHLIGHT_COLOURS, createDefaultMenuCompilePolicy } from '../../types/project';
+import {
+	DEFAULT_HIGHLIGHT_COLOURS,
+	DEFAULT_MENU_BACKGROUND_COLOUR,
+	createDefaultMenuCompilePolicy,
+} from '../../types/project';
 import { DEFAULT_BUTTON_STYLE_MAP, DEFAULT_TEXT_STYLE, MENU_HEIGHT } from './menuDefaults';
 
 export function getChapterGenerationStats(
@@ -57,6 +63,195 @@ function chunkArray<T>(items: T[], size: number): T[][] {
 	return chunks;
 }
 
+// ── Generated scene/interaction building blocks ─────────────────────────────
+//
+// Generators build a menu's scene nodes + interaction graph directly — there
+// is no `MenuButton[]` intermediary (that legacy flat-button shape no longer
+// exists on `Menu`). `GeneratedButtonSpec` is this module's own lightweight
+// working shape for a button before it's lowered into scene/interaction
+// nodes by `createGeneratedMenuDocument`.
+
+interface GeneratedButtonSpec {
+	id: string;
+	label: string;
+	x: number;
+	y: number;
+	width: number;
+	height: number;
+	action: PlaybackAction;
+	navUp: string | null;
+	navDown: string | null;
+	navLeft: string | null;
+	navRight: string | null;
+}
+
+function generatedButton(
+	label: string,
+	bounds: { x: number; y: number; width: number; height: number },
+	action: PlaybackAction,
+): GeneratedButtonSpec {
+	return {
+		id: crypto.randomUUID(),
+		label,
+		...bounds,
+		action,
+		navUp: null,
+		navDown: null,
+		navLeft: null,
+		navRight: null,
+	};
+}
+
+type NavDir = 'navUp' | 'navDown' | 'navLeft' | 'navRight';
+const OPPOSITE_DIR: Record<NavDir, NavDir> = {
+	navUp: 'navDown',
+	navDown: 'navUp',
+	navLeft: 'navRight',
+	navRight: 'navLeft',
+};
+
+/** Link two buttons in `dir` *and* its opposite, so every link this module
+ * creates is traversable both ways — the only thing that guarantees a
+ * generated grid has no button unreachable from the default focus (issue
+ * #36): a purely one-directional link graph can strand a button behind a
+ * remote press with no way back to it. */
+function linkNav(from: GeneratedButtonSpec, dir: NavDir, to: GeneratedButtonSpec): void {
+	from[dir] = to.id;
+	to[OPPOSITE_DIR[dir]] = from.id;
+}
+
+/** Wire simple vertical chain navigation (up/down) through `items` in order,
+ * e.g. for the audio/subtitle setup menus' single-column lists. */
+function wireVerticalListNav(items: GeneratedButtonSpec[]): void {
+	for (let i = 0; i < items.length - 1; i++) {
+		linkNav(items[i], 'navDown', items[i + 1]);
+	}
+}
+
+/** Wire a `columns`-wide left-to-right, top-to-bottom grid's up/down/left/right
+ * navigation from its geometry, then anchor an optional trailing utility row
+ * (e.g. Previous/Next/Back) onto the grid's last row and chain the utility
+ * row's own left/right links. Every link is bidirectional (see `linkNav`),
+ * so the whole page — grid plus utility row — stays reachable from any
+ * button, in particular the default focus (grid item 0). */
+function wireGridNav(
+	items: GeneratedButtonSpec[],
+	columns: number,
+	utilityRow: GeneratedButtonSpec[],
+): void {
+	const rows = Math.ceil(items.length / columns);
+	for (let row = 0; row < rows; row++) {
+		for (let col = 0; col < columns; col++) {
+			const index = row * columns + col;
+			if (index >= items.length) continue;
+			const item = items[index];
+
+			const rightIndex = row * columns + col + 1;
+			if (col + 1 < columns && rightIndex < items.length) {
+				linkNav(item, 'navRight', items[rightIndex]);
+			}
+
+			const downIndex = (row + 1) * columns + col;
+			if (downIndex < items.length) {
+				linkNav(item, 'navDown', items[downIndex]);
+			}
+		}
+	}
+
+	if (utilityRow.length === 0) return;
+
+	// Chain the utility row left-to-right by x position.
+	const orderedUtility = [...utilityRow].sort((a, b) => a.x - b.x);
+	for (let i = 0; i < orderedUtility.length - 1; i++) {
+		linkNav(orderedUtility[i], 'navRight', orderedUtility[i + 1]);
+	}
+
+	// Anchor the utility row onto the grid's last row via the closest column
+	// (by x) so the whole page forms one connected graph.
+	const lastRowStart = (rows - 1) * columns;
+	const lastRow = items.slice(lastRowStart, lastRowStart + columns);
+	const anchor = orderedUtility[0];
+	const closestGridItem = lastRow.reduce((closest, candidate) =>
+		Math.abs(candidate.x - anchor.x) < Math.abs(closest.x - anchor.x) ? candidate : closest,
+	);
+	linkNav(closestGridItem, 'navDown', anchor);
+}
+
+function toSceneNode(button: GeneratedButtonSpec): Extract<SceneNode, { type: 'button' }> {
+	return {
+		type: 'button',
+		id: button.id,
+		label: button.label,
+		x: button.x,
+		y: button.y,
+		width: button.width,
+		height: button.height,
+		highlightMode: 'static',
+		highlightKeyframes: [],
+		videoAssetId: null,
+		buttonStyle: { ...DEFAULT_BUTTON_STYLE_MAP },
+		labelStyle: { ...DEFAULT_TEXT_STYLE },
+	};
+}
+
+function toFocusNode(button: GeneratedButtonSpec): FocusNode {
+	return {
+		nodeId: button.id,
+		navUp: button.navUp,
+		navDown: button.navDown,
+		navLeft: button.navLeft,
+		navRight: button.navRight,
+		action: button.action,
+	};
+}
+
+function createGeneratedMenuDocument(
+	id: string,
+	name: string,
+	buttons: GeneratedButtonSpec[],
+	domain: 'vmgm' | 'titleset',
+	designHeight: number,
+	displayAspect: AspectMode,
+	defaultFocusId: string | null,
+): MenuDocument {
+	return {
+		id,
+		name,
+		domain,
+		scene: {
+			designSize: { width: 720, height: designHeight, aspect: displayAspect },
+			background: { assetId: null, colour: DEFAULT_MENU_BACKGROUND_COLOUR },
+			nodes: buttons.map(toSceneNode),
+			guides: [],
+		},
+		interaction: {
+			defaultFocusId,
+			nodes: buttons.map(toFocusNode),
+			timeoutAction: null,
+		},
+		timing: {
+			introStartSecs: 0,
+			introDurationSecs: 0,
+			loopStartSecs: 0,
+			loopDurationSecs: 0,
+			loopCount: 0,
+			audioAssetId: null,
+		},
+		highlightColours: { ...DEFAULT_HIGHLIGHT_COLOURS },
+		backgroundMode: 'still',
+		themeRef: null,
+		generationMeta: {
+			generatorId: 'menu-workspace',
+			lastGeneratedAt: new Date().toISOString(),
+		},
+		compilePolicy: createDefaultMenuCompilePolicy(displayAspect),
+	};
+}
+
+function createGeneratedMenu(document: MenuDocument): Menu {
+	return { id: document.id, name: document.name, authoredDocument: document };
+}
+
 export function buildChapterMenusForTitleset(
 	titleset: SpindleProjectFile['disc']['titlesets'][number],
 	standard: VideoStandard,
@@ -73,90 +268,73 @@ export function buildChapterMenusForTitleset(
 
 	const pages = chunkArray(chapterTargets, 6);
 	const pageIds = pages.map(() => crypto.randomUUID());
+	const displayAspect = resolveTitlesetDisplayAspect(titleset);
 
 	return pages.map((page, pageIndex) => {
 		const id = pageIds[pageIndex];
-		const buttons = page.map((target, buttonIndex) => {
+
+		// 2-column chapter grid — geometry drives both button placement and
+		// (via wireGridNav below) directional navigation.
+		const gridButtons = page.map((target, buttonIndex) => {
 			const col = buttonIndex % 2;
 			const row = Math.floor(buttonIndex / 2);
-			return {
-				id: crypto.randomUUID(),
-				label: target.label,
-				bounds: {
-					x: 72 + col * 292,
-					y: 132 + row * 92,
-					width: 248,
-					height: 52,
-				},
-				action: {
-					type: 'playChapter' as const,
-					titleId: target.titleId,
-					chapterId: target.chapterId,
-				},
-				navUp: null,
-				navDown: null,
-				navLeft: null,
-				navRight: null,
-				highlightMode: 'static' as const,
-				highlightKeyframes: [],
-				videoAssetId: null,
-			};
+			return generatedButton(
+				target.label,
+				{ x: 72 + col * 292, y: 132 + row * 92, width: 248, height: 52 },
+				{ type: 'playChapter', titleId: target.titleId, chapterId: target.chapterId },
+			);
 		});
 
-		const pageActions: Menu['buttons'] = [];
+		const utilityButtons: GeneratedButtonSpec[] = [];
 		if (pageIndex > 0) {
-			pageActions.push({
-				id: crypto.randomUUID(),
-				label: 'Previous',
-				bounds: { x: 72, y: 420, width: 148, height: 40 },
-				action: { type: 'showMenu', menuId: pageIds[pageIndex - 1] },
-				navUp: null,
-				navDown: null,
-				navLeft: null,
-				navRight: null,
-				highlightMode: 'static',
-				highlightKeyframes: [],
-				videoAssetId: null,
-			});
-		}
-		if (pageIndex < pages.length - 1) {
-			pageActions.push({
-				id: crypto.randomUUID(),
-				label: 'Next',
-				bounds: { x: 500, y: 420, width: 148, height: 40 },
-				action: { type: 'showMenu', menuId: pageIds[pageIndex + 1] },
-				navUp: null,
-				navDown: null,
-				navLeft: null,
-				navRight: null,
-				highlightMode: 'static',
-				highlightKeyframes: [],
-				videoAssetId: null,
-			});
+			utilityButtons.push(
+				generatedButton(
+					'Previous',
+					{ x: 72, y: 420, width: 148, height: 40 },
+					{
+						type: 'showMenu',
+						menuId: pageIds[pageIndex - 1],
+					},
+				),
+			);
 		}
 		if (returnMenuId) {
-			pageActions.push({
-				id: crypto.randomUUID(),
-				label: 'Back',
-				bounds: { x: 286, y: 420, width: 148, height: 40 },
-				action: { type: 'showMenu', menuId: returnMenuId },
-				navUp: null,
-				navDown: null,
-				navLeft: null,
-				navRight: null,
-				highlightMode: 'static',
-				highlightKeyframes: [],
-				videoAssetId: null,
-			});
+			utilityButtons.push(
+				generatedButton(
+					'Back',
+					{ x: 286, y: 420, width: 148, height: 40 },
+					{
+						type: 'showMenu',
+						menuId: returnMenuId,
+					},
+				),
+			);
+		}
+		if (pageIndex < pages.length - 1) {
+			utilityButtons.push(
+				generatedButton(
+					'Next',
+					{ x: 500, y: 420, width: 148, height: 40 },
+					{
+						type: 'showMenu',
+						menuId: pageIds[pageIndex + 1],
+					},
+				),
+			);
 		}
 
-		return createGeneratedMenuFromButtons(
-			id,
-			pageIndex === 0 ? 'Chapter Select' : `Chapter Select ${pageIndex + 1}`,
-			[...buttons, ...pageActions],
-			'titleset',
-			MENU_HEIGHT[standard],
-			resolveTitlesetDisplayAspect(titleset),
+		wireGridNav(gridButtons, 2, utilityButtons);
+
+		return createGeneratedMenu(
+			createGeneratedMenuDocument(
+				id,
+				pageIndex === 0 ? 'Chapter Select' : `Chapter Select ${pageIndex + 1}`,
+				[...gridButtons, ...utilityButtons],
+				'titleset',
+				MENU_HEIGHT[standard],
+				displayAspect,
+				gridButtons[0]?.id ?? utilityButtons[0]?.id ?? null,
+			),
 		);
 	});
 }
@@ -185,51 +363,47 @@ export function buildAudioSetupMenu(
 	if (audioChoices.length === 0) return null;
 
 	const id = crypto.randomUUID();
-	const buttons: MenuButton[] = audioChoices.map((choice) => ({
-		id: crypto.randomUUID(),
-		label: choice.label,
-		bounds: { x: 120, y: 132 + choice.index * 72, width: 480, height: 48 },
-		action: {
-			type: 'sequence' as const,
-			actions: [
-				{ type: 'setAudioStream' as const, streamIndex: choice.index },
-				...(returnMenuId
-					? ([{ type: 'showMenu', menuId: returnMenuId }] satisfies PlaybackAction[])
-					: []),
-			],
-		},
-		navUp: null,
-		navDown: null,
-		navLeft: null,
-		navRight: null,
-		highlightMode: 'static' as const,
-		highlightKeyframes: [],
-		videoAssetId: null,
-	}));
+	const buttons: GeneratedButtonSpec[] = audioChoices.map((choice) =>
+		generatedButton(
+			choice.label,
+			{ x: 120, y: 132 + choice.index * 72, width: 480, height: 48 },
+			{
+				type: 'sequence',
+				actions: [
+					{ type: 'setAudioStream', streamIndex: choice.index },
+					...(returnMenuId
+						? ([{ type: 'showMenu', menuId: returnMenuId }] satisfies PlaybackAction[])
+						: []),
+				],
+			},
+		),
+	);
 
 	if (returnMenuId) {
-		buttons.push({
-			id: crypto.randomUUID(),
-			label: 'Back',
-			bounds: { x: 286, y: 420, width: 148, height: 40 },
-			action: { type: 'showMenu', menuId: returnMenuId },
-			navUp: null,
-			navDown: null,
-			navLeft: null,
-			navRight: null,
-			highlightMode: 'static',
-			highlightKeyframes: [],
-			videoAssetId: null,
-		});
+		buttons.push(
+			generatedButton(
+				'Back',
+				{ x: 286, y: 420, width: 148, height: 40 },
+				{
+					type: 'showMenu',
+					menuId: returnMenuId,
+				},
+			),
+		);
 	}
 
-	return createGeneratedMenuFromButtons(
-		id,
-		'Audio Setup',
-		buttons,
-		'titleset',
-		MENU_HEIGHT[standard],
-		resolveTitlesetDisplayAspect(titleset),
+	wireVerticalListNav(buttons);
+
+	return createGeneratedMenu(
+		createGeneratedMenuDocument(
+			id,
+			'Audio Setup',
+			buttons,
+			'titleset',
+			MENU_HEIGHT[standard],
+			resolveTitlesetDisplayAspect(titleset),
+			buttons[0]?.id ?? null,
+		),
 	);
 }
 
@@ -257,146 +431,62 @@ export function buildSubtitleSetupMenu(
 	if (subtitleChoices.length === 0) return null;
 
 	const id = crypto.randomUUID();
-	const buttons: MenuButton[] = subtitleChoices.map((choice) => ({
-		id: crypto.randomUUID(),
-		label: choice.label,
-		bounds: { x: 120, y: 116 + choice.index * 64, width: 480, height: 44 },
-		action: {
-			type: 'sequence' as const,
-			actions: [
-				{ type: 'setSubtitleStream' as const, streamIndex: choice.index },
-				...(returnMenuId
-					? ([{ type: 'showMenu', menuId: returnMenuId }] satisfies PlaybackAction[])
-					: []),
-			],
-		},
-		navUp: null,
-		navDown: null,
-		navLeft: null,
-		navRight: null,
-		highlightMode: 'static' as const,
-		highlightKeyframes: [],
-		videoAssetId: null,
-	}));
+	const buttons: GeneratedButtonSpec[] = subtitleChoices.map((choice) =>
+		generatedButton(
+			choice.label,
+			{ x: 120, y: 116 + choice.index * 64, width: 480, height: 44 },
+			{
+				type: 'sequence',
+				actions: [
+					{ type: 'setSubtitleStream', streamIndex: choice.index },
+					...(returnMenuId
+						? ([{ type: 'showMenu', menuId: returnMenuId }] satisfies PlaybackAction[])
+						: []),
+				],
+			},
+		),
+	);
 
-	buttons.push({
-		id: crypto.randomUUID(),
-		label: 'Subtitles Off',
-		bounds: { x: 120, y: 116 + buttons.length * 64, width: 480, height: 44 },
-		action: {
-			type: 'sequence' as const,
-			actions: [
-				{ type: 'setSubtitleStream' as const, streamIndex: null },
-				...(returnMenuId
-					? ([{ type: 'showMenu', menuId: returnMenuId }] satisfies PlaybackAction[])
-					: []),
-			],
-		},
-		navUp: null,
-		navDown: null,
-		navLeft: null,
-		navRight: null,
-		highlightMode: 'static',
-		highlightKeyframes: [],
-		videoAssetId: null,
-	});
+	buttons.push(
+		generatedButton(
+			'Subtitles Off',
+			{ x: 120, y: 116 + buttons.length * 64, width: 480, height: 44 },
+			{
+				type: 'sequence',
+				actions: [
+					{ type: 'setSubtitleStream', streamIndex: null },
+					...(returnMenuId
+						? ([{ type: 'showMenu', menuId: returnMenuId }] satisfies PlaybackAction[])
+						: []),
+				],
+			},
+		),
+	);
 
 	if (returnMenuId) {
-		buttons.push({
-			id: crypto.randomUUID(),
-			label: 'Back',
-			bounds: { x: 286, y: 420, width: 148, height: 40 },
-			action: { type: 'showMenu', menuId: returnMenuId },
-			navUp: null,
-			navDown: null,
-			navLeft: null,
-			navRight: null,
-			highlightMode: 'static',
-			highlightKeyframes: [],
-			videoAssetId: null,
-		});
+		buttons.push(
+			generatedButton(
+				'Back',
+				{ x: 286, y: 420, width: 148, height: 40 },
+				{
+					type: 'showMenu',
+					menuId: returnMenuId,
+				},
+			),
+		);
 	}
 
-	return createGeneratedMenuFromButtons(
-		id,
-		'Subtitle Setup',
-		buttons,
-		'titleset',
-		MENU_HEIGHT[standard],
-		resolveTitlesetDisplayAspect(titleset),
-	);
-}
+	wireVerticalListNav(buttons);
 
-export function createGeneratedMenuFromButtons(
-	id: string,
-	name: string,
-	buttons: Menu['buttons'],
-	domain: 'vmgm' | 'titleset',
-	designHeight: number,
-	displayAspect: AspectMode,
-): Menu {
-	return {
-		id,
-		name,
-		backgroundAssetId: null,
-		buttons,
-		defaultButtonId: buttons[0]?.id ?? null,
-		highlightColours: { ...DEFAULT_HIGHLIGHT_COLOURS },
-		backgroundMode: 'still',
-		motionDurationSecs: null,
-		motionAudioAssetId: null,
-		motionLoopCount: 0,
-		timeoutAction: null,
-		authoredDocument: {
+	return createGeneratedMenu(
+		createGeneratedMenuDocument(
 			id,
-			name,
-			domain,
-			scene: {
-				designSize: { width: 720, height: designHeight },
-				background: { assetId: null, colour: '#0f0e1a' },
-				nodes: buttons.map((button) => ({
-					type: 'button' as const,
-					id: button.id,
-					label: button.label,
-					x: button.bounds.x,
-					y: button.bounds.y,
-					width: button.bounds.width,
-					height: button.bounds.height,
-					highlightMode: button.highlightMode,
-					highlightKeyframes: button.highlightKeyframes,
-					videoAssetId: button.videoAssetId,
-					buttonStyle: { ...DEFAULT_BUTTON_STYLE_MAP },
-					labelStyle: { ...DEFAULT_TEXT_STYLE },
-				})),
-				guides: [],
-			},
-			interaction: {
-				defaultFocusId: buttons[0]?.id ?? null,
-				nodes: buttons.map((button) => ({
-					nodeId: button.id,
-					navUp: button.navUp,
-					navDown: button.navDown,
-					navLeft: button.navLeft,
-					navRight: button.navRight,
-					action: button.action,
-				})),
-				timeoutAction: null,
-			},
-			timing: {
-				introStartSecs: 0,
-				introDurationSecs: 0,
-				loopStartSecs: 0,
-				loopDurationSecs: 0,
-				loopCount: 0,
-			},
-			highlightColours: { ...DEFAULT_HIGHLIGHT_COLOURS },
-			backgroundMode: 'still',
-			themeRef: null,
-			generationMeta: {
-				generatorId: 'menu-workspace',
-				lastGeneratedAt: new Date().toISOString(),
-			},
-			compilePolicy: createDefaultMenuCompilePolicy(displayAspect),
-		},
-	};
+			'Subtitle Setup',
+			buttons,
+			'titleset',
+			MENU_HEIGHT[standard],
+			resolveTitlesetDisplayAspect(titleset),
+			buttons[0]?.id ?? null,
+		),
+	);
 }
