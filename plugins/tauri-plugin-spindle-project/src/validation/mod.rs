@@ -63,12 +63,11 @@ mod tests {
     use std::collections::HashMap;
 
     use crate::models::{
-        AspectMode, Asset, AudioOutputTarget, AudioTrackMapping, BackgroundMode, ButtonBounds,
-        ChapterPoint, CompatibilityAssessment, CopyMode, Disc, HighlightKeyframe, HighlightMode,
-        IssueSeverity, Menu, MenuButton, MenuCompilePolicy, MenuDocument, MenuDomain,
-        MenuHighlightColours, MenuInteractionGraph, MenuScene, MenuSize, MenuTiming,
-        PlaybackAction, SceneBackground, SceneNode, SubtitleTrackMapping, Title, Titleset,
-        VideoStandard,
+        AspectMode, Asset, AudioOutputTarget, AudioTrackMapping, BackgroundMode, ChapterPoint,
+        CompatibilityAssessment, CopyMode, Disc, HighlightKeyframe, HighlightMode, IssueSeverity,
+        Menu, MenuCompilePolicy, MenuDocument, MenuDomain, MenuHighlightColours,
+        MenuInteractionGraph, MenuScene, MenuSize, MenuTiming, PlaybackAction, SceneBackground,
+        SceneNode, SubtitleTrackMapping, Title, Titleset, VideoStandard,
     };
 
     use super::chapter::{chapter_target_exists, dangling_play_chapter_issue};
@@ -348,80 +347,70 @@ mod tests {
 
     #[test]
     fn validate_menu_aspect_section_reports_mixed_authored_aspects() {
-        let menu_a = Menu {
+        let menu_a = Menu::new("menu-a", "Menu A").with_document(MenuDocument {
             id: "menu-a".to_string(),
             name: "Menu A".to_string(),
-            authored_document: Some(MenuDocument {
-                id: "menu-a".to_string(),
-                name: "Menu A".to_string(),
-                domain: MenuDomain::Vmgm,
-                scene: MenuScene {
-                    design_size: MenuSize {
-                        width: 720.0,
-                        height: 480.0,
-                        aspect: AspectMode::FourByThree,
-                    },
-                    background: SceneBackground {
-                        asset_id: None,
-                        colour: None,
-                    },
-                    nodes: vec![],
-                    guides: vec![],
+            domain: MenuDomain::Vmgm,
+            scene: MenuScene {
+                design_size: MenuSize {
+                    width: 720.0,
+                    height: 480.0,
+                    aspect: AspectMode::FourByThree,
                 },
-                interaction: MenuInteractionGraph {
-                    default_focus_id: None,
-                    nodes: vec![],
-                    timeout_action: None,
+                background: SceneBackground {
+                    asset_id: None,
+                    colour: None,
                 },
-                timing: MenuTiming::default(),
-                highlight_colours: MenuHighlightColours::default(),
-                background_mode: BackgroundMode::Still,
-                theme_ref: None,
-                generation_meta: None,
-                compile_policy: MenuCompilePolicy {
-                    display_aspect: Some(AspectMode::FourByThree),
-                    ..MenuCompilePolicy::default()
-                },
-            }),
-            ..Menu::default()
-        };
-        let menu_b = Menu {
+                nodes: vec![],
+                guides: vec![],
+            },
+            interaction: MenuInteractionGraph {
+                default_focus_id: None,
+                nodes: vec![],
+                timeout_action: None,
+            },
+            timing: MenuTiming::default(),
+            highlight_colours: MenuHighlightColours::default(),
+            background_mode: BackgroundMode::Still,
+            theme_ref: None,
+            generation_meta: None,
+            compile_policy: MenuCompilePolicy {
+                display_aspect: Some(AspectMode::FourByThree),
+                ..MenuCompilePolicy::default()
+            },
+        });
+        let menu_b = Menu::new("menu-b", "Menu B").with_document(MenuDocument {
             id: "menu-b".to_string(),
             name: "Menu B".to_string(),
-            authored_document: Some(MenuDocument {
-                id: "menu-b".to_string(),
-                name: "Menu B".to_string(),
-                domain: MenuDomain::Vmgm,
-                scene: MenuScene {
-                    design_size: MenuSize {
-                        width: 720.0,
-                        height: 480.0,
-                        aspect: AspectMode::SixteenByNine,
-                    },
-                    background: SceneBackground {
-                        asset_id: None,
-                        colour: None,
-                    },
-                    nodes: vec![],
-                    guides: vec![],
+            domain: MenuDomain::Vmgm,
+            scene: MenuScene {
+                design_size: MenuSize {
+                    width: 720.0,
+                    height: 480.0,
+                    aspect: AspectMode::SixteenByNine,
                 },
-                interaction: MenuInteractionGraph {
-                    default_focus_id: None,
-                    nodes: vec![],
-                    timeout_action: None,
+                background: SceneBackground {
+                    asset_id: None,
+                    colour: None,
                 },
-                timing: MenuTiming::default(),
-                highlight_colours: MenuHighlightColours::default(),
-                background_mode: BackgroundMode::Still,
-                theme_ref: None,
-                generation_meta: None,
-                compile_policy: MenuCompilePolicy {
-                    display_aspect: Some(AspectMode::SixteenByNine),
-                    ..MenuCompilePolicy::default()
-                },
-            }),
-            ..Menu::default()
-        };
+                nodes: vec![],
+                guides: vec![],
+            },
+            interaction: MenuInteractionGraph {
+                default_focus_id: None,
+                nodes: vec![],
+                timeout_action: None,
+            },
+            timing: MenuTiming::default(),
+            highlight_colours: MenuHighlightColours::default(),
+            background_mode: BackgroundMode::Still,
+            theme_ref: None,
+            generation_meta: None,
+            compile_policy: MenuCompilePolicy {
+                display_aspect: Some(AspectMode::SixteenByNine),
+                ..MenuCompilePolicy::default()
+            },
+        });
 
         let mut issues = Vec::new();
         validate_menu_aspect_section(
@@ -438,64 +427,60 @@ mod tests {
 
     #[test]
     fn validate_motion_keyframes_flags_out_of_range_entries() {
-        let menu = Menu {
+        let menu = Menu::new("menu-1", "Motion Menu").with_document(MenuDocument {
             id: "menu-1".to_string(),
             name: "Motion Menu".to_string(),
-            authored_document: Some(MenuDocument {
-                id: "menu-1".to_string(),
-                name: "Motion Menu".to_string(),
-                domain: MenuDomain::Vmgm,
-                scene: MenuScene {
-                    design_size: MenuSize {
-                        width: 720.0,
-                        height: 480.0,
-                        aspect: AspectMode::SixteenByNine,
-                    },
-                    background: SceneBackground {
-                        asset_id: Some("asset-1".to_string()),
-                        colour: None,
-                    },
-                    nodes: vec![SceneNode::Button {
-                        id: "btn-1".to_string(),
-                        label: "Play".to_string(),
-                        x: 0.0,
-                        y: 0.0,
-                        width: 100.0,
-                        height: 40.0,
-                        highlight_mode: HighlightMode::Animated,
-                        highlight_keyframes: vec![HighlightKeyframe {
-                            timestamp_secs: 9.0,
-                            select_colour: None,
-                            select_opacity: None,
-                            activate_colour: None,
-                            activate_opacity: None,
-                        }],
-                        video_asset_id: None,
-                        button_style: None,
-                        label_style: None,
+            domain: MenuDomain::Vmgm,
+            scene: MenuScene {
+                design_size: MenuSize {
+                    width: 720.0,
+                    height: 480.0,
+                    aspect: AspectMode::SixteenByNine,
+                },
+                background: SceneBackground {
+                    asset_id: Some("asset-1".to_string()),
+                    colour: None,
+                },
+                nodes: vec![SceneNode::Button {
+                    id: "btn-1".to_string(),
+                    label: "Play".to_string(),
+                    x: 0.0,
+                    y: 0.0,
+                    width: 100.0,
+                    height: 40.0,
+                    highlight_mode: HighlightMode::Animated,
+                    highlight_keyframes: vec![HighlightKeyframe {
+                        timestamp_secs: 9.0,
+                        select_colour: None,
+                        select_opacity: None,
+                        activate_colour: None,
+                        activate_opacity: None,
                     }],
-                    guides: vec![],
-                },
-                interaction: MenuInteractionGraph {
-                    default_focus_id: None,
-                    nodes: vec![],
-                    timeout_action: None,
-                },
-                timing: MenuTiming {
-                    intro_start_secs: 0.0,
-                    intro_duration_secs: 0.0,
-                    loop_start_secs: 2.0,
-                    loop_duration_secs: 5.0,
-                    loop_count: 0,
-                },
-                highlight_colours: MenuHighlightColours::default(),
-                background_mode: BackgroundMode::Motion,
-                theme_ref: None,
-                generation_meta: None,
-                compile_policy: MenuCompilePolicy::default(),
-            }),
-            ..Menu::default()
-        };
+                    video_asset_id: None,
+                    button_style: None,
+                    label_style: None,
+                }],
+                guides: vec![],
+            },
+            interaction: MenuInteractionGraph {
+                default_focus_id: None,
+                nodes: vec![],
+                timeout_action: None,
+            },
+            timing: MenuTiming {
+                intro_start_secs: 0.0,
+                intro_duration_secs: 0.0,
+                loop_start_secs: 2.0,
+                loop_duration_secs: 5.0,
+                loop_count: 0,
+                audio_asset_id: None,
+            },
+            highlight_colours: MenuHighlightColours::default(),
+            background_mode: BackgroundMode::Motion,
+            theme_ref: None,
+            generation_meta: None,
+            compile_policy: MenuCompilePolicy::default(),
+        });
 
         let mut issues = Vec::new();
         validate_motion_keyframes(
@@ -511,29 +496,47 @@ mod tests {
 
     #[test]
     fn validate_button_video_usage_warns_for_still_menus() {
-        let menu = Menu {
+        let menu = Menu::new("menu-1", "Still Menu").with_document(MenuDocument {
             id: "menu-1".to_string(),
             name: "Still Menu".to_string(),
-            buttons: vec![MenuButton {
-                id: "btn-1".to_string(),
-                label: "Play".to_string(),
-                bounds: ButtonBounds {
+            domain: MenuDomain::Vmgm,
+            scene: MenuScene {
+                design_size: MenuSize {
+                    width: 720.0,
+                    height: 480.0,
+                    aspect: AspectMode::SixteenByNine,
+                },
+                background: SceneBackground {
+                    asset_id: None,
+                    colour: None,
+                },
+                nodes: vec![SceneNode::Button {
+                    id: "btn-1".to_string(),
+                    label: "Play".to_string(),
                     x: 0.0,
                     y: 0.0,
                     width: 100.0,
                     height: 40.0,
-                },
-                action: None,
-                nav_up: None,
-                nav_down: None,
-                nav_left: None,
-                nav_right: None,
-                highlight_mode: HighlightMode::Static,
-                highlight_keyframes: vec![],
-                video_asset_id: Some("asset-1".to_string()),
-            }],
-            ..Menu::default()
-        };
+                    highlight_mode: HighlightMode::Static,
+                    highlight_keyframes: vec![],
+                    video_asset_id: Some("asset-1".to_string()),
+                    button_style: None,
+                    label_style: None,
+                }],
+                guides: vec![],
+            },
+            interaction: MenuInteractionGraph {
+                default_focus_id: None,
+                nodes: vec![],
+                timeout_action: None,
+            },
+            timing: MenuTiming::default(),
+            highlight_colours: MenuHighlightColours::default(),
+            background_mode: BackgroundMode::Still,
+            theme_ref: None,
+            generation_meta: None,
+            compile_policy: MenuCompilePolicy::default(),
+        });
         let asset = Asset {
             id: "asset-1".to_string(),
             file_name: "clip.mp4".to_string(),

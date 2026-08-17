@@ -392,8 +392,8 @@ fn build_plan_deduplicates_identical_transcodes_with_different_mapping_ids() {
 fn build_plan_rejects_motion_menus_until_backend_support_lands() {
     let mut project = test_project();
     let mut menu = test_menu();
-    menu.background_mode = BackgroundMode::Motion;
-    menu.motion_duration_secs = Some(12.0);
+    menu.doc_mut().background_mode = BackgroundMode::Motion;
+    menu.doc_mut().timing.loop_duration_secs = 12.0;
     project.disc.global_menus.push(menu);
 
     let err = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap_err();

@@ -114,42 +114,96 @@ pub(crate) fn test_menu() -> Menu {
     )
 }
 
+/// Build a menu with a single authored scene button ("btn-1") carrying
+/// `action`, and that button set as the default focus. Mirrors what
+/// `migrate_to_document` would have lifted from the old legacy fields, since
+/// `Menu`'s legacy fields are no longer publicly constructible outside
+/// `models::menu` (deserialise-only).
 pub(crate) fn test_menu_with_action(
     menu_id: &str,
     menu_name: &str,
     action: PlaybackAction,
 ) -> Menu {
-    Menu {
+    Menu::new(menu_id, menu_name).with_document(MenuDocument {
         id: menu_id.to_string(),
         name: menu_name.to_string(),
-        background_asset_id: None,
-        buttons: vec![MenuButton {
-            id: "btn-1".to_string(),
-            label: "Play".to_string(),
-            bounds: ButtonBounds {
+        domain: MenuDomain::Vmgm,
+        scene: MenuScene {
+            design_size: MenuSize::default(),
+            background: SceneBackground {
+                asset_id: None,
+                colour: Some("#101014".to_string()),
+            },
+            nodes: vec![SceneNode::Button {
+                id: "btn-1".to_string(),
+                label: "Play".to_string(),
                 x: 120.0,
                 y: 320.0,
                 width: 240.0,
                 height: 48.0,
-            },
-            action: Some(action),
-            nav_up: None,
-            nav_down: None,
-            nav_left: None,
-            nav_right: None,
-            highlight_mode: HighlightMode::Static,
-            highlight_keyframes: vec![],
-            video_asset_id: None,
-        }],
-        default_button_id: Some("btn-1".to_string()),
+                highlight_mode: HighlightMode::Static,
+                highlight_keyframes: vec![],
+                video_asset_id: None,
+                button_style: None,
+                label_style: None,
+            }],
+            guides: vec![],
+        },
+        interaction: MenuInteractionGraph {
+            default_focus_id: Some("btn-1".to_string()),
+            nodes: vec![FocusNode {
+                node_id: "btn-1".to_string(),
+                action: Some(action),
+                ..FocusNode::default()
+            }],
+            timeout_action: None,
+        },
+        timing: MenuTiming::default(),
         highlight_colours: MenuHighlightColours::default(),
         background_mode: BackgroundMode::Still,
-        motion_duration_secs: None,
-        motion_audio_asset_id: None,
-        motion_loop_count: 0,
-        timeout_action: None,
-        authored_document: None,
-    }
+        theme_ref: None,
+        generation_meta: None,
+        compile_policy: MenuCompilePolicy::default(),
+    })
+}
+
+/// Append a button to `menu`'s authored document scene + interaction graph.
+/// Test helper standing in for the legacy `menu.buttons.push(...)` pattern,
+/// now that `Menu`'s legacy fields are private.
+pub(crate) fn push_button(menu: &mut Menu, button: MenuButton) {
+    let doc = menu.doc_mut();
+    doc.scene.nodes.push(SceneNode::Button {
+        id: button.id.clone(),
+        label: button.label.clone(),
+        x: button.bounds.x,
+        y: button.bounds.y,
+        width: button.bounds.width,
+        height: button.bounds.height,
+        highlight_mode: button.highlight_mode,
+        highlight_keyframes: button.highlight_keyframes.clone(),
+        video_asset_id: button.video_asset_id.clone(),
+        button_style: None,
+        label_style: None,
+    });
+    doc.interaction.nodes.push(FocusNode {
+        node_id: button.id.clone(),
+        nav_up: button.nav_up.clone(),
+        nav_down: button.nav_down.clone(),
+        nav_left: button.nav_left.clone(),
+        nav_right: button.nav_right.clone(),
+        action: button.action.clone(),
+    });
+}
+
+/// Mutable access to a button's interaction/focus node by id. Test helper
+/// standing in for the legacy `menu.buttons[i].nav_* = ...` pattern.
+pub(crate) fn focus_node_mut<'a>(menu: &'a mut Menu, button_id: &str) -> &'a mut FocusNode {
+    menu.doc_mut()
+        .interaction
+        .nodes
+        .iter_mut()
+        .find(|n| n.node_id == button_id)
+        .unwrap_or_else(|| panic!("expected a focus node for \"{button_id}\""))
 }
 
 pub(crate) fn add_second_titleset(project: &mut SpindleProjectFile) {

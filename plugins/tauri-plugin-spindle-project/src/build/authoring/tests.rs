@@ -5,12 +5,13 @@
 
 use crate::build::generate_build_plan;
 use crate::build::test_support::{
-    add_second_titleset, test_menu, test_menu_with_action, test_project,
+    add_second_titleset, focus_node_mut, push_button, test_menu, test_menu_with_action,
+    test_project,
 };
 use crate::models::{
-    AspectMode, AudioOutputTarget, AudioTrackMapping, ChapterPoint, CopyMode, MenuDomain,
-    PlaybackAction, SubtitleStreamInfo, SubtitleTrackMapping, SubtitleType, Title,
-    VideoOutputProfile, VideoRaster, VideoStandard, VideoTrackMapping,
+    AspectMode, AudioOutputTarget, AudioTrackMapping, ChapterPoint, CopyMode, PlaybackAction,
+    SubtitleStreamInfo, SubtitleTrackMapping, SubtitleType, Title, VideoOutputProfile, VideoRaster,
+    VideoTrackMapping,
 };
 
 fn make_title(id: &str, name: &str, order_index: u32) -> Title {
@@ -230,11 +231,7 @@ fn dvdauthor_xml_targets_named_disc_output_directory() {
 fn dvdauthor_xml_uses_authored_menu_display_aspect() {
     let mut project = test_project();
     let mut menu = test_menu();
-    menu.migrate_to_document(
-        MenuDomain::Vmgm,
-        VideoStandard::Ntsc,
-        AspectMode::FourByThree,
-    );
+    menu.doc_mut().compile_policy.display_aspect = Some(AspectMode::FourByThree);
     project.disc.global_menus.push(menu);
 
     let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
@@ -254,11 +251,7 @@ fn dvdauthor_xml_rejects_mixed_menu_aspects_within_one_section() {
             title_id: "title-1".to_string(),
         },
     );
-    menu_a.migrate_to_document(
-        MenuDomain::Vmgm,
-        VideoStandard::Ntsc,
-        AspectMode::FourByThree,
-    );
+    menu_a.doc_mut().compile_policy.display_aspect = Some(AspectMode::FourByThree);
 
     let mut menu_b = test_menu_with_action(
         "menu-2",
@@ -267,11 +260,7 @@ fn dvdauthor_xml_rejects_mixed_menu_aspects_within_one_section() {
             title_id: "title-1".to_string(),
         },
     );
-    menu_b.migrate_to_document(
-        MenuDomain::Vmgm,
-        VideoStandard::Ntsc,
-        AspectMode::SixteenByNine,
-    );
+    menu_b.doc_mut().compile_policy.display_aspect = Some(AspectMode::SixteenByNine);
 
     project.disc.global_menus.extend([menu_a, menu_b]);
 
@@ -476,7 +465,7 @@ fn menu_entry_pre_selects_first_button_when_no_default_is_set() {
             title_id: "title-1".to_string(),
         },
     );
-    menu.default_button_id = None;
+    menu.doc_mut().interaction.default_focus_id = None;
     project.disc.global_menus.push(menu);
 
     let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
@@ -498,26 +487,29 @@ fn menu_entry_pre_selects_second_button_when_it_is_default() {
             title_id: "title-1".to_string(),
         },
     );
-    menu.buttons.push(crate::models::MenuButton {
-        id: "btn-2".to_string(),
-        label: "Extras".to_string(),
-        bounds: crate::models::ButtonBounds {
-            x: 120.0,
-            y: 380.0,
-            width: 240.0,
-            height: 48.0,
+    push_button(
+        &mut menu,
+        crate::models::MenuButton {
+            id: "btn-2".to_string(),
+            label: "Extras".to_string(),
+            bounds: crate::models::ButtonBounds {
+                x: 120.0,
+                y: 380.0,
+                width: 240.0,
+                height: 48.0,
+            },
+            action: Some(PlaybackAction::Stop),
+            nav_up: Some("btn-1".to_string()),
+            nav_down: None,
+            nav_left: None,
+            nav_right: None,
+            highlight_mode: crate::models::HighlightMode::Static,
+            highlight_keyframes: vec![],
+            video_asset_id: None,
         },
-        action: Some(PlaybackAction::Stop),
-        nav_up: Some("btn-1".to_string()),
-        nav_down: None,
-        nav_left: None,
-        nav_right: None,
-        highlight_mode: crate::models::HighlightMode::Static,
-        highlight_keyframes: vec![],
-        video_asset_id: None,
-    });
-    menu.buttons[0].nav_down = Some("btn-2".to_string());
-    menu.default_button_id = Some("btn-2".to_string());
+    );
+    focus_node_mut(&mut menu, "btn-1").nav_down = Some("btn-2".to_string());
+    menu.doc_mut().interaction.default_focus_id = Some("btn-2".to_string());
     project.disc.global_menus.push(menu);
 
     let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
@@ -539,28 +531,31 @@ fn titleset_root_entry_pre_combines_dispatch_and_default_button_selection() {
             title_id: "title-1".to_string(),
         },
     );
-    root_menu.buttons.push(crate::models::MenuButton {
-        id: "btn-2".to_string(),
-        label: "Scenes".to_string(),
-        bounds: crate::models::ButtonBounds {
-            x: 120.0,
-            y: 380.0,
-            width: 240.0,
-            height: 48.0,
+    push_button(
+        &mut root_menu,
+        crate::models::MenuButton {
+            id: "btn-2".to_string(),
+            label: "Scenes".to_string(),
+            bounds: crate::models::ButtonBounds {
+                x: 120.0,
+                y: 380.0,
+                width: 240.0,
+                height: 48.0,
+            },
+            action: Some(PlaybackAction::PlayTitle {
+                title_id: "title-1".to_string(),
+            }),
+            nav_up: Some("btn-1".to_string()),
+            nav_down: None,
+            nav_left: None,
+            nav_right: None,
+            highlight_mode: crate::models::HighlightMode::Static,
+            highlight_keyframes: vec![],
+            video_asset_id: None,
         },
-        action: Some(PlaybackAction::PlayTitle {
-            title_id: "title-1".to_string(),
-        }),
-        nav_up: Some("btn-1".to_string()),
-        nav_down: None,
-        nav_left: None,
-        nav_right: None,
-        highlight_mode: crate::models::HighlightMode::Static,
-        highlight_keyframes: vec![],
-        video_asset_id: None,
-    });
-    root_menu.buttons[0].nav_down = Some("btn-2".to_string());
-    root_menu.default_button_id = Some("btn-2".to_string());
+    );
+    focus_node_mut(&mut root_menu, "btn-1").nav_down = Some("btn-2".to_string());
+    root_menu.doc_mut().interaction.default_focus_id = Some("btn-2".to_string());
     project.disc.titlesets[0].menus.push(root_menu);
     project.disc.titlesets[0].menus.push(test_menu_with_action(
         "ts-menu-2",
@@ -743,24 +738,27 @@ fn menu_button_with_no_action_emits_empty_button_element() {
         },
     );
     // Add a second button with no action (e.g. a "not yet implemented" placeholder).
-    menu.buttons.push(crate::models::MenuButton {
-        id: "btn-noop".to_string(),
-        label: "Coming Soon".to_string(),
-        bounds: crate::models::ButtonBounds {
-            x: 120.0,
-            y: 380.0,
-            width: 240.0,
-            height: 48.0,
+    push_button(
+        &mut menu,
+        crate::models::MenuButton {
+            id: "btn-noop".to_string(),
+            label: "Coming Soon".to_string(),
+            bounds: crate::models::ButtonBounds {
+                x: 120.0,
+                y: 380.0,
+                width: 240.0,
+                height: 48.0,
+            },
+            action: None,
+            nav_up: Some("btn-1".to_string()),
+            nav_down: None,
+            nav_left: None,
+            nav_right: None,
+            highlight_mode: crate::models::HighlightMode::Static,
+            highlight_keyframes: vec![],
+            video_asset_id: None,
         },
-        action: None,
-        nav_up: Some("btn-1".to_string()),
-        nav_down: None,
-        nav_left: None,
-        nav_right: None,
-        highlight_mode: crate::models::HighlightMode::Static,
-        highlight_keyframes: vec![],
-        video_asset_id: None,
-    });
+    );
     project.disc.global_menus.push(menu);
 
     let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
@@ -794,43 +792,49 @@ fn menu_button_order_preserved_with_mixed_action_and_no_action_buttons() {
     );
     // btn-1 already set by test_menu_with_action (has action: jump title 1)
     // Insert no-action btn in slot 2
-    menu.buttons.push(crate::models::MenuButton {
-        id: "btn-noop".to_string(),
-        label: "Placeholder".to_string(),
-        bounds: crate::models::ButtonBounds {
-            x: 120.0,
-            y: 380.0,
-            width: 240.0,
-            height: 48.0,
+    push_button(
+        &mut menu,
+        crate::models::MenuButton {
+            id: "btn-noop".to_string(),
+            label: "Placeholder".to_string(),
+            bounds: crate::models::ButtonBounds {
+                x: 120.0,
+                y: 380.0,
+                width: 240.0,
+                height: 48.0,
+            },
+            action: None,
+            nav_up: None,
+            nav_down: None,
+            nav_left: None,
+            nav_right: None,
+            highlight_mode: crate::models::HighlightMode::Static,
+            highlight_keyframes: vec![],
+            video_asset_id: None,
         },
-        action: None,
-        nav_up: None,
-        nav_down: None,
-        nav_left: None,
-        nav_right: None,
-        highlight_mode: crate::models::HighlightMode::Static,
-        highlight_keyframes: vec![],
-        video_asset_id: None,
-    });
+    );
     // btn-3 has action: Stop (slot 3)
-    menu.buttons.push(crate::models::MenuButton {
-        id: "btn-stop".to_string(),
-        label: "Exit".to_string(),
-        bounds: crate::models::ButtonBounds {
-            x: 120.0,
-            y: 440.0,
-            width: 240.0,
-            height: 48.0,
+    push_button(
+        &mut menu,
+        crate::models::MenuButton {
+            id: "btn-stop".to_string(),
+            label: "Exit".to_string(),
+            bounds: crate::models::ButtonBounds {
+                x: 120.0,
+                y: 440.0,
+                width: 240.0,
+                height: 48.0,
+            },
+            action: Some(PlaybackAction::Stop),
+            nav_up: None,
+            nav_down: None,
+            nav_left: None,
+            nav_right: None,
+            highlight_mode: crate::models::HighlightMode::Static,
+            highlight_keyframes: vec![],
+            video_asset_id: None,
         },
-        action: Some(PlaybackAction::Stop),
-        nav_up: None,
-        nav_down: None,
-        nav_left: None,
-        nav_right: None,
-        highlight_mode: crate::models::HighlightMode::Static,
-        highlight_keyframes: vec![],
-        video_asset_id: None,
-    });
+    );
     project.disc.global_menus.push(menu);
 
     let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();

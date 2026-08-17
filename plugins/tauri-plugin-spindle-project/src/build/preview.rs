@@ -162,47 +162,42 @@ mod tests {
     use super::*;
 
     fn dvd_project_with_menu(menu_id: &str) -> SpindleProjectFile {
-        let menu = Menu {
+        let menu = Menu::new(menu_id, "Preview Test").with_document(MenuDocument {
             id: menu_id.to_string(),
-            name: "Preview Test".to_string(),
-            authored_document: Some(MenuDocument {
-                id: menu_id.to_string(),
-                name: "Preview Test Menu".to_string(),
-                domain: models::MenuDomain::Vmgm,
-                scene: MenuScene {
-                    design_size: MenuSize {
-                        width: 1024.0,
-                        height: 576.0,
-                        aspect: AspectMode::SixteenByNine,
-                    },
-                    background: SceneBackground {
-                        asset_id: None,
-                        colour: Some("#0a0a14".to_string()),
-                    },
-                    nodes: vec![SceneNode::Shape {
-                        id: "rect1".to_string(),
-                        x: 50.0,
-                        y: 50.0,
-                        width: 200.0,
-                        height: 100.0,
-                        fill: Some("#336699".to_string()),
-                    }],
-                    guides: vec![],
+            name: "Preview Test Menu".to_string(),
+            domain: models::MenuDomain::Vmgm,
+            scene: MenuScene {
+                design_size: MenuSize {
+                    width: 1024.0,
+                    height: 576.0,
+                    aspect: AspectMode::SixteenByNine,
                 },
-                interaction: MenuInteractionGraph {
-                    default_focus_id: None,
-                    nodes: vec![],
-                    timeout_action: None,
+                background: SceneBackground {
+                    asset_id: None,
+                    colour: Some("#0a0a14".to_string()),
                 },
-                timing: MenuTiming::default(),
-                highlight_colours: MenuHighlightColours::default(),
-                background_mode: BackgroundMode::Still,
-                theme_ref: None,
-                generation_meta: None,
-                compile_policy: MenuCompilePolicy::default(),
-            }),
-            ..Menu::default()
-        };
+                nodes: vec![SceneNode::Shape {
+                    id: "rect1".to_string(),
+                    x: 50.0,
+                    y: 50.0,
+                    width: 200.0,
+                    height: 100.0,
+                    fill: Some("#336699".to_string()),
+                }],
+                guides: vec![],
+            },
+            interaction: MenuInteractionGraph {
+                default_focus_id: None,
+                nodes: vec![],
+                timeout_action: None,
+            },
+            timing: MenuTiming::default(),
+            highlight_colours: MenuHighlightColours::default(),
+            background_mode: BackgroundMode::Still,
+            theme_ref: None,
+            generation_meta: None,
+            compile_policy: MenuCompilePolicy::default(),
+        });
 
         let mut project = SpindleProjectFile::default();
         project.disc.global_menus.push(menu);
@@ -269,12 +264,10 @@ mod tests {
     #[test]
     fn export_preview_errors_for_menu_without_authored_document() {
         let mut project = SpindleProjectFile::default();
-        project.disc.global_menus.push(Menu {
-            id: "bare-menu".to_string(),
-            name: "Bare".to_string(),
-            authored_document: None,
-            ..Menu::default()
-        });
+        project
+            .disc
+            .global_menus
+            .push(Menu::new("bare-menu", "Bare"));
 
         let tmp = std::env::temp_dir().join("spindle_no_doc.png");
         let result = export_menu_render_preview(&project, "bare-menu", &tmp);
