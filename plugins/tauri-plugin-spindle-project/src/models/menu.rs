@@ -8,37 +8,52 @@ use uuid::Uuid;
 
 use super::{AspectMode, DiscFamily, PlaybackAction, VideoStandard};
 
+/// The nine legacy flat-menu fields, retired in favour of `MenuDocument`.
+///
+/// Old project files still carry these keys at the top level of a `menu`
+/// object (via `#[serde(flatten)]` below), so they keep deserialising —
+/// that's the only way a `Menu` can end up with these populated. They are
+/// never serialised back out (`skip_serializing`) and never read outside
+/// [`Menu::migrate_to_document`], which lifts them into an authored
+/// [`MenuDocument`] exactly once, at load time.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct LegacyMenuFields {
+    #[serde(default)]
+    background_asset_id: Option<String>,
+    #[serde(default)]
+    buttons: Vec<MenuButton>,
+    #[serde(default)]
+    default_button_id: Option<String>,
+    #[serde(default)]
+    highlight_colours: MenuHighlightColours,
+    #[serde(default)]
+    background_mode: BackgroundMode,
+    #[serde(default)]
+    motion_duration_secs: Option<f64>,
+    #[serde(default)]
+    motion_audio_asset_id: Option<String>,
+    #[serde(default)]
+    motion_loop_count: u32,
+    #[serde(default)]
+    timeout_action: Option<PlaybackAction>,
+}
+
 /// A menu page with buttons and navigation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Menu {
     pub id: String,
     pub name: String,
-    pub background_asset_id: Option<String>,
-    pub buttons: Vec<MenuButton>,
-    pub default_button_id: Option<String>,
-    /// Highlight colours for the subpicture overlay (DVD 4-colour palette).
-    #[serde(default)]
-    pub highlight_colours: MenuHighlightColours,
-    /// Whether the background is a still frame or looping video (Stage 2).
-    #[serde(default)]
-    pub background_mode: BackgroundMode,
-    /// Duration of the motion loop in seconds (motion menus only).
-    #[serde(default)]
-    pub motion_duration_secs: Option<f64>,
-    /// Optional audio asset for motion menu background music.
-    #[serde(default)]
-    pub motion_audio_asset_id: Option<String>,
-    /// Number of times to loop before timeout action (0 = infinite, motion only).
-    #[serde(default)]
-    pub motion_loop_count: u32,
-    /// Action when a motion menu times out after looping.
-    #[serde(default)]
-    pub timeout_action: Option<PlaybackAction>,
-    /// The new authored scene document that replaces the flat button model.
-    /// During the transition, this is optional.
+    /// The authored scene document. Guaranteed present for every menu once
+    /// [`SpindleProjectFile::migrate_all_menus`] has run (i.e. for any menu
+    /// reached via `parse_project`) — see [`Menu::doc`]/[`Menu::doc_mut`].
     #[serde(default)]
     pub authored_document: Option<MenuDocument>,
+    /// Deserialise-only mirror of the pre-`MenuDocument` flat menu shape.
+    /// See [`LegacyMenuFields`].
+    #[serde(flatten, default, skip_serializing)]
+    legacy: LegacyMenuFields,
 }
 
 impl Default for Menu {
@@ -46,29 +61,45 @@ impl Default for Menu {
         Self {
             id: Uuid::new_v4().to_string(),
             name: "Untitled Menu".to_string(),
-            background_asset_id: None,
-            buttons: Vec::new(),
-            default_button_id: None,
-            highlight_colours: MenuHighlightColours::default(),
-            background_mode: BackgroundMode::Still,
-            motion_duration_secs: None,
-            motion_audio_asset_id: None,
-            motion_loop_count: 0,
-            timeout_action: None,
             authored_document: None,
+            legacy: LegacyMenuFields::default(),
         }
     }
 }
 
 impl Menu {
-    /// Lift a legacy menu into the new authored document format.
-    /// This is used during migration to ensure old projects can be edited in the new scene editor.
+    /// Construct a menu with no authored document yet. The private `legacy`
+    /// field means `Menu { .., ..Menu::default() }` struct-update syntax
+    /// isn't usable outside `models::menu` (Rust requires read access to
+    /// every field for that syntax, even unnamed ones) — this is the public
+    /// constructor for callers elsewhere in the crate (mainly test
+    /// fixtures). Chain [`Menu::with_document`] to attach a document.
+    pub fn new(id: impl Into<String>, name: impl Into<String>) -> Self {
+        Self {
+            id: id.into(),
+            name: name.into(),
+            authored_document: None,
+            legacy: LegacyMenuFields::default(),
+        }
+    }
+
+    /// Attach an authored document, builder-style.
+    pub fn with_document(mut self, doc: MenuDocument) -> Self {
+        self.authored_document = Some(doc);
+        self
+    }
+
+    /// Lift a legacy menu into the new authored document format, consuming
+    /// (and clearing) `self.legacy`. Used during migration to ensure old
+    /// projects can be edited in the new scene editor.
     pub fn migrate_to_document(
         &mut self,
         domain: MenuDomain,
         standard: VideoStandard,
         display_aspect: AspectMode,
     ) {
+        let legacy = std::mem::take(&mut self.legacy);
+
         if self.authored_document.is_some() {
             return;
         }
@@ -82,10 +113,10 @@ impl Menu {
                 aspect: display_aspect,
             },
             background: SceneBackground {
-                asset_id: self.background_asset_id.clone(),
+                asset_id: legacy.background_asset_id.clone(),
                 colour: Some("#101014".to_string()),
             },
-            nodes: self
+            nodes: legacy
                 .buttons
                 .iter()
                 .map(|b| SceneNode::Button {
@@ -106,8 +137,8 @@ impl Menu {
         };
 
         let interaction = MenuInteractionGraph {
-            default_focus_id: self.default_button_id.clone(),
-            nodes: self
+            default_focus_id: legacy.default_button_id.clone(),
+            nodes: legacy
                 .buttons
                 .iter()
                 .map(|b| FocusNode {
@@ -119,15 +150,16 @@ impl Menu {
                     action: b.action.clone(),
                 })
                 .collect(),
-            timeout_action: self.timeout_action.clone(),
+            timeout_action: legacy.timeout_action.clone(),
         };
 
         let timing = MenuTiming {
             intro_start_secs: 0.0,
             intro_duration_secs: 0.0,
             loop_start_secs: 0.0,
-            loop_duration_secs: self.motion_duration_secs.unwrap_or(0.0),
-            loop_count: self.motion_loop_count,
+            loop_duration_secs: legacy.motion_duration_secs.unwrap_or(0.0),
+            loop_count: legacy.motion_loop_count,
+            audio_asset_id: legacy.motion_audio_asset_id.clone(),
         };
 
         self.authored_document = Some(MenuDocument {
@@ -137,8 +169,8 @@ impl Menu {
             scene,
             interaction,
             timing,
-            highlight_colours: self.highlight_colours.clone(),
-            background_mode: self.background_mode,
+            highlight_colours: legacy.highlight_colours.clone(),
+            background_mode: legacy.background_mode,
             theme_ref: None,
             generation_meta: None,
             compile_policy: MenuCompilePolicy {
@@ -170,42 +202,45 @@ impl Menu {
         }
     }
 
+    /// Infallible accessor for the authored document. Every menu reached via
+    /// `parse_project` has one, since `SpindleProjectFile::migrate_all_menus`
+    /// runs `migrate_to_document` on every menu at load time. Menus built
+    /// directly (e.g. in tests) must set `authored_document` themselves.
+    pub fn doc(&self) -> &MenuDocument {
+        self.authored_document.as_ref().expect(
+            "Menu.authored_document must be populated (via migrate_to_document or directly) before use",
+        )
+    }
+
+    /// Mutable counterpart to [`Menu::doc`].
+    pub fn doc_mut(&mut self) -> &mut MenuDocument {
+        self.authored_document.as_mut().expect(
+            "Menu.authored_document must be populated (via migrate_to_document or directly) before use",
+        )
+    }
+
     pub fn resolved_background_asset_id(&self) -> Option<&str> {
-        self.authored_document
-            .as_ref()
-            .and_then(|doc| doc.scene.background.asset_id.as_deref())
-            .or(self.background_asset_id.as_deref())
+        self.doc().scene.background.asset_id.as_deref()
     }
 
     pub fn resolved_background_mode(&self) -> BackgroundMode {
-        self.authored_document
-            .as_ref()
-            .map(|doc| doc.background_mode)
-            .unwrap_or(self.background_mode)
+        self.doc().background_mode
     }
 
     pub fn resolved_motion_duration_secs(&self) -> Option<f64> {
-        self.authored_document
-            .as_ref()
-            .map(|doc| doc.timing.loop_duration_secs)
-            .or(self.motion_duration_secs)
+        self.doc().motion_loop_duration()
     }
 
-    pub fn resolved_motion_loop_start_secs(&self) -> Option<f64> {
-        self.authored_document
-            .as_ref()
-            .map(|doc| doc.timing.loop_start_secs)
-            .or_else(|| (self.background_mode == BackgroundMode::Motion).then_some(0.0))
+    pub fn resolved_motion_loop_start_secs(&self) -> f64 {
+        self.doc().timing.loop_start_secs
     }
 
     pub fn resolved_motion_audio_asset_id(&self) -> Option<&str> {
-        self.motion_audio_asset_id.as_deref()
+        self.doc().timing.audio_asset_id.as_deref()
     }
 
     pub fn authored_display_aspect(&self) -> Option<AspectMode> {
-        self.authored_document
-            .as_ref()
-            .and_then(|doc| doc.compile_policy.display_aspect)
+        self.doc().compile_policy.display_aspect
     }
 
     pub fn resolved_display_aspect(&self, fallback: AspectMode) -> AspectMode {
@@ -228,6 +263,77 @@ pub struct MenuDocument {
     pub theme_ref: Option<String>,
     pub generation_meta: Option<MenuGenerationMeta>,
     pub compile_policy: MenuCompilePolicy,
+}
+
+impl MenuDocument {
+    /// The motion loop duration, or `None` when it hasn't been authored
+    /// (`loop_duration_secs` is a plain `f64`, not an `Option`, so `<= 0.0`
+    /// is the "unset" sentinel).
+    pub fn motion_loop_duration(&self) -> Option<f64> {
+        (self.timing.loop_duration_secs > 0.0).then_some(self.timing.loop_duration_secs)
+    }
+
+    /// Collect the top-level buttons in this document's scene, joined with
+    /// their interaction-graph nodes. This is the single definition of "what
+    /// counts as a button" shared by both the build pipeline
+    /// (`AuthorableMenuRef::buttons`) and validation, so they can't disagree.
+    ///
+    /// Scans only top-level `scene.nodes` `Button` variants — recursive
+    /// `Group` flattening is deferred to a later PR.
+    pub fn buttons(&self) -> Vec<MenuButtonView<'_>> {
+        self.scene
+            .nodes
+            .iter()
+            .filter_map(|node| {
+                if let SceneNode::Button {
+                    id,
+                    label,
+                    x,
+                    y,
+                    width,
+                    height,
+                    video_asset_id,
+                    ..
+                } = node
+                {
+                    let interaction = self.interaction.nodes.iter().find(|f| f.node_id == *id);
+                    Some(MenuButtonView {
+                        id,
+                        label,
+                        x: *x,
+                        y: *y,
+                        width: *width,
+                        height: *height,
+                        video_asset_id: video_asset_id.as_deref(),
+                        action: interaction.and_then(|f| f.action.as_ref()),
+                        nav_up: interaction.and_then(|f| f.nav_up.as_deref()),
+                        nav_down: interaction.and_then(|f| f.nav_down.as_deref()),
+                        nav_left: interaction.and_then(|f| f.nav_left.as_deref()),
+                        nav_right: interaction.and_then(|f| f.nav_right.as_deref()),
+                    })
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+}
+
+/// A top-level scene button joined with its interaction-graph node. See
+/// [`MenuDocument::buttons`].
+pub struct MenuButtonView<'a> {
+    pub id: &'a str,
+    pub label: &'a str,
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
+    pub video_asset_id: Option<&'a str>,
+    pub action: Option<&'a PlaybackAction>,
+    pub nav_up: Option<&'a str>,
+    pub nav_down: Option<&'a str>,
+    pub nav_left: Option<&'a str>,
+    pub nav_right: Option<&'a str>,
 }
 
 /// Menu domain indicates whether it belongs to the Video Manager (VMGM) or a Titleset.
@@ -431,6 +537,10 @@ pub struct MenuTiming {
     pub loop_start_secs: f64,
     pub loop_duration_secs: f64,
     pub loop_count: u32, // 0 = infinite
+    /// Optional audio asset for motion menu background music. The document
+    /// home for what was the legacy `motionAudioAssetId` field.
+    #[serde(default)]
+    pub audio_asset_id: Option<String>,
 }
 
 impl Default for MenuTiming {
@@ -441,6 +551,7 @@ impl Default for MenuTiming {
             loop_start_secs: 0.0,
             loop_duration_secs: 0.0,
             loop_count: 0,
+            audio_asset_id: None,
         }
     }
 }
