@@ -12,9 +12,10 @@ import type { SceneNode, MenuButton, MenuHighlightColours, Asset, Menu } from '.
 import { DEFAULT_HIGHLIGHT_COLOURS, createDefaultMenuCompilePolicy } from '../../types/project';
 import {
 	buildAudioSetupMenu,
+	buildChapterMenusForTitleset,
 	buildSubtitleSetupMenu,
-	createGeneratedMenuFromButtons,
 } from './menuGenerators';
+import { getMenuButtons } from './menuProjectHelpers';
 
 // ── LayersPanel ────────────────────────────────────────────────────────────
 
@@ -196,7 +197,7 @@ describe('InspectorPanel', () => {
 					name: 'Menu',
 					domain: 'vmgm',
 					scene: {
-						designSize: { width: 720, height: 480 },
+						designSize: { width: 720, height: 480, aspect: 'four-by-three' },
 						background: { assetId: null, colour: '#000000' },
 						nodes: [],
 						guides: [],
@@ -208,6 +209,7 @@ describe('InspectorPanel', () => {
 						loopStartSecs: 0,
 						loopDurationSecs: 0,
 						loopCount: 0,
+						audioAssetId: null,
 					},
 					highlightColours: colours,
 					backgroundMode: 'still',
@@ -216,19 +218,7 @@ describe('InspectorPanel', () => {
 					compilePolicy: createDefaultMenuCompilePolicy('four-by-three'),
 				}}
 				canvasHeight={480}
-				menu={{
-					id: 'menu-1',
-					name: 'Menu',
-					backgroundAssetId: null,
-					buttons: [button],
-					defaultButtonId: null,
-					highlightColours: colours,
-					backgroundMode: 'still',
-					motionDurationSecs: null,
-					motionAudioAssetId: null,
-					motionLoopCount: 0,
-					timeoutAction: null,
-				}}
+				menu={{ id: 'menu-1', name: 'Menu', authoredDocument: null }}
 				displayAspect="four-by-three"
 				onDisplayAspectChange={onDisplayAspectChange}
 			/>,
@@ -403,19 +393,7 @@ describe('InspectorPanel', () => {
 	});
 
 	it('switches the menu-level background tab between solid/image/video/audio sources', () => {
-		const menu: Menu = {
-			id: 'menu-1',
-			name: 'Menu',
-			backgroundAssetId: null,
-			buttons: [button],
-			defaultButtonId: null,
-			highlightColours: colours,
-			backgroundMode: 'still',
-			motionDurationSecs: null,
-			motionAudioAssetId: null,
-			motionLoopCount: 0,
-			timeoutAction: null,
-		};
+		const menu: Menu = { id: 'menu-1', name: 'Menu', authoredDocument: null };
 		const assets: Asset[] = [
 			{
 				id: 'video-asset',
@@ -471,7 +449,7 @@ describe('InspectorPanel', () => {
 		);
 
 		// Defaults to the Solid tab for a still menu.
-		expect(screen.getAllByDisplayValue('#0f0e1a').length).toBeGreaterThan(0);
+		expect(screen.getAllByDisplayValue('#101014').length).toBeGreaterThan(0);
 
 		fireEvent.click(screen.getByText('Video'));
 		expect(screen.getByText('loop.mp4')).toBeTruthy();
@@ -1132,31 +1110,40 @@ describe('SceneCanvas', () => {
 		});
 	});
 
-	it('creates generated menus with the provided authored design height', () => {
-		const menu = createGeneratedMenuFromButtons(
-			'menu-generated',
-			'Generated Menu',
-			[
-				{
-					id: 'btn-generated',
-					label: 'Play',
-					bounds: { x: 96, y: 320, width: 220, height: 44 },
-					action: null,
-					navUp: null,
-					navDown: null,
-					navLeft: null,
-					navRight: null,
-					highlightMode: 'static',
-					highlightKeyframes: [],
-					videoAssetId: null,
-				},
-			],
-			'titleset',
-			576,
-			'four-by-three',
+	it('creates generated menus with the standard-appropriate authored design height', () => {
+		const [menu] = buildChapterMenusForTitleset(
+			{
+				id: 'titleset-1',
+				name: 'Feature',
+				menus: [],
+				titles: [
+					{
+						id: 'title-1',
+						name: 'Feature',
+						sourceAssetId: null,
+						videoMapping: null,
+						videoOutputProfile: null,
+						audioMappings: [],
+						subtitleMappings: [],
+						chapters: [{ id: 'ch-1', name: 'Chapter 1', timestampSecs: 0, orderIndex: 0 }],
+						endAction: null,
+						orderIndex: 0,
+						bitrateWeight: 1.0,
+						bitrateFloorBps: null,
+						bitrateCeilingBps: null,
+						pinnedBitrateBps: null,
+					},
+				],
+			},
+			'PAL',
+			null,
 		);
 
-		expect(menu.authoredDocument?.scene.designSize).toEqual({ width: 720, height: 576 });
+		expect(menu.authoredDocument?.scene.designSize).toEqual({
+			width: 720,
+			height: 576,
+			aspect: 'four-by-three',
+		});
 	});
 
 	it('builds audio setup choices from the titleset-wide audio union', () => {
@@ -1231,8 +1218,9 @@ describe('SceneCanvas', () => {
 		);
 
 		expect(menu).not.toBeNull();
-		expect(menu?.buttons.map((button) => button.label)).toEqual(['English 2.0', 'Commentary']);
-		expect(menu?.buttons[1]?.action).toEqual({
+		const buttons = getMenuButtons(menu!);
+		expect(buttons.map((button) => button.label)).toEqual(['English 2.0', 'Commentary']);
+		expect(buttons[1]?.action).toEqual({
 			type: 'sequence',
 			actions: [{ type: 'setAudioStream', streamIndex: 1 }],
 		});
@@ -1304,12 +1292,9 @@ describe('SceneCanvas', () => {
 		);
 
 		expect(menu).not.toBeNull();
-		expect(menu?.buttons.map((button) => button.label)).toEqual([
-			'English',
-			'Spanish',
-			'Subtitles Off',
-		]);
-		expect(menu?.buttons[1]?.action).toEqual({
+		const buttons = getMenuButtons(menu!);
+		expect(buttons.map((button) => button.label)).toEqual(['English', 'Spanish', 'Subtitles Off']);
+		expect(buttons[1]?.action).toEqual({
 			type: 'sequence',
 			actions: [{ type: 'setSubtitleStream', streamIndex: 1 }],
 		});

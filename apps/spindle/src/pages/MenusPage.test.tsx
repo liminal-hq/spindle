@@ -12,6 +12,7 @@ import { useProjectStore } from '../store/project-store';
 import type { ProjectState } from '../store/project-store';
 import type { Menu, SpindleProjectFile } from '../types/project';
 import { DEFAULT_HIGHLIGHT_COLOURS, createDefaultMenuCompilePolicy } from '../types/project';
+import { getMenuButtons } from '../components/menus/menuProjectHelpers';
 
 vi.mock('../App', () => ({
 	useNavigation: () => ({
@@ -54,42 +55,21 @@ function setWindowInnerSize(width: number, height: number) {
 }
 
 function buildButtonMenu(id: string, name: string): Menu {
-	const button = {
-		id: `${id}-button-1`,
-		label: 'Play',
-		bounds: { x: 100, y: 100, width: 200, height: 40 },
-		action: null,
-		navUp: null,
-		navDown: null,
-		navLeft: null,
-		navRight: null,
-		highlightMode: 'static' as const,
-		highlightKeyframes: [],
-		videoAssetId: null,
-	};
+	const buttonId = `${id}-button-1`;
 	return {
 		id,
 		name,
-		backgroundAssetId: null,
-		buttons: [button],
-		defaultButtonId: button.id,
-		highlightColours: { ...DEFAULT_HIGHLIGHT_COLOURS },
-		backgroundMode: 'still',
-		motionDurationSecs: null,
-		motionAudioAssetId: null,
-		motionLoopCount: 0,
-		timeoutAction: null,
 		authoredDocument: {
 			id,
 			name,
 			domain: 'vmgm',
 			scene: {
-				designSize: { width: 720, height: 480 },
+				designSize: { width: 720, height: 480, aspect: 'four-by-three' },
 				background: { assetId: null, colour: null },
 				nodes: [
 					{
 						type: 'button',
-						id: button.id,
+						id: buttonId,
 						label: 'Play',
 						x: 100,
 						y: 100,
@@ -103,10 +83,10 @@ function buildButtonMenu(id: string, name: string): Menu {
 				guides: [],
 			},
 			interaction: {
-				defaultFocusId: button.id,
+				defaultFocusId: buttonId,
 				nodes: [
 					{
-						nodeId: button.id,
+						nodeId: buttonId,
 						navUp: null,
 						navDown: null,
 						navLeft: null,
@@ -122,6 +102,7 @@ function buildButtonMenu(id: string, name: string): Menu {
 				loopStartSecs: 0,
 				loopDurationSecs: 0,
 				loopCount: 0,
+				audioAssetId: null,
 			},
 			highlightColours: { ...DEFAULT_HIGHLIGHT_COLOURS },
 			backgroundMode: 'still',
@@ -137,14 +118,16 @@ function buildProject(): SpindleProjectFile {
 	const titlesetMenu = buildButtonMenu('titleset-menu-1', 'Setup Menu');
 	// Global menu links into the titleset menu, titleset menu links back —
 	// gives both menus one incoming and one outgoing connection.
-	globalMenu.buttons[0].action = { type: 'showMenu', menuId: titlesetMenu.id };
-	globalMenu.authoredDocument!.interaction.nodes[0].action = globalMenu.buttons[0].action;
-	titlesetMenu.buttons[0].action = { type: 'showMenu', menuId: globalMenu.id };
-	titlesetMenu.authoredDocument!.interaction.nodes[0].action = titlesetMenu.buttons[0].action;
+	globalMenu.authoredDocument!.interaction.nodes[0].action = {
+		type: 'showMenu',
+		menuId: titlesetMenu.id,
+	};
+	titlesetMenu.authoredDocument!.interaction.nodes[0].action = {
+		type: 'showMenu',
+		menuId: globalMenu.id,
+	};
 
 	const orphanMenu = buildButtonMenu('orphan-menu-1', 'Orphan Menu');
-	orphanMenu.buttons[0].action = null;
-	orphanMenu.authoredDocument!.interaction.nodes[0].action = null;
 
 	return {
 		schemaVersion: 1,
@@ -352,7 +335,7 @@ describe('MenusPage', () => {
 		expect(project.disc.titlesets[0].menus).toHaveLength(2);
 		const generated = project.disc.titlesets[0].menus[1];
 		expect(generated.name).toBe('Chapter Select');
-		const labels = generated.buttons.map((b) => b.label);
+		const labels = getMenuButtons(generated).map((b) => b.label);
 		expect(labels).toContain('Chapter 1');
 		expect(labels).toContain('Chapter 2');
 		expect(labels).toContain('Back');
@@ -367,7 +350,7 @@ describe('MenusPage', () => {
 		const project = useProjectStore.getState().project!;
 		const generated = project.disc.titlesets[0].menus[1];
 		expect(generated.name).toBe('Audio Setup');
-		expect(generated.buttons.map((b) => b.label)).toEqual(['English', 'Back']);
+		expect(getMenuButtons(generated).map((b) => b.label)).toEqual(['English', 'Back']);
 	});
 
 	it('generates a subtitle-setup menu from the Generate Menus panel', () => {
@@ -379,7 +362,7 @@ describe('MenusPage', () => {
 		const project = useProjectStore.getState().project!;
 		const generated = project.disc.titlesets[0].menus[1];
 		expect(generated.name).toBe('Subtitle Setup');
-		expect(generated.buttons.map((b) => b.label)).toEqual([
+		expect(getMenuButtons(generated).map((b) => b.label)).toEqual([
 			'English Subs',
 			'Subtitles Off',
 			'Back',
@@ -430,10 +413,6 @@ describe('MenusPage', () => {
 		const project = useProjectStore.getState().project!;
 		const updated = project.disc.globalMenus.find((m) => m.id === 'global-menu-1')!;
 		expect(updated.authoredDocument!.scene.nodes).toHaveLength(2);
-		// handleAddButton only appends to authoredDocument.scene.nodes; the
-		// legacy `buttons` mirror is only synced by handleUpdateButton, so it
-		// stays at its pre-add length until something edits the new button.
-		expect(updated.buttons).toHaveLength(1);
 	});
 
 	it('switches between editor and map views', () => {

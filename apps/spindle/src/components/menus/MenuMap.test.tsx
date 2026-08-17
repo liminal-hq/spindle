@@ -6,7 +6,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { FullMenuMap, MiniMenuMap } from './MenuMap';
-import { DEFAULT_HIGHLIGHT_COLOURS } from '../../types/project';
+import { DEFAULT_HIGHLIGHT_COLOURS, createDefaultMenuCompilePolicy } from '../../types/project';
 import type { SpindleProjectFile } from '../../types/project';
 
 function buildProject(): SpindleProjectFile {
@@ -27,16 +27,31 @@ function buildProject(): SpindleProjectFile {
 				{
 					id: 'menu-main',
 					name: 'Main Menu',
-					backgroundAssetId: null,
-					buttons: [],
-					defaultButtonId: null,
-					highlightColours: DEFAULT_HIGHLIGHT_COLOURS,
-					backgroundMode: 'still',
-					motionDurationSecs: null,
-					motionAudioAssetId: null,
-					motionLoopCount: 0,
-					timeoutAction: null,
-					authoredDocument: null,
+					authoredDocument: {
+						id: 'menu-main',
+						name: 'Main Menu',
+						domain: 'vmgm',
+						scene: {
+							designSize: { width: 720, height: 480, aspect: 'four-by-three' },
+							background: { assetId: null, colour: null },
+							nodes: [],
+							guides: [],
+						},
+						interaction: { defaultFocusId: null, nodes: [], timeoutAction: null },
+						timing: {
+							introStartSecs: 0,
+							introDurationSecs: 0,
+							loopStartSecs: 0,
+							loopDurationSecs: 0,
+							loopCount: 0,
+							audioAssetId: null,
+						},
+						highlightColours: DEFAULT_HIGHLIGHT_COLOURS,
+						backgroundMode: 'still',
+						themeRef: null,
+						generationMeta: null,
+						compilePolicy: createDefaultMenuCompilePolicy('four-by-three'),
+					},
 				},
 			],
 			titlesets: [],
