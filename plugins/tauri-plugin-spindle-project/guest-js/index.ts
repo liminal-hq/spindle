@@ -156,23 +156,13 @@ export type HighlightMode = 'static' | 'animated';
 export interface Menu {
 	id: string;
 	name: string;
-	backgroundAssetId: string | null;
-	buttons: MenuButton[];
-	defaultButtonId: string | null;
-	/** DVD subpicture highlight palette colours. */
-	highlightColours: MenuHighlightColours;
-	/** Whether the background is a still frame or looping video (Stage 2). */
-	backgroundMode: BackgroundMode;
-	/** Duration of the motion loop in seconds (motion menus only). */
-	motionDurationSecs: number | null;
-	/** Optional audio asset for motion menu background music. */
-	motionAudioAssetId: string | null;
-	/** Number of times to loop before timeout action (0 = infinite, motion only). */
-	motionLoopCount: number;
-	/** Action when a motion menu times out after looping. */
-	timeoutAction: PlaybackAction | null;
-	/** The new authored scene document that replaces the flat button model. */
-	authoredDocument?: MenuDocument | null;
+	/**
+	 * The authored scene document — the single authored model for a menu.
+	 * Guaranteed present for any menu loaded via `parseProject` (legacy
+	 * flat-field project files are migrated into a document at load time);
+	 * menus created in-app must be constructed with one too.
+	 */
+	authoredDocument: MenuDocument | null;
 }
 
 /** A structured menu document that separates authored intent from target compilation. */
@@ -204,6 +194,8 @@ export interface MenuScene {
 export interface MenuSize {
 	width: number;
 	height: number;
+	/** Display aspect for this design canvas. */
+	aspect: AspectMode;
 }
 
 export interface SceneBackground {
@@ -336,6 +328,8 @@ export interface MenuTiming {
 	loopStartSecs: number;
 	loopDurationSecs: number;
 	loopCount: number; // 0 = infinite
+	/** Optional audio asset for motion menu background music. */
+	audioAssetId: string | null;
 }
 
 /** Metadata for generated menus. */
