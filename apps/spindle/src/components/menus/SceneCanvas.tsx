@@ -14,10 +14,20 @@ import type {
 	ButtonStateStyle,
 	AspectMode,
 	Asset,
+	FormatProfile,
 } from '../../types/project';
+import { DEFAULT_DVD_FORMAT_PROFILE } from '../../format/useFormatProfile';
 
-// DVD menu canvas dimensions
-const MENU_WIDTH = 720;
+// The canvas's fixed interactive coordinate space width. This is *not* yet
+// sourced from `FormatProfile.designSizes` (1024 for DVD-Video) — every menu
+// document in this codebase is still authored at the pre-BD-readiness
+// 720-wide raster-matched design space (`MenusPage.tsx::createMenu`,
+// `menuGenerators.ts`), so switching this to the profile's design width
+// would desynchronise the canvas from every already-authored button
+// position. Retiring this "720-raster remnant" in favour of genuinely
+// per-document design space is Slice B, not this format-profile/role slice
+// — see `docs/rich-menu-editor-plan.md` decision 5.
+const CANVAS_DESIGN_WIDTH = 720;
 
 // Safe-area margins (SMPTE RP 218)
 const ACTION_SAFE_PCT = 0.05;
@@ -68,6 +78,8 @@ export interface SceneCanvasProps {
 	buttonPreviewState?: 'normal' | 'focus' | 'activate';
 	/** Display aspect used to simulate 4:3 vs anamorphic 16:9 rendering. */
 	displayAspect?: AspectMode;
+	/** Format-law row driving the compile-overlay's button-count check. */
+	formatProfile?: FormatProfile;
 }
 
 export function SceneCanvas({
@@ -90,6 +102,7 @@ export function SceneCanvas({
 	onSelectNode,
 	buttonPreviewState = 'normal',
 	displayAspect = 'four-by-three',
+	formatProfile = DEFAULT_DVD_FORMAT_PROFILE,
 }: SceneCanvasProps) {
 	if (previewMode) {
 		return (
@@ -106,6 +119,7 @@ export function SceneCanvas({
 				highlightColours={highlightColours}
 				honestPreview={honestPreview}
 				displayAspect={displayAspect}
+				formatProfile={formatProfile}
 			/>
 		);
 	}
@@ -129,6 +143,7 @@ export function SceneCanvas({
 			onSelectNode={onSelectNode}
 			buttonPreviewState={buttonPreviewState}
 			displayAspect={displayAspect}
+			formatProfile={formatProfile}
 		/>
 	);
 }
@@ -153,6 +168,7 @@ function DesignCanvas({
 	onSelectNode,
 	buttonPreviewState,
 	displayAspect,
+	formatProfile,
 }: {
 	buttons: MenuButton[];
 	assets: Asset[];
@@ -171,6 +187,7 @@ function DesignCanvas({
 	onSelectNode: (nodeId: string | null) => void;
 	buttonPreviewState: 'normal' | 'focus' | 'activate';
 	displayAspect: AspectMode;
+	formatProfile: FormatProfile;
 }) {
 	const buttonNodeMap = useMemo(
 		() =>
@@ -223,7 +240,7 @@ function DesignCanvas({
 				xs.push(node.x, node.x + node.width, node.x + node.width / 2);
 				ys.push(node.y, node.y + node.height, node.y + node.height / 2);
 			}
-			xs.push(0, MENU_WIDTH / 2, MENU_WIDTH);
+			xs.push(0, CANVAS_DESIGN_WIDTH / 2, CANVAS_DESIGN_WIDTH);
 			ys.push(0, canvasHeight / 2, canvasHeight);
 			return { xs, ys };
 		},
@@ -269,7 +286,7 @@ function DesignCanvas({
 				if (!state || !canvas) return;
 
 				const rect = canvas.getBoundingClientRect();
-				const scaleX = MENU_WIDTH / rect.width;
+				const scaleX = CANVAS_DESIGN_WIDTH / rect.width;
 				const scaleY = canvasHeight / rect.height;
 				const dx = (moveEvent.clientX - state.startX) * scaleX;
 				const dy = (moveEvent.clientY - state.startY) * scaleY;
@@ -279,7 +296,7 @@ function DesignCanvas({
 				if (state.mode === 'move') {
 					let newX = sb.x + dx;
 					let newY = sb.y + dy;
-					newX = Math.max(0, Math.min(MENU_WIDTH - sb.width, newX));
+					newX = Math.max(0, Math.min(CANVAS_DESIGN_WIDTH - sb.width, newX));
 					newY = Math.max(0, Math.min(canvasHeight - sb.height, newY));
 
 					const lines: { axis: 'x' | 'y'; pos: number }[] = [];
@@ -327,9 +344,9 @@ function DesignCanvas({
 						y = sb.y + sb.height - height;
 					}
 
-					x = Math.max(0, Math.min(MENU_WIDTH - MIN_BUTTON_SIZE, x));
+					x = Math.max(0, Math.min(CANVAS_DESIGN_WIDTH - MIN_BUTTON_SIZE, x));
 					y = Math.max(0, Math.min(canvasHeight - MIN_BUTTON_SIZE, y));
-					if (x + width > MENU_WIDTH) width = MENU_WIDTH - x;
+					if (x + width > CANVAS_DESIGN_WIDTH) width = CANVAS_DESIGN_WIDTH - x;
 					if (y + height > canvasHeight) height = canvasHeight - y;
 
 					setSnapLines([]);
@@ -391,7 +408,7 @@ function DesignCanvas({
 				if (!state || !canvas) return;
 
 				const rect = canvas.getBoundingClientRect();
-				const scaleX = MENU_WIDTH / rect.width;
+				const scaleX = CANVAS_DESIGN_WIDTH / rect.width;
 				const scaleY = canvasHeight / rect.height;
 				const dx = (moveEvent.clientX - state.startX) * scaleX;
 				const dy = (moveEvent.clientY - state.startY) * scaleY;
@@ -401,7 +418,7 @@ function DesignCanvas({
 				if (state.mode === 'move') {
 					let newX = sb.x + dx;
 					let newY = sb.y + dy;
-					newX = Math.max(0, Math.min(MENU_WIDTH - sb.width, newX));
+					newX = Math.max(0, Math.min(CANVAS_DESIGN_WIDTH - sb.width, newX));
 					newY = Math.max(0, Math.min(canvasHeight - sb.height, newY));
 
 					const lines: { axis: 'x' | 'y'; pos: number }[] = [];
@@ -449,9 +466,9 @@ function DesignCanvas({
 						y = sb.y + sb.height - height;
 					}
 
-					x = Math.max(0, Math.min(MENU_WIDTH - MIN_BUTTON_SIZE, x));
+					x = Math.max(0, Math.min(CANVAS_DESIGN_WIDTH - MIN_BUTTON_SIZE, x));
 					y = Math.max(0, Math.min(canvasHeight - MIN_BUTTON_SIZE, y));
-					if (x + width > MENU_WIDTH) width = MENU_WIDTH - x;
+					if (x + width > CANVAS_DESIGN_WIDTH) width = CANVAS_DESIGN_WIDTH - x;
 					if (y + height > canvasHeight) height = canvasHeight - y;
 
 					setSnapLines([]);
@@ -493,16 +510,22 @@ function DesignCanvas({
 			{backgroundLabel && (
 				<div className="scene-canvas__bg-label text-muted">{backgroundLabel}</div>
 			)}
-			{honestPreview && <CompileOverlay buttons={buttons} canvasHeight={canvasHeight} />}
+			{honestPreview && (
+				<CompileOverlay
+					buttons={buttons}
+					canvasHeight={canvasHeight}
+					formatProfile={formatProfile}
+				/>
+			)}
 			{showNavLines && (
-				<NavLines buttons={buttons} canvasWidth={MENU_WIDTH} canvasHeight={canvasHeight} />
+				<NavLines buttons={buttons} canvasWidth={CANVAS_DESIGN_WIDTH} canvasHeight={canvasHeight} />
 			)}
 			{snapLines.map((line, i) =>
 				line.axis === 'x' ? (
 					<div
 						key={`snap-${i}`}
 						className="scene-canvas__snap-line scene-canvas__snap-line--v"
-						style={{ left: `${(line.pos / MENU_WIDTH) * 100}%` }}
+						style={{ left: `${(line.pos / CANVAS_DESIGN_WIDTH) * 100}%` }}
 					/>
 				) : (
 					<div
@@ -567,9 +590,9 @@ function DesignCanvas({
 							defaultButtonId === btn.id ? 'scene-canvas__node--default' : ''
 						} ${selectedNodeId === btn.id ? 'scene-canvas__node--selected' : ''}`}
 						style={{
-							left: `${(btn.bounds.x / MENU_WIDTH) * 100}%`,
+							left: `${(btn.bounds.x / CANVAS_DESIGN_WIDTH) * 100}%`,
 							top: `${(btn.bounds.y / canvasHeight) * 100}%`,
-							width: `${(btn.bounds.width / MENU_WIDTH) * 100}%`,
+							width: `${(btn.bounds.width / CANVAS_DESIGN_WIDTH) * 100}%`,
 							height: `${(btn.bounds.height / canvasHeight) * 100}%`,
 							...(buttonStyle
 								? {
@@ -634,6 +657,7 @@ function NavigationPreview({
 	highlightColours,
 	honestPreview,
 	displayAspect,
+	formatProfile,
 }: {
 	buttons: MenuButton[];
 	assets: Asset[];
@@ -647,6 +671,7 @@ function NavigationPreview({
 	highlightColours: MenuHighlightColours;
 	honestPreview: boolean;
 	displayAspect: AspectMode;
+	formatProfile: FormatProfile;
 }) {
 	const [focusedId, setFocusedId] = useState<string | null>(
 		defaultButtonId ?? buttons[0]?.id ?? null,
@@ -764,7 +789,13 @@ function NavigationPreview({
 			{backgroundLabel && (
 				<div className="scene-canvas__bg-label text-muted">{backgroundLabel}</div>
 			)}
-			{honestPreview && <CompileOverlay buttons={buttons} canvasHeight={canvasHeight} />}
+			{honestPreview && (
+				<CompileOverlay
+					buttons={buttons}
+					canvasHeight={canvasHeight}
+					formatProfile={formatProfile}
+				/>
+			)}
 			{showSafeArea && (
 				<>
 					<div
@@ -794,7 +825,7 @@ function NavigationPreview({
 			<div className="scene-canvas__preview-hint text-muted">
 				Use arrow keys to navigate. Press Enter to activate.
 			</div>
-			<NavLines buttons={buttons} canvasWidth={MENU_WIDTH} canvasHeight={canvasHeight} />
+			<NavLines buttons={buttons} canvasWidth={CANVAS_DESIGN_WIDTH} canvasHeight={canvasHeight} />
 			{positionedNodes.map((node) => (
 				<RenderedSceneNode
 					key={node.id}
@@ -818,9 +849,9 @@ function NavigationPreview({
 							defaultButtonId === btn.id ? 'scene-canvas__node--default' : ''
 						}`}
 						style={{
-							left: `${(btn.bounds.x / MENU_WIDTH) * 100}%`,
+							left: `${(btn.bounds.x / CANVAS_DESIGN_WIDTH) * 100}%`,
 							top: `${(btn.bounds.y / canvasHeight) * 100}%`,
-							width: `${(btn.bounds.width / MENU_WIDTH) * 100}%`,
+							width: `${(btn.bounds.width / CANVAS_DESIGN_WIDTH) * 100}%`,
 							height: `${(btn.bounds.height / canvasHeight) * 100}%`,
 							...(buttonStyle
 								? {
@@ -901,9 +932,9 @@ function RenderedSceneNode({
 				isSelected ? 'scene-canvas__scene-node--selected' : ''
 			}`}
 			style={{
-				left: `${(node.x / MENU_WIDTH) * 100}%`,
+				left: `${(node.x / CANVAS_DESIGN_WIDTH) * 100}%`,
 				top: `${(node.y / canvasHeight) * 100}%`,
-				width: `${(node.width / MENU_WIDTH) * 100}%`,
+				width: `${(node.width / CANVAS_DESIGN_WIDTH) * 100}%`,
 				height: `${(node.height / canvasHeight) * 100}%`,
 				...(node.type === 'shape' && 'fill' in node && node.fill
 					? { backgroundColor: node.fill }
@@ -1192,8 +1223,6 @@ function NavLines({
 // Replaces the old badge-only treatment with an informative diagnostic layer
 // that communicates real DVD/VCD constraints at a glance.
 
-const MAX_DVD_BUTTONS = 36;
-
 interface CompileOverlayCheck {
 	label: string;
 	value: string;
@@ -1203,12 +1232,15 @@ interface CompileOverlayCheck {
 function CompileOverlay({
 	buttons,
 	canvasHeight,
+	formatProfile,
 }: {
 	buttons: MenuButton[];
 	canvasHeight: number;
+	formatProfile: FormatProfile;
 }) {
+	const maxButtons = formatProfile.maxButtonsPerMenu;
 	const btnCount = buttons.length;
-	const btnOk = btnCount <= MAX_DVD_BUTTONS;
+	const btnOk = btnCount <= maxButtons;
 
 	const actionsResolved = buttons.filter((b) => b.action !== null).length;
 	const actionsTotal = buttons.length;
@@ -1227,9 +1259,9 @@ function CompileOverlay({
 		navLabel = navOk ? 'Complete' : `${filledDirs}/${totalDirs}`;
 	}
 
-	const safeL = MENU_WIDTH * ACTION_SAFE_PCT;
+	const safeL = CANVAS_DESIGN_WIDTH * ACTION_SAFE_PCT;
 	const safeT = canvasHeight * ACTION_SAFE_PCT;
-	const safeR = MENU_WIDTH * (1 - ACTION_SAFE_PCT);
+	const safeR = CANVAS_DESIGN_WIDTH * (1 - ACTION_SAFE_PCT);
 	const safeB = canvasHeight * (1 - ACTION_SAFE_PCT);
 	const outsideCount = buttons.filter(
 		(b) =>
@@ -1243,7 +1275,7 @@ function CompileOverlay({
 	const checks: CompileOverlayCheck[] = [
 		{
 			label: 'Buttons',
-			value: `${btnCount} / ${MAX_DVD_BUTTONS}`,
+			value: `${btnCount} / ${maxButtons}`,
 			ok: btnOk,
 		},
 		{

@@ -395,6 +395,14 @@
 	color: rgba(255, 255, 255, 0.28);
 }
 
+/* Role badge — the menu's semantic role (Root, Chapter Menu, Setup Menu,
+   ...), worded per format via `terminologyFor`. */
+.menus__item-role-badge {
+	color: rgba(34, 211, 238, 0.85);
+	font-weight: 500;
+	white-space: nowrap;
+}
+
 .menus__item-conns {
 	display: flex;
 	gap: 3px;
@@ -507,6 +515,20 @@
 
 .editor-toolbar__separator {
 	color: rgba(255, 255, 255, 0.2);
+}
+
+/* Format badge — the disc format this menu compiles for (e.g. "DVD-Video"),
+   sourced from `FormatProfile.displayName` rather than hardcoded per format. */
+.editor-toolbar__format-badge {
+	display: inline-flex;
+	align-items: center;
+	padding: 1px var(--space-2);
+	border-radius: 999px;
+	background: rgba(255, 170, 64, 0.12);
+	border: 1px solid rgba(255, 170, 64, 0.35);
+	color: var(--brand-orange);
+	font-weight: 600;
+	letter-spacing: 0.02em;
 }
 
 .editor-toolbar__spacer {

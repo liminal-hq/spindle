@@ -196,6 +196,7 @@ describe('InspectorPanel', () => {
 					id: 'menu-1',
 					name: 'Menu',
 					domain: 'vmgm',
+					role: 'title-select',
 					scene: {
 						designSize: { width: 720, height: 480, aspect: 'four-by-three' },
 						background: { assetId: null, colour: '#000000' },
@@ -553,7 +554,9 @@ describe('InspectorPanel', () => {
 			/>,
 		);
 
-		expect(screen.getByText('Too many buttons (37). DVD supports a maximum of 36.')).toBeTruthy();
+		expect(
+			screen.getByText('Too many buttons (37). DVD-Video supports a maximum of 36.'),
+		).toBeTruthy();
 		expect(screen.getByText('37 buttons have no action assigned.')).toBeTruthy();
 		expect(screen.getByText('Button "Button 0" has a broken navUp reference.')).toBeTruthy();
 	});
@@ -574,7 +577,7 @@ describe('InspectorPanel', () => {
 			/>,
 		);
 
-		expect(screen.getByText('No issues — menu is DVD-safe.')).toBeTruthy();
+		expect(screen.getByText('No issues — menu is DVD-Video-safe.')).toBeTruthy();
 	});
 });
 

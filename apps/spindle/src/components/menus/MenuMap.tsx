@@ -6,6 +6,7 @@
 import { useMemo } from 'react';
 import type { SpindleProjectFile, PlaybackAction } from '../../types/project';
 import { getMenuButtons } from './menuProjectHelpers';
+import { terminologyFor } from '../../format/terminology';
 
 // ── Layout constants ────────────────────────────────────────────────────────
 
@@ -29,6 +30,8 @@ interface LayoutNode {
 	label: string;
 	sublabel?: string;
 	domain?: 'vmgm' | 'titleset';
+	/** Short, format-worded role badge (e.g. "Chapter Menu") — see `terminologyFor`. */
+	roleLabel?: string;
 	x: number;
 	y: number;
 	w: number;
@@ -116,6 +119,7 @@ function computeMapLayout(project: SpindleProjectFile, compact: boolean): MapLay
 	const rawEdges: LayoutEdge[] = [];
 	const returnIds = new Set<string>();
 	const hasFirstPlayAction = project.disc.firstPlayAction !== null;
+	const menuRoleLabel = terminologyFor(project.disc.family).menuRole;
 
 	if (hasFirstPlayAction) {
 		nodes.push({
@@ -137,6 +141,7 @@ function computeMapLayout(project: SpindleProjectFile, compact: boolean): MapLay
 			type: 'menu',
 			label: menu.name,
 			domain: 'vmgm',
+			roleLabel: menuRoleLabel[menu.authoredDocument?.role ?? 'title-select'],
 			x: pad,
 			y: pad + (row + (hasFirstPlayAction ? 1 : 0)) * (nh + rg),
 			w: nw,
@@ -154,6 +159,7 @@ function computeMapLayout(project: SpindleProjectFile, compact: boolean): MapLay
 				label: menu.name,
 				sublabel: ts.name,
 				domain: 'titleset',
+				roleLabel: menuRoleLabel[menu.authoredDocument?.role ?? 'title-select'],
 				x: pad + col * (nw + cg),
 				y: pad + row * (nh + rg),
 				w: nw,
@@ -427,9 +433,7 @@ function NodeRect({
 						? 'TITLE'
 						: node.type === 'disc'
 							? 'START'
-							: isVmgm
-								? 'VMGM'
-								: 'MENU'}
+							: truncate((node.roleLabel ?? (isVmgm ? 'VMGM' : 'Menu')).toUpperCase(), 14)}
 				</text>
 			)}
 			{/* Return badge — shows a loopback indicator for nodes with return actions */}

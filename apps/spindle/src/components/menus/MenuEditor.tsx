@@ -16,6 +16,7 @@ import type {
 	Menu,
 	MenuButton,
 	MenuHighlightColours,
+	MenuRole,
 	SpindleProjectFile,
 	SceneNode,
 } from '../../types/project';
@@ -29,6 +30,8 @@ import { InspectorPanel } from './InspectorPanel';
 import { FullMenuMap } from './MenuMap';
 import { DEFAULT_BUTTON_STYLE_MAP, DEFAULT_TEXT_STYLE } from './menuDefaults';
 import { getMenuButtons } from './menuProjectHelpers';
+import { useFormatProfile } from '../../format/useFormatProfile';
+import { terminologyFor } from '../../format/terminology';
 import './SceneEditor.css';
 
 function resolveMenuDisplayAspect(project: SpindleProjectFile, menu: Menu): AspectMode {
@@ -92,7 +95,10 @@ export function MenuEditor({
 	const updateMenuDocument = useProjectStore((s) => s.updateMenuDocument);
 	// Treat any legacy mode value as 'editor'
 	const activeView = menuEditorMode === 'map' ? 'map' : 'editor';
-	const menuDomainLabel = menu.authoredDocument?.domain === 'vmgm' ? 'VMGM' : 'Titleset';
+	const formatProfile = useFormatProfile(project.disc.family);
+	const terminology = terminologyFor(project.disc.family);
+	const menuRole = menu.authoredDocument?.role ?? 'title-select';
+	const menuDomainLabel = terminology.menuRole[menuRole];
 
 	const previewMode = useProjectStore((s) => s.previewMode);
 	const setPreviewMode = useProjectStore((s) => s.setPreviewMode);
@@ -488,6 +494,10 @@ export function MenuEditor({
 		}));
 	};
 
+	const handleRoleChange = (role: MenuRole) => {
+		updateMenuDocument(menu.id, (document) => ({ ...document, role }));
+	};
+
 	const zoomOut = () => setCanvasZoom((value) => Math.max(50, value - 10));
 	const zoomIn = () => setCanvasZoom((value) => Math.min(200, value + 10));
 	const resetZoom = () => setCanvasZoom(100);
@@ -524,13 +534,18 @@ export function MenuEditor({
 					<div className="editor-toolbar__info">
 						{activeView === 'editor' ? (
 							<>
+								<span
+									className="editor-toolbar__format-badge"
+									title={`${formatProfile.displayName} · ${project.disc.standard} · ${displayAspect === 'sixteen-by-nine' ? '16:9 anamorphic' : '4:3'}`}
+								>
+									{formatProfile.displayName}
+								</span>
+								<span className="editor-toolbar__separator">|</span>
 								<span>{currentButtons.length} buttons</span>
 								<span className="editor-toolbar__separator">|</span>
 								<span>{menuDomainLabel}</span>
 								<span className="editor-toolbar__separator">|</span>
-								<span>
-									{displayAspect === 'sixteen-by-nine' ? '16:9 anamorphic DVD' : '4:3 DVD'}
-								</span>
+								<span>{displayAspect === 'sixteen-by-nine' ? '16:9 anamorphic' : '4:3'}</span>
 								<span className="editor-toolbar__separator">|</span>
 								<span>
 									720 x {canvasHeight} {project.disc.standard}
@@ -565,10 +580,10 @@ export function MenuEditor({
 								}`}
 								onClick={() => setHonestPreview((value) => !value)}
 								aria-pressed={honestPreview}
-								title="Toggle DVD preview"
+								title={`Toggle ${terminology.compilePreviewLabel.toLowerCase()}`}
 							>
 								<span className="editor-toolbar__toggle-dot" aria-hidden="true" />
-								DVD Preview
+								{terminology.compilePreviewLabel}
 							</button>
 							<button
 								className={`editor-toolbar__toggle ${previewMode ? 'editor-toolbar__toggle--active' : ''}`}
@@ -766,6 +781,7 @@ export function MenuEditor({
 								onSelectNode={setSelectedNodeId}
 								buttonPreviewState={buttonPreviewState}
 								displayAspect={displayAspect}
+								formatProfile={formatProfile}
 							/>
 						</div>
 					</div>
@@ -810,6 +826,8 @@ export function MenuEditor({
 								displayAspect={displayAspect}
 								onDisplayAspectChange={handleDisplayAspectChange}
 								availableFonts={availableFonts}
+								formatProfile={formatProfile}
+								onUpdateRole={handleRoleChange}
 							/>
 						</div>
 					)}

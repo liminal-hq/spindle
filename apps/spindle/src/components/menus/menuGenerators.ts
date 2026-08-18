@@ -9,6 +9,7 @@ import type {
 	FocusNode,
 	Menu,
 	MenuDocument,
+	MenuRole,
 	PlaybackAction,
 	SceneNode,
 	SpindleProjectFile,
@@ -205,6 +206,21 @@ function toFocusNode(button: GeneratedButtonSpec): FocusNode {
 	};
 }
 
+/**
+ * Generator kinds this module stamps into `generationMeta.generatorKind`.
+ * Must stay in sync with `role_for_generator_kind` in
+ * `plugins/tauri-plugin-spindle-project/src/models/menu.rs`, which maps
+ * each kind to the `MenuRole` it's known to build — the first (and
+ * strongest) precedence step of `MenuDocument::infer_role`.
+ */
+type GeneratorKind = 'chapter-grid' | 'audio-setup' | 'subtitle-setup';
+
+const ROLE_FOR_GENERATOR_KIND: Record<GeneratorKind, MenuRole> = {
+	'chapter-grid': 'chapter',
+	'audio-setup': 'setup',
+	'subtitle-setup': 'setup',
+};
+
 function createGeneratedMenuDocument(
 	id: string,
 	name: string,
@@ -213,11 +229,13 @@ function createGeneratedMenuDocument(
 	designHeight: number,
 	displayAspect: AspectMode,
 	defaultFocusId: string | null,
+	generatorKind: GeneratorKind,
 ): MenuDocument {
 	return {
 		id,
 		name,
 		domain,
+		role: ROLE_FOR_GENERATOR_KIND[generatorKind],
 		scene: {
 			designSize: { width: 720, height: designHeight, aspect: displayAspect },
 			background: { assetId: null, colour: DEFAULT_MENU_BACKGROUND_COLOUR },
@@ -243,6 +261,7 @@ function createGeneratedMenuDocument(
 		generationMeta: {
 			generatorId: 'menu-workspace',
 			lastGeneratedAt: new Date().toISOString(),
+			generatorKind,
 		},
 		compilePolicy: createDefaultMenuCompilePolicy(displayAspect),
 	};
@@ -334,6 +353,7 @@ export function buildChapterMenusForTitleset(
 				MENU_HEIGHT[standard],
 				displayAspect,
 				gridButtons[0]?.id ?? utilityButtons[0]?.id ?? null,
+				'chapter-grid',
 			),
 		);
 	});
@@ -403,6 +423,7 @@ export function buildAudioSetupMenu(
 			MENU_HEIGHT[standard],
 			resolveTitlesetDisplayAspect(titleset),
 			buttons[0]?.id ?? null,
+			'audio-setup',
 		),
 	);
 }
@@ -487,6 +508,7 @@ export function buildSubtitleSetupMenu(
 			MENU_HEIGHT[standard],
 			resolveTitlesetDisplayAspect(titleset),
 			buttons[0]?.id ?? null,
+			'subtitle-setup',
 		),
 	);
 }

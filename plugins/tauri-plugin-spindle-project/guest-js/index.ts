@@ -165,11 +165,23 @@ export interface Menu {
 	authoredDocument: MenuDocument | null;
 }
 
+/**
+ * What the user means this menu to be, independent of `domain`'s physical
+ * VMGM/Titleset placement. Backends map role -> physical placement (DVD:
+ * `MenuDomain`; BD: Top Menu / popup IG); `terminologyFor` maps role -> the
+ * words shown on screen. `Popup` is authorable only once a format profile's
+ * `supportedRoles` includes it (none does yet — DVD has no popup-over-video
+ * support).
+ */
+export type MenuRole = 'root' | 'title-select' | 'chapter' | 'setup' | 'extras' | 'popup';
+
 /** A structured menu document that separates authored intent from target compilation. */
 export interface MenuDocument {
 	id: string;
 	name: string;
 	domain: MenuDomain;
+	/** See {@link MenuRole}. Defaults to `'title-select'` for documents that predate this field. */
+	role: MenuRole;
 	scene: MenuScene;
 	interaction: MenuInteractionGraph;
 	timing: MenuTiming;
@@ -336,6 +348,13 @@ export interface MenuTiming {
 export interface MenuGenerationMeta {
 	generatorId: string;
 	lastGeneratedAt: string;
+	/**
+	 * Which generator produced this menu, e.g. `'chapter-grid'`,
+	 * `'audio-setup'`, `'subtitle-setup'`. Drives role inference on load for
+	 * projects that predate {@link MenuDocument.role}. `undefined` for menus
+	 * generated before this field existed, or authored by hand.
+	 */
+	generatorKind?: string | null;
 }
 
 /** Format-specific compilation rules and safe-area policies. */
@@ -689,6 +708,39 @@ export interface ToolchainStatus {
 	version: string | null;
 }
 
+// ── Format Profile ──────────────────────────────────────────────────────────
+
+/**
+ * How a format renders button focus/activate states. DVD's 4-colour
+ * subpicture highlight is the degenerate case of BD's per-state bitmap
+ * model, not a separate concept — see `docs/rich-menu-editor-plan.md` §2.
+ */
+export type HighlightModel = 'four-colour-subpicture' | 'state-bitmaps256';
+
+/**
+ * Format law as data, one row per {@link DiscFamily}: raster/design-size
+ * defaults, button limits, highlight treatment, and other constraints the
+ * UI reads instead of hardcoding per-format numbers. Fetched via
+ * {@link getFormatProfile} — see `docs/rich-menu-editor-plan.md` §3.1/§4A.
+ */
+export interface FormatProfile {
+	family: DiscFamily;
+	/** Human-readable format name, e.g. "DVD-Video", "BDMV". */
+	displayName: string;
+	/** Default design-space canvas sizes, one per {@link AspectMode}. */
+	designSizes: MenuSize[];
+	/** Maximum navigable buttons/highlight regions per menu page. */
+	maxButtonsPerMenu: number;
+	highlightModel: HighlightModel;
+	/** Minimum legible font size in design-space points. */
+	minFontSizePt: number;
+	/** Menu roles this format's authoring/backend surface currently exposes. */
+	supportedRoles: MenuRole[];
+	supportedBackgroundModes: BackgroundMode[];
+	/** Whether the format can animate button states natively, rather than only via palette/contrast updates. */
+	supportsStateAnimation: boolean;
+}
+
 // ── Font Enumeration ────────────────────────────────────────────────────────
 
 /** Where a font family came from in the Skia renderer's resolution priority chain. */
@@ -748,6 +800,11 @@ export async function validateProject(project: SpindleProjectFile): Promise<Vali
  * pipeline will actually encode at. */
 export async function estimateDiscCapacity(project: SpindleProjectFile): Promise<CapacityEstimate> {
 	return await invoke('plugin:spindle-project|estimate_disc_capacity', { project });
+}
+
+/** Fetch the format-law row for a disc family — see {@link FormatProfile}. */
+export async function getFormatProfile(family: DiscFamily): Promise<FormatProfile> {
+	return await invoke('plugin:spindle-project|get_format_profile', { family });
 }
 
 /** Inspect a media file and return its metadata as an Asset. */

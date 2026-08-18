@@ -39,6 +39,7 @@ export type {
 	Menu,
 	MenuDocument,
 	MenuDomain,
+	MenuRole,
 	MenuScene,
 	MenuSize,
 	SceneBackground,
@@ -78,6 +79,8 @@ export type {
 	FontSource,
 	FontEntry,
 	CreateProjectRequest,
+	HighlightModel,
+	FormatProfile,
 } from 'tauri-plugin-spindle-project-api';
 
 import type {

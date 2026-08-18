@@ -27,6 +27,20 @@ vi.mock('@tauri-apps/plugin-dialog', () => ({
 vi.mock('tauri-plugin-spindle-project-api', () => ({
 	exportMenuRenderPreview: vi.fn(),
 	listAvailableFonts: vi.fn().mockResolvedValue([]),
+	getFormatProfile: vi.fn().mockResolvedValue({
+		family: 'dvd-video',
+		displayName: 'DVD-Video',
+		designSizes: [
+			{ width: 1024, height: 768, aspect: 'four-by-three' },
+			{ width: 1024, height: 576, aspect: 'sixteen-by-nine' },
+		],
+		maxButtonsPerMenu: 36,
+		highlightModel: 'four-colour-subpicture',
+		minFontSizePt: 12,
+		supportedRoles: ['root', 'title-select', 'chapter', 'setup', 'extras'],
+		supportedBackgroundModes: ['still', 'motion'],
+		supportsStateAnimation: false,
+	}),
 }));
 
 const { getActiveDisplay, onDisplayChanged } = vi.hoisted(() => ({
@@ -63,6 +77,7 @@ function buildButtonMenu(id: string, name: string): Menu {
 			id,
 			name,
 			domain: 'vmgm',
+			role: 'title-select',
 			scene: {
 				designSize: { width: 720, height: 480, aspect: 'four-by-three' },
 				background: { assetId: null, colour: null },

@@ -14,14 +14,21 @@ import type {
 	Title,
 	Menu,
 	MenuDomain,
+	MenuRole,
 	Asset,
 	AspectMode,
+	FormatProfile,
 } from '../../types/project';
 import { DEFAULT_MENU_BACKGROUND_COLOUR } from '../../types/project';
 import { CollapsibleSection } from './InspectorCollapsibleSection';
 import { ActionOptions, HighlightColourFields } from './InspectorSharedFields';
 import { actionToString, stringToAction } from './inspectorHelpers';
 import { computeDiagnostics } from './inspectorDiagnostics';
+import { terminologyFor } from '../../format/terminology';
+import { DEFAULT_DVD_FORMAT_PROFILE } from '../../format/useFormatProfile';
+
+/** Every `MenuRole`, in a stable display order for the role picker. */
+const ROLE_ORDER: MenuRole[] = ['root', 'title-select', 'chapter', 'setup', 'extras', 'popup'];
 
 export function MenuLevelInspector({
 	buttons,
@@ -48,6 +55,8 @@ export function MenuLevelInspector({
 	onExportRenderPreview,
 	displayAspect,
 	onDisplayAspectChange,
+	formatProfile = DEFAULT_DVD_FORMAT_PROFILE,
+	onUpdateRole,
 }: {
 	buttons: MenuButton[];
 	interactionNodes: FocusNode[];
@@ -74,8 +83,11 @@ export function MenuLevelInspector({
 	onExportRenderPreview?: () => void;
 	displayAspect: AspectMode;
 	onDisplayAspectChange?: (aspect: AspectMode) => void;
+	formatProfile?: FormatProfile;
+	onUpdateRole?: (role: MenuRole) => void;
 }) {
-	const diagnostics = computeDiagnostics(document, buttons);
+	const diagnostics = computeDiagnostics(document, buttons, formatProfile);
+	const terminology = terminologyFor(formatProfile.family);
 	const backgroundAssets = assets.filter(
 		(asset) =>
 			asset.videoStreams.length > 0 || asset.fileName.match(/\.(png|jpg|jpeg|bmp|tiff?)$/i),
@@ -90,7 +102,7 @@ export function MenuLevelInspector({
 			<CollapsibleSection title="Diagnostics" defaultOpen>
 				{diagnostics.length === 0 ? (
 					<p className="inspector-panel__hint" style={{ color: 'var(--colour-success, #4ade80)' }}>
-						No issues — menu is DVD-safe.
+						{`No issues — menu is ${terminology.formatName}-safe.`}
 					</p>
 				) : (
 					<div className="inspector-panel__diagnostic-list">
@@ -108,6 +120,31 @@ export function MenuLevelInspector({
 					</div>
 				)}
 			</CollapsibleSection>
+
+			{document && onUpdateRole && (
+				<CollapsibleSection title="Role" defaultOpen>
+					<p className="inspector-panel__hint text-muted">
+						What this menu is for — independent of where it lives in the disc structure. Backends
+						map role to physical placement; generated menus and the navigation map group by role.
+					</p>
+					<label className="inspector-panel__field">
+						<span className="inspector-panel__field-label">Menu role</span>
+						<select
+							className="inspector-panel__select"
+							value={document.role}
+							onChange={(e) => onUpdateRole(e.target.value as MenuRole)}
+						>
+							{ROLE_ORDER.filter(
+								(role) => role !== 'popup' || formatProfile.supportedRoles.includes('popup'),
+							).map((role) => (
+								<option key={role} value={role}>
+									{terminology.menuRole[role]}
+								</option>
+							))}
+						</select>
+					</label>
+				</CollapsibleSection>
+			)}
 
 			{menu && (
 				<CollapsibleSection title="Background" defaultOpen>
@@ -278,8 +315,7 @@ export function MenuLevelInspector({
 
 			<CollapsibleSection title="Display" defaultOpen>
 				<p className="inspector-panel__hint text-muted">
-					Choose how this 720-line DVD menu should display on the player: classic 4:3 or anamorphic
-					16:9.
+					{`Choose how this 720-line ${terminology.formatName} menu should display on the player: classic 4:3 or anamorphic 16:9.`}
 				</p>
 				<label className="inspector-panel__field">
 					<span className="inspector-panel__field-label">Display shape</span>
@@ -390,11 +426,10 @@ export function MenuLevelInspector({
 				</CollapsibleSection>
 			)}
 
-			{/* CLUT Palette — DVD subpicture highlight colours */}
+			{/* CLUT Palette — highlight overlay colours */}
 			<CollapsibleSection title="CLUT Palette" defaultOpen>
 				<p className="inspector-panel__hint text-muted">
-					DVD subpicture overlays use a 4-colour palette. These colours apply to all buttons in this
-					menu.
+					{`${terminology.formatName} ${terminology.highlightTreatment.toLowerCase()} uses a ${terminology.highlightPalette.toLowerCase()}. These colours apply to all buttons in this menu.`}
 				</p>
 				<HighlightColourFields colours={highlightColours} onChange={onUpdateHighlightColours} />
 			</CollapsibleSection>

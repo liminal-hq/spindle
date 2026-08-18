@@ -31,6 +31,7 @@ function buildProject(): SpindleProjectFile {
 						id: 'menu-main',
 						name: 'Main Menu',
 						domain: 'vmgm',
+						role: 'title-select',
 						scene: {
 							designSize: { width: 720, height: 480, aspect: 'four-by-three' },
 							background: { assetId: null, colour: null },

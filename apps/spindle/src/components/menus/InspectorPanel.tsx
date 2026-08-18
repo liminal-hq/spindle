@@ -14,6 +14,8 @@ import type {
 	FocusNode,
 	AspectMode,
 	FontEntry,
+	FormatProfile,
+	MenuRole,
 } from '../../types/project';
 import { LayersPanel } from './LayersPanel';
 import { CollapsibleSection } from './InspectorCollapsibleSection';
@@ -26,6 +28,7 @@ import {
 	GenericNodeInspector,
 } from './SceneNodeInspectors';
 import { getInspectorTitle, getInspectorSubtitle } from './inspectorHelpers';
+import { DEFAULT_DVD_FORMAT_PROFILE } from '../../format/useFormatProfile';
 
 export interface InspectorPanelProps {
 	selectedNode: SceneNode | null;
@@ -93,6 +96,10 @@ export interface InspectorPanelProps {
 	onDisplayAspectChange?: (aspect: AspectMode) => void;
 	/** Fonts available to the Skia renderer for this project, from `list_available_fonts`. */
 	availableFonts?: FontEntry[];
+	/** Format-law row for the project's disc family — see `useFormatProfile`. */
+	formatProfile?: FormatProfile;
+	/** Reassign the current menu's semantic role. */
+	onUpdateRole?: (role: MenuRole) => void;
 }
 
 export function InspectorPanel({
@@ -131,6 +138,8 @@ export function InspectorPanel({
 	displayAspect,
 	onDisplayAspectChange,
 	availableFonts,
+	formatProfile,
+	onUpdateRole,
 }: InspectorPanelProps) {
 	const inspectorTitle = getInspectorTitle(selectedNode, selectedButton);
 	const inspectorSubtitle = getInspectorSubtitle(selectedNode, selectedButton, buttons);
@@ -184,6 +193,8 @@ export function InspectorPanel({
 							onExportRenderPreview={onExportRenderPreview}
 							displayAspect={displayAspect ?? 'four-by-three'}
 							onDisplayAspectChange={onDisplayAspectChange}
+							formatProfile={formatProfile ?? DEFAULT_DVD_FORMAT_PROFILE}
+							onUpdateRole={onUpdateRole}
 						/>
 					) : (
 						<div className="inspector-panel__empty text-muted">
