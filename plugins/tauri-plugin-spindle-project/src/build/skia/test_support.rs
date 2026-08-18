@@ -36,6 +36,7 @@ pub(super) fn menu_with_text_node(
         id: "test-menu".to_string(),
         name: "Test Menu".to_string(),
         domain: crate::models::MenuDomain::Vmgm,
+        role: MenuRole::TitleSelect,
         scene: MenuScene {
             design_size: MenuSize {
                 width: 720.0,

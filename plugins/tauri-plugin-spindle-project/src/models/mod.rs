@@ -57,13 +57,18 @@ impl SpindleProjectFile {
         let titleset_display_aspects: Vec<_> = (0..self.disc.titlesets.len())
             .map(|index| self.inferred_titleset_menu_aspect(index))
             .collect();
-        for menu in &mut self.disc.global_menus {
+        for (menu_index, menu) in self.disc.global_menus.iter_mut().enumerate() {
             menu.ensure_document(MenuDomain::Vmgm, standard, global_display_aspect);
+            // The disc's entry menu is conventionally the first global menu
+            // ("VMGM menu 1" — see `build/dvd_navigation.rs`, which numbers
+            // `global_menus` 1-based in this same order).
+            menu.backfill_role(MenuDomain::Vmgm, menu_index == 0);
         }
         for (titleset_index, titleset) in self.disc.titlesets.iter_mut().enumerate() {
             let display_aspect = titleset_display_aspects[titleset_index];
             for menu in &mut titleset.menus {
                 menu.ensure_document(MenuDomain::Titleset, standard, display_aspect);
+                menu.backfill_role(MenuDomain::Titleset, false);
             }
         }
     }
@@ -842,6 +847,7 @@ mod tests {
                             id: "menu-1".to_string(),
                             name: "Styled Menu".to_string(),
                             domain: MenuDomain::Titleset,
+                            role: MenuRole::TitleSelect,
                             scene: MenuScene {
                                 design_size: MenuSize {
                                     width: 720.0,
@@ -1027,6 +1033,7 @@ mod tests {
                     id: "menu-1".to_string(),
                     name: "Main Menu".to_string(),
                     domain: MenuDomain::Vmgm,
+                    role: MenuRole::TitleSelect,
                     scene: MenuScene {
                         design_size: MenuSize {
                             width: 720.0,
@@ -1231,6 +1238,7 @@ mod tests {
                     id: "menu-1".to_string(),
                     name: "Main Menu".to_string(),
                     domain: MenuDomain::Titleset,
+                    role: MenuRole::TitleSelect,
                     scene: MenuScene {
                         design_size: MenuSize {
                             width: 720.0,

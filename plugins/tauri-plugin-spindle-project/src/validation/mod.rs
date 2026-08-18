@@ -66,8 +66,8 @@ mod tests {
         AspectMode, Asset, AudioOutputTarget, AudioTrackMapping, BackgroundMode, ChapterPoint,
         CompatibilityAssessment, CopyMode, Disc, HighlightKeyframe, HighlightMode, IssueSeverity,
         Menu, MenuCompilePolicy, MenuDocument, MenuDomain, MenuHighlightColours,
-        MenuInteractionGraph, MenuScene, MenuSize, MenuTiming, PlaybackAction, SceneBackground,
-        SceneNode, SubtitleTrackMapping, Title, Titleset, VideoStandard,
+        MenuInteractionGraph, MenuRole, MenuScene, MenuSize, MenuTiming, PlaybackAction,
+        SceneBackground, SceneNode, SubtitleTrackMapping, Title, Titleset, VideoStandard,
     };
 
     use super::chapter::{chapter_target_exists, dangling_play_chapter_issue};
@@ -351,6 +351,7 @@ mod tests {
             id: "menu-a".to_string(),
             name: "Menu A".to_string(),
             domain: MenuDomain::Vmgm,
+            role: MenuRole::TitleSelect,
             scene: MenuScene {
                 design_size: MenuSize {
                     width: 720.0,
@@ -383,6 +384,7 @@ mod tests {
             id: "menu-b".to_string(),
             name: "Menu B".to_string(),
             domain: MenuDomain::Vmgm,
+            role: MenuRole::TitleSelect,
             scene: MenuScene {
                 design_size: MenuSize {
                     width: 720.0,
@@ -431,6 +433,7 @@ mod tests {
             id: "menu-1".to_string(),
             name: "Motion Menu".to_string(),
             domain: MenuDomain::Vmgm,
+            role: MenuRole::TitleSelect,
             scene: MenuScene {
                 design_size: MenuSize {
                     width: 720.0,
@@ -500,6 +503,7 @@ mod tests {
             id: "menu-1".to_string(),
             name: "Still Menu".to_string(),
             domain: MenuDomain::Vmgm,
+            role: MenuRole::TitleSelect,
             scene: MenuScene {
                 design_size: MenuSize {
                     width: 720.0,

@@ -181,6 +181,11 @@ impl Menu {
             id: self.id.clone(),
             name: self.name.clone(),
             domain,
+            // Refined by `infer_role` in `SpindleProjectFile::migrate_all_menus`,
+            // which runs immediately after this lift and has the cross-menu
+            // context (generation metadata, entry-VMGM position) this method
+            // doesn't.
+            role: MenuRole::default(),
             scene,
             interaction,
             timing,
@@ -239,6 +244,25 @@ impl Menu {
         }
     }
 
+    /// Back-fill `role` on existing authored documents via
+    /// [`MenuDocument::infer_role`]. Inference is a one-time default — the
+    /// inspector lets the user reassign it afterwards — so this only
+    /// overwrites while the role is still at [`MenuRole::TitleSelect`], the
+    /// same sentinel `MenuRole::default()`/`#[serde(default)]` use for
+    /// documents that never carried the field. This can't perfectly
+    /// distinguish "never inferred" from "user deliberately picked Title
+    /// Select" (the same limitation `backfill_design_size_aspect` above
+    /// accepts for aspect), so a user's explicit Title Select choice can be
+    /// revised by inference on a later load if the menu's generation
+    /// metadata or button content would infer something more specific.
+    pub fn backfill_role(&mut self, domain: MenuDomain, is_entry_vmgm_menu: bool) {
+        if let Some(doc) = &mut self.authored_document {
+            if doc.role == MenuRole::TitleSelect {
+                doc.role = doc.infer_role(domain, is_entry_vmgm_menu);
+            }
+        }
+    }
+
     /// Infallible accessor for the authored document. Every menu reached via
     /// `parse_project` has one, since `SpindleProjectFile::migrate_all_menus`
     /// runs `migrate_to_document` on every menu at load time. Menus built
@@ -292,6 +316,14 @@ pub struct MenuDocument {
     pub id: String,
     pub name: String,
     pub domain: MenuDomain,
+    /// What the user means this menu to be, independent of `domain`'s
+    /// physical VMGM/Titleset placement. See [`MenuRole`] and
+    /// [`MenuDocument::infer_role`]. Old project files (written before this
+    /// field existed) deserialise it as [`MenuRole::default`]
+    /// ([`MenuRole::TitleSelect`]); [`SpindleProjectFile::migrate_all_menus`]
+    /// backfills a real inference for any document still at that default.
+    #[serde(default)]
+    pub role: MenuRole,
     pub scene: MenuScene,
     pub interaction: MenuInteractionGraph,
     pub timing: MenuTiming,
@@ -354,6 +386,124 @@ impl MenuDocument {
             })
             .collect()
     }
+
+    /// Infer this menu's [`MenuRole`] from generation metadata, then
+    /// interaction content, then its VMGM entry-menu position — the
+    /// precedence documented in `docs/rich-menu-editor-plan.md` §2 decision
+    /// 3. Used both to backfill existing projects on load
+    /// (`SpindleProjectFile::migrate_all_menus`) and by anything that wants
+    /// a role default for a newly created menu before the user picks one.
+    ///
+    /// `is_entry_vmgm_menu` should be `true` only for the disc's first
+    /// global (VMGM) menu — the conventional "VMGM menu 1" a player reaches
+    /// via the title-menu key (`build/dvd_navigation.rs` numbers
+    /// `global_menus` 1-based in that same order).
+    pub fn infer_role(&self, domain: MenuDomain, is_entry_vmgm_menu: bool) -> MenuRole {
+        if let Some(role) = self
+            .generation_meta
+            .as_ref()
+            .and_then(|meta| meta.generator_kind.as_deref())
+            .and_then(role_for_generator_kind)
+        {
+            return role;
+        }
+
+        if let Some(role) = self.infer_role_from_interaction_content() {
+            return role;
+        }
+
+        if domain == MenuDomain::Vmgm {
+            return if is_entry_vmgm_menu {
+                MenuRole::Root
+            } else {
+                MenuRole::TitleSelect
+            };
+        }
+
+        MenuRole::TitleSelect
+    }
+
+    /// Step 2 of [`MenuDocument::infer_role`]: classify by what the menu's
+    /// buttons actually do, recursively flattening `Sequence` actions the
+    /// way the setup generators wrap their stream setter + optional
+    /// `showMenu` return (`menuGenerators.ts`). The majority vote counts
+    /// only the role-diagnostic action kinds (`PlayChapter` vs.
+    /// `SetAudioStream`/`SetSubtitleStream`) against each other — navigation
+    /// noise like the trailing `ShowMenu` return doesn't dilute the vote.
+    /// That noise is exactly why this can't count *all* actions: every
+    /// setup-generator button is a `[setter, showMenu]` pair, so a
+    /// majority-of-everything threshold would tie 50/50 on every real setup
+    /// menu and never fire. A menu-name hint is a weak tiebreaker when
+    /// counts are equal, and `None` (defer to the next precedence step) when
+    /// there's no chapter/setup signal at all.
+    fn infer_role_from_interaction_content(&self) -> Option<MenuRole> {
+        let mut chapter_count = 0usize;
+        let mut setup_count = 0usize;
+
+        for node in &self.interaction.nodes {
+            let Some(action) = &node.action else {
+                continue;
+            };
+            let mut flattened = Vec::new();
+            flatten_actions(action, &mut flattened);
+            for action in flattened {
+                match action {
+                    PlaybackAction::PlayChapter { .. } => chapter_count += 1,
+                    PlaybackAction::SetAudioStream { .. }
+                    | PlaybackAction::SetSubtitleStream { .. } => {
+                        setup_count += 1;
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        if chapter_count > setup_count {
+            return Some(MenuRole::Chapter);
+        }
+        if setup_count > chapter_count {
+            return Some(MenuRole::Setup);
+        }
+
+        // Tied (including 0-0): let the menu name break it.
+        if chapter_count > 0 || setup_count > 0 {
+            let name = self.name.to_ascii_lowercase();
+            if name.contains("chapter") {
+                return Some(MenuRole::Chapter);
+            }
+            if name.contains("audio") || name.contains("subtitle") {
+                return Some(MenuRole::Setup);
+            }
+        }
+
+        None
+    }
+}
+
+/// Recursively flatten `Sequence` actions into their leaf actions — the
+/// setup generators wrap `SetAudioStream`/`SetSubtitleStream` in a
+/// `sequence` with an optional trailing `showMenu` return
+/// (`menuGenerators.ts`), so a naive top-level scan would undercount them.
+fn flatten_actions<'a>(action: &'a PlaybackAction, out: &mut Vec<&'a PlaybackAction>) {
+    match action {
+        PlaybackAction::Sequence { actions } => {
+            for inner in actions {
+                flatten_actions(inner, out);
+            }
+        }
+        other => out.push(other),
+    }
+}
+
+/// Step 1 of [`MenuDocument::infer_role`]: map a generator's kind to the
+/// role it's known to build. `None` for kinds this function doesn't
+/// recognise, so callers fall through to the next precedence step.
+fn role_for_generator_kind(kind: &str) -> Option<MenuRole> {
+    match kind {
+        "chapter-grid" => Some(MenuRole::Chapter),
+        "audio-setup" | "subtitle-setup" => Some(MenuRole::Setup),
+        _ => None,
+    }
 }
 
 /// A top-level scene button joined with its interaction-graph node. See
@@ -379,6 +529,57 @@ pub struct MenuButtonView<'a> {
 pub enum MenuDomain {
     Vmgm,
     Titleset,
+}
+
+/// What the user means this menu to be. Backends map role → physical
+/// placement (DVD: [`MenuDomain`]; BD: Top Menu / popup IG); the terminology
+/// layer maps role → on-screen wording. `MenuDocument.role` is authoritative;
+/// `domain` stays the DVD backend's placement output (see
+/// `docs/rich-menu-editor-plan.md` §2 decision 3).
+///
+/// `TitleSelect` is both the closed-set fallback (step 4 of
+/// [`MenuDocument::infer_role`]) and the `Default`/`serde(default)` value, so
+/// old project files without this field deserialise safely. That dual duty
+/// means the one-time backfill in `SpindleProjectFile::migrate_all_menus`
+/// can't perfectly distinguish "never inferred" from "user deliberately
+/// chose Title Select" — see the migration function's doc comment.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "kebab-case")]
+pub enum MenuRole {
+    /// DVD: VMGM title menu · BD: Top Menu.
+    Root,
+    /// DVD: VMGM or VTSM · BD: Top Menu page.
+    #[default]
+    TitleSelect,
+    /// DVD: VTSM (per group) · BD: playlist menu page.
+    Chapter,
+    /// DVD: VTSM · BD: Top Menu page.
+    Setup,
+    /// DVD: VTSM · BD: Top Menu page.
+    Extras,
+    /// DVD: unsupported (validation error) · BD: popup IG.
+    Popup,
+}
+
+impl MenuRole {
+    /// Default DVD-backend [`MenuDomain`] for a newly created or generated
+    /// menu of this role — used only as a placement default and for
+    /// grouping/badging menus by role (e.g. the menu map and generate-menus
+    /// rail). This is never used to move an *existing* menu between domains
+    /// on load — `SpindleProjectFile::migrate_all_menus` infers `role` from
+    /// `domain` (via [`MenuDocument::infer_role`]), not the other way round.
+    ///
+    /// `Popup` has no supported DVD placement (see the variant's doc
+    /// comment); it defaults to `Vmgm` here purely so the function stays
+    /// total — validation is what actually flags a DVD project authoring a
+    /// popup menu, once the role picker allows choosing it at all (today no
+    /// [`crate::models::FormatProfile::supported_roles`] includes `Popup`).
+    pub fn default_domain(self) -> MenuDomain {
+        match self {
+            MenuRole::Root | MenuRole::TitleSelect | MenuRole::Popup => MenuDomain::Vmgm,
+            MenuRole::Chapter | MenuRole::Setup | MenuRole::Extras => MenuDomain::Titleset,
+        }
+    }
 }
 
 /// The visual scene graph for the menu.
@@ -599,6 +800,15 @@ impl Default for MenuTiming {
 pub struct MenuGenerationMeta {
     pub generator_id: String,
     pub last_generated_at: String,
+    /// Which generator produced this menu, e.g. `"chapter-grid"`,
+    /// `"audio-setup"`, `"subtitle-setup"`. Unlike `generator_id` (which
+    /// today is uniformly `"menu-workspace"` for every generator —
+    /// `apps/spindle/src/components/menus/menuGenerators.ts`), this is
+    /// specific enough to drive [`MenuDocument::infer_role`]'s first
+    /// precedence step. `None` for menus generated before this field
+    /// existed, or authored by hand.
+    #[serde(default)]
+    pub generator_kind: Option<String>,
 }
 
 /// Format-specific compilation rules and safe-area policies.
@@ -862,4 +1072,373 @@ pub struct ButtonBounds {
     pub y: f64,
     pub width: f64,
     pub height: f64,
+}
+
+#[cfg(test)]
+mod role_tests {
+    use super::*;
+
+    /// A minimal, otherwise-empty `MenuDocument` — tests override just the
+    /// fields (`generation_meta`, `interaction.nodes`, `name`) that drive
+    /// `infer_role`.
+    fn empty_document(name: &str) -> MenuDocument {
+        MenuDocument {
+            id: "menu-1".to_string(),
+            name: name.to_string(),
+            domain: MenuDomain::Titleset,
+            role: MenuRole::TitleSelect,
+            scene: MenuScene {
+                design_size: MenuSize::default(),
+                background: SceneBackground {
+                    asset_id: None,
+                    colour: None,
+                },
+                nodes: vec![],
+                guides: vec![],
+            },
+            interaction: MenuInteractionGraph {
+                default_focus_id: None,
+                nodes: vec![],
+                timeout_action: None,
+            },
+            timing: MenuTiming::default(),
+            highlight_colours: MenuHighlightColours::default(),
+            background_mode: BackgroundMode::Still,
+            theme_ref: None,
+            generation_meta: None,
+            compile_policy: MenuCompilePolicy::default(),
+        }
+    }
+
+    fn focus_node_with_action(id: &str, action: PlaybackAction) -> FocusNode {
+        FocusNode {
+            node_id: id.to_string(),
+            nav_up: None,
+            nav_down: None,
+            nav_left: None,
+            nav_right: None,
+            action: Some(action),
+        }
+    }
+
+    // ── Step 1: generation metadata ──────────────────────────────────────
+
+    #[test]
+    fn chapter_grid_generator_kind_infers_chapter_role() {
+        let mut doc = empty_document("Chapter Select");
+        doc.generation_meta = Some(MenuGenerationMeta {
+            generator_id: "menu-workspace".to_string(),
+            last_generated_at: "2026-01-01T00:00:00Z".to_string(),
+            generator_kind: Some("chapter-grid".to_string()),
+        });
+        // Content disagrees with the metadata on purpose — metadata wins.
+        doc.interaction.nodes = vec![focus_node_with_action(
+            "btn-1",
+            PlaybackAction::SetAudioStream { stream_index: 0 },
+        )];
+
+        assert_eq!(
+            doc.infer_role(MenuDomain::Titleset, false),
+            MenuRole::Chapter
+        );
+    }
+
+    #[test]
+    fn audio_setup_generator_kind_infers_setup_role() {
+        let mut doc = empty_document("Audio Setup");
+        doc.generation_meta = Some(MenuGenerationMeta {
+            generator_id: "menu-workspace".to_string(),
+            last_generated_at: "2026-01-01T00:00:00Z".to_string(),
+            generator_kind: Some("audio-setup".to_string()),
+        });
+
+        assert_eq!(doc.infer_role(MenuDomain::Titleset, false), MenuRole::Setup);
+    }
+
+    #[test]
+    fn subtitle_setup_generator_kind_infers_setup_role() {
+        let mut doc = empty_document("Subtitle Setup");
+        doc.generation_meta = Some(MenuGenerationMeta {
+            generator_id: "menu-workspace".to_string(),
+            last_generated_at: "2026-01-01T00:00:00Z".to_string(),
+            generator_kind: Some("subtitle-setup".to_string()),
+        });
+
+        assert_eq!(doc.infer_role(MenuDomain::Titleset, false), MenuRole::Setup);
+    }
+
+    #[test]
+    fn unrecognised_generator_kind_falls_through_to_content_detection() {
+        let mut doc = empty_document("Bonus Features");
+        doc.generation_meta = Some(MenuGenerationMeta {
+            generator_id: "menu-workspace".to_string(),
+            last_generated_at: "2026-01-01T00:00:00Z".to_string(),
+            generator_kind: Some("some-future-generator".to_string()),
+        });
+        doc.interaction.nodes = vec![
+            focus_node_with_action(
+                "btn-1",
+                PlaybackAction::PlayChapter {
+                    title_id: "title-1".to_string(),
+                    chapter_id: "chapter-1".to_string(),
+                },
+            ),
+            focus_node_with_action(
+                "btn-2",
+                PlaybackAction::PlayChapter {
+                    title_id: "title-1".to_string(),
+                    chapter_id: "chapter-2".to_string(),
+                },
+            ),
+        ];
+
+        assert_eq!(
+            doc.infer_role(MenuDomain::Titleset, false),
+            MenuRole::Chapter
+        );
+    }
+
+    // ── Step 2: interaction-content detection ────────────────────────────
+
+    #[test]
+    fn majority_play_chapter_actions_infer_chapter_role() {
+        let mut doc = empty_document("Untitled Menu");
+        doc.interaction.nodes = vec![
+            focus_node_with_action(
+                "btn-1",
+                PlaybackAction::PlayChapter {
+                    title_id: "title-1".to_string(),
+                    chapter_id: "chapter-1".to_string(),
+                },
+            ),
+            focus_node_with_action(
+                "btn-2",
+                PlaybackAction::PlayChapter {
+                    title_id: "title-1".to_string(),
+                    chapter_id: "chapter-2".to_string(),
+                },
+            ),
+            focus_node_with_action(
+                "btn-3",
+                PlaybackAction::ShowMenu {
+                    menu_id: "root".to_string(),
+                },
+            ),
+        ];
+
+        assert_eq!(
+            doc.infer_role(MenuDomain::Titleset, false),
+            MenuRole::Chapter
+        );
+    }
+
+    #[test]
+    fn setup_detection_flattens_nested_sequence_actions() {
+        // The setup generators wrap `SetAudioStream`/`SetSubtitleStream` in a
+        // `Sequence` with a trailing `ShowMenu` return
+        // (`menuGenerators.ts::buildAudioSetupMenu`/`buildSubtitleSetupMenu`).
+        // A naive top-level scan would see only `Sequence` nodes and never
+        // find the setter underneath — this pins the recursive flatten.
+        let mut doc = empty_document("Untitled Menu");
+        doc.interaction.nodes = vec![
+            focus_node_with_action(
+                "btn-1",
+                PlaybackAction::Sequence {
+                    actions: vec![
+                        PlaybackAction::SetAudioStream { stream_index: 0 },
+                        PlaybackAction::ShowMenu {
+                            menu_id: "root".to_string(),
+                        },
+                    ],
+                },
+            ),
+            focus_node_with_action(
+                "btn-2",
+                PlaybackAction::Sequence {
+                    actions: vec![
+                        PlaybackAction::SetAudioStream { stream_index: 1 },
+                        PlaybackAction::ShowMenu {
+                            menu_id: "root".to_string(),
+                        },
+                    ],
+                },
+            ),
+        ];
+
+        assert_eq!(doc.infer_role(MenuDomain::Titleset, false), MenuRole::Setup);
+    }
+
+    #[test]
+    fn setup_detection_flattens_nested_subtitle_sequence_actions() {
+        let mut doc = empty_document("Untitled Menu");
+        doc.interaction.nodes = vec![focus_node_with_action(
+            "btn-1",
+            PlaybackAction::Sequence {
+                actions: vec![
+                    PlaybackAction::SetSubtitleStream { stream_index: None },
+                    PlaybackAction::ShowMenu {
+                        menu_id: "root".to_string(),
+                    },
+                ],
+            },
+        )];
+
+        assert_eq!(doc.infer_role(MenuDomain::Titleset, false), MenuRole::Setup);
+    }
+
+    #[test]
+    fn setup_detection_wins_on_realistic_generator_shape_regardless_of_name() {
+        // Mirrors `buildAudioSetupMenu`'s actual output shape
+        // (`menuGenerators.ts`): each stream-setter button is wrapped in a
+        // `Sequence` with a trailing `ShowMenu` return, plus a separate,
+        // pure-`ShowMenu` "Back" button carrying no setup signal at all. A
+        // per-*action* majority vote ties 50/50 here (N setters vs. N+1
+        // `ShowMenu`s) and would never fire; per-*button* classification
+        // does not, because the `ShowMenu`-only Back button doesn't count
+        // toward either side. The name is deliberately unrelated (not even
+        // English) so this can't be passing by way of the weak tiebreaker.
+        let mut doc = empty_document("Página 3");
+        doc.interaction.nodes = vec![
+            focus_node_with_action(
+                "btn-1",
+                PlaybackAction::Sequence {
+                    actions: vec![
+                        PlaybackAction::SetAudioStream { stream_index: 0 },
+                        PlaybackAction::ShowMenu {
+                            menu_id: "root".to_string(),
+                        },
+                    ],
+                },
+            ),
+            focus_node_with_action(
+                "btn-2",
+                PlaybackAction::Sequence {
+                    actions: vec![
+                        PlaybackAction::SetAudioStream { stream_index: 1 },
+                        PlaybackAction::ShowMenu {
+                            menu_id: "root".to_string(),
+                        },
+                    ],
+                },
+            ),
+            focus_node_with_action(
+                "btn-3",
+                PlaybackAction::Sequence {
+                    actions: vec![
+                        PlaybackAction::SetAudioStream { stream_index: 2 },
+                        PlaybackAction::ShowMenu {
+                            menu_id: "root".to_string(),
+                        },
+                    ],
+                },
+            ),
+            focus_node_with_action(
+                "btn-back",
+                PlaybackAction::ShowMenu {
+                    menu_id: "root".to_string(),
+                },
+            ),
+        ];
+
+        assert_eq!(doc.infer_role(MenuDomain::Titleset, false), MenuRole::Setup);
+    }
+
+    #[test]
+    fn chapter_detection_wins_on_realistic_generator_shape_with_renamed_menu() {
+        // Mirrors `buildChapterMenusForTitleset`'s output shape: grid
+        // buttons carry a bare `PlayChapter`, plus Previous/Back/Next
+        // utility buttons carrying only `ShowMenu`. Renamed away from
+        // anything containing "chapter" to prove this isn't relying on the
+        // name tiebreaker either.
+        let mut doc = empty_document("第3页");
+        doc.interaction.nodes = vec![
+            focus_node_with_action(
+                "btn-1",
+                PlaybackAction::PlayChapter {
+                    title_id: "title-1".to_string(),
+                    chapter_id: "chapter-1".to_string(),
+                },
+            ),
+            focus_node_with_action(
+                "btn-2",
+                PlaybackAction::PlayChapter {
+                    title_id: "title-1".to_string(),
+                    chapter_id: "chapter-2".to_string(),
+                },
+            ),
+            focus_node_with_action(
+                "btn-back",
+                PlaybackAction::ShowMenu {
+                    menu_id: "root".to_string(),
+                },
+            ),
+        ];
+
+        assert_eq!(
+            doc.infer_role(MenuDomain::Titleset, false),
+            MenuRole::Chapter
+        );
+    }
+
+    #[test]
+    fn tied_content_uses_menu_name_as_weak_tiebreaker() {
+        let mut doc = empty_document("Chapter Options");
+        // One chapter signal, one setup signal — an exact tie, so the name
+        // ("Chapter") breaks it.
+        doc.interaction.nodes = vec![
+            focus_node_with_action(
+                "btn-1",
+                PlaybackAction::PlayChapter {
+                    title_id: "title-1".to_string(),
+                    chapter_id: "chapter-1".to_string(),
+                },
+            ),
+            focus_node_with_action("btn-2", PlaybackAction::SetAudioStream { stream_index: 0 }),
+        ];
+
+        assert_eq!(
+            doc.infer_role(MenuDomain::Titleset, false),
+            MenuRole::Chapter
+        );
+    }
+
+    // ── Step 3/4: VMGM entry-menu position and fallback ──────────────────
+
+    #[test]
+    fn entry_vmgm_menu_infers_root_role() {
+        let doc = empty_document("Main Menu");
+
+        assert_eq!(doc.infer_role(MenuDomain::Vmgm, true), MenuRole::Root);
+    }
+
+    #[test]
+    fn non_entry_vmgm_menu_infers_title_select_role() {
+        let doc = empty_document("Extras");
+
+        assert_eq!(
+            doc.infer_role(MenuDomain::Vmgm, false),
+            MenuRole::TitleSelect
+        );
+    }
+
+    #[test]
+    fn titleset_menu_with_no_signal_falls_back_to_title_select() {
+        let doc = empty_document("Untitled Menu");
+
+        assert_eq!(
+            doc.infer_role(MenuDomain::Titleset, false),
+            MenuRole::TitleSelect
+        );
+    }
+
+    // ── `MenuRole::default_domain` ────────────────────────────────────────
+
+    #[test]
+    fn default_domain_matches_the_role_model_table() {
+        assert_eq!(MenuRole::Root.default_domain(), MenuDomain::Vmgm);
+        assert_eq!(MenuRole::TitleSelect.default_domain(), MenuDomain::Vmgm);
+        assert_eq!(MenuRole::Chapter.default_domain(), MenuDomain::Titleset);
+        assert_eq!(MenuRole::Setup.default_domain(), MenuDomain::Titleset);
+        assert_eq!(MenuRole::Extras.default_domain(), MenuDomain::Titleset);
+    }
 }

@@ -119,7 +119,7 @@ pub fn auto_generate_navigation(menu: &mut Menu) {
 mod tests {
     use crate::models::{
         AspectMode, BackgroundMode, FocusNode, Menu, MenuCompilePolicy, MenuDocument, MenuDomain,
-        MenuHighlightColours, MenuInteractionGraph, MenuScene, MenuSize, SceneBackground,
+        MenuHighlightColours, MenuInteractionGraph, MenuRole, MenuScene, MenuSize, SceneBackground,
         SceneNode,
     };
 
@@ -154,6 +154,7 @@ mod tests {
             id: id.to_string(),
             name: name.to_string(),
             domain: MenuDomain::Vmgm,
+            role: MenuRole::TitleSelect,
             scene: MenuScene {
                 design_size: MenuSize {
                     width: 720.0,
