@@ -7,10 +7,19 @@
 // SPDX-License-Identifier: MIT
 
 import { describe, expect, it } from 'vitest';
-import { buildChapterMenusForTitleset } from './menuGenerators';
+import {
+	buildAudioSetupMenu,
+	buildChapterMenusForTitleset,
+	buildSubtitleSetupMenu,
+} from './menuGenerators';
 import type { FocusNode, SpindleProjectFile } from '../../types/project';
 
-function buildTitleset(chapterCount: number): SpindleProjectFile['disc']['titlesets'][number] {
+function buildTitleset(
+	chapterCount: number,
+	options: { audioTracks?: number; subtitleTracks?: number } = {},
+): SpindleProjectFile['disc']['titlesets'][number] {
+	const audioTracks = options.audioTracks ?? 0;
+	const subtitleTracks = options.subtitleTracks ?? 0;
 	return {
 		id: 'titleset-1',
 		name: 'Feature',
@@ -22,8 +31,27 @@ function buildTitleset(chapterCount: number): SpindleProjectFile['disc']['titles
 				sourceAssetId: null,
 				videoMapping: null,
 				videoOutputProfile: null,
-				audioMappings: [],
-				subtitleMappings: [],
+				audioMappings: Array.from({ length: audioTracks }, (_, i) => ({
+					id: `audio-${i}`,
+					sourceStreamIndex: i,
+					outputTarget: 'AC3' as const,
+					copyMode: 'copy' as const,
+					label: `Audio ${i + 1}`,
+					language: 'eng',
+					orderIndex: i,
+					isDefault: i === 0,
+					channelLayout: null,
+					bitrateBps: null,
+				})),
+				subtitleMappings: Array.from({ length: subtitleTracks }, (_, i) => ({
+					id: `subtitle-${i}`,
+					sourceStreamIndex: i,
+					label: `Subtitle ${i + 1}`,
+					language: 'eng',
+					orderIndex: i,
+					isDefault: i === 0,
+					isForced: false,
+				})),
 				chapters: Array.from({ length: chapterCount }, (_, i) => ({
 					id: `ch-${i}`,
 					name: `Chapter ${i + 1}`,
@@ -101,5 +129,39 @@ describe('buildChapterMenusForTitleset navigation', () => {
 		for (const id of buttonIds) {
 			expect(reachable.has(id)).toBe(true);
 		}
+	});
+});
+
+// Generator kind and role stamping (issue #111 / rich-menu-editor-plan.md's
+// "Menu role model"): each generator must write a `generationMeta.generatorKind`
+// that Rust's `role_for_generator_kind` (`models/menu.rs`) recognises, and a
+// matching `role` up front, so an app-generated menu's role never has to fall
+// back to interaction-content or name-based inference. The generator-kind
+// strings here are the ones `role_for_generator_kind` matches on — keep them
+// in sync by hand, the same way `MenuGenerationMeta.generator_kind`'s Rust
+// doc comment already points back at this file.
+describe('generator metadata stamping', () => {
+	it('stamps chapter-grid menus with generatorKind "chapter-grid" and role "chapter"', () => {
+		const [menu] = buildChapterMenusForTitleset(buildTitleset(3), 'NTSC', null);
+		const doc = menu.authoredDocument!;
+
+		expect(doc.generationMeta?.generatorKind).toBe('chapter-grid');
+		expect(doc.role).toBe('chapter');
+	});
+
+	it('stamps audio-setup menus with generatorKind "audio-setup" and role "setup"', () => {
+		const menu = buildAudioSetupMenu(buildTitleset(0, { audioTracks: 2 }), 'NTSC', null);
+		const doc = menu!.authoredDocument!;
+
+		expect(doc.generationMeta?.generatorKind).toBe('audio-setup');
+		expect(doc.role).toBe('setup');
+	});
+
+	it('stamps subtitle-setup menus with generatorKind "subtitle-setup" and role "setup"', () => {
+		const menu = buildSubtitleSetupMenu(buildTitleset(0, { subtitleTracks: 2 }), 'NTSC', null);
+		const doc = menu!.authoredDocument!;
+
+		expect(doc.generationMeta?.generatorKind).toBe('subtitle-setup');
+		expect(doc.role).toBe('setup');
 	});
 });
