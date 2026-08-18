@@ -39,6 +39,8 @@ pub(super) fn validate_menus(
         )
         .collect();
 
+    let profile = profile_for(project.disc.family);
+
     for (menu, titleset_opt) in &all_menus {
         let stream_counts = titleset_opt.map(titleset_stream_counts);
         let doc = menu.doc();
@@ -73,15 +75,18 @@ pub(super) fn validate_menus(
             );
         }
 
-        // Hard limit: 36 buttons per menu (DVD spec limit for most players/configurations)
-        if buttons.len() > 36 {
+        // Hard limit: format-defined maximum navigable buttons per menu
+        // (`FormatProfile::max_buttons_per_menu` — 36 for DVD-Video).
+        if buttons.len() > profile.max_buttons_per_menu as usize {
             issues.push(ValidationIssue {
                 severity: IssueSeverity::Error,
                 code: "menu.too-many-buttons".to_string(),
                 message: format!(
-                    "Menu \"{}\" has {} buttons, which exceeds the DVD-Video limit of 36.",
+                    "Menu \"{}\" has {} buttons, which exceeds the {}-button {} limit.",
                     menu.name,
-                    buttons.len()
+                    buttons.len(),
+                    profile.max_buttons_per_menu,
+                    profile.display_name
                 ),
                 context: Some(menu.id.clone()),
                 entity_type: Some("menu".to_string()),
@@ -248,16 +253,16 @@ pub(super) fn validate_menus(
 
         // ── Authored Scene Checks ───────────────────────────────────────
         // Count buttons in scene nodes (including groups) — a menu can stay
-        // under the top-level 36-button limit above yet exceed it once
-        // buttons nested in groups are counted too.
+        // under the top-level format limit above yet exceed it once buttons
+        // nested in groups are counted too.
         let scene_button_count = count_scene_buttons(&doc.scene.nodes);
-        if scene_button_count > 36 {
+        if scene_button_count > profile.max_buttons_per_menu as usize {
             issues.push(ValidationIssue {
                 severity: IssueSeverity::Error,
                 code: "menu.scene-too-many-buttons".to_string(),
                 message: format!(
-                    "Authored scene for menu \"{}\" has {} buttons, which exceeds the DVD-Video limit of 36.",
-                    menu.name, scene_button_count
+                    "Authored scene for menu \"{}\" has {} buttons, which exceeds the {}-button {} limit.",
+                    menu.name, scene_button_count, profile.max_buttons_per_menu, profile.display_name
                 ),
                 context: Some(menu.id.clone()),
                 entity_type: Some("menu".to_string()),

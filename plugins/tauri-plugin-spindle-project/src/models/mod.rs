@@ -6,6 +6,7 @@
 mod asset;
 mod build_settings;
 mod disc;
+mod format_profile;
 mod menu;
 mod render_target;
 mod title;
@@ -13,6 +14,7 @@ mod title;
 pub use asset::*;
 pub use build_settings::*;
 pub use disc::*;
+pub use format_profile::*;
 pub use menu::*;
 pub use render_target::*;
 pub use title::*;

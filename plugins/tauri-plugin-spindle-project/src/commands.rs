@@ -119,6 +119,20 @@ pub(crate) async fn estimate_disc_capacity<R: Runtime>(
     Ok(build::estimate_disc_capacity(&project))
 }
 
+/// Return the format-law row for a disc family: button limits, highlight
+/// model, supported roles/background modes, and other constraints the UI
+/// drives off `FormatProfile` rather than hardcoding per-format numbers —
+/// see `docs/rich-menu-editor-plan.md` §3.1/§4A. A pure lookup (no project
+/// I/O), but a command rather than a frontend constant so Rust stays the
+/// single source of truth as more disc families come online.
+#[command]
+pub(crate) async fn get_format_profile<R: Runtime>(
+    _app: AppHandle<R>,
+    family: DiscFamily,
+) -> Result<FormatProfile> {
+    Ok(profile_for(family).clone())
+}
+
 /// Inspect a media file and return its metadata as an Asset.
 #[command]
 pub(crate) async fn inspect_asset<R: Runtime>(_app: AppHandle<R>, path: String) -> Result<Asset> {
