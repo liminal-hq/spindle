@@ -144,10 +144,9 @@ Everything "rich" the user wants (motion, imagery, animated buttons) is _native_
        EV -->|"requestAnimationFrame\n(same evaluate, TS port + parity tests)"| PREV["Editor: animated\nPreview mode"]
    ```
 
-The DVD lowering is lossy by design (palette/contrast only, hold-steps); the diagnostics layer says exactly what survives, per Section 3.3.
+   The DVD lowering is lossy by design (palette/contrast only, hold-steps); the diagnostics layer says exactly what survives, per Section 3.3.
 
-3. **Menus carry a semantic role, not just a physical domain.** `MenuDomain::
-Vmgm | Titleset` is DVD's physical layout leaking into authored intent. Menus gain a `role` (root, title-select, chapter, setup, popup, extras); the DVD backend maps role → VMGM/VTSM placement, the BD backend maps role → Top Menu / popup IG stream. This reconciles with `blu-ray-integration-plan.md` §1.7 (`BdMenuType`) — role is the shared concept, `BdMenuType` and `MenuDomain` become backend mappings of it.
+3. **Menus carry a semantic role, not just a physical domain.** `MenuDomain::Vmgm | Titleset` is DVD's physical layout leaking into authored intent. Menus gain a `role` (root, title-select, chapter, setup, popup, extras); the DVD backend maps role → VMGM/VTSM placement, the BD backend maps role → Top Menu / popup IG stream. This reconciles with `blu-ray-integration-plan.md` §1.7 (`BdMenuType`) — role is the shared concept, `BdMenuType` and `MenuDomain` become backend mappings of it.
 
    ```rust
    /// What the user means this menu to be. Backends map role → physical
@@ -164,13 +163,13 @@ Vmgm | Titleset` is DVD's physical layout leaking into authored intent. Menus ga
    }
    ```
 
-`MenuDocument.role` is authoritative; `MenuDomain` stays only as the DVD backend's placement output. Existing projects infer a role on load, in order:
+   `MenuDocument.role` is authoritative; `MenuDomain` stays only as the DVD backend's placement output. Existing projects infer a role on load, in order:
    1. **Generation metadata, once it can discriminate.** Today it cannot: `createGeneratedMenuFromButtons` writes the same `generationMeta.generatorId: 'menu-workspace'` for chapter, audio, and subtitle menus (`menuGenerators.ts`). The role slice therefore also adds a `generatorKind` (or per-generator ids) to `MenuGenerationMeta`, written by the generators from then on.
    2. **Interaction-content detection for existing projects**, where metadata is uniform — counting actions after **recursively flattening `Sequence`**, because the setup generators wrap the stream setter in a `sequence` with an optional `showMenu` return (`menuGenerators.ts`): predominantly `PlayChapter` → `Chapter`; predominantly `SetAudioStream`/`SetSubtitleStream` → `Setup`; menu-name hints ("Chapter", "Audio", "Subtitle") as a weak tiebreaker only.
    3. Among `Vmgm` menus, only the disc's entry menu (the default/first global menu a player reaches via the title-menu key) → `Root` — a project can hold several VMGM pages (title-select, extras), and all remaining `Vmgm` menus infer `TitleSelect`.
    4. Everything else → `TitleSelect`.
 
-Inference is a one-time default — the inspector lets the user reassign any role afterwards.
+   Inference is a one-time default — the inspector lets the user reassign any role afterwards.
 
 4. **Constraint profiles, not constants.** Button limits, palette depth, raster, safe-area, and minimum font sizes become a per-format data table consumed by diagnostics, the compile preview, and validation — replacing hardcoded `MAX_DVD_BUTTONS = 36`, `DVD_PALETTE_COLOURS = 4` (`CompileMode.tsx`) and `MENU_WIDTH = 720` (`SceneCanvas.tsx`).
 5. **The editor speaks design-space only.** Retire the legacy `buttons` mirror and the 720-raster remnants; the authored document (already resolution-agnostic, with a 1920×1080 BluRay arm in `MenuSize::default_for`) becomes the single model.
@@ -186,10 +185,7 @@ The project already knows its `DiscFamily`; the menu workspace should wear it. T
 
 ### 3.1 Format context chrome
 
-- The menu editor header already shows `16:9 anamorphic DVD · 720 × 480 NTSC`.
-  Generalise this into a **format badge** sourced from the constraint profile:
-  DVD shows raster/standard/aspect; BD will show `1920 × 1080 · 23.976p ·
-BD-25`. The badge is also the entry point to the compile-policy inspector.
+- The menu editor header already shows `16:9 anamorphic DVD · 720 × 480 NTSC`. Generalise this into a **format badge** sourced from the constraint profile: DVD shows raster/standard/aspect; BD will show `1920 × 1080 · 23.976p · BD-25`. The badge is also the entry point to the compile-policy inspector.
 
   ```text
   DVD project                              BD project (later)
@@ -304,8 +300,7 @@ Intersecting issues: #28, #29, #53, #55, #63, #64.
 
 ### Slice C — Motion menu backend
 
-**Goal:** motion backgrounds and audio beds actually build; the plan-time
-block is removed.
+**Goal:** motion backgrounds and audio beds actually build; the plan-time block is removed.
 
 - Implement the pipeline in `motion-menus.md` (loop-segment extraction from `loopStartSecs`, scene PNG composited over looping video, AC-3 audio bed, intro cell + loop cell with `<post>` jump, loop-count/timeout via g-register post-commands).
 - Carve the **`MenuCompiler` boundary** while writing it: trait with `render_states → compose_background → mux` stages; the DVD implementation is the only one, but ffmpeg/dvdauthor types stop appearing in shared build code.
@@ -410,7 +405,7 @@ block is removed.
   </spu>
   ```
 
-If per-keyframe overlay swaps prove too coarse or bloaty in practice, the fallback is a lower-level DCSQ writer emitting palette/contrast updates directly (bypassing spumux for menus with animated tracks) — the DCSQ player-compatibility research issue covers evaluating both routes.
+  If per-keyframe overlay swaps prove too coarse or bloaty in practice, the fallback is a lower-level DCSQ writer emitting palette/contrast updates directly (bypassing spumux for menus with animated tracks) — the DCSQ player-compatibility research issue covers evaluating both routes.
 
 - Keyframe editor UI replaces the dead Static/Animated dropdown; Preview mode animates highlights over the loop.
 - Migration: existing `HighlightKeyframe` arrays lift into tracks on load.
@@ -427,8 +422,7 @@ If per-keyframe overlay swaps prove too coarse or bloaty in practice, the fallba
 
 ### Slice F — Themes & components
 
-**Goal:** `theme_ref` and the Templates rail stop being stubs; generated menus
-restyle without regeneration.
+**Goal:** `theme_ref` and the Templates rail stop being stubs; generated menus restyle without regeneration.
 
 - Theme document: typography set, button `ButtonStyleMap`, highlight palette, spacing tokens, background treatment. `theme_ref` resolves against project themes; unset properties inherit from the theme.
 
@@ -451,7 +445,7 @@ restyle without regeneration.
   }
   ```
 
-Resolution order per property: explicit node override → component default → theme token → model default. Only the explicit override is stored in the scene, which is what makes re-theming and regeneration non-destructive.
+  Resolution order per property: explicit node override → component default → theme token → model default. Only the explicit override is stored in the scene, which is what makes re-theming and regeneration non-destructive.
 
 - Templates rail lists starter themes; applying one is undoable and non-destructive (explicit overrides survive).
 - Generators become theme-aware (SPEC §14.8) and emit `generation_meta` so regeneration preserves overrides.
