@@ -174,7 +174,12 @@ export function KeyframeEditorPopover({
 						onChange={(e) => {
 							setOpacityDraft(e.target.value);
 							const parsed = parseDraftNumber(e.target.value);
-							if (parsed !== null) onChangeValue({ kind: 'scalar', value: parsed });
+							// The HTML min/max only mark the input invalid;
+							// clamp before persisting so a saved keyframe can't
+							// hold an out-of-range opacity that CSS and the
+							// planner would clamp differently at render time.
+							if (parsed !== null)
+								onChangeValue({ kind: 'scalar', value: Math.min(1, Math.max(0, parsed)) });
 						}}
 						onBlur={() => {
 							if (parseDraftNumber(opacityDraft) === null) {
