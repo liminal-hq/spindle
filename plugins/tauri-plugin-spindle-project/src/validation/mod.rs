@@ -572,6 +572,207 @@ mod tests {
         }
     }
 
+    fn scene_button(id: &str) -> SceneNode {
+        SceneNode::Button {
+            id: id.to_string(),
+            label: "Play".to_string(),
+            x: 0.0,
+            y: 0.0,
+            width: 100.0,
+            height: 40.0,
+            highlight_mode: HighlightMode::Static,
+            highlight_keyframes: vec![],
+            video_asset_id: None,
+            button_style: None,
+            label_style: None,
+        }
+    }
+
+    /// Like [`animation_test_menu`], but the caller supplies the scene's
+    /// top-level `nodes` directly — used by the group-nesting tests below,
+    /// which need a `Group`-wrapped button rather than the shared fixture's
+    /// single top-level "btn-1".
+    fn animation_test_menu_with_nodes(
+        nodes: Vec<SceneNode>,
+        animation: Vec<AnimationTrack>,
+    ) -> Menu {
+        Menu::new("menu-1", "Test Menu").with_document(MenuDocument {
+            animation,
+            id: "menu-1".to_string(),
+            name: "Test Menu".to_string(),
+            domain: MenuDomain::Vmgm,
+            role: MenuRole::TitleSelect,
+            scene: MenuScene {
+                design_size: MenuSize {
+                    width: 720.0,
+                    height: 480.0,
+                    aspect: AspectMode::SixteenByNine,
+                },
+                background: SceneBackground {
+                    asset_id: Some("asset-1".to_string()),
+                    colour: None,
+                },
+                nodes,
+                guides: vec![],
+            },
+            interaction: MenuInteractionGraph {
+                default_focus_id: None,
+                nodes: vec![],
+                timeout_action: None,
+            },
+            timing: MenuTiming {
+                loop_duration_secs: 5.0,
+                ..MenuTiming::default()
+            },
+            highlight_colours: MenuHighlightColours::default(),
+            background_mode: BackgroundMode::Motion,
+            theme_ref: None,
+            generation_meta: None,
+            compile_policy: MenuCompilePolicy::default(),
+        })
+    }
+
+    #[test]
+    fn validate_animation_tracks_does_not_warn_for_a_top_level_button() {
+        let menu = animation_test_menu_with_nodes(
+            vec![scene_button("btn-1")],
+            vec![AnimationTrack {
+                node_id: "btn-1".to_string(),
+                target: AnimatableProperty::HighlightColour,
+                keyframes: vec![colour_keyframe(0.0, "#ff0000")],
+            }],
+        );
+
+        let mut issues = Vec::new();
+        validate_animation_tracks(
+            menu.doc(),
+            &menu,
+            Some(5.0),
+            DiscFamily::DvdVideo,
+            &mut issues,
+        );
+
+        assert!(
+            !issues
+                .iter()
+                .any(|i| i.code == "menu.animation-node-not-compiled"),
+            "a track on a top-level button must not warn, got {issues:?}"
+        );
+    }
+
+    #[test]
+    fn validate_animation_tracks_warns_for_a_group_nested_button() {
+        let menu = animation_test_menu_with_nodes(
+            vec![SceneNode::Group {
+                id: "group-1".to_string(),
+                name: "Group".to_string(),
+                children: vec![scene_button("btn-1")],
+            }],
+            vec![AnimationTrack {
+                node_id: "btn-1".to_string(),
+                target: AnimatableProperty::HighlightColour,
+                keyframes: vec![colour_keyframe(0.0, "#ff0000")],
+            }],
+        );
+
+        let mut issues = Vec::new();
+        validate_animation_tracks(
+            menu.doc(),
+            &menu,
+            Some(5.0),
+            DiscFamily::DvdVideo,
+            &mut issues,
+        );
+
+        let warning = issues
+            .iter()
+            .find(|i| i.code == "menu.animation-node-not-compiled")
+            .expect("expected menu.animation-node-not-compiled for a group-nested button");
+        assert_eq!(warning.severity, IssueSeverity::Warning);
+        // The node still exists (inside the group), so it must not also be
+        // flagged as missing.
+        assert!(
+            !issues
+                .iter()
+                .any(|i| i.code == "menu.animation-node-missing"),
+            "a group-nested button still exists in the scene, got {issues:?}"
+        );
+    }
+
+    #[test]
+    fn validate_animation_tracks_flags_a_non_finite_keyframe_timestamp() {
+        let menu = animation_test_menu(
+            BackgroundMode::Motion,
+            MenuTiming {
+                loop_duration_secs: 5.0,
+                ..MenuTiming::default()
+            },
+            vec![AnimationTrack {
+                node_id: "btn-1".to_string(),
+                target: AnimatableProperty::HighlightColour,
+                keyframes: vec![Keyframe {
+                    timestamp_secs: f64::INFINITY,
+                    value: KeyValue::Colour {
+                        hex: "#ff0000".to_string(),
+                    },
+                    easing: Easing::Hold,
+                }],
+            }],
+        );
+
+        let mut issues = Vec::new();
+        validate_animation_tracks(
+            menu.doc(),
+            &menu,
+            Some(5.0),
+            DiscFamily::DvdVideo,
+            &mut issues,
+        );
+
+        let invalid = issues
+            .iter()
+            .find(|i| i.code == "menu.animation-keyframe-invalid")
+            .expect("expected menu.animation-keyframe-invalid for a non-finite timestamp");
+        assert_eq!(invalid.severity, IssueSeverity::Error);
+    }
+
+    #[test]
+    fn validate_animation_tracks_flags_a_nan_keyframe_timestamp() {
+        let menu = animation_test_menu(
+            BackgroundMode::Motion,
+            MenuTiming {
+                loop_duration_secs: 5.0,
+                ..MenuTiming::default()
+            },
+            vec![AnimationTrack {
+                node_id: "btn-1".to_string(),
+                target: AnimatableProperty::HighlightColour,
+                keyframes: vec![Keyframe {
+                    timestamp_secs: f64::NAN,
+                    value: KeyValue::Colour {
+                        hex: "#ff0000".to_string(),
+                    },
+                    easing: Easing::Hold,
+                }],
+            }],
+        );
+
+        let mut issues = Vec::new();
+        validate_animation_tracks(
+            menu.doc(),
+            &menu,
+            Some(5.0),
+            DiscFamily::DvdVideo,
+            &mut issues,
+        );
+
+        let invalid = issues
+            .iter()
+            .find(|i| i.code == "menu.animation-keyframe-invalid")
+            .expect("expected menu.animation-keyframe-invalid for a NaN timestamp");
+        assert_eq!(invalid.severity, IssueSeverity::Error);
+    }
+
     #[test]
     fn validate_animation_tracks_flags_a_node_that_no_longer_exists() {
         let menu = animation_test_menu(

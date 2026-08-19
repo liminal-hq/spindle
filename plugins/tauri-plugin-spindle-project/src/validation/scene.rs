@@ -160,6 +160,15 @@ pub(super) fn validate_animation_tracks(
     let node_ids = scene_node_ids(&doc.scene.nodes);
     let is_motion = matches!(doc.background_mode, BackgroundMode::Motion);
 
+    // `MenuDocument::buttons()` — the build pipeline's "what counts as a
+    // button" — only walks top-level `scene.nodes`; recursive `Group`
+    // flattening is deferred to a later PR (see that fn's doc comment). A
+    // track can validate clean against `node_ids` (which does recurse) while
+    // targeting a button the build never emits spumux rects for at all, so
+    // that's checked separately below.
+    let top_level_button_ids: HashSet<&str> = doc.buttons().iter().map(|b| b.id).collect();
+    let all_button_ids = collect_button_node_ids(&doc.scene.nodes);
+
     for track in &doc.animation {
         let node_exists = node_ids.contains(track.node_id.as_str());
 
@@ -181,6 +190,27 @@ pub(super) fn validate_animation_tracks(
             });
         }
 
+        if node_exists
+            && all_button_ids.contains(track.node_id.as_str())
+            && !top_level_button_ids.contains(track.node_id.as_str())
+        {
+            issues.push(ValidationIssue {
+                severity: IssueSeverity::Warning,
+                code: "menu.animation-node-not-compiled".to_string(),
+                message: format!(
+                    "Menu \"{}\" has an animation track for button \"{}\", which is nested inside a group. Grouped buttons aren't compiled to the disc yet, so this track will not have any effect on the build.",
+                    menu.name, track.node_id
+                ),
+                context: Some(menu.id.clone()),
+                entity_type: Some("menu".to_string()),
+                entity_name: Some(menu.name.clone()),
+                suggested_fix: Some(
+                    "Move the button out of the group, or delete the animation track until group flattening ships."
+                        .to_string(),
+                ),
+            });
+        }
+
         if track.keyframes.is_empty() {
             issues.push(ValidationIssue {
                 severity: IssueSeverity::Warning,
@@ -197,6 +227,25 @@ pub(super) fn validate_animation_tracks(
                 ),
             });
             continue;
+        }
+
+        for keyframe in &track.keyframes {
+            if !keyframe.timestamp_secs.is_finite() {
+                issues.push(ValidationIssue {
+                    severity: IssueSeverity::Error,
+                    code: "menu.animation-keyframe-invalid".to_string(),
+                    message: format!(
+                        "Menu \"{}\" has an animation keyframe for node \"{}\" with a non-finite timestamp ({}).",
+                        menu.name, track.node_id, keyframe.timestamp_secs
+                    ),
+                    context: Some(menu.id.clone()),
+                    entity_type: Some("menu".to_string()),
+                    entity_name: Some(menu.name.clone()),
+                    suggested_fix: Some(
+                        "Set the keyframe's timestamp to a finite number of seconds.".to_string(),
+                    ),
+                });
+            }
         }
 
         if family == DiscFamily::DvdVideo
@@ -368,6 +417,31 @@ fn collect_scene_node_ids<'a>(nodes: &'a [SceneNode], ids: &mut HashSet<&'a str>
             | SceneNode::GeneratedCollection { id, .. } => {
                 ids.insert(id.as_str());
             }
+        }
+    }
+}
+
+/// Recursively collect the `id` of every `Button` node at any depth
+/// (including nested inside `Group`s) — the full set of "is this id a
+/// button at all", contrasted with [`MenuDocument::buttons`]'s top-level-only
+/// "is this id a button the build actually compiles". The difference
+/// between the two is exactly a group-nested button.
+fn collect_button_node_ids(nodes: &[SceneNode]) -> HashSet<&str> {
+    let mut ids = HashSet::new();
+    collect_button_node_ids_into(nodes, &mut ids);
+    ids
+}
+
+fn collect_button_node_ids_into<'a>(nodes: &'a [SceneNode], ids: &mut HashSet<&'a str>) {
+    for node in nodes {
+        match node {
+            SceneNode::Group { children, .. } => {
+                collect_button_node_ids_into(children, ids);
+            }
+            SceneNode::Button { id, .. } => {
+                ids.insert(id.as_str());
+            }
+            _ => {}
         }
     }
 }
