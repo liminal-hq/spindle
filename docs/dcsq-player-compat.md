@@ -1,78 +1,24 @@
 # Animated Subpicture Highlights — DCSQ Lowering Route and Player Compatibility
 
-Closes #113. Decides the lowering route for the animated-highlights slice
-described in [`rich-menu-editor-plan.md`](rich-menu-editor-plan.md) §4 Slice
-D and [`motion-menus.md`](motion-menus.md) "Approach 1 — Animated subpicture
-overlay." Multi-`<spu>` display-control sequences are within DVD-Video spec,
-but authoring-tool and player support for animating them is thin and
-under-tested. This spike surveys the real evidence and picks a route.
+Closes #113. Decides the lowering route for the animated-highlights slice described in [`rich-menu-editor-plan.md`](rich-menu-editor-plan.md) §4 Slice D and [`motion-menus.md`](motion-menus.md) "Approach 1 — Animated subpicture overlay." Multi-`<spu>` display-control sequences are within DVD-Video spec, but authoring-tool and player support for animating them is thin and under-tested. This spike surveys the real evidence and picks a route.
 
 ---
 
 ## Decision
 
-**Route (a) — per-keyframe overlay PNG swaps via spumux multi-`<spu>`,
-scoped to motion menus only.** Not the DCSQ writer, for v1.
+**Route (a) — per-keyframe overlay PNG swaps via spumux multi-`<spu>`, scoped to motion menus only.** Not the DCSQ writer, for v1.
 
-1. **First implementation**: lower `AnimationTrack` highlight keyframes to
-   spumux `<spu start=... end=...>` entries per `rich-menu-editor-plan.md`
-   §2 decision 2 and `motion-menus.md`'s existing "Animated highlights:
-   multiple `<spu>` elements" design — one rendered overlay PNG triple
-   (image/highlight/select) per keyframe, sampled with `Hold` easing, same
-   `<button>` rectangles repeated across every `<spu>`.
-2. **Validation rule — still menus don't get animation.** A DVD still
-   menu's video decode freezes after its first ~1 second
-   (`build_ffmpeg_menu_command` encodes `-t 1`) and does not resume until
-   user input; DCSQ timing beyond that point never fires on a compliant
-   player (see [§ Still vs. motion
-   timing](#still-vs-motion-domain-timing-the-real-constraint)). Animated
-   highlight tracks on a `backgroundMode: 'still'` menu should be a
-   validation **error** (or auto-downgrade to the degrade path below), not
-   a warning — this isn't a compatibility risk to flag, it's a
-   configuration that cannot work on any player. This mirrors the existing
-   rule in `motion-menus.md` ("Button `videoAssetId` on a still menu is
-   ignored with a warning") but is stricter, because there there's a
-   sensible ignore; here there's no frame at which the animation could
-   ever be seen.
-3. **Validation warning — keyframe density vs. subpicture bitrate.** No
-   documented hard cap on `<spu>` count per stream was found (below) — the
-   real ceiling is the existing subpicture bitrate budget
-   (~3.36 Mbit/s peak, already named as a constraint in `motion-menus.md`)
-   and decoder buffer size, because every keyframe is a full re-rendered
-   overlay image, not a cheap palette delta. Warn when a track's sampled
-   keyframe rate implies more than roughly one `<spu>` per second sustained
-   over the loop — a practical, not spec-derived, threshold — and point at
-   the bitrate budget in the message.
-4. **Degrade path**: when validation fails (still menu, or a track judged
-   too dense), bake only the first keyframe into a single static overlay —
-   i.e. exactly today's single-`<spu>` still-menu behaviour. The feature
-   never blocks a build; it silently — well, visibly, via diagnostics —
-   falls back to "no animation," which is strictly no worse than the
-   current shipped behaviour.
-5. **Do not build the custom DCSQ writer yet.** It's the spec-native,
-   cheaper-per-frame mechanism (palette/contrast deltas inside one SPU
-   unit, no repeated bitmap), but it requires writing a raw DVD SPU/DCSQT
-   encoder from scratch: nothing in the dvdauthor/spumux toolchain emits
-   `CHG_COLCON`-class per-frame palette animation today (below), so there's
-   no library code to lean on — this is comparable in scope to
-   `rich-menu-editor-plan.md`'s `MenuCompiler` boundary work, i.e.
-   multi-week, new binary-format-writing effort, not a lowering-strategy
-   tweak. `rich-menu-editor-plan.md` §4 already frames it correctly as
-   "the fallback ... if per-keyframe overlay swaps prove too coarse or
-   bloaty in practice" — this research confirms that ordering: ship the
-   compatible, buildable-today route first; only invest in the writer if
-   real testing on route (a) surfaces bitrate or compatibility problems
-   route (a) can't route around.
+1. **First implementation**: lower `AnimationTrack` highlight keyframes to spumux `<spu start=... end=...>` entries per `rich-menu-editor-plan.md` §2 decision 2 and `motion-menus.md`'s existing "Animated highlights: multiple `<spu>` elements" design — one rendered overlay PNG triple (image/highlight/select) per keyframe, sampled with `Hold` easing, same `<button>` rectangles repeated across every `<spu>`.
+2. **Validation rule — still menus don't get animation.** A DVD still menu's video decode freezes after its first ~1 second (`build_ffmpeg_menu_command` encodes `-t 1`) and does not resume until user input; DCSQ timing beyond that point never fires on a compliant player (see [§ Still vs. motion timing](#still-vs-motion-domain-timing-the-real-constraint)). Animated highlight tracks on a `backgroundMode: 'still'` menu should be a validation **error** (or auto-downgrade to the degrade path below), not a warning — this isn't a compatibility risk to flag, it's a configuration that cannot work on any player. This mirrors the existing rule in `motion-menus.md` ("Button `videoAssetId` on a still menu is ignored with a warning") but is stricter, because there there's a sensible ignore; here there's no frame at which the animation could ever be seen.
+3. **Validation warning — keyframe density vs. subpicture bitrate.** No documented hard cap on `<spu>` count per stream was found (below) — the real ceiling is the existing subpicture bitrate budget (~3.36 Mbit/s peak, already named as a constraint in `motion-menus.md`) and decoder buffer size, because every keyframe is a full re-rendered overlay image, not a cheap palette delta. Warn when a track's sampled keyframe rate implies more than roughly one `<spu>` per second sustained over the loop — a practical, not spec-derived, threshold — and point at the bitrate budget in the message.
+4. **Degrade path**: when validation fails (still menu, or a track judged too dense), bake only the first keyframe into a single static overlay — i.e. exactly today's single-`<spu>` still-menu behaviour. The feature never blocks a build; it silently — well, visibly, via diagnostics — falls back to "no animation," which is strictly no worse than the current shipped behaviour.
+5. **Do not build the custom DCSQ writer yet.** It's the spec-native, cheaper-per-frame mechanism (palette/contrast deltas inside one SPU unit, no repeated bitmap), but it requires writing a raw DVD SPU/DCSQT encoder from scratch: nothing in the dvdauthor/spumux toolchain emits `CHG_COLCON`-class per-frame palette animation today (below), so there's no library code to lean on — this is comparable in scope to `rich-menu-editor-plan.md`'s `MenuCompiler` boundary work, i.e. multi-week, new binary-format-writing effort, not a lowering-strategy tweak. `rich-menu-editor-plan.md` §4 already frames it correctly as "the fallback ... if per-keyframe overlay swaps prove too coarse or bloaty in practice" — this research confirms that ordering: ship the compatible, buildable-today route first; only invest in the writer if real testing on route (a) surfaces bitrate or compatibility problems route (a) can't route around.
 
 ---
 
 ## The two candidate routes
 
-**(a) Per-keyframe overlay PNG swaps via spumux multi-`<spu>`.** Each
-keyframe's sampled highlight colour/opacity is baked into a fully rendered
-overlay PNG (as the existing still-menu builder already does for its single
-overlay), and spumux emits one `<spu>` per keyframe with `start`/`end`
-timestamps and repeated `<button>` children:
+**(a) Per-keyframe overlay PNG swaps via spumux multi-`<spu>`.** Each keyframe's sampled highlight colour/opacity is baked into a fully rendered overlay PNG (as the existing still-menu builder already does for its single overlay), and spumux emits one `<spu>` per keyframe with `start`/`end` timestamps and repeated `<button>` children:
 
 ```xml
 <spu start="00:00:00.000" end="00:00:01.000" force="yes"
@@ -88,25 +34,9 @@ timestamps and repeated `<button>` children:
 </spu>
 ```
 
-This works entirely within spumux's documented, exercised feature surface —
-nothing new to build — at the cost of one full subpicture unit (bitmap +
-CLUT + DCSQ header) per keyframe, and of only being able to trigger a
-`<spu>` switch when the underlying video's presentation time actually
-advances past its `start`.
+This works entirely within spumux's documented, exercised feature surface — nothing new to build — at the cost of one full subpicture unit (bitmap + CLUT + DCSQ header) per keyframe, and of only being able to trigger a `<spu>` switch when the underlying video's presentation time actually advances past its `start`.
 
-**(b) A custom lower-level DCSQ writer**, bypassing spumux for menus with
-animated tracks: emit the raw SPU unit binary format directly, with a single
-subpicture bitmap (or few) and multiple display-control commands
-(`SET_COLOR`, `SET_CONTR`, and in principle `CHG_COLCON` for finer,
-per-region colour/contrast changes) inside _one_ `SP_DCSQT`, each carrying
-its own `SP_DCSQ_STM` delay — the DVD spec's actual built-in animation
-primitive (multiple DCSQs, independently timed, inside a single subpicture
-unit; see [DVD Sub-Pictures](https://dvd.sourceforge.net/dvdinfo/spu.html)).
-Cheaper per animated frame (a palette/contrast delta, not a repeated
-bitmap), and — architecturally — closer to what the DVD spec actually
-intends for this use case. But it means writing an SPU/DCSQT binary
-encoder and wiring its output into the IFO/VOB mux ourselves; spumux
-doesn't do this today (below), so there's no existing tool to shell out to.
+**(b) A custom lower-level DCSQ writer**, bypassing spumux for menus with animated tracks: emit the raw SPU unit binary format directly, with a single subpicture bitmap (or few) and multiple display-control commands (`SET_COLOR`, `SET_CONTR`, and in principle `CHG_COLCON` for finer, per-region colour/contrast changes) inside _one_ `SP_DCSQT`, each carrying its own `SP_DCSQ_STM` delay — the DVD spec's actual built-in animation primitive (multiple DCSQs, independently timed, inside a single subpicture unit; see [DVD Sub-Pictures](https://dvd.sourceforge.net/dvdinfo/spu.html)). Cheaper per animated frame (a palette/contrast delta, not a repeated bitmap), and — architecturally — closer to what the DVD spec actually intends for this use case. But it means writing an SPU/DCSQT binary encoder and wiring its output into the IFO/VOB mux ourselves; spumux doesn't do this today (below), so there's no existing tool to shell out to.
 
 ---
 
@@ -114,137 +44,31 @@ doesn't do this today (below), so there's no existing tool to shell out to.
 
 ### libdvdnav / VLC
 
-VLC's DVD menu support goes through `libdvdnav`, which is the reference
-implementation for DVD navigation semantics — button highlighting, menu
-domain PGCs, and SPU/DCSQ decoding are all handled by the
-navigation+subpicture stack VLC links against
-([libdvdnav — VideoLAN](https://www.videolan.org/developers/libdvdnav.html),
-[Libdvdnav and libdvdread — VLC
-wiki](https://wiki.videolan.org/Libdvdnav_and_libdvdread/)). VLC is the
-correct reference player for QA on this feature — it's the one mainstream
-open-source player that actually renders DVD menu highlights (both `select`
-and `highlight` palette states) rather than ignoring the interactive layer
-entirely.
+VLC's DVD menu support goes through `libdvdnav`, which is the reference implementation for DVD navigation semantics — button highlighting, menu domain PGCs, and SPU/DCSQ decoding are all handled by the navigation+subpicture stack VLC links against ([libdvdnav — VideoLAN](https://www.videolan.org/developers/libdvdnav.html), [Libdvdnav and libdvdread — VLC wiki](https://wiki.videolan.org/Libdvdnav_and_libdvdread/)). VLC is the correct reference player for QA on this feature — it's the one mainstream open-source player that actually renders DVD menu highlights (both `select` and `highlight` palette states) rather than ignoring the interactive layer entirely.
 
 ### mpv
 
-**mpv does not support DVD menus at all.** This is a currently-open,
-unimplemented feature request
-([Support DVD menus · Issue #14370 ·
-mpv-player/mpv](https://github.com/mpv-player/mpv/issues/14370)) — no
-button navigation, no highlight rendering, menu domains aren't handled.
-This isn't a compatibility bug to route around; it's a gap in mpv's scope,
-and it means **mpv is not a valid tool for verifying this feature** during
-development — any manual QA pass needs VLC (or real/emulated hardware), not
-mpv, or the animation (and indeed DVD menus generally) will appear simply
-absent regardless of which route is implemented correctly.
+**mpv does not support DVD menus at all.** This is a currently-open, unimplemented feature request ([Support DVD menus · Issue #14370 · mpv-player/mpv](https://github.com/mpv-player/mpv/issues/14370)) — no button navigation, no highlight rendering, menu domains aren't handled. This isn't a compatibility bug to route around; it's a gap in mpv's scope, and it means **mpv is not a valid tool for verifying this feature** during development — any manual QA pass needs VLC (or real/emulated hardware), not mpv, or the animation (and indeed DVD menus generally) will appear simply absent regardless of which route is implemented correctly.
 
 ### Still vs. motion domain timing — the real constraint
 
-This is the load-bearing finding, and it isn't specific to spumux — it
-follows from how DVD stills work at all. A still menu's PGC (`pause="inf"`)
-plays its VOB once, then holds on the last decoded frame until user input;
-it does not loop or continue decoding. `SP_DCSQ_STM` (the per-DCSQ start
-delay) is relative to the subpicture unit's own presentation timing within
-that VOB's decode — once the VOB stops decoding, no further DCSQ in that
-unit, and no subsequent `<spu>` unit timed later, can ever be reached. Since
-Spindle's still-menu build already only encodes ~1 second of source
-(`build_ffmpeg_menu_command`, `-t 1`), a still menu physically cannot host a
-looping or multi-second animated highlight on any spec-compliant player,
-regardless of which of routes (a)/(b) is used to encode it.
+This is the load-bearing finding, and it isn't specific to spumux — it follows from how DVD stills work at all. A still menu's PGC (`pause="inf"`) plays its VOB once, then holds on the last decoded frame until user input; it does not loop or continue decoding. `SP_DCSQ_STM` (the per-DCSQ start delay) is relative to the subpicture unit's own presentation timing within that VOB's decode — once the VOB stops decoding, no further DCSQ in that unit, and no subsequent `<spu>` unit timed later, can ever be reached. Since Spindle's still-menu build already only encodes ~1 second of source (`build_ffmpeg_menu_command`, `-t 1`), a still menu physically cannot host a looping or multi-second animated highlight on any spec-compliant player, regardless of which of routes (a)/(b) is used to encode it.
 
-A **motion** menu doesn't have this problem: its PGC loops
-(`<post> jump cell 1; </post>` per `motion-menus.md`), so the VOB's
-presentation timeline restarts every loop and any `<spu>`/DCSQ timed within
-the loop duration re-fires each pass. This is consistent with how
-professional commercial-era tooling framed the feature: Apple's DVD Studio
-Pro described "limited animation" of button highlights as something
-achieved in the context of **motion menus**, not stills
-([Creating a Motion Menu for DVD Studio Pro — Larry
-Jordan](https://larryjordan.com/articles/creating-a-motion-menu-for-dvd-studio-pro/);
-general commercial-disc highlight-authoring background at [Create DVD Menu
-& Button Highlights With Photoshop Layers — Larry
-Jordan](https://larryjordan.com/articles/creating-dvd-menu-and-button-highlights-using-photoshop-layers/)).
-This matches — and justifies — `rich-menu-editor-plan.md`'s existing
-sequencing, where the animated-highlight timeline strip is scoped to
-"when the menu is motion, or when any animation track exists" and Slice D
-depends on Slice C's motion backend. Decision 2 above turns this from an
-implicit sequencing choice into an explicit, enforced validation rule.
+A **motion** menu doesn't have this problem: its PGC loops (`<post> jump cell 1; </post>` per `motion-menus.md`), so the VOB's presentation timeline restarts every loop and any `<spu>`/DCSQ timed within the loop duration re-fires each pass. This is consistent with how professional commercial-era tooling framed the feature: Apple's DVD Studio Pro described "limited animation" of button highlights as something achieved in the context of **motion menus**, not stills ([Creating a Motion Menu for DVD Studio Pro — Larry Jordan](https://larryjordan.com/articles/creating-a-motion-menu-for-dvd-studio-pro/); general commercial-disc highlight-authoring background at [Create DVD Menu & Button Highlights With Photoshop Layers — Larry Jordan](https://larryjordan.com/articles/creating-dvd-menu-and-button-highlights-using-photoshop-layers/)). This matches — and justifies — `rich-menu-editor-plan.md`'s existing sequencing, where the animated-highlight timeline strip is scoped to "when the menu is motion, or when any animation track exists" and Slice D depends on Slice C's motion backend. Decision 2 above turns this from an implicit sequencing choice into an explicit, enforced validation rule.
 
 ### spumux's actual constraints (verified against source and docs)
 
-- **`<spu>` count per menu stream**: no documented limit. The
-  [`spumux` man page](https://dvdauthor.sourceforge.net/doc/spumux.html)
-  describes `start`/`end`/`force` on `<spu>` without stating a maximum, and
-  inspecting spumux's own source
-  ([`subgen.c`](https://raw.githubusercontent.com/ldo/dvdauthor/master/src/subgen.c),
-  confirmed as the actual `spumux` binary's source via dvdauthor's
-  [`Makefile.am`](https://raw.githubusercontent.com/ldo/dvdauthor/master/src/Makefile.am):
-  the `spumux` target compiles `subgen.c`, `subgen-parse-xml.c`,
-  `subgen-encode.c`, `subgen-image.c`, `subrender.c`, `subreader.c`,
-  `subfont.c`) shows no menu-specific cap or special-case check on multiple
-  `<spu>` entries. **But** every documented menu example in spumux's own
-  docs uses exactly one `<spu>` per `force="yes"` stream; multiple `<spu>`
-  is spumux's well-trodden path for subtitle streams (successive dialogue
-  lines timed across a played title), not menus. The mechanism is
-  schema-legal for menus and not blocked in the code, but it's
-  comparatively untested territory for that use — that's the real
-  "sticking point" the plan called out: not a hard block, low field
-  mileage.
-- **Start/end semantics, stills vs. motion**: not addressed by spumux's
-  docs or source at all — spumux has no concept of "still" vs. "motion"
-  menu; it just times `<spu>` entries against the muxed video's
-  presentation timestamps. The still/motion distinction that matters
-  (above) is a property of the DVD player's decode behaviour on the PGC
-  spumux's output ends up inside, not something spumux enforces or warns
-  about — which is exactly why Spindle's own validation needs to enforce
-  it (Decision 2), rather than relying on spumux to catch it.
-- **Palette limits per SPU**: unchanged regardless of route — still the
-  spec's 4-colour CLUT per subpicture, shared by all buttons/overlays in a
-  PGC. Neither route relieves this; it's a DVD-Video hardware constraint,
-  not a tooling one.
-- **`CHG_COLCON` (per-region, per-frame palette/contrast animation) is not
-  implemented by spumux or dvdauthor, anywhere, today.** It was proposed on
-  the dvdauthor-developer mailing list — a real design discussion, listing
-  the actual `LN_CTLI`/`PX_CTLI` structure and reaching an explicit
-  "how would we even represent the source images for this" impasse — and
-  never shipped
-  ([Re: [Dvdauthor-developer] Add support for CHG_COLCON to
-  spumux?](https://sourceforge.net/p/dvdauthor/mailman/message/26472674/)).
-  spumux's emitted DCSQ commands are limited to the basic set
-  (`FSTA_DSP`/`STA_DSP`/`STP_DSP`/`SET_COLOR`/`SET_CONTR`/`SET_DAREA`/
-  `SET_DSPXA`/`CMD_END`); this is the direct evidence for Decision 5 above
-  — route (b) is genuinely new, unclaimed ground in this toolchain, not a
-  flag we're missing.
+- **`<spu>` count per menu stream**: no documented limit. The [`spumux` man page](https://dvdauthor.sourceforge.net/doc/spumux.html) describes `start`/`end`/`force` on `<spu>` without stating a maximum, and inspecting spumux's own source ([`subgen.c`](https://raw.githubusercontent.com/ldo/dvdauthor/master/src/subgen.c), confirmed as the actual `spumux` binary's source via dvdauthor's [`Makefile.am`](https://raw.githubusercontent.com/ldo/dvdauthor/master/src/Makefile.am): the `spumux` target compiles `subgen.c`, `subgen-parse-xml.c`, `subgen-encode.c`, `subgen-image.c`, `subrender.c`, `subreader.c`, `subfont.c`) shows no menu-specific cap or special-case check on multiple `<spu>` entries. **But** every documented menu example in spumux's own docs uses exactly one `<spu>` per `force="yes"` stream; multiple `<spu>` is spumux's well-trodden path for subtitle streams (successive dialogue lines timed across a played title), not menus. The mechanism is schema-legal for menus and not blocked in the code, but it's comparatively untested territory for that use — that's the real "sticking point" the plan called out: not a hard block, low field mileage.
+- **Start/end semantics, stills vs. motion**: not addressed by spumux's docs or source at all — spumux has no concept of "still" vs. "motion" menu; it just times `<spu>` entries against the muxed video's presentation timestamps. The still/motion distinction that matters (above) is a property of the DVD player's decode behaviour on the PGC spumux's output ends up inside, not something spumux enforces or warns about — which is exactly why Spindle's own validation needs to enforce it (Decision 2), rather than relying on spumux to catch it.
+- **Palette limits per SPU**: unchanged regardless of route — still the spec's 4-colour CLUT per subpicture, shared by all buttons/overlays in a PGC. Neither route relieves this; it's a DVD-Video hardware constraint, not a tooling one.
+- **`CHG_COLCON` (per-region, per-frame palette/contrast animation) is not implemented by spumux or dvdauthor, anywhere, today.** It was proposed on the dvdauthor-developer mailing list — a real design discussion, listing the actual `LN_CTLI`/`PX_CTLI` structure and reaching an explicit "how would we even represent the source images for this" impasse — and never shipped ([Re: [Dvdauthor-developer] Add support for CHG_COLCON to spumux?](https://sourceforge.net/p/dvdauthor/mailman/message/26472674/)). spumux's emitted DCSQ commands are limited to the basic set (`FSTA_DSP`/`STA_DSP`/`STP_DSP`/`SET_COLOR`/`SET_CONTR`/`SET_DAREA`/ `SET_DSPXA`/`CMD_END`); this is the direct evidence for Decision 5 above — route (b) is genuinely new, unclaimed ground in this toolchain, not a flag we're missing.
 
 ### Hardware-player folklore
 
-Two load-bearing, well-established (if not singularly-citable) facts from
-DVD authoring practice, corroborated by the sources above and consistent
-with the technical structure of the format: forced (`force="yes"`) menu
-subpictures are the only reliable way to guarantee a highlight/select
-overlay actually displays without the viewer's subtitle setting being
-relevant — Spindle's pipeline already does this
-(`generate_spumux_xml` always sets `force="yes"`) and both candidate routes
-must preserve it; and animated/pulsing highlight effects on real commercial
-discs are a **motion-menu** technique, not a still-menu one, which is the
-same conclusion the still-vs-motion timing analysis above reaches from the
-spec side independently. There is no good citable source for finer-grained
-claims (e.g. specific hardware players' `CHG_COLCON` support, or
-scanline-level DCSQ quirks) — this document doesn't assert them.
+Two load-bearing, well-established (if not singularly-citable) facts from DVD authoring practice, corroborated by the sources above and consistent with the technical structure of the format: forced (`force="yes"`) menu subpictures are the only reliable way to guarantee a highlight/select overlay actually displays without the viewer's subtitle setting being relevant — Spindle's pipeline already does this (`generate_spumux_xml` always sets `force="yes"`) and both candidate routes must preserve it; and animated/pulsing highlight effects on real commercial discs are a **motion-menu** technique, not a still-menu one, which is the same conclusion the still-vs-motion timing analysis above reaches from the spec side independently. There is no good citable source for finer-grained claims (e.g. specific hardware players' `CHG_COLCON` support, or scanline-level DCSQ quirks) — this document doesn't assert them.
 
 ---
 
 ## What this means for `rich-menu-editor-plan.md`
 
-No change to the plan's sequencing or Slice D scope — this research
-confirms the plan's existing framing rather than overturning it. The one
-concrete addition: **animated highlight tracks must be rejected/degraded on
-still menus by validation**, not merely left to work-by-accident or silently
-mis-time on real players. That rule should land as part of Slice D's
-validation work (`motion-menus.md`'s existing "Animated button keyframes
-must be within the motion duration" rule is the natural place to add it
-alongside), and the bitrate-density warning threshold should be tuned
-against real spumux/mplex output once Slice C's motion-menu bitrate budget
-work exists to compare against, rather than hardcoded from this document's
-"roughly one `<spu>`/second" placeholder.
+No change to the plan's sequencing or Slice D scope — this research confirms the plan's existing framing rather than overturning it. The one concrete addition: **animated highlight tracks must be rejected/degraded on still menus by validation**, not merely left to work-by-accident or silently mis-time on real players. That rule should land as part of Slice D's validation work (`motion-menus.md`'s existing "Animated button keyframes must be within the motion duration" rule is the natural place to add it alongside), and the bitrate-density warning threshold should be tuned against real spumux/mplex output once Slice C's motion-menu bitrate budget work exists to compare against, rather than hardcoded from this document's "roughly one `<spu>`/second" placeholder.
