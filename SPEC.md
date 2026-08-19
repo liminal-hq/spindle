@@ -182,6 +182,9 @@ Someone who understands FFmpeg and DVD authoring basics and wants a better front
 - **Scene-Driven Authoring**: Support for a full scene graph with layers, groups, and non-interactive nodes (Text, Image, Shape, Video).
 - **Still-Image Authoring Assets**: Imported still-image assets can be used in menu backgrounds and image nodes without being exposed as valid title-source selections.
 - **Integrated Motion Model**: Menus support an authored timing model (intro, loop, timeout) and background audio from day one.
+- **Motion Menu Compilation**: Motion backgrounds compile end-to-end — intro and loop cells trimmed from the background video, an audio bed (authored asset, background audio, or silence), and loop-count/timeout behaviour authored into the disc's navigation commands.
+- **Animated Highlights**: Keyframe tracks on button highlight colour and opacity, evaluated identically in the editor and the build, and lowered to timestamped subpicture schedules on DVD.
+- **Timeline Editing**: A timeline strip under the canvas for scrubbing the motion background, retiming intro/loop regions, and editing keyframes.
 - **Semantic Interaction**: Explicit focus routing and navigation mapping with remote simulation.
 - **Advanced Action Model**: Support for stream selection (audio/subtitle) and action sequencing.
 - **Target-Aware Compilation**: Honest compilation into DVD-safe assets with visible downgrade reporting and 'Honest Preview' diagnostics.
@@ -625,6 +628,7 @@ Examples include:
 
 - Scene-driven authoring with layers and non-interactive nodes.
 - Integrated motion model with timing, animation tracks, and background audio.
+- Timeline-based editing of intro/loop regions and highlight keyframes against in-canvas video playback.
 - Interactive hotspots with semantic playback actions.
 - Theme-driven components (HeroTitleButton, ChapterThumbnailTile).
 - Target-specific compile variant preview (DVD 4:3/16:9 safe-areas).
@@ -654,17 +658,15 @@ Each button should support:
 
 The preview is not merely visual. It must also simulate remote-navigation logic so users can detect bad directional mappings.
 
-Motion menus should be treated as a future expansion area rather than a v1 requirement.
+Motion menus are implemented as an extension of the menu asset and compilation model rather than as a separate system. Current support includes:
 
-Future support may include:
+- motion-video backgrounds trimmed from an imported video asset
+- looping menu audio from an authored audio bed, the background video's own audio, or synthesized silence
+- clip-based menu intros that transition into looping states, with loop count and timeout actions
+- animated button highlights driven by keyframe tracks (highlight colour and opacity on DVD)
+- motion-aware preview: in-canvas video playback, a timeline strip, and highlight animation sampled from the same tracks the build compiles
 
-- motion-video backgrounds
-- animated button states or menu elements where feasible
-- looping menu audio
-- clip-based menu intros that transition into looping states
-- motion-aware preview and timing simulation
-
-This should be architected as an extension of the menu asset and compilation model rather than as a completely separate system.
+Remaining future motion work includes per-button video regions (motion thumbnails) and animated per-state button bitmaps where a target format supports them.
 
 The application should plan for future assisted menu generation for common DVD structures.
 
@@ -1177,6 +1179,7 @@ This is a local-first desktop tool.
 - Builds occur locally.
 - No account is required.
 - External tool execution should be constrained to known commands and validated arguments.
+- The webview's media access is scoped: at project open, asset import, and relink, the app grants the embedded webview access to exactly the imported assets' source paths — nothing broader — and these grants are runtime-only, resetting when the app restarts.
 
 ### 24.2 User trust
 
@@ -1205,6 +1208,8 @@ Because this app orchestrates binaries, the product should clearly communicate:
 - chapter editing
 - chapter seeding from source media
 - Scene-driven menu system with authored documents and motion support
+- motion menu authoring end-to-end: video backgrounds, audio beds, intro and loop segments, loop count and timeout actions
+- animated button highlights via keyframe tracks, with a timeline editor for regions, scrubbing, and keyframes
 - semantic navigation mapping with remote simulation
 - chapter-targeted menu and title end actions
 - direct titleset editing with compatibility guidance
@@ -1484,7 +1489,7 @@ To keep scope healthy, v1 should avoid overexposing deeper DVD command logic.
 
 Recommended v1 scope:
 
-- still menus only
+- still and motion menus with explicit intro/loop timing (deeper temporal logic stays out of scope)
 - one clear action per button
 - basic end-action routing
 - no deep VM command authoring UI
@@ -1652,7 +1657,7 @@ Any future support in this area should include:
 
 ## 30. Future Expansion
 
-- motion menus
+- motion button thumbnails: per-button video regions composited into motion backgrounds
 - autogenerated title, chapter, audio-track, and subtitle-track menus
 - theme-aware menu generation
 - smarter bitrate optimisation
