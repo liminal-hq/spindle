@@ -73,6 +73,15 @@ export function TimelineRegionBar({
 		[dragEdge, secsFromClientX],
 	);
 
+	// The furthest an edge can be dragged — the known duration of the
+	// background source (`geometry.durationSecs`, which is the loaded
+	// video's real duration when available, else an authored-timing
+	// fallback — see `TimelineStrip`). Without this, an edge drag could
+	// persist an intro/loop end past the source, tripping
+	// `menu.motion-loop-exceeds-source`/`menu.motion-intro-invalid` on the
+	// next validate.
+	const maxEndSecs = geometry.durationSecs;
+
 	const handlePointerUp = useCallback(() => {
 		if (!dragEdge || dragSecs === null) return;
 		if (hasMovedRef.current) {
@@ -87,7 +96,7 @@ export function TimelineRegionBar({
 					break;
 				}
 				case 'introEnd': {
-					const end = Math.max(introStart + minDurationSecs, dragSecs);
+					const end = Math.min(Math.max(introStart + minDurationSecs, dragSecs), maxEndSecs);
 					onSetTimingField({ introDurationSecs: end - introStart });
 					break;
 				}
@@ -101,7 +110,7 @@ export function TimelineRegionBar({
 					break;
 				}
 				case 'loopEnd': {
-					const end = Math.max(loopStart + minDurationSecs, dragSecs);
+					const end = Math.min(Math.max(loopStart + minDurationSecs, dragSecs), maxEndSecs);
 					onSetTimingField({ loopDurationSecs: end - loopStart });
 					break;
 				}
@@ -116,6 +125,7 @@ export function TimelineRegionBar({
 		introStart,
 		loopEnd,
 		loopStart,
+		maxEndSecs,
 		minDurationSecs,
 		onSetTimingField,
 	]);
