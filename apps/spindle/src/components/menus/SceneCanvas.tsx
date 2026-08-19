@@ -18,10 +18,12 @@ import type {
 	FormatProfile,
 } from '../../types/project';
 import { DEFAULT_DVD_FORMAT_PROFILE } from '../../format/useFormatProfile';
+import { useShallow } from 'zustand/react/shallow';
 import { useMenuPlaybackStore } from '../../store/menu-playback-store';
 import {
 	keyValueToColour,
 	keyValueToOpacity,
+	sampleHonestFold,
 	sampleTrackForPreview,
 } from './timeline/timelineUtils';
 
@@ -916,24 +918,33 @@ function NavigationPreview({
  * One button in the navigation preview.
  *
  * Focused-state highlight colour/opacity are sampled from this node's
- * `highlight-colour`/`highlight-opacity` tracks; activated-state colour is
- * sampled from its `activate-colour` track (DVD naming: spumux's
- * "highlight" state is the focused/selected one, its "select" state is the
- * activated/pressed one — see `AnimatableProperty`'s doc comment) — both
- * fall back to the menu's static `highlightColours` when there's no track.
+ * `highlight-colour`/`highlight-opacity` tracks; activated-state colour and
+ * opacity are sampled from its `activate-colour`/`activate-opacity` tracks
+ * (DVD naming: spumux's "highlight" state is the focused/selected one, its
+ * "select" state is the activated/pressed one — see `AnimatableProperty`'s
+ * doc comment) — both fall back to the menu's static `highlightColours`
+ * when there's no track. Activate opacity is baked into the outline's
+ * alpha via `hexToRgba` rather than kept as a separate CSS property,
+ * mirroring `bake_opacity_into_alpha`'s `select_colour` handling.
  *
- * Sampling dispatches on `isMotion`/`honestPreview` via
- * `sampleTrackForPreview` (`timelineUtils.ts`):
+ * Sampling dispatches on `isMotion`/`honestPreview`:
  *
- * - Still menu: bakes in the track's first keyframe regardless of the
- *   playhead, mirroring the disc's still-menu degrade path (a still menu
- *   can't host a schedule at all — see `build_overlay_keyframe_schedule`).
- * - Motion menu, honest preview: quantizes to the compiled disc's actual
- *   DCSQ schedule (`sampleHonestPreview` — the UNION of every relevant
- *   track's keyframe timestamps, not a per-track hold).
- * - Motion menu, not honest: the full eased curve, friendlier than the
- *   disc actually produces, matching this file's preview posture
- *   elsewhere — see design decision D9.
+ * - Still menu: bakes in this button's own track's first keyframe
+ *   regardless of the playhead (`sampleTrackForPreview`), mirroring the
+ *   disc's still-menu degrade path (a still menu can't host a schedule at
+ *   all — see `build_overlay_keyframe_schedule`).
+ * - Motion menu, honest preview: menu-wide fold (`sampleHonestFold`) —
+ *   every button's relevant track for the state group is folded into ONE
+ *   value, document-order last-track-wins, quantized to the compiled
+ *   disc's actual DCSQ schedule boundary (the UNION of every highlight AND
+ *   activate relevant track's keyframe timestamps together, since a
+ *   keyframe in either group can force a new shared schedule instant —
+ *   see `scheduleBoundarySecs`). This is the disc's actual one-CLUT
+ *   behaviour: it cannot show a different colour per button the way this
+ *   node's own track might suggest.
+ * - Motion menu, not honest: this button's own track, continuously eased,
+ *   friendlier than the disc actually produces, matching this file's
+ *   preview posture elsewhere — see design decision D9.
  *
  * Each sampled value is read via its own zustand selector rather than a
  * raw `currentTime` subscription, so this component only re-renders when
@@ -985,6 +996,9 @@ function PreviewButtonNode({
 	const activateColourTrack = isActivated
 		? animationTracks.find((t) => t.nodeId === btn.id && t.target === 'activate-colour')
 		: undefined;
+	const activateOpacityTrack = isActivated
+		? animationTracks.find((t) => t.nodeId === btn.id && t.target === 'activate-opacity')
+		: undefined;
 
 	// The DCSQ schedule is shared across every relevant track for a given
 	// state (highlight vs. select — see `sampleHonestPreview`'s doc
@@ -1010,52 +1024,123 @@ function PreviewButtonNode({
 			),
 		[animationTracks],
 	);
-
-	// Each selector reads out a SAMPLED value (a colour/opacity primitive,
-	// or `null`), not the raw `currentTime` — zustand's default equality
-	// (`Object.is`, which works correctly on primitives) then only
-	// re-renders this node when the sampled value itself changes, instead
-	// of at rAF/timeupdate cadence for every button while playing.
-	const sampledHlColour = useMenuPlaybackStore((s) =>
-		keyValueToColour(
-			sampleTrackForPreview(
-				colourTrack,
-				relevantHighlightTracks,
-				s.currentTime - loopStartSecs,
-				loopDurationSecs,
-				isMotion,
-				honestPreview,
-			),
-		),
-	);
-	const sampledHlOpacity = useMenuPlaybackStore((s) =>
-		keyValueToOpacity(
-			sampleTrackForPreview(
-				opacityTrack,
-				relevantHighlightTracks,
-				s.currentTime - loopStartSecs,
-				loopDurationSecs,
-				isMotion,
-				honestPreview,
-			),
-		),
-	);
-	const sampledActivateColour = useMenuPlaybackStore((s) =>
-		keyValueToColour(
-			sampleTrackForPreview(
-				activateColourTrack,
-				relevantActivateTracks,
-				s.currentTime - loopStartSecs,
-				loopDurationSecs,
-				isMotion,
-				honestPreview,
-			),
-		),
+	// The compiled disc bakes ONE overlay image per schedule instant
+	// covering BOTH states, so a keyframe in either group can force a new
+	// shared boundary — the honest-preview schedule union must be the
+	// complete set, not just the group being sampled (see
+	// `build_overlay_keyframe_schedule`'s `timestamps`, which chains both
+	// groups together before dedup).
+	const relevantSchedulingTracks = useMemo(
+		() => [...relevantHighlightTracks, ...relevantActivateTracks],
+		[relevantHighlightTracks, relevantActivateTracks],
 	);
 
-	const hlColour = sampledHlColour ?? highlightColours.selectColour;
-	const hlOpacity = sampledHlOpacity ?? highlightColours.selectOpacity;
-	const activateColour = sampledActivateColour ?? highlightColours.activateColour;
+	// Each selector reads out a SAMPLED value (`{hex, opacity}`), not the
+	// raw `currentTime`. `useShallow` shallow-compares that object across
+	// renders so this node only re-renders when the sampled value itself
+	// changes (e.g. never, for Hold easing, except right at a keyframe
+	// boundary) instead of at rAF/timeupdate cadence for every button while
+	// playing — zustand's default `Object.is` would otherwise treat every
+	// render's freshly-built object as a change.
+	//
+	// Honest preview folds every button's relevant track into the disc's
+	// single menu-wide value (`sampleHonestFold`) rather than showing this
+	// button's own track — the DVD subpicture CLUT can't hold a different
+	// colour per button. Still-menu and non-honest motion preview keep
+	// showing this button's own track (`sampleTrackForPreview`): a still
+	// menu bakes in a track's first keyframe regardless of state group, and
+	// non-honest preview is deliberately a friendlier per-button view (see
+	// this function's doc comment).
+	const sampledHl = useMenuPlaybackStore(
+		useShallow((s) => {
+			const tSecs = s.currentTime - loopStartSecs;
+			if (isMotion && honestPreview) {
+				return sampleHonestFold(
+					relevantHighlightTracks,
+					relevantSchedulingTracks,
+					'highlight-colour',
+					'highlight-opacity',
+					highlightColours.selectColour,
+					highlightColours.selectOpacity,
+					tSecs,
+					loopDurationSecs,
+				);
+			}
+			return {
+				hex:
+					keyValueToColour(
+						sampleTrackForPreview(
+							colourTrack,
+							relevantHighlightTracks,
+							tSecs,
+							loopDurationSecs,
+							isMotion,
+							honestPreview,
+						),
+					) ?? highlightColours.selectColour,
+				opacity:
+					keyValueToOpacity(
+						sampleTrackForPreview(
+							opacityTrack,
+							relevantHighlightTracks,
+							tSecs,
+							loopDurationSecs,
+							isMotion,
+							honestPreview,
+						),
+					) ?? highlightColours.selectOpacity,
+			};
+		}),
+	);
+	const sampledActivate = useMenuPlaybackStore(
+		useShallow((s) => {
+			const tSecs = s.currentTime - loopStartSecs;
+			if (isMotion && honestPreview) {
+				return sampleHonestFold(
+					relevantActivateTracks,
+					relevantSchedulingTracks,
+					'activate-colour',
+					'activate-opacity',
+					highlightColours.activateColour,
+					highlightColours.activateOpacity,
+					tSecs,
+					loopDurationSecs,
+				);
+			}
+			return {
+				hex:
+					keyValueToColour(
+						sampleTrackForPreview(
+							activateColourTrack,
+							relevantActivateTracks,
+							tSecs,
+							loopDurationSecs,
+							isMotion,
+							honestPreview,
+						),
+					) ?? highlightColours.activateColour,
+				opacity:
+					keyValueToOpacity(
+						sampleTrackForPreview(
+							activateOpacityTrack,
+							relevantActivateTracks,
+							tSecs,
+							loopDurationSecs,
+							isMotion,
+							honestPreview,
+						),
+					) ?? highlightColours.activateOpacity,
+			};
+		}),
+	);
+
+	const hlColour = sampledHl.hex;
+	const hlOpacity = sampledHl.opacity;
+	// Baked into the outline's alpha via `hexToRgba` rather than kept as a
+	// separate CSS property, mirroring `bake_opacity_into_alpha`'s
+	// `select_colour` handling — the compiled disc has no separate opacity
+	// channel for the activated state, only the baked alpha.
+	const activateColour = hexToRgba(sampledActivate.hex, sampledActivate.opacity);
 
 	return (
 		<div

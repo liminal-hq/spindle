@@ -1918,7 +1918,166 @@ describe('Navigation preview highlight animation (PR 8)', () => {
 			key: 'Enter',
 		});
 
+		// No `activate-opacity` track, so the outline's alpha comes from the
+		// menu's static `activateOpacity` default (0.8) baked in via
+		// `hexToRgba` — the compiled disc has no separate opacity channel
+		// for the activated state, only baked alpha (`bake_opacity_into_alpha`).
 		const node = container.querySelector('.scene-canvas__node--focused') as HTMLElement;
-		expect(node.style.outline).toContain('#0000ff');
+		expect(node.style.outline).toContain('rgba(0, 0, 255, 0.8)');
+	});
+
+	it("bakes the activated button's activate-opacity track into the outline's alpha", () => {
+		const previewButtons: MenuButton[] = [
+			{
+				id: 'btn-1',
+				label: 'Play',
+				bounds: { x: 100, y: 300, width: 200, height: 40 },
+				action: null,
+				navUp: null,
+				navDown: null,
+				navLeft: null,
+				navRight: null,
+				highlightMode: 'static',
+				highlightKeyframes: [],
+				videoAssetId: null,
+			},
+		];
+		const tracks: AnimationTrack[] = [
+			{
+				nodeId: 'btn-1',
+				target: 'activate-colour',
+				keyframes: [
+					{ timestampSecs: 0, value: { kind: 'colour', hex: '#0000ff' }, easing: 'hold' },
+				],
+			},
+			{
+				nodeId: 'btn-1',
+				target: 'activate-opacity',
+				keyframes: [{ timestampSecs: 0, value: { kind: 'scalar', value: 0.25 }, easing: 'hold' }],
+			},
+		];
+
+		act(() => {
+			useMenuPlaybackStore.setState({ currentTime: 0 });
+		});
+
+		const { container } = render(
+			<SceneCanvas
+				buttons={previewButtons}
+				canvasHeight={480}
+				sceneNodes={[]}
+				onUpdateButton={vi.fn()}
+				onUpdateSceneNode={vi.fn()}
+				showSafeArea={false}
+				backgroundLabel={null}
+				backgroundColour={null}
+				backgroundIsMotion={true}
+				backgroundInitialTimeSecs={0}
+				animationTracks={tracks}
+				defaultButtonId="btn-1"
+				previewMode={true}
+				highlightColours={DEFAULT_HIGHLIGHT_COLOURS}
+				honestPreview={false}
+				showNavLines={false}
+				selectedNodeId={null}
+				onSelectNode={vi.fn()}
+			/>,
+		);
+
+		fireEvent.keyDown(container.querySelector('.scene-canvas__viewport--preview')!, {
+			key: 'Enter',
+		});
+
+		const node = container.querySelector('.scene-canvas__node--focused') as HTMLElement;
+		expect(node.style.outline).toContain('rgba(0, 0, 255, 0.25)');
+	});
+
+	it('honest preview folds every button into the same menu-wide activate colour', () => {
+		// The compiled disc has exactly one CLUT for the whole menu — two
+		// buttons with different `activate-colour` tracks can't both show
+		// their own colour on the real disc. Honest preview must show the
+		// SAME document-order-last-wins value for both, not each button's
+		// own track.
+		const previewButtons: MenuButton[] = [
+			{
+				id: 'btn-1',
+				label: 'Play',
+				bounds: { x: 100, y: 300, width: 200, height: 40 },
+				action: null,
+				navUp: null,
+				navDown: null,
+				navLeft: null,
+				navRight: null,
+				highlightMode: 'static',
+				highlightKeyframes: [],
+				videoAssetId: null,
+			},
+			{
+				id: 'btn-2',
+				label: 'Setup',
+				bounds: { x: 100, y: 360, width: 200, height: 40 },
+				action: null,
+				navUp: null,
+				navDown: null,
+				navLeft: null,
+				navRight: null,
+				highlightMode: 'static',
+				highlightKeyframes: [],
+				videoAssetId: null,
+			},
+		];
+		const tracks: AnimationTrack[] = [
+			{
+				nodeId: 'btn-1',
+				target: 'activate-colour',
+				keyframes: [
+					{ timestampSecs: 0, value: { kind: 'colour', hex: '#0000ff' }, easing: 'hold' },
+				],
+			},
+			{
+				nodeId: 'btn-2',
+				target: 'activate-colour',
+				keyframes: [
+					{ timestampSecs: 0, value: { kind: 'colour', hex: '#ff00ff' }, easing: 'hold' },
+				],
+			},
+		];
+
+		act(() => {
+			useMenuPlaybackStore.setState({ currentTime: 0 });
+		});
+
+		const { container } = render(
+			<SceneCanvas
+				buttons={previewButtons}
+				canvasHeight={480}
+				sceneNodes={[]}
+				onUpdateButton={vi.fn()}
+				onUpdateSceneNode={vi.fn()}
+				showSafeArea={false}
+				backgroundLabel={null}
+				backgroundColour={null}
+				backgroundIsMotion={true}
+				backgroundInitialTimeSecs={0}
+				animationTracks={tracks}
+				defaultButtonId="btn-1"
+				previewMode={true}
+				highlightColours={DEFAULT_HIGHLIGHT_COLOURS}
+				honestPreview={true}
+				showNavLines={false}
+				selectedNodeId={null}
+				onSelectNode={vi.fn()}
+			/>,
+		);
+
+		// Activate btn-1 (the default focus). Its OWN track is `#0000ff`, but
+		// the fold walks every relevant track in `doc.animation` order and
+		// lets the last one win — btn-2's `#ff00ff` — since that's the one
+		// shared CLUT entry the compiled disc would actually produce.
+		fireEvent.keyDown(container.querySelector('.scene-canvas__viewport--preview')!, {
+			key: 'Enter',
+		});
+		const activatedNode = container.querySelector('.scene-canvas__node--focused') as HTMLElement;
+		expect(activatedNode.style.outline).toContain('rgba(255, 0, 255, 0.8)');
 	});
 });
