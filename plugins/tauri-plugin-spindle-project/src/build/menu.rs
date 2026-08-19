@@ -396,7 +396,7 @@ mod tests {
             id: "menu-1".to_string(),
             name: "Authored Name".to_string(),
             domain: crate::models::MenuDomain::Vmgm,
-            role: MenuRole::TitleSelect,
+            role: Some(MenuRole::TitleSelect),
             scene: MenuScene {
                 design_size: MenuSize {
                     width: 720.0,
@@ -466,7 +466,7 @@ mod tests {
             id: "menu-1".to_string(),
             name: "Test Menu".to_string(),
             domain: crate::models::MenuDomain::Vmgm,
-            role: MenuRole::TitleSelect,
+            role: Some(MenuRole::TitleSelect),
             scene: MenuScene {
                 design_size: MenuSize {
                     width: 720.0,
@@ -578,7 +578,7 @@ mod tests {
             id: "menu-sar".to_string(),
             name: "SAR Test Menu".to_string(),
             domain: crate::models::MenuDomain::Vmgm,
-            role: MenuRole::TitleSelect,
+            role: Some(MenuRole::TitleSelect),
             scene: MenuScene {
                 design_size: MenuSize {
                     width: 1024.0,
@@ -639,7 +639,7 @@ mod tests {
             id: "menu-1".to_string(),
             name: "Image Menu".to_string(),
             domain: crate::models::MenuDomain::Vmgm,
-            role: MenuRole::TitleSelect,
+            role: Some(MenuRole::TitleSelect),
             scene: MenuScene {
                 design_size: MenuSize {
                     width: 720.0,
@@ -710,7 +710,7 @@ mod tests {
             id: "menu-1".to_string(),
             name: "Image Menu".to_string(),
             domain: crate::models::MenuDomain::Vmgm,
-            role: MenuRole::TitleSelect,
+            role: Some(MenuRole::TitleSelect),
             scene: MenuScene {
                 design_size: MenuSize {
                     width: 720.0,
@@ -792,7 +792,7 @@ mod tests {
             id: "menu-1".to_string(),
             name: "Image Menu".to_string(),
             domain: crate::models::MenuDomain::Vmgm,
-            role: MenuRole::TitleSelect,
+            role: Some(MenuRole::TitleSelect),
             scene: MenuScene {
                 design_size: MenuSize {
                     width: 720.0,

@@ -460,7 +460,7 @@ mod tests {
             id: "menu-1".to_string(),
             name: "Main Menu".to_string(),
             domain: MenuDomain::Vmgm,
-            role: MenuRole::TitleSelect,
+            role: Some(MenuRole::TitleSelect),
             scene: MenuScene {
                 design_size: MenuSize {
                     width: 720.0,
@@ -598,7 +598,7 @@ mod tests {
             id: "menu-1".to_string(),
             name: "Scene Menu".to_string(),
             domain: MenuDomain::Vmgm,
-            role: MenuRole::TitleSelect,
+            role: Some(MenuRole::TitleSelect),
             scene: MenuScene {
                 design_size: MenuSize {
                     width: 720.0,
@@ -682,7 +682,7 @@ mod tests {
             id: "menu-1".to_string(),
             name: "Main Menu".to_string(),
             domain: MenuDomain::Vmgm,
-            role: MenuRole::TitleSelect,
+            role: Some(MenuRole::TitleSelect),
             scene: MenuScene {
                 design_size: MenuSize {
                     width: 720.0,

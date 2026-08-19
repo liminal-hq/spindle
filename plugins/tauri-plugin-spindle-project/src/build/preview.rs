@@ -166,7 +166,7 @@ mod tests {
             id: menu_id.to_string(),
             name: "Preview Test Menu".to_string(),
             domain: models::MenuDomain::Vmgm,
-            role: MenuRole::TitleSelect,
+            role: Some(MenuRole::TitleSelect),
             scene: MenuScene {
                 design_size: MenuSize {
                     width: 1024.0,

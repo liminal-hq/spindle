@@ -181,11 +181,13 @@ impl Menu {
             id: self.id.clone(),
             name: self.name.clone(),
             domain,
-            // Refined by `infer_role` in `SpindleProjectFile::migrate_all_menus`,
-            // which runs immediately after this lift and has the cross-menu
-            // context (generation metadata, entry-VMGM position) this method
-            // doesn't.
-            role: MenuRole::default(),
+            // Left absent — a legacy flat menu never carried a role, so this
+            // must always be inferred, not treated as an explicit choice.
+            // `backfill_role` (called immediately after this lift, by
+            // `SpindleProjectFile::migrate_all_menus`) fills it in with the
+            // cross-menu context (generation metadata, entry-VMGM position)
+            // this method doesn't have.
+            role: None,
             scene,
             interaction,
             timing,
@@ -245,20 +247,18 @@ impl Menu {
     }
 
     /// Back-fill `role` on existing authored documents via
-    /// [`MenuDocument::infer_role`]. Inference is a one-time default — the
-    /// inspector lets the user reassign it afterwards — so this only
-    /// overwrites while the role is still at [`MenuRole::TitleSelect`], the
-    /// same sentinel `MenuRole::default()`/`#[serde(default)]` use for
-    /// documents that never carried the field. This can't perfectly
-    /// distinguish "never inferred" from "user deliberately picked Title
-    /// Select" (the same limitation `backfill_design_size_aspect` above
-    /// accepts for aspect), so a user's explicit Title Select choice can be
-    /// revised by inference on a later load if the menu's generation
-    /// metadata or button content would infer something more specific.
+    /// [`MenuDocument::infer_role`], establishing the "always `Some` after
+    /// migrate" invariant documented on [`MenuDocument::role`]. Only fills
+    /// in a genuinely absent (`None`) role — a role explicitly persisted as
+    /// [`MenuRole::TitleSelect`] is a real authored choice and survives
+    /// unchanged, unlike the old sentinel-comparison approach which
+    /// couldn't distinguish "never inferred" from "user deliberately picked
+    /// Title Select" and silently re-inferred over the user's choice on
+    /// every load.
     pub fn backfill_role(&mut self, domain: MenuDomain, is_entry_vmgm_menu: bool) {
         if let Some(doc) = &mut self.authored_document {
-            if doc.role == MenuRole::TitleSelect {
-                doc.role = doc.infer_role(domain, is_entry_vmgm_menu);
+            if doc.role.is_none() {
+                doc.role = Some(doc.infer_role(domain, is_entry_vmgm_menu));
             }
         }
     }
@@ -318,12 +318,19 @@ pub struct MenuDocument {
     pub domain: MenuDomain,
     /// What the user means this menu to be, independent of `domain`'s
     /// physical VMGM/Titleset placement. See [`MenuRole`] and
-    /// [`MenuDocument::infer_role`]. Old project files (written before this
-    /// field existed) deserialise it as [`MenuRole::default`]
-    /// ([`MenuRole::TitleSelect`]); [`SpindleProjectFile::migrate_all_menus`]
-    /// backfills a real inference for any document still at that default.
+    /// [`MenuDocument::infer_role`]. `None` only ever appears transiently,
+    /// between deserialisation and [`Menu::backfill_role`] — it means "the
+    /// field was absent from the JSON" (old project files written before
+    /// this field existed, or a document built fresh without picking a role
+    /// yet), as distinct from a role explicitly persisted as
+    /// [`MenuRole::TitleSelect`]. [`SpindleProjectFile::migrate_all_menus`]
+    /// backfills a real inference for `None` only, so an explicit
+    /// `title-select` on a reloaded document survives instead of being
+    /// silently re-inferred. Every menu reached via `parse_project` has this
+    /// as `Some` — same "populated after migrate" invariant as
+    /// [`Menu::authored_document`]/[`Menu::doc`].
     #[serde(default)]
-    pub role: MenuRole,
+    pub role: Option<MenuRole>,
     pub scene: MenuScene,
     pub interaction: MenuInteractionGraph,
     pub timing: MenuTiming,
@@ -537,12 +544,12 @@ pub enum MenuDomain {
 /// `domain` stays the DVD backend's placement output (see
 /// `docs/rich-menu-editor-plan.md` §2 decision 3).
 ///
-/// `TitleSelect` is both the closed-set fallback (step 4 of
-/// [`MenuDocument::infer_role`]) and the `Default`/`serde(default)` value, so
-/// old project files without this field deserialise safely. That dual duty
-/// means the one-time backfill in `SpindleProjectFile::migrate_all_menus`
-/// can't perfectly distinguish "never inferred" from "user deliberately
-/// chose Title Select" — see the migration function's doc comment.
+/// `TitleSelect` is the closed-set fallback at step 4 of
+/// [`MenuDocument::infer_role`], and is a perfectly ordinary authored value
+/// otherwise — [`MenuDocument::role`] uses `Option<MenuRole>` (`None` for
+/// "absent from the JSON") rather than treating `TitleSelect` itself as an
+/// absence sentinel, so a role explicitly persisted as `TitleSelect`
+/// survives reload instead of being silently re-inferred.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "kebab-case")]
 pub enum MenuRole {
@@ -1086,7 +1093,7 @@ mod role_tests {
             id: "menu-1".to_string(),
             name: name.to_string(),
             domain: MenuDomain::Titleset,
-            role: MenuRole::TitleSelect,
+            role: Some(MenuRole::TitleSelect),
             scene: MenuScene {
                 design_size: MenuSize::default(),
                 background: SceneBackground {
@@ -1440,5 +1447,48 @@ mod role_tests {
         assert_eq!(MenuRole::Chapter.default_domain(), MenuDomain::Titleset);
         assert_eq!(MenuRole::Setup.default_domain(), MenuDomain::Titleset);
         assert_eq!(MenuRole::Extras.default_domain(), MenuDomain::Titleset);
+    }
+
+    // ── `Menu::backfill_role` sentinel handling ───────────────────────────
+
+    #[test]
+    fn backfill_role_infers_when_role_is_absent() {
+        let mut menu = Menu::new("menu-1", "Chapter Select").with_document(MenuDocument {
+            role: None,
+            ..empty_document("Chapter Select")
+        });
+
+        menu.backfill_role(MenuDomain::Vmgm, /* is_entry_vmgm_menu */ true);
+
+        assert_eq!(menu.doc().role, Some(MenuRole::Root));
+    }
+
+    #[test]
+    fn backfill_role_preserves_an_explicitly_persisted_title_select() {
+        // A menu whose generation metadata/content would infer `Root` (entry
+        // VMGM menu), but whose document explicitly persists `TitleSelect` —
+        // the user's deliberate choice must survive, not be overwritten by
+        // inference the way the old `role == MenuRole::TitleSelect` sentinel
+        // comparison would have done.
+        let mut menu = Menu::new("menu-1", "Main Menu").with_document(MenuDocument {
+            role: Some(MenuRole::TitleSelect),
+            ..empty_document("Main Menu")
+        });
+
+        menu.backfill_role(MenuDomain::Vmgm, /* is_entry_vmgm_menu */ true);
+
+        assert_eq!(menu.doc().role, Some(MenuRole::TitleSelect));
+    }
+
+    #[test]
+    fn backfill_role_preserves_any_other_explicit_role_too() {
+        let mut menu = Menu::new("menu-1", "Bonus Features").with_document(MenuDocument {
+            role: Some(MenuRole::Extras),
+            ..empty_document("Bonus Features")
+        });
+
+        menu.backfill_role(MenuDomain::Titleset, false);
+
+        assert_eq!(menu.doc().role, Some(MenuRole::Extras));
     }
 }

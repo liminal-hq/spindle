@@ -571,7 +571,7 @@ mod tests {
             id: "test-menu".to_string(),
             name: "Test Menu".to_string(),
             domain: crate::models::MenuDomain::Vmgm,
-            role: MenuRole::TitleSelect,
+            role: Some(MenuRole::TitleSelect),
             scene: MenuScene {
                 design_size: MenuSize {
                     width: 720.0,
@@ -820,7 +820,7 @@ mod tests {
                 id: "btn-test-menu".to_string(),
                 name: "Button Test".to_string(),
                 domain: crate::models::MenuDomain::Vmgm,
-                role: MenuRole::TitleSelect,
+                role: Some(MenuRole::TitleSelect),
                 scene: MenuScene {
                     design_size: MenuSize {
                         width: 720.0,
@@ -891,7 +891,7 @@ mod tests {
             id: "rgba-btn-menu".to_string(),
             name: "RGBA Fill Test".to_string(),
             domain: crate::models::MenuDomain::Vmgm,
-            role: MenuRole::TitleSelect,
+            role: Some(MenuRole::TitleSelect),
             scene: MenuScene {
                 design_size: MenuSize {
                     width: 720.0,
