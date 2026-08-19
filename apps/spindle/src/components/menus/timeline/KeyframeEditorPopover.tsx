@@ -4,7 +4,7 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: MIT
 
-import { useLayoutEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { AnimatableProperty, Easing, Keyframe, KeyValue } from '../../../types/project';
 
 const EASING_OPTIONS: Easing[] = ['hold', 'linear', 'ease-in', 'ease-out', 'ease-in-out'];
@@ -13,6 +13,17 @@ const EASING_OPTIONS: Easing[] = ['hold', 'linear', 'ease-in', 'ease-out', 'ease
  * `TimelineStrip`'s `.timeline-strip__scroll`, which the ruler/lanes (and
  * this popover, rendered as a keyframe lane's child) all live under. */
 const SCROLL_VIEWPORT_SELECTOR = '.timeline-strip__scroll';
+
+/** Parse a number field's raw text, treating an empty or otherwise
+ * unparseable draft as "not yet a committable value" rather than as `0` —
+ * `Number('')` is `0`, and committing that on every keystroke of clearing
+ * the field (to type a replacement) retimes/revalues the keyframe out from
+ * under the user before they finish typing. */
+function parseDraftNumber(text: string): number | null {
+	if (text.trim() === '') return null;
+	const parsed = Number(text);
+	return Number.isFinite(parsed) ? parsed : null;
+}
 
 export interface KeyframeEditorPopoverProps {
 	keyframe: Keyframe;
@@ -48,7 +59,25 @@ export function KeyframeEditorPopover({
 }: KeyframeEditorPopoverProps) {
 	const isColour = keyframe.value.kind === 'colour';
 	const isScalar = keyframe.value.kind === 'scalar';
+	const scalarValue = keyframe.value.kind === 'scalar' ? keyframe.value.value : null;
 	const popoverRef = useRef<HTMLDivElement>(null);
+
+	// Local text drafts for the number fields, so a field can sit empty (or
+	// mid-edit, e.g. "1.") while the user replaces its contents instead of
+	// committing `Number('') === 0` on every keystroke of clearing it. Synced
+	// from the keyframe's actual value whenever that changes from OUTSIDE
+	// this draft (switching which keyframe the popover edits, or the value
+	// this same draft just committed coming back through as a prop) — see
+	// `parseDraftNumber` above for why an empty/invalid draft is left alone.
+	const [timestampDraft, setTimestampDraft] = useState(() => String(keyframe.timestampSecs));
+	useEffect(() => {
+		setTimestampDraft(String(keyframe.timestampSecs));
+	}, [keyframe.timestampSecs]);
+
+	const [opacityDraft, setOpacityDraft] = useState(() => String(scalarValue ?? 0));
+	useEffect(() => {
+		if (scalarValue !== null) setOpacityDraft(String(scalarValue));
+	}, [scalarValue]);
 
 	// Anchor near the keyframe, then clamp fully inside the visible scroll
 	// viewport — `anchorPx` alone can still overflow the viewport's right
@@ -141,8 +170,17 @@ export function KeyframeEditorPopover({
 						min={0}
 						max={1}
 						step={0.05}
-						value={keyframe.value.kind === 'scalar' ? keyframe.value.value : 0}
-						onChange={(e) => onChangeValue({ kind: 'scalar', value: Number(e.target.value) })}
+						value={opacityDraft}
+						onChange={(e) => {
+							setOpacityDraft(e.target.value);
+							const parsed = parseDraftNumber(e.target.value);
+							if (parsed !== null) onChangeValue({ kind: 'scalar', value: parsed });
+						}}
+						onBlur={() => {
+							if (parseDraftNumber(opacityDraft) === null) {
+								setOpacityDraft(String(scalarValue ?? 0));
+							}
+						}}
 					/>
 				</label>
 			)}
@@ -165,10 +203,24 @@ export function KeyframeEditorPopover({
 					min={0}
 					max={loopDurationSecs}
 					step={0.1}
-					value={keyframe.timestampSecs}
-					onChange={(e) =>
-						onChangeTimestamp(Math.min(Math.max(0, Number(e.target.value)), loopDurationSecs))
-					}
+					value={timestampDraft}
+					onChange={(e) => {
+						setTimestampDraft(e.target.value);
+						const parsed = parseDraftNumber(e.target.value);
+						// Ignore an empty/unparseable draft rather than committing
+						// `Number('') === 0` — for a non-first keyframe that
+						// immediately retimes it to 0, crossing its neighbour and
+						// closing this very popover before a replacement can be
+						// typed.
+						if (parsed !== null) {
+							onChangeTimestamp(Math.min(Math.max(0, parsed), loopDurationSecs));
+						}
+					}}
+					onBlur={() => {
+						if (parseDraftNumber(timestampDraft) === null) {
+							setTimestampDraft(String(keyframe.timestampSecs));
+						}
+					}}
 				/>
 			</label>
 

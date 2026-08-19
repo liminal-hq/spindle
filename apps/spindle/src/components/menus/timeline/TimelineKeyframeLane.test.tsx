@@ -295,4 +295,29 @@ describe('TimelineKeyframeLane', () => {
 
 		expect(getByRole('dialog')).toBeTruthy();
 	});
+
+	it('does not retime a keyframe to 0 while its popover timestamp field is emptied', () => {
+		// Regression test: the controlled timestamp input committed on every
+		// change, so clearing the field made `Number('') === 0` retime the
+		// keyframe to 0 immediately — for a non-first keyframe that crosses its
+		// neighbour, re-sorts the array, and closes the popover before a
+		// replacement value could be typed.
+		const { getAllByRole, getByRole, queryByRole, onMoveKeyframe } = renderLane({
+			track: twoKeyframeTrack,
+		});
+		const [, secondDiamond] = getAllByRole('button', { name: /keyframe at/i });
+		fireEvent.doubleClick(secondDiamond); // popover open on the 5s keyframe (index 1)
+		expect(getByRole('dialog')).toBeTruthy();
+
+		const timestampInput = getByRole('spinbutton', { name: /timestamp/i });
+		fireEvent.change(timestampInput, { target: { value: '' } });
+
+		expect(onMoveKeyframe).not.toHaveBeenCalled();
+		expect(queryByRole('dialog')).toBeTruthy();
+		expect((timestampInput as HTMLInputElement).value).toBe('');
+
+		// Typing a replacement value still commits normally.
+		fireEvent.change(timestampInput, { target: { value: '3' } });
+		expect(onMoveKeyframe).toHaveBeenCalledWith('btn-1', 'highlight-colour', 1, 3);
+	});
 });
