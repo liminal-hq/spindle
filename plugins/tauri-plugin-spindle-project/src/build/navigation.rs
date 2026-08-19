@@ -3,29 +3,18 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: MIT
 
-use crate::models::{Menu, SceneNode};
+use crate::models::Menu;
 
 pub fn auto_generate_navigation(menu: &mut Menu) {
     let doc = menu.doc_mut();
+    // Use `MenuDocument::buttons()` — the single definition of "what counts
+    // as a button" shared with the build pipeline and validation — rather
+    // than re-deriving it from `scene.nodes` here. Once group flattening
+    // lands, this keeps auto-nav from silently skipping grouped buttons.
     let buttons: Vec<(String, f64, f64)> = doc
-        .scene
-        .nodes
+        .buttons()
         .iter()
-        .filter_map(|node| {
-            if let SceneNode::Button {
-                id,
-                x,
-                y,
-                width,
-                height,
-                ..
-            } = node
-            {
-                Some((id.clone(), x + width / 2.0, y + height / 2.0))
-            } else {
-                None
-            }
-        })
+        .map(|b| (b.id.to_string(), b.x + b.width / 2.0, b.y + b.height / 2.0))
         .collect();
 
     let n = buttons.len();
