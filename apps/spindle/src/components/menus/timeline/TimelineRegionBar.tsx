@@ -1,9 +1,11 @@
-// Intro + loop region blocks. Dragging an edge retimes the corresponding
-// `MenuTiming` field with a local live-preview offset, committed once on
-// pointer-up via `onSetTimingField` (one undo entry per drag).
+// Draggable intro and loop region blocks over the timeline.
 //
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: MIT
+
+// Dragging an edge retimes the corresponding `MenuTiming` field with a
+// local live-preview offset, committed once on pointer-up via
+// `onSetTimingField` (one undo entry per drag).
 
 import { useCallback, useRef, useState } from 'react';
 import type { MenuTiming } from '../../../types/project';

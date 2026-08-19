@@ -104,11 +104,19 @@ export const useMenuPlaybackStore = create<MenuPlaybackState>((set, get) => ({
 		// is blocked (e.g. an autoplay policy) — set `playing` from its
 		// outcome rather than optimistically, or a rejected play leaves the
 		// transport showing "playing" while the video never actually started
-		// (and the unhandled rejection warns in the console).
+		// (and the unhandled rejection warns in the console). The outcome only
+		// applies while THIS element is still the registered one: the keyed
+		// preview video can be replaced mid-flight (e.g. swapping to the blob
+		// fallback), and a stale settle must not overwrite the replacement's
+		// state.
 		videoEl
 			.play()
-			.then(() => set({ playing: true }))
-			.catch(() => set({ playing: false }));
+			.then(() => {
+				if (get().videoEl === videoEl) set({ playing: true });
+			})
+			.catch(() => {
+				if (get().videoEl === videoEl) set({ playing: false });
+			});
 	},
 
 	pause: () => {

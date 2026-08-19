@@ -221,8 +221,13 @@ export function KeyframeEditorPopover({
 						if (e.key === 'Enter') {
 							e.preventDefault();
 							const parsed = parseDraftNumber(timestampDraft);
+							// Skip identity retimes: Enter keeps focus, so the later
+							// blur would otherwise commit the same value AGAIN —
+							// each commit is an undo entry, making the first Undo
+							// appear to do nothing.
 							if (parsed !== null) {
-								onChangeTimestamp(Math.min(Math.max(0, parsed), loopDurationSecs));
+								const clamped = Math.min(Math.max(0, parsed), loopDurationSecs);
+								if (clamped !== keyframe.timestampSecs) onChangeTimestamp(clamped);
 							} else {
 								setTimestampDraft(String(keyframe.timestampSecs));
 							}
@@ -231,7 +236,9 @@ export function KeyframeEditorPopover({
 					onBlur={() => {
 						const parsed = parseDraftNumber(timestampDraft);
 						if (parsed !== null) {
-							onChangeTimestamp(Math.min(Math.max(0, parsed), loopDurationSecs));
+							const clamped = Math.min(Math.max(0, parsed), loopDurationSecs);
+							// Identity retimes are skipped — see the Enter handler.
+							if (clamped !== keyframe.timestampSecs) onChangeTimestamp(clamped);
 						}
 						// Unconditional re-sync: an unparseable draft reverts, and
 						// a clamped one snaps to what was actually persisted.

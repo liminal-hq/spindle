@@ -1,10 +1,12 @@
-// Tests for TimelineRegionBar's edge-drag clamping: an edge drag must stay
-// within the known source duration, or it persists an intro/loop end past
-// the background asset and trips `menu.motion-loop-exceeds-source`/
-// `menu.motion-intro-invalid` on the next validate.
+// Tests for TimelineRegionBar's edge-drag clamping.
 //
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: MIT
+
+// An edge drag must stay within the known source duration, or it persists
+// an intro/loop end past the background asset and trips
+// `menu.motion-loop-exceeds-source`/`menu.motion-intro-invalid` on the next
+// validate.
 
 import { describe, expect, it, vi } from 'vitest';
 import { render, fireEvent } from '@testing-library/react';

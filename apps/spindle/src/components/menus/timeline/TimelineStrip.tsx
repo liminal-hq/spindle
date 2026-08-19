@@ -156,9 +156,17 @@ export function TimelineStrip({
 
 	useVideoPlayhead();
 
+	// The background asset's inspected duration keeps the fallback honest when
+	// video metadata never arrives (decode failure, blob cap) — without it the
+	// timeline shrinks to the authored windows and the region bar's max-edge
+	// clamp would prevent ever extending the loop back out.
+	const backgroundAsset = document.scene.background.assetId
+		? (assets.find((a) => a.id === document.scene.background.assetId) ?? null)
+		: null;
 	const fallbackDurationSecs = Math.max(
 		timing.introStartSecs + timing.introDurationSecs,
 		loopStartSecs + loopDurationSecs,
+		backgroundAsset?.durationSecs ?? 0,
 		...tracks.flatMap((t) => t.keyframes.map((kf) => loopStartSecs + kf.timestampSecs)),
 		10,
 	);

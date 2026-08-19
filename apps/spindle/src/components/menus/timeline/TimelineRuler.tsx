@@ -1,5 +1,4 @@
-// Second ticks + labels along the top of the timeline strip. Clicking
-// anywhere on the ruler seeks playback to that source-relative time.
+// Click-to-seek second ticks and labels along the top of the timeline strip.
 //
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: MIT
