@@ -31,7 +31,7 @@ fn motion_test_menu(
         id: menu_id.to_string(),
         name: menu_name.to_string(),
         domain: MenuDomain::Vmgm,
-        role: MenuRole::TitleSelect,
+        role: Some(MenuRole::TitleSelect),
         scene: MenuScene {
             design_size: MenuSize::default(),
             background: SceneBackground {
