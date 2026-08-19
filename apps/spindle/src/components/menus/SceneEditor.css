@@ -1725,26 +1725,36 @@
 	flex-direction: column;
 }
 
+/* Not a flex row: `.timeline-keyframe-lane` needs to render at exactly
+ * `geometry.totalWidthPx`, matching the ruler/region-bar/audio-lane rows
+ * above it so keyframe x-positions line up with theirs. A flex row here
+ * (as before) would shrink that fixed width to fit the row, and a fixed
+ * gutter ahead of it would shift the lane's time-zero 110px right of every
+ * other row's. The label instead overlays the lane's own left edge,
+ * consuming no timeline-coordinate width. */
 .timeline-node-lane__track-row {
-	display: flex;
-	align-items: stretch;
+	position: relative;
 }
 
 .timeline-node-lane__track-label {
-	flex-shrink: 0;
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	left: 0;
+	z-index: 1;
 	width: 110px;
 	padding: 2px var(--space-2);
 	font-size: 10px;
 	color: var(--text-muted);
 	display: flex;
 	align-items: center;
+	background: rgba(8, 8, 12, 0.85);
+	pointer-events: none;
 }
 
 .timeline-keyframe-lane {
 	position: relative;
 	height: 22px;
-	flex: 1;
-	min-width: 0;
 }
 
 .timeline-keyframe-lane__loop-extent {
