@@ -47,6 +47,15 @@ const oneKeyframeTrack: AnimationTrack = {
 	keyframes: [{ timestampSecs: 1, value: { kind: 'colour', hex: '#111111' }, easing: 'hold' }],
 };
 
+const twoKeyframeTrack: AnimationTrack = {
+	nodeId: 'btn-1',
+	target: 'highlight-colour',
+	keyframes: [
+		{ timestampSecs: 1, value: { kind: 'colour', hex: '#111111' }, easing: 'hold' },
+		{ timestampSecs: 5, value: { kind: 'colour', hex: '#222222' }, easing: 'hold' },
+	],
+};
+
 describe('TimelineKeyframeLane', () => {
 	it('renders one diamond per keyframe', () => {
 		const { getAllByRole } = renderLane({ track: oneKeyframeTrack });
@@ -132,5 +141,52 @@ describe('TimelineKeyframeLane', () => {
 
 		const [, , timestampSecs] = onAddKeyframe.mock.calls[0];
 		expect(timestampSecs).toBeCloseTo(1.0, 9);
+	});
+
+	it('closes the popover when its own timestamp edit retimes it past a neighbour', () => {
+		// Regression test: editing the timestamp field inside an open popover
+		// so it crosses the OTHER keyframe re-sorts the array. The popover
+		// must close rather than keep editing under a now-stale index.
+		const { getAllByRole, getByRole, queryByRole, onMoveKeyframe } = renderLane({
+			track: twoKeyframeTrack,
+		});
+		const [firstDiamond] = getAllByRole('button', { name: /keyframe at/i });
+		fireEvent.doubleClick(firstDiamond);
+		expect(getByRole('dialog')).toBeTruthy();
+
+		const timestampInput = getByRole('spinbutton', { name: /timestamp/i });
+		fireEvent.change(timestampInput, { target: { value: '6' } });
+
+		expect(onMoveKeyframe).toHaveBeenCalledWith('btn-1', 'highlight-colour', 0, 6);
+		expect(queryByRole('dialog')).toBeNull();
+	});
+
+	it('keeps the popover open when a timestamp edit does not cross a neighbour', () => {
+		const { getAllByRole, getByRole, onMoveKeyframe } = renderLane({ track: twoKeyframeTrack });
+		const [firstDiamond] = getAllByRole('button', { name: /keyframe at/i });
+		fireEvent.doubleClick(firstDiamond);
+
+		const timestampInput = getByRole('spinbutton', { name: /timestamp/i });
+		fireEvent.change(timestampInput, { target: { value: '2' } }); // still before the 5s keyframe
+
+		expect(onMoveKeyframe).toHaveBeenCalledWith('btn-1', 'highlight-colour', 0, 2);
+		expect(getByRole('dialog')).toBeTruthy();
+	});
+
+	it('closes an open popover when a DIFFERENT keyframe is dragged past it', () => {
+		// The finding's core scenario: dragging one keyframe across another
+		// re-sorts the array out from under an unrelated open popover.
+		const { getAllByRole, getByRole, queryByRole } = renderLane({ track: twoKeyframeTrack });
+		const [firstDiamond, secondDiamond] = getAllByRole('button', { name: /keyframe at/i });
+		fireEvent.doubleClick(secondDiamond); // popover open on the 5s keyframe (index 1)
+		expect(getByRole('dialog')).toBeTruthy();
+
+		(firstDiamond as unknown as { setPointerCapture: () => void }).setPointerCapture = () => {};
+		fireEvent.pointerDown(firstDiamond, { clientX: 40, pointerId: 1 }); // 1s keyframe
+		const lane = firstDiamond.closest('[role="group"]')!;
+		fireEvent.pointerMove(lane, { clientX: 280 }); // 7s, past the 5s neighbour
+		fireEvent.pointerUp(lane);
+
+		expect(queryByRole('dialog')).toBeNull();
 	});
 });
