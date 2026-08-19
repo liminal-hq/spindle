@@ -254,6 +254,7 @@ export function TimelineKeyframeLane({
 				<KeyframeEditorPopover
 					keyframe={keyframes[popoverIndex]}
 					target={target}
+					loopDurationSecs={loopDurationSecs}
 					onChangeValue={(value) => onUpdateKeyframeValue(nodeId, target, popoverIndex, value)}
 					onChangeEasing={(easing) => onUpdateKeyframeEasing(nodeId, target, popoverIndex, easing)}
 					onChangeTimestamp={(timestampSecs) => {

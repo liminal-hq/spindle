@@ -173,6 +173,20 @@ describe('TimelineKeyframeLane', () => {
 		expect(getByRole('dialog')).toBeTruthy();
 	});
 
+	it('clamps a typed timestamp past loopDurationSecs to the loop end', () => {
+		// Regression test: only the lower bound (0) was clamped on the
+		// popover's timestamp field, so typing a value past loopDurationSecs
+		// persisted it unclamped and tripped `menu.motion-keyframe-out-of-range`.
+		const { getAllByRole, getByRole, onMoveKeyframe } = renderLane({ track: twoKeyframeTrack });
+		const [firstDiamond] = getAllByRole('button', { name: /keyframe at/i });
+		fireEvent.doubleClick(firstDiamond);
+
+		const timestampInput = getByRole('spinbutton', { name: /timestamp/i });
+		fireEvent.change(timestampInput, { target: { value: '15' } }); // past loopDurationSecs=10
+
+		expect(onMoveKeyframe).toHaveBeenCalledWith('btn-1', 'highlight-colour', 0, 10);
+	});
+
 	it('closes an open popover when a DIFFERENT keyframe is dragged past it', () => {
 		// The finding's core scenario: dragging one keyframe across another
 		// re-sorts the array out from under an unrelated open popover.

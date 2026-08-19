@@ -11,6 +11,10 @@ const EASING_OPTIONS: Easing[] = ['hold', 'linear', 'ease-in', 'ease-out', 'ease
 export interface KeyframeEditorPopoverProps {
 	keyframe: Keyframe;
 	target: AnimatableProperty;
+	/** The motion loop's duration — the same upper bound drags/inserts clamp
+	 * a keyframe's timestamp to, so a typed value can't persist past it and
+	 * trip `menu.motion-keyframe-out-of-range`. */
+	loopDurationSecs: number;
 	onChangeValue: (value: KeyValue) => void;
 	onChangeEasing: (easing: Easing) => void;
 	onChangeTimestamp: (timestampSecs: number) => void;
@@ -21,6 +25,7 @@ export interface KeyframeEditorPopoverProps {
 export function KeyframeEditorPopover({
 	keyframe,
 	target,
+	loopDurationSecs,
 	onChangeValue,
 	onChangeEasing,
 	onChangeTimestamp,
@@ -106,9 +111,12 @@ export function KeyframeEditorPopover({
 				<input
 					type="number"
 					min={0}
+					max={loopDurationSecs}
 					step={0.1}
 					value={keyframe.timestampSecs}
-					onChange={(e) => onChangeTimestamp(Math.max(0, Number(e.target.value)))}
+					onChange={(e) =>
+						onChangeTimestamp(Math.min(Math.max(0, Number(e.target.value)), loopDurationSecs))
+					}
 				/>
 			</label>
 
