@@ -1456,6 +1456,13 @@ function BackgroundVideo({ asset, initialTimeSecs }: { asset: Asset; initialTime
 	// is dropped instead of applied to the wrong asset.
 	const assetIdRef = useRef(asset.id);
 	assetIdRef.current = asset.id;
+	// Live while mounted; the in-flight fallback fetch checks it before
+	// creating an object URL, so an unmount mid-download can't strand an
+	// unrevoked URL on a setter that no longer renders anything.
+	const mountedRef = useRef(true);
+	// The in-flight fallback fetch's controller — aborted on unmount and on
+	// asset switches so a stale download stops consuming the full video.
+	const blobAbortRef = useRef<AbortController | null>(null);
 
 	const setVideoRef = useCallback(
 		(el: HTMLVideoElement | null) => {
@@ -1469,8 +1476,19 @@ function BackgroundVideo({ asset, initialTimeSecs }: { asset: Asset; initialTime
 		setLoadFailed(false);
 		retriedRef.current = false;
 		blobAttemptedRef.current = false;
+		blobAbortRef.current?.abort();
+		blobAbortRef.current = null;
 		setBlobSrc(null);
 	}, [asset.id]);
+
+	useEffect(() => {
+		mountedRef.current = true;
+		return () => {
+			mountedRef.current = false;
+			blobAbortRef.current?.abort();
+			blobAbortRef.current = null;
+		};
+	}, []);
 
 	// Revoke a fallback object URL once it's replaced or the component
 	// unmounts, so the fetched bytes don't outlive the preview needing them.
@@ -1564,9 +1582,13 @@ function BackgroundVideo({ asset, initialTimeSecs }: { asset: Asset; initialTime
 				if (!blobAttemptedRef.current) {
 					blobAttemptedRef.current = true;
 					const fallbackAssetId = asset.id;
+					const controller = new AbortController();
+					blobAbortRef.current = controller;
 					void (async () => {
 						try {
-							const response = await fetch(convertFileSrc(asset.sourcePath));
+							const response = await fetch(convertFileSrc(asset.sourcePath), {
+								signal: controller.signal,
+							});
 							if (!response.ok) {
 								throw new Error(`asset fetch failed: ${response.status}`);
 							}
@@ -1575,12 +1597,12 @@ function BackgroundVideo({ asset, initialTimeSecs }: { asset: Asset; initialTime
 								throw new Error('source too large for blob preview');
 							}
 							const blob = await response.blob();
-							if (assetIdRef.current !== fallbackAssetId) {
+							if (!mountedRef.current || assetIdRef.current !== fallbackAssetId) {
 								return;
 							}
 							setBlobSrc(URL.createObjectURL(blob));
 						} catch {
-							if (assetIdRef.current === fallbackAssetId) {
+							if (mountedRef.current && assetIdRef.current === fallbackAssetId) {
 								setLoadFailed(true);
 							}
 						}

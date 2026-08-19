@@ -1395,7 +1395,9 @@ describe('SceneCanvas', () => {
 				const video = container.querySelector('video.scene-canvas__bg-image');
 				expect(video).toHaveAttribute('src', 'blob:spindle/preview-fallback');
 			});
-			expect(fetchMock).toHaveBeenCalledWith('asset://localhost//tmp/menu-bg.mp4');
+			expect(fetchMock).toHaveBeenCalledWith('asset://localhost//tmp/menu-bg.mp4', {
+				signal: expect.any(AbortSignal),
+			});
 			expect(container.querySelector('.scene-canvas__image-placeholder')).toBeNull();
 		});
 
