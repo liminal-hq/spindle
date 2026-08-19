@@ -9,7 +9,7 @@ DVD-Video supports two types of menu presentation, and Spindle now builds both:
 
 On top of motion menus, **animated button highlights** replace the single static subpicture overlay with a keyframed schedule of overlay images, lowered to multiple timestamped `<spu>` entries (spumux's DCSQ route — see `docs/dcsq-player-compat.md` for the player-compatibility research that picked this route over a raw DCSQ writer).
 
-This document describes the implemented model, build pipeline, editor UI, and validation rules, and explicitly records what is *not* built yet (see [Known gaps](#known-gaps-and-deferred-work)). The implementation lives in `plugins/tauri-plugin-spindle-project` (`src/build/menu_motion.rs`, `src/build/planner/animation.rs`, `src/build/authoring/menu.rs`, `src/models/animation.rs`) and `apps/spindle/src/components/menus/timeline/`.
+This document describes the implemented model, build pipeline, editor UI, and validation rules, and explicitly records what is _not_ built yet (see [Known gaps](#known-gaps-and-deferred-work)). The implementation lives in `plugins/tauri-plugin-spindle-project` (`src/build/menu_motion.rs`, `src/build/planner/animation.rs`, `src/build/authoring/menu.rs`, `src/models/animation.rs`) and `apps/spindle/src/components/menus/timeline/`.
 
 ---
 
@@ -88,8 +88,8 @@ The Rust model and evaluator live in `src/models/animation.rs` (`evaluate_track`
 Evaluator semantics:
 
 - An empty track has no value; before the first keyframe the first value is clamped; after the last keyframe the last value is clamped.
-- Between two keyframes, the *earlier* keyframe's easing reshapes `u = (t − t0) / (t1 − t0)`: `linear` lerps, `ease-in` is `u²`, `ease-out` is `1 − (1 − u)²`, `ease-in-out` is the smoothstep `3u² − 2u³`.
-- `hold` steps: the segment keeps the earlier keyframe's value with no interpolation. This is the sampling mode the DCSQ lowering effectively uses — the disc schedule samples *at* keyframe timestamps, where every easing yields the keyframe's own value exactly, so the on-disc result is exact by construction.
+- Between two keyframes, the _earlier_ keyframe's easing reshapes `u = (t − t0) / (t1 − t0)`: `linear` lerps, `ease-in` is `u²`, `ease-out` is `1 − (1 − u)²`, `ease-in-out` is the smoothstep `3u² − 2u³`.
+- `hold` steps: the segment keeps the earlier keyframe's value with no interpolation. This is the sampling mode the DCSQ lowering effectively uses — the disc schedule samples _at_ keyframe timestamps, where every easing yields the keyframe's own value exactly, so the on-disc result is exact by construction.
 - Colour interpolation is a componentwise sRGB u8 lerp, round-half-up per channel; alpha is carried iff either endpoint has it.
 
 Only `highlight-colour` and `highlight-opacity` tracks are lowered to a DVD build today; `opacity` and `position` are modelled (and previewed nowhere yet) but draw a validation warning on DVD projects because the subpicture overlay model cannot express them.
@@ -110,16 +110,16 @@ Motion menus ride the existing `BuildJob::RenderMenu` job: it gains `introComman
 
 `plan_motion_segments` resolves the loop segment (always) and the intro segment (only when `introDurationSecs > 0`), then `build_ffmpeg_motion_segment_command` builds **one ffmpeg command per segment** that does trim + scene overlay + audio + encode + DVD mux with no intermediate files:
 
-- **Trim**: input-side `-ss {start} -t {dur}` *before* `-i {bg_video}` — frame-accurate with re-encode; never the `trim` filter.
+- **Trim**: input-side `-ss {start} -t {dur}` _before_ `-i {bg_video}` — frame-accurate with re-encode; never the `trim` filter.
 - **Video**: `fps={fps}`, `scale={active}:{active}:out_color_matrix=bt601`, `pad` into the DVD raster, scene-PNG `overlay=0:0`, `setsar`.
 - **Audio bed** — a three-way fallback chain:
   1. the authored bed asset (`timing.audioAssetId`), looped with `-stream_loop -1` and windowed with `atrim=start={off}:duration={dur},asetpts=PTS-STARTPTS,apad`;
   2. the background video's own audio, already time-aligned by the same input-side trim;
   3. synthesized silence (`-f lavfi -i anullsrc=r=48000:cl=stereo`).
 - **Bed windows are continuous across intro+loop**: the intro plays bed `[0..introDur)` and the loop plays `[introDur..introDur+loopDur)`, so first-play audio doesn't hiccup at the intro/loop boundary. (On the second and later loop passes the bed restarts at its loop-window offset — an accepted artefact of cell-based looping.)
-- **AC-3 always**: `-c:a ac3 -b:a 192k -ar 48000` in *both* cells, silence included — dvdauthor rejects a PGC whose cells have differing stream layouts.
+- **AC-3 always**: `-c:a ac3 -b:a 192k -ar 48000` in _both_ cells, silence included — dvdauthor rejects a PGC whose cells have differing stream layouts.
 - **Encode**: `mpeg2video`, `-b:v 4000k -maxrate 7000k -bufsize 1835k`, `-g 18` (NTSC) / `-g 12` (PAL), `-flags +cgop` for a clean loop cut. ffmpeg's mpeg2video encoder cannot combine closed GOPs with scene-change-triggered GOP breaks, so scene-cut detection is disabled with `-sc_threshold 1000000000` — the workaround the encoder itself suggests, which also keeps every GOP exactly `-g` frames long.
-- **Colour**: `dvd_colour_flags()` (`build/ffmpeg.rs`) tags `-color_primaries/-color_trc/-colorspace` as `smpte170m` (NTSC) or `bt470bg` (PAL), paired with `out_color_matrix=bt601` on the scale filter. *These flags are currently applied to motion composes only — the still-menu and title transcode retrofit is a pending follow-up.*
+- **Colour**: `dvd_colour_flags()` (`build/ffmpeg.rs`) tags `-color_primaries/-color_trc/-colorspace` as `smpte170m` (NTSC) or `bt470bg` (PAL), paired with `out_color_matrix=bt601` on the scale filter. _These flags are currently applied to motion composes only — the still-menu and title transcode retrofit is a pending follow-up._
 - **Mux**: `-t {dur} -f dvd -muxrate 10080000`.
 
 Outputs: the loop segment writes `{id}_base.mpg` (spumux input), the intro writes directly to the final `{id}_intro.mpg`.
@@ -185,8 +185,8 @@ A multi-frame schedule emits one `<spu start=".." end=".." image=".." highlight=
 
 ### Degrades and limits
 
-- **Still menu with tracks**: a still menu's video decode freezes after its first frame and can never reach a later keyframe, so the schedule degrades to a single frame baking in only each track's *first* keyframe. `menu.animation-on-still-menu` (an error) names the degrade; the build proceeds regardless — the feature never blocks a build.
-- **One CLUT per menu**: DVD has one highlight colour for the whole menu at any instant. When more than one button carries a relevant track, every track is sampled at each instant and the *last*-listed track in `doc.animation` wins ties. In practice a menu authors at most one animated highlight track.
+- **Still menu with tracks**: a still menu's video decode freezes after its first frame and can never reach a later keyframe, so the schedule degrades to a single frame baking in only each track's _first_ keyframe. `menu.animation-on-still-menu` (an error) names the degrade; the build proceeds regardless — the feature never blocks a build.
+- **One CLUT per menu**: DVD has one highlight colour for the whole menu at any instant. When more than one button carries a relevant track, every track is sampled at each instant and the _last_-listed track in `doc.animation` wins ties. In practice a menu authors at most one animated highlight track.
 - **`opacity`/`position` tracks** are not lowered on DVD (warning `menu.animation-unsupported-property`).
 
 ---
@@ -195,10 +195,10 @@ A multi-frame schedule emits one `<spu start=".." end=".." image=".." highlight=
 
 - **Inspector motion settings**: background mode toggle, loop start / intro start / intro duration numeric fields, loop count, audio bed picker, and a timeout-action select reusing the button-action option list.
 - **Canvas video preview**: a motion menu's background renders as a real `<video>` element (`convertFileSrc` over the asset's source path), seeked to the loop start in design mode. Playback state lives in a dedicated zustand store (`store/menu-playback-store.ts`), outside the project store so scrubbing never enters undo history; the playhead is driven by a rAF loop (`useVideoPlayhead`), not the ~4 Hz `timeupdate` event.
-- **Timeline strip** (`components/menus/timeline/`): mounted below the canvas, visible when the menu is motion or has any animation track. It comprises a ruler (click = seek), an intro/loop region bar (drag edges = retime the timing fields), a scrubber with transport controls (play/pause, ±1 frame step, loop-region toggle), a static audio-bed lane, and one keyframe lane per animated node (drag ◆ to retime, double-click for the value/easing/timestamp popover, double-click an empty lane to insert a keyframe sampling the current value). Drags live-preview locally and commit once on pointer-up — one undo entry. All writes go through `updateMenuDocument`. *The ±1 frame step currently uses a fixed 30 fps constant; deriving it from `disc.standard` is a pending follow-up.*
+- **Timeline strip** (`components/menus/timeline/`): mounted below the canvas, visible when the menu is motion or has any animation track. It comprises a ruler (click = seek), an intro/loop region bar (drag edges = retime the timing fields), a scrubber with transport controls (play/pause, ±1 frame step, loop-region toggle), a static audio-bed lane, and one keyframe lane per animated node (drag ◆ to retime, double-click for the value/easing/timestamp popover, double-click an empty lane to insert a keyframe sampling the current value). Drags live-preview locally and commit once on pointer-up — one undo entry. All writes go through `updateMenuDocument`. _The ±1 frame step currently uses a fixed 30 fps constant; deriving it from `disc.standard` is a pending follow-up._
 - **Preview animates**: the navigation preview samples the focused/activated button's colour from its tracks at the current loop-relative playhead via the shared evaluator, falling back to the menu's highlight colours.
 - **Keyframes are loop-relative; video time is source-relative**: `tLoop = video.currentTime − loopStartSecs`.
-- **Asset scope**: the webview's asset protocol is granted access to *exactly the imported assets' source paths*, at runtime — `allowAssetScope` (plugin command `allow_asset_scope`) is called on project open with all asset paths, and again on import and relink with the new paths. Grants are runtime-only (reset on restart); the static scope stays confined to the app cache/data directories. This is what lets `<video>`/thumbnail previews read source media without widening the static filesystem scope.
+- **Asset scope**: the webview's asset protocol is granted access to _exactly the imported assets' source paths_, at runtime — `allowAssetScope` (plugin command `allow_asset_scope`) is called on project open with all asset paths, and again on import and relink with the new paths. Grants are runtime-only (reset on restart); the static scope stays confined to the app cache/data directories. This is what lets `<video>`/thumbnail previews read source media without widening the static filesystem scope.
 
 ---
 
@@ -206,28 +206,28 @@ A multi-frame schedule emits one `<spu start=".." end=".." image=".." highlight=
 
 Current motion and animation validation codes (ground truth: `src/validation/menu.rs` and `src/validation/scene.rs`):
 
-| Code | Severity | Meaning |
-| --- | --- | --- |
-| `menu.motion-missing-background` | Error | Motion menu has no background video asset assigned. |
-| `menu.motion-background-no-video-stream` | Error | Motion menu's background asset has no video stream. |
-| `menu.motion-no-audio-bed` | Warning | No authored audio bed and the background video carries no audio (the build will use silence). |
-| `menu.motion-invalid-duration` | Error | Loop duration is not > 0 seconds. |
-| `menu.motion-loop-start-default` | Warning | Loop start is still 0.0 s, which causes a visible restart cut on each loop. |
-| `menu.motion-audio-dangling` | Error | The audio bed references an asset that no longer exists. |
-| `menu.motion-audio-no-stream` | Error | The audio bed asset has no audio stream. |
-| `menu.motion-loop-exceeds-source` | Error | `loopStart + loopDuration` runs past the end of the background asset (when its duration is known). |
-| `menu.motion-intro-invalid` | Error | Intro duration is negative, or the intro window runs past the end of the background asset. |
-| `menu.motion-loop-count-without-timeout` | Warning | Loop count > 0 but no timeout action — the disc will loop forever instead of stopping after N plays. |
-| `menu.animation-node-missing` | Error | An animation track targets a scene node that no longer exists. |
-| `menu.animation-empty-track` | Warning | An animation track has no keyframes yet. |
-| `menu.animation-unsupported-property` | Warning | An `opacity`/`position` track on a DVD project — the subpicture model cannot express it. |
-| `menu.animation-on-still-menu` | Error | Animation tracks on a still menu; names the first-keyframe-only degrade. Build proceeds. |
-| `menu.motion-keyframe-out-of-range` | Error | A keyframe falls outside the motion loop window. |
-| `menu.motion-keyframes-out-of-order` | Error | A track's keyframes are not in chronological order. |
-| `menu.animation-keyframe-density` | Warning | The overlay schedule exceeds ~1 frame/second — each frame is a full re-rendered subpicture image, risking the ~3.36 Mbit/s subpicture budget. |
-| `menu.button-video-ignored-on-still-menu` | Warning | A button has a video asset but the menu is authored as still. |
-| `menu.button-video-no-stream` | Error | A button's video asset has no video stream. |
-| `menu.scene-dangling-button-video` | Error | A button references a video asset that no longer exists. |
+| Code                                      | Severity | Meaning                                                                                                                                       |
+| ----------------------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `menu.motion-missing-background`          | Error    | Motion menu has no background video asset assigned.                                                                                           |
+| `menu.motion-background-no-video-stream`  | Error    | Motion menu's background asset has no video stream.                                                                                           |
+| `menu.motion-no-audio-bed`                | Warning  | No authored audio bed and the background video carries no audio (the build will use silence).                                                 |
+| `menu.motion-invalid-duration`            | Error    | Loop duration is not > 0 seconds.                                                                                                             |
+| `menu.motion-loop-start-default`          | Warning  | Loop start is still 0.0 s, which causes a visible restart cut on each loop.                                                                   |
+| `menu.motion-audio-dangling`              | Error    | The audio bed references an asset that no longer exists.                                                                                      |
+| `menu.motion-audio-no-stream`             | Error    | The audio bed asset has no audio stream.                                                                                                      |
+| `menu.motion-loop-exceeds-source`         | Error    | `loopStart + loopDuration` runs past the end of the background asset (when its duration is known).                                            |
+| `menu.motion-intro-invalid`               | Error    | Intro duration is negative, or the intro window runs past the end of the background asset.                                                    |
+| `menu.motion-loop-count-without-timeout`  | Warning  | Loop count > 0 but no timeout action — the disc will loop forever instead of stopping after N plays.                                          |
+| `menu.animation-node-missing`             | Error    | An animation track targets a scene node that no longer exists.                                                                                |
+| `menu.animation-empty-track`              | Warning  | An animation track has no keyframes yet.                                                                                                      |
+| `menu.animation-unsupported-property`     | Warning  | An `opacity`/`position` track on a DVD project — the subpicture model cannot express it.                                                      |
+| `menu.animation-on-still-menu`            | Error    | Animation tracks on a still menu; names the first-keyframe-only degrade. Build proceeds.                                                      |
+| `menu.motion-keyframe-out-of-range`       | Error    | A keyframe falls outside the motion loop window.                                                                                              |
+| `menu.motion-keyframes-out-of-order`      | Error    | A track's keyframes are not in chronological order.                                                                                           |
+| `menu.animation-keyframe-density`         | Warning  | The overlay schedule exceeds ~1 frame/second — each frame is a full re-rendered subpicture image, risking the ~3.36 Mbit/s subpicture budget. |
+| `menu.button-video-ignored-on-still-menu` | Warning  | A button has a video asset but the menu is authored as still.                                                                                 |
+| `menu.button-video-no-stream`             | Error    | A button's video asset has no video stream.                                                                                                   |
+| `menu.scene-dangling-button-video`        | Error    | A button references a video asset that no longer exists.                                                                                      |
 
 ---
 
