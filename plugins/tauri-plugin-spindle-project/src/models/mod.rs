@@ -3,6 +3,7 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: MIT
 
+mod animation;
 mod asset;
 mod build_settings;
 mod disc;
@@ -11,6 +12,7 @@ mod menu;
 mod render_target;
 mod title;
 
+pub use animation::*;
 pub use asset::*;
 pub use build_settings::*;
 pub use disc::*;

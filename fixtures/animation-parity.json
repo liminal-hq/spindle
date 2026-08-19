@@ -1,0 +1,188 @@
+[
+	{
+		"name": "empty-track",
+		"track": { "nodeId": "btn-1", "target": "highlight-colour", "keyframes": [] },
+		"samples": [
+			{ "t": 0.0, "expected": null },
+			{ "t": 5.0, "expected": null }
+		]
+	},
+	{
+		"name": "single-keyframe-is-constant-everywhere",
+		"track": {
+			"nodeId": "btn-1",
+			"target": "highlight-colour",
+			"keyframes": [
+				{ "timestampSecs": 1.0, "value": { "kind": "colour", "hex": "#ff0000" }, "easing": "linear" }
+			]
+		},
+		"samples": [
+			{ "t": -5.0, "expected": { "kind": "colour", "hex": "#ff0000" } },
+			{ "t": 100.0, "expected": { "kind": "colour", "hex": "#ff0000" } }
+		]
+	},
+	{
+		"name": "before-first-and-after-last-clamp",
+		"track": {
+			"nodeId": "btn-1",
+			"target": "highlight-colour",
+			"keyframes": [
+				{ "timestampSecs": 1.0, "value": { "kind": "colour", "hex": "#000000" }, "easing": "linear" },
+				{ "timestampSecs": 2.0, "value": { "kind": "colour", "hex": "#ffffff" }, "easing": "linear" }
+			]
+		},
+		"samples": [
+			{ "t": 0.0, "expected": { "kind": "colour", "hex": "#000000" } },
+			{ "t": 3.0, "expected": { "kind": "colour", "hex": "#ffffff" } }
+		]
+	},
+	{
+		"name": "hold-easing-steps-across-the-whole-segment",
+		"track": {
+			"nodeId": "btn-1",
+			"target": "highlight-colour",
+			"keyframes": [
+				{ "timestampSecs": 0.0, "value": { "kind": "colour", "hex": "#000000" }, "easing": "hold" },
+				{ "timestampSecs": 2.0, "value": { "kind": "colour", "hex": "#ffffff" }, "easing": "linear" }
+			]
+		},
+		"samples": [
+			{ "t": 0.0, "expected": { "kind": "colour", "hex": "#000000" } },
+			{ "t": 0.5, "expected": { "kind": "colour", "hex": "#000000" } },
+			{ "t": 1.0, "expected": { "kind": "colour", "hex": "#000000" } },
+			{ "t": 1.999, "expected": { "kind": "colour", "hex": "#000000" } },
+			{ "t": 2.0, "expected": { "kind": "colour", "hex": "#ffffff" } }
+		]
+	},
+	{
+		"name": "linear-easing-scalar-interpolates",
+		"track": {
+			"nodeId": "btn-1",
+			"target": "highlight-opacity",
+			"keyframes": [
+				{ "timestampSecs": 0.0, "value": { "kind": "scalar", "value": 0.0 }, "easing": "linear" },
+				{ "timestampSecs": 2.0, "value": { "kind": "scalar", "value": 1.0 }, "easing": "linear" }
+			]
+		},
+		"samples": [
+			{ "t": 0.0, "expected": { "kind": "scalar", "value": 0.0 } },
+			{ "t": 1.0, "expected": { "kind": "scalar", "value": 0.5 } },
+			{ "t": 2.0, "expected": { "kind": "scalar", "value": 1.0 } }
+		]
+	},
+	{
+		"name": "ease-in-scalar-at-quarter-span",
+		"track": {
+			"nodeId": "btn-1",
+			"target": "highlight-opacity",
+			"keyframes": [
+				{ "timestampSecs": 0.0, "value": { "kind": "scalar", "value": 0.0 }, "easing": "ease-in" },
+				{ "timestampSecs": 4.0, "value": { "kind": "scalar", "value": 1.0 }, "easing": "ease-in" }
+			]
+		},
+		"samples": [{ "t": 1.0, "expected": { "kind": "scalar", "value": 0.0625 } }]
+	},
+	{
+		"name": "ease-out-scalar-at-quarter-span",
+		"track": {
+			"nodeId": "btn-1",
+			"target": "highlight-opacity",
+			"keyframes": [
+				{ "timestampSecs": 0.0, "value": { "kind": "scalar", "value": 0.0 }, "easing": "ease-out" },
+				{ "timestampSecs": 4.0, "value": { "kind": "scalar", "value": 1.0 }, "easing": "ease-out" }
+			]
+		},
+		"samples": [{ "t": 1.0, "expected": { "kind": "scalar", "value": 0.4375 } }]
+	},
+	{
+		"name": "ease-in-out-scalar-at-quarter-span",
+		"track": {
+			"nodeId": "btn-1",
+			"target": "highlight-opacity",
+			"keyframes": [
+				{ "timestampSecs": 0.0, "value": { "kind": "scalar", "value": 0.0 }, "easing": "ease-in-out" },
+				{ "timestampSecs": 4.0, "value": { "kind": "scalar", "value": 1.0 }, "easing": "ease-in-out" }
+			]
+		},
+		"samples": [{ "t": 1.0, "expected": { "kind": "scalar", "value": 0.15625 } }]
+	},
+	{
+		"name": "colour-round-edge-black-to-white-at-one-third",
+		"track": {
+			"nodeId": "btn-1",
+			"target": "highlight-colour",
+			"keyframes": [
+				{ "timestampSecs": 0.0, "value": { "kind": "colour", "hex": "#000000" }, "easing": "linear" },
+				{ "timestampSecs": 3.0, "value": { "kind": "colour", "hex": "#ffffff" }, "easing": "linear" }
+			]
+		},
+		"samples": [{ "t": 1.0, "expected": { "kind": "colour", "hex": "#555555" } }]
+	},
+	{
+		"name": "colour-lerp-with-alpha-round-half-up",
+		"track": {
+			"nodeId": "btn-1",
+			"target": "highlight-colour",
+			"keyframes": [
+				{ "timestampSecs": 0.0, "value": { "kind": "colour", "hex": "#00000000" }, "easing": "linear" },
+				{ "timestampSecs": 2.0, "value": { "kind": "colour", "hex": "#ffffffff" }, "easing": "linear" }
+			]
+		},
+		"samples": [{ "t": 1.0, "expected": { "kind": "colour", "hex": "#80808080" } }]
+	},
+	{
+		"name": "colour-lerp-mixed-alpha-presence-outputs-alpha",
+		"track": {
+			"nodeId": "btn-1",
+			"target": "highlight-colour",
+			"keyframes": [
+				{ "timestampSecs": 0.0, "value": { "kind": "colour", "hex": "#000000" }, "easing": "linear" },
+				{ "timestampSecs": 2.0, "value": { "kind": "colour", "hex": "#ffffff80" }, "easing": "linear" }
+			]
+		},
+		"samples": [{ "t": 1.0, "expected": { "kind": "colour", "hex": "#808080c0" } }]
+	},
+	{
+		"name": "exact-hits-at-keyframe-timestamps-ignore-easing-shape",
+		"track": {
+			"nodeId": "btn-1",
+			"target": "highlight-colour",
+			"keyframes": [
+				{ "timestampSecs": 0.0, "value": { "kind": "colour", "hex": "#111111" }, "easing": "ease-in-out" },
+				{ "timestampSecs": 1.0, "value": { "kind": "colour", "hex": "#222222" }, "easing": "ease-in-out" },
+				{ "timestampSecs": 2.0, "value": { "kind": "colour", "hex": "#333333" }, "easing": "ease-in-out" }
+			]
+		},
+		"samples": [
+			{ "t": 0.0, "expected": { "kind": "colour", "hex": "#111111" } },
+			{ "t": 1.0, "expected": { "kind": "colour", "hex": "#222222" } },
+			{ "t": 2.0, "expected": { "kind": "colour", "hex": "#333333" } }
+		]
+	},
+	{
+		"name": "duplicate-timestamps-later-keyframe-wins-at-the-shared-instant",
+		"track": {
+			"nodeId": "btn-1",
+			"target": "highlight-colour",
+			"keyframes": [
+				{ "timestampSecs": 0.0, "value": { "kind": "colour", "hex": "#000000" }, "easing": "linear" },
+				{ "timestampSecs": 1.0, "value": { "kind": "colour", "hex": "#ff0000" }, "easing": "linear" },
+				{ "timestampSecs": 1.0, "value": { "kind": "colour", "hex": "#00ff00" }, "easing": "linear" },
+				{ "timestampSecs": 2.0, "value": { "kind": "colour", "hex": "#0000ff" }, "easing": "linear" }
+			]
+		},
+		"samples": [{ "t": 1.0, "expected": { "kind": "colour", "hex": "#00ff00" } }]
+	},
+	{
+		"name": "point-target-linear-lerp",
+		"track": {
+			"nodeId": "btn-1",
+			"target": "position",
+			"keyframes": [
+				{ "timestampSecs": 0.0, "value": { "kind": "point", "x": 0.0, "y": 0.0 }, "easing": "linear" },
+				{ "timestampSecs": 2.0, "value": { "kind": "point", "x": 10.0, "y": 20.0 }, "easing": "linear" }
+			]
+		},
+		"samples": [{ "t": 1.0, "expected": { "kind": "point", "x": 5.0, "y": 10.0 } }]
+	}
+]
