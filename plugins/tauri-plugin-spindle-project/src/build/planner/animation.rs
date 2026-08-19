@@ -18,9 +18,10 @@ use super::paths::MenuPaths;
 /// `ComposeMenuHighlights` jobs.
 ///
 /// Always returns at least one entry. A menu with no `HighlightColour`/
-/// `HighlightOpacity` tracks targeting one of its buttons gets a single
-/// trivial frame that reuses today's `{base}_highlight.png`/`_select.png`
-/// paths and the menu's default highlight colours — the "no tracks" case
+/// `HighlightOpacity`/`ActivateColour`/`ActivateOpacity` tracks targeting
+/// one of its buttons gets a single trivial frame that reuses today's
+/// `{base}_highlight.png`/`_select.png` paths and the menu's default
+/// highlight/select colours — the "no tracks" case
 /// `docs/dcsq-player-compat.md` requires to stay byte-identical to a build
 /// with no animation support at all.
 ///
@@ -47,7 +48,7 @@ pub(super) fn build_overlay_keyframe_schedule(
 ) -> Vec<OverlayKeyframeSpec> {
     let doc = menu_ref.menu.doc();
     let highlight_colours = &doc.highlight_colours;
-    let select_colour = highlight_colours.activate_colour.clone();
+    let default_select_colour = highlight_colours.activate_colour.clone();
 
     let trivial_frame = || OverlayKeyframeSpec {
         start_secs: 0.0,
@@ -55,33 +56,66 @@ pub(super) fn build_overlay_keyframe_schedule(
         highlight_image_path: menu_paths.highlight_image_path.display().to_string(),
         select_image_path: menu_paths.select_image_path.display().to_string(),
         highlight_colour: highlight_colours.select_colour.clone(),
-        select_colour: select_colour.clone(),
+        select_colour: default_select_colour.clone(),
     };
 
     let button_ids: std::collections::HashSet<&str> =
         menu_ref.buttons().iter().map(|b| b.id).collect();
 
-    let relevant_tracks: Vec<&AnimationTrack> = doc
+    let is_relevant =
+        |track: &&AnimationTrack, colour: AnimatableProperty, opacity: AnimatableProperty| {
+            (track.target == colour || track.target == opacity)
+                && !track.keyframes.is_empty()
+                && button_ids.contains(track.node_id.as_str())
+        };
+    let relevant_highlight_tracks: Vec<&AnimationTrack> = doc
         .animation
         .iter()
         .filter(|track| {
-            matches!(
-                track.target,
-                AnimatableProperty::HighlightColour | AnimatableProperty::HighlightOpacity
-            ) && !track.keyframes.is_empty()
-                && button_ids.contains(track.node_id.as_str())
+            is_relevant(
+                track,
+                AnimatableProperty::HighlightColour,
+                AnimatableProperty::HighlightOpacity,
+            )
+        })
+        .collect();
+    // DVD naming quirk: spumux's "select" colour is the *activated* state
+    // (flashed on button press), driven by `ActivateColour`/`ActivateOpacity`
+    // tracks — not to be confused with `HighlightColour`, which drives
+    // spumux's "highlight" (selected/focused) colour above.
+    let relevant_select_tracks: Vec<&AnimationTrack> = doc
+        .animation
+        .iter()
+        .filter(|track| {
+            is_relevant(
+                track,
+                AnimatableProperty::ActivateColour,
+                AnimatableProperty::ActivateOpacity,
+            )
         })
         .collect();
 
-    if relevant_tracks.is_empty() {
+    if relevant_highlight_tracks.is_empty() && relevant_select_tracks.is_empty() {
         return vec![trivial_frame()];
     }
 
     if !matches!(menu_ref.background_mode(), BackgroundMode::Motion) {
-        let highlight_colour =
-            effective_highlight_colour_hex(&relevant_tracks, highlight_colours, |track| {
-                track.keyframes.first().map(|kf| kf.value.clone())
-            });
+        let highlight_colour = effective_colour_hex(
+            &relevant_highlight_tracks,
+            AnimatableProperty::HighlightColour,
+            AnimatableProperty::HighlightOpacity,
+            &highlight_colours.select_colour,
+            highlight_colours.select_opacity,
+            |track| track.keyframes.first().map(|kf| kf.value.clone()),
+        );
+        let select_colour = effective_colour_hex(
+            &relevant_select_tracks,
+            AnimatableProperty::ActivateColour,
+            AnimatableProperty::ActivateOpacity,
+            &highlight_colours.activate_colour,
+            highlight_colours.activate_opacity,
+            |track| track.keyframes.first().map(|kf| kf.value.clone()),
+        );
         return vec![OverlayKeyframeSpec {
             start_secs: 0.0,
             end_secs: 0.0,
@@ -96,15 +130,21 @@ pub(super) fn build_overlay_keyframe_schedule(
         return vec![trivial_frame()];
     };
 
-    // Union of every relevant track's keyframe timestamps, clamped inside
-    // the loop window, sorted, deduped, always including 0.0.
+    // Union of every relevant track's keyframe timestamps (highlight and
+    // select alike — either kind of track can drive a schedule instant),
+    // clamped inside the loop window, sorted, deduped, always including 0.0.
     let mut timestamps: Vec<f64> = std::iter::once(0.0)
-        .chain(relevant_tracks.iter().flat_map(|track| {
-            track
-                .keyframes
+        .chain(
+            relevant_highlight_tracks
                 .iter()
-                .map(|kf| kf.timestamp_secs.clamp(0.0, loop_duration_secs))
-        }))
+                .chain(relevant_select_tracks.iter())
+                .flat_map(|track| {
+                    track
+                        .keyframes
+                        .iter()
+                        .map(|kf| kf.timestamp_secs.clamp(0.0, loop_duration_secs))
+                }),
+        )
         .collect();
     timestamps.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
     timestamps.dedup_by(|a, b| (*a - *b).abs() < 1e-9);
@@ -122,10 +162,22 @@ pub(super) fn build_overlay_keyframe_schedule(
             Some(&next) => next,
             None => last_frame_end.max(start_secs),
         };
-        let highlight_colour =
-            effective_highlight_colour_hex(&relevant_tracks, highlight_colours, |track| {
-                evaluate_track(track, start_secs)
-            });
+        let highlight_colour = effective_colour_hex(
+            &relevant_highlight_tracks,
+            AnimatableProperty::HighlightColour,
+            AnimatableProperty::HighlightOpacity,
+            &highlight_colours.select_colour,
+            highlight_colours.select_opacity,
+            |track| evaluate_track(track, start_secs),
+        );
+        let select_colour = effective_colour_hex(
+            &relevant_select_tracks,
+            AnimatableProperty::ActivateColour,
+            AnimatableProperty::ActivateOpacity,
+            &highlight_colours.activate_colour,
+            highlight_colours.activate_opacity,
+            |track| evaluate_track(track, start_secs),
+        );
         frames.push(OverlayKeyframeSpec {
             start_secs,
             end_secs,
@@ -138,37 +190,44 @@ pub(super) fn build_overlay_keyframe_schedule(
                 .display()
                 .to_string(),
             highlight_colour,
-            select_colour: select_colour.clone(),
+            select_colour,
         });
     }
     frames
 }
 
-/// Sample every relevant track with `sample`, folding `HighlightColour`/
-/// `HighlightOpacity` results onto the menu's default select colour/opacity,
-/// then bake the resulting opacity into the alpha channel. Tracks are
-/// applied in `doc.animation` order, so a later track overrides an earlier
-/// one when both resolve a value (see this module's doc comment on the
-/// one-CLUT-per-menu tie-break policy).
-fn effective_highlight_colour_hex<F>(
+/// Sample every relevant track with `sample`, folding the `colour_target`/
+/// `opacity_target` results onto `default_colour`/`default_opacity`, then
+/// bake the resulting opacity into the alpha channel. Tracks are applied in
+/// `doc.animation` order, so a later track overrides an earlier one when
+/// both resolve a value (see this module's doc comment on the
+/// one-CLUT-per-menu tie-break policy). Shared by the "highlight" (selected
+/// state, `HighlightColour`/`HighlightOpacity`) and "select" (activated
+/// state, `ActivateColour`/`ActivateOpacity`) samplings in
+/// [`build_overlay_keyframe_schedule`] — same fold, different targets and
+/// defaults.
+fn effective_colour_hex<F>(
     tracks: &[&AnimationTrack],
-    defaults: &MenuHighlightColours,
+    colour_target: AnimatableProperty,
+    opacity_target: AnimatableProperty,
+    default_colour: &str,
+    default_opacity: f64,
     sample: F,
 ) -> String
 where
     F: Fn(&AnimationTrack) -> Option<KeyValue>,
 {
-    let mut hex = strip_alpha(&defaults.select_colour);
-    let mut opacity = defaults.select_opacity;
+    let mut hex = strip_alpha(default_colour);
+    let mut opacity = default_opacity;
     for track in tracks {
         let Some(value) = sample(track) else {
             continue;
         };
-        match (track.target, value) {
-            (AnimatableProperty::HighlightColour, KeyValue::Colour { hex: sampled }) => {
+        match value {
+            KeyValue::Colour { hex: sampled } if track.target == colour_target => {
                 hex = strip_alpha(&sampled);
             }
-            (AnimatableProperty::HighlightOpacity, KeyValue::Scalar { value: sampled }) => {
+            KeyValue::Scalar { value: sampled } if track.target == opacity_target => {
                 opacity = sampled;
             }
             _ => {}

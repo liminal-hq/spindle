@@ -214,8 +214,21 @@ export interface AnimationTrack {
 	keyframes: Keyframe[];
 }
 
-/** The closed set of properties an {@link AnimationTrack} can drive. */
-export type AnimatableProperty = 'highlight-colour' | 'highlight-opacity' | 'opacity' | 'position';
+/**
+ * The closed set of properties an {@link AnimationTrack} can drive.
+ * `activate-colour`/`activate-opacity` drive the DVD subpicture "select"
+ * state (spumux's "select" colour — shown briefly when a button is
+ * activated/pressed), not to be confused with `highlight-colour`/
+ * `highlight-opacity`, which drive spumux's "highlight" (selected/focused)
+ * state.
+ */
+export type AnimatableProperty =
+	| 'highlight-colour'
+	| 'highlight-opacity'
+	| 'activate-colour'
+	| 'activate-opacity'
+	| 'opacity'
+	| 'position';
 
 /**
  * One keyframe within an {@link AnimationTrack}: a value at a point in time,

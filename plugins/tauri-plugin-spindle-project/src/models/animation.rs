@@ -26,6 +26,13 @@ pub struct AnimationTrack {
 pub enum AnimatableProperty {
     HighlightColour,
     HighlightOpacity,
+    /// The DVD subpicture "select" state's colour — spumux's "select"
+    /// colour, shown briefly when a button is activated/pressed (not to be
+    /// confused with [`AnimatableProperty::HighlightColour`], which drives
+    /// spumux's "highlight" colour for the selected/focused state).
+    ActivateColour,
+    /// The activated-state counterpart to [`AnimatableProperty::ActivateColour`].
+    ActivateOpacity,
     Opacity,
     Position,
 }

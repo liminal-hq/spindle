@@ -624,6 +624,60 @@ fn build_plan_motion_menu_with_highlight_track_builds_multi_frame_schedule() {
     assert_eq!(compose_menu_spumux_xml(&plan).matches("<spu ").count(), 2);
 }
 
+fn activate_colour_track(node_id: &str, stops: &[(f64, &str)]) -> AnimationTrack {
+    AnimationTrack {
+        node_id: node_id.to_string(),
+        target: AnimatableProperty::ActivateColour,
+        keyframes: stops
+            .iter()
+            .map(|(t, hex)| Keyframe {
+                timestamp_secs: *t,
+                value: KeyValue::Colour {
+                    hex: (*hex).to_string(),
+                },
+                easing: Easing::Hold,
+            })
+            .collect(),
+    }
+}
+
+#[test]
+fn build_plan_motion_menu_with_activate_track_samples_select_colour_per_keyframe() {
+    let mut project = test_project();
+    let mut menu = test_menu();
+    {
+        let doc = menu.doc_mut();
+        doc.background_mode = BackgroundMode::Motion;
+        doc.scene.background.asset_id = Some("asset-1".to_string());
+        doc.timing.loop_start_secs = 0.0;
+        doc.timing.loop_duration_secs = 4.0;
+        // No HighlightColour track — only the activated-state colour is
+        // animated, exercising the ActivateColour/ActivateOpacity sampling
+        // independently of the selected-state (HighlightColour) sampling.
+        doc.animation = vec![activate_colour_track(
+            "btn-1",
+            &[(0.0, "#111111"), (2.0, "#222222")],
+        )];
+    }
+    project.disc.global_menus.push(menu);
+
+    let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+
+    let frames = render_menu_overlay_keyframes(&plan);
+    assert_eq!(frames.len(), 2, "expected one frame per keyframe timestamp");
+    // No HighlightColour track was authored, so the highlight (selected
+    // state) colour stays pinned to the menu's default the whole schedule.
+    assert_eq!(frames[0].highlight_colour, "#ffaa4099");
+    assert_eq!(frames[1].highlight_colour, "#ffaa4099");
+    // The select colour (spumux's "select" = DVD's activated state) samples
+    // the ActivateColour track per keyframe instead of staying pinned to
+    // the menu's default activate colour.
+    assert_eq!(frames[0].select_colour, "#111111cc");
+    assert_eq!(frames[1].select_colour, "#222222cc");
+
+    assert_eq!(compose_menu_spumux_xml(&plan).matches("<spu ").count(), 2);
+}
+
 #[test]
 fn build_plan_still_menu_with_track_degrades_to_first_keyframe_only() {
     let mut project = test_project();

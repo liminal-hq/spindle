@@ -520,11 +520,14 @@ impl MenuDocument {
 }
 
 /// Recursive worker for [`MenuDocument::lift_highlight_keyframes`]: lift one
-/// animated button's `highlight_keyframes` into an `AnimationTrack` (plus a
-/// second `HighlightOpacity` track when any keyframe overrides opacity),
-/// appending to `lifted` and clearing the source array. Descends into
-/// `Group` children the same way scene traversal does elsewhere in this
-/// module (see `validate_motion_keyframes_in_node` in `validation::scene`).
+/// animated button's `highlight_keyframes` into `AnimationTrack`s — a
+/// `HighlightColour` track plus a `HighlightOpacity` track when any keyframe
+/// overrides select opacity, and, mirroring that pair, an `ActivateColour`
+/// track plus an `ActivateOpacity` track when any keyframe overrides
+/// activate opacity — appending to `lifted` and clearing the source array.
+/// Descends into `Group` children the same way scene traversal does
+/// elsewhere in this module (see `validate_motion_keyframes_in_node` in
+/// `validation::scene`).
 fn lift_highlight_keyframes_in_node(
     node: &mut SceneNode,
     defaults: &MenuHighlightColours,
@@ -574,6 +577,50 @@ fn lift_highlight_keyframes_in_node(
                     node_id: id.clone(),
                     target: AnimatableProperty::HighlightOpacity,
                     keyframes: opacity_keyframes,
+                });
+            }
+
+            // Same lift, mirrored for the activated-state fields — DVD's
+            // spumux "select" colour (see `AnimatableProperty::ActivateColour`'s
+            // doc comment), authored via `HighlightKeyframe::activate_colour`/
+            // `activate_opacity`.
+            let activate_colour_keyframes: Vec<Keyframe> = highlight_keyframes
+                .iter()
+                .map(|kf| Keyframe {
+                    timestamp_secs: kf.timestamp_secs,
+                    value: KeyValue::Colour {
+                        hex: kf
+                            .activate_colour
+                            .clone()
+                            .unwrap_or_else(|| defaults.activate_colour.clone()),
+                    },
+                    easing: Easing::Hold,
+                })
+                .collect();
+            lifted.push(AnimationTrack {
+                node_id: id.clone(),
+                target: AnimatableProperty::ActivateColour,
+                keyframes: activate_colour_keyframes,
+            });
+
+            if highlight_keyframes
+                .iter()
+                .any(|kf| kf.activate_opacity.is_some())
+            {
+                let activate_opacity_keyframes: Vec<Keyframe> = highlight_keyframes
+                    .iter()
+                    .map(|kf| Keyframe {
+                        timestamp_secs: kf.timestamp_secs,
+                        value: KeyValue::Scalar {
+                            value: kf.activate_opacity.unwrap_or(defaults.activate_opacity),
+                        },
+                        easing: Easing::Hold,
+                    })
+                    .collect();
+                lifted.push(AnimationTrack {
+                    node_id: id.clone(),
+                    target: AnimatableProperty::ActivateOpacity,
+                    keyframes: activate_opacity_keyframes,
                 });
             }
 
@@ -1259,10 +1306,17 @@ mod lift_tests {
 
         doc.lift_highlight_keyframes();
 
-        assert_eq!(doc.animation.len(), 1);
-        let track = &doc.animation[0];
+        // A HighlightColour track plus the always-created ActivateColour
+        // track (see `adds_a_second_activate_opacity_track_only_when_a_keyframe_overrides_it`
+        // below for that pairing) — no opacity overrides here, so neither
+        // opacity track is added.
+        assert_eq!(doc.animation.len(), 2);
+        let track = doc
+            .animation
+            .iter()
+            .find(|t| t.target == AnimatableProperty::HighlightColour)
+            .expect("expected a HighlightColour track");
         assert_eq!(track.node_id, "btn-1");
-        assert_eq!(track.target, AnimatableProperty::HighlightColour);
         assert_eq!(track.keyframes.len(), 2);
         assert_eq!(
             track.keyframes[0].value,
@@ -1312,7 +1366,9 @@ mod lift_tests {
 
         doc.lift_highlight_keyframes();
 
-        assert_eq!(doc.animation.len(), 2);
+        // HighlightColour, HighlightOpacity (overridden), and the
+        // always-created ActivateColour track.
+        assert_eq!(doc.animation.len(), 3);
         assert_eq!(doc.animation[0].target, AnimatableProperty::HighlightColour);
         assert_eq!(
             doc.animation[1].target,
@@ -1321,6 +1377,134 @@ mod lift_tests {
         assert_eq!(
             doc.animation[1].keyframes[0].value,
             KeyValue::Scalar { value: 0.25 }
+        );
+        assert_eq!(doc.animation[2].target, AnimatableProperty::ActivateColour);
+    }
+
+    #[test]
+    fn lifts_activate_colour_keyframes_into_an_activate_colour_track() {
+        let mut doc = document_with_animated_button(vec![
+            HighlightKeyframe {
+                timestamp_secs: 0.0,
+                select_colour: None,
+                select_opacity: None,
+                activate_colour: Some("#112233".to_string()),
+                activate_opacity: None,
+            },
+            HighlightKeyframe {
+                timestamp_secs: 1.0,
+                select_colour: None,
+                select_opacity: None,
+                activate_colour: Some("#445566".to_string()),
+                activate_opacity: None,
+            },
+        ]);
+
+        doc.lift_highlight_keyframes();
+
+        let track = doc
+            .animation
+            .iter()
+            .find(|t| t.target == AnimatableProperty::ActivateColour)
+            .expect("expected an ActivateColour track");
+        assert_eq!(track.node_id, "btn-1");
+        assert_eq!(track.keyframes.len(), 2);
+        assert_eq!(
+            track.keyframes[0].value,
+            KeyValue::Colour {
+                hex: "#112233".to_string()
+            }
+        );
+        assert_eq!(track.keyframes[0].easing, Easing::Hold);
+        assert_eq!(
+            track.keyframes[1].value,
+            KeyValue::Colour {
+                hex: "#445566".to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn missing_per_keyframe_activate_colour_falls_back_to_menu_default() {
+        let mut doc = document_with_animated_button(vec![HighlightKeyframe {
+            timestamp_secs: 0.0,
+            select_colour: None,
+            select_opacity: None,
+            activate_colour: None,
+            activate_opacity: None,
+        }]);
+        let default_activate_colour = doc.highlight_colours.activate_colour.clone();
+
+        doc.lift_highlight_keyframes();
+
+        let track = doc
+            .animation
+            .iter()
+            .find(|t| t.target == AnimatableProperty::ActivateColour)
+            .expect("expected an ActivateColour track");
+        assert_eq!(
+            track.keyframes[0].value,
+            KeyValue::Colour {
+                hex: default_activate_colour
+            }
+        );
+    }
+
+    #[test]
+    fn adds_a_second_activate_opacity_track_only_when_a_keyframe_overrides_it() {
+        let mut doc = document_with_animated_button(vec![HighlightKeyframe {
+            timestamp_secs: 0.0,
+            select_colour: None,
+            select_opacity: None,
+            activate_colour: Some("#ff0000".to_string()),
+            activate_opacity: Some(0.4),
+        }]);
+
+        doc.lift_highlight_keyframes();
+
+        assert!(
+            !doc.animation
+                .iter()
+                .any(|t| t.target == AnimatableProperty::HighlightOpacity),
+            "no select-opacity override was authored, so no HighlightOpacity track should exist"
+        );
+        let opacity_track = doc
+            .animation
+            .iter()
+            .find(|t| t.target == AnimatableProperty::ActivateOpacity)
+            .expect("expected an ActivateOpacity track");
+        assert_eq!(
+            opacity_track.keyframes[0].value,
+            KeyValue::Scalar { value: 0.4 }
+        );
+    }
+
+    #[test]
+    fn lift_of_activate_tracks_is_idempotent() {
+        let mut doc = document_with_animated_button(vec![HighlightKeyframe {
+            timestamp_secs: 0.0,
+            select_colour: Some("#ff0000".to_string()),
+            select_opacity: None,
+            activate_colour: Some("#00ffff".to_string()),
+            activate_opacity: Some(0.5),
+        }]);
+
+        doc.lift_highlight_keyframes();
+        let first_pass = doc.animation.clone();
+        doc.lift_highlight_keyframes();
+
+        assert_eq!(doc.animation, first_pass);
+        assert!(
+            first_pass
+                .iter()
+                .any(|t| t.target == AnimatableProperty::ActivateColour),
+            "expected the activate colour to survive as a track, got {first_pass:?}"
+        );
+        assert!(
+            first_pass
+                .iter()
+                .any(|t| t.target == AnimatableProperty::ActivateOpacity),
+            "expected the activate opacity to survive as a track, got {first_pass:?}"
         );
     }
 
