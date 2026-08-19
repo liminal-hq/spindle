@@ -357,12 +357,25 @@ pub(crate) async fn allow_asset_scope<R: Runtime>(
     app: AppHandle<R>,
     paths: Vec<String>,
 ) -> Result<()> {
+    // Attempt every path rather than aborting on the first failure — a
+    // single bad path (e.g. one asset relocated/deleted out from under the
+    // project) must not leave every *later* path in the batch ungranted.
+    let mut failed_paths: Vec<String> = Vec::new();
     for path in &paths {
-        app.asset_protocol_scope().allow_file(path).map_err(|e| {
-            crate::Error::Build(format!("Failed to grant asset scope for \"{path}\": {e}"))
-        })?;
+        if let Err(e) = app.asset_protocol_scope().allow_file(path) {
+            eprintln!("Failed to grant asset scope for \"{path}\": {e}");
+            failed_paths.push(path.clone());
+        }
     }
-    Ok(())
+    if failed_paths.is_empty() {
+        Ok(())
+    } else {
+        Err(crate::Error::Build(format!(
+            "Failed to grant asset scope for {} path(s): {}",
+            failed_paths.len(),
+            failed_paths.join(", ")
+        )))
+    }
 }
 
 /// Return the application cache directory for storing thumbnails and other transient data.
