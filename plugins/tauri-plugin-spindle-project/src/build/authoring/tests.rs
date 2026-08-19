@@ -1114,3 +1114,47 @@ fn motion_menu_pgc_degrades_to_infinite_loop_when_k_positive_but_no_timeout() {
         "the degraded infinite-loop form must not touch the unused counter, got:\n{xml}"
     );
 }
+
+#[test]
+fn motion_menu_pgc_expands_play_all_in_titleset_timeout_action() {
+    // A titleset motion menu with K > 0 can offer `PlayAllInTitleset` as its
+    // timeout action — the inspector allows it and validation accepts it —
+    // but the DVD command resolver rejects that virtual action directly. The
+    // `<post>` counting path must expand it the same way menu buttons do
+    // before resolving, or build-plan generation fails for an otherwise
+    // valid authored configuration.
+    let mut project = test_project();
+    project.disc.titlesets[0]
+        .titles
+        .push(make_title("title-2", "Episode 2", 1));
+    project.disc.titlesets[0].titles[0].order_index = 0;
+
+    let menu = motion_test_menu(
+        "ts-menu-1",
+        "Titleset Motion Menu",
+        MenuTiming {
+            intro_start_secs: 0.0,
+            intro_duration_secs: 0.0,
+            loop_start_secs: 2.0,
+            loop_duration_secs: 5.0,
+            loop_count: 3,
+            audio_asset_id: None,
+        },
+        Some(PlaybackAction::PlayAllInTitleset),
+    );
+    project.disc.titlesets[0].menus.push(menu);
+
+    let xml = generate_dvdauthor_xml(
+        &project,
+        std::path::Path::new("/tmp/titles"),
+        std::path::Path::new("/tmp/menus"),
+        std::path::Path::new("/tmp/dvd_root"),
+    )
+    .unwrap();
+
+    assert!(
+        xml.contains("jump title 1") && xml.contains("jump title 2"),
+        "PlayAllInTitleset as a timeout action should expand to a sequence \
+         jumping all titles, same as it does on a button, got:\n{xml}"
+    );
+}

@@ -245,8 +245,14 @@ fn motion_post_body(
         .menu_ref
         .timeout_action()
         .expect("uses_counter implies a resolvable timeout action");
+    // Expand PlayAllInTitleset/PlayNextInTitleset the same way menu buttons
+    // do (see `expand_playall_button_action` above) before resolving: a
+    // titleset motion menu with a positive loop count can offer either as a
+    // timeout action, but the DVD command resolver rejects both directly.
+    let expanded_for_timeout = expand_playall_button_action(timeout_action, spec.disc, spec.domain);
+    let resolved_timeout_action = expanded_for_timeout.as_ref().unwrap_or(timeout_action);
     let timeout_cmd = playback_action_to_dvd_command_in_domain_result(
-        timeout_action,
+        resolved_timeout_action,
         spec.disc,
         spec.domain,
         Some(spec.menu_number),
