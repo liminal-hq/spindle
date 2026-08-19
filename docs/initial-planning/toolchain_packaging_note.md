@@ -278,8 +278,7 @@ Each job:
 - artefact upload destination (GitHub Releases, CDN, etc.)
 - whether to pin exact tool versions via checksums rather than installing whatever apt/brew provides at build time
 
-**Windows:** dvdauthor has no Windows port. Windows builds are not supported
-for the DVD authoring pipeline.
+**Windows:** dvdauthor has no Windows port. Windows builds are not supported for the DVD authoring pipeline.
 
 ---
 

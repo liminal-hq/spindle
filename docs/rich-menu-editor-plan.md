@@ -284,8 +284,7 @@ Each slice is independently shippable and lists what it must do differently beca
 - Drive `CompileMode`, `inspectorDiagnostics.ts`, and canvas chrome from the profile; delete `MAX_DVD_BUTTONS`, `DVD_PALETTE_COLOURS`, `MENU_WIDTH` constants.
 - Format badge in the menu editor header and menu rail.
 
-**BD-readiness:** this is the seam BD plugs into (`blu-ray-integration-plan.md`
-§1.9's conditional UI becomes "add a profile row").
+**BD-readiness:** this is the seam BD plugs into (`blu-ray-integration-plan.md` §1.9's conditional UI becomes "add a profile row").
 
 ### Slice B — Visual fidelity foundation
 
