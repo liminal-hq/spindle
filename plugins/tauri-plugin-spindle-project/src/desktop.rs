@@ -80,8 +80,10 @@ mod tests {
     /// version guard only rejects versions *newer* than [`SCHEMA_VERSION`].
     #[test]
     fn parse_project_accepts_schema_version_one() {
-        let mut project = SpindleProjectFile::default();
-        project.schema_version = 1;
+        let project = SpindleProjectFile {
+            schema_version: 1,
+            ..SpindleProjectFile::default()
+        };
         let json = serde_json::to_string(&project).unwrap();
 
         let parsed = parse_project_json(&json).expect("v1 file should still load under v2");
@@ -105,8 +107,10 @@ mod tests {
     /// is the guard a v1-only binary relies on when it opens a v2+ file.
     #[test]
     fn parse_project_rejects_schema_version_newer_than_supported() {
-        let mut project = SpindleProjectFile::default();
-        project.schema_version = SCHEMA_VERSION + 1;
+        let project = SpindleProjectFile {
+            schema_version: SCHEMA_VERSION + 1,
+            ..SpindleProjectFile::default()
+        };
         let json = serde_json::to_string(&project).unwrap();
 
         let err = parse_project_json(&json).expect_err("newer schema version must be rejected");
