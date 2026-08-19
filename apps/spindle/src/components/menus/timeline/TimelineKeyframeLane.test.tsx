@@ -106,6 +106,41 @@ describe('TimelineKeyframeLane', () => {
 		expect(onDeleteKeyframe).toHaveBeenCalledWith('btn-1', 'highlight-colour', 0);
 	});
 
+	it('survives the keyframe array shrinking underneath an open popover (undo)', () => {
+		// Regression test: the editor's global undo can remove a keyframe
+		// while its popover is open — outside every lane-guarded path. The
+		// stale index must clear instead of the next empty-lane double-click
+		// throwing on `keyframes[popoverIndex].timestampSecs`.
+		const geometry = computeTimelineGeometry(20, 40);
+		const lane = (track: AnimationTrack) => (
+			<TimelineKeyframeLane
+				geometry={geometry}
+				track={track}
+				nodeId="btn-1"
+				target="highlight-colour"
+				loopStartSecs={0}
+				loopDurationSecs={10}
+				fps={30}
+				defaultValue={{ kind: 'colour', hex: '#ffffff' }}
+				onAddKeyframe={vi.fn() as TimelineKeyframeLaneProps['onAddKeyframe']}
+				onMoveKeyframe={vi.fn() as TimelineKeyframeLaneProps['onMoveKeyframe']}
+				onUpdateKeyframeValue={vi.fn() as TimelineKeyframeLaneProps['onUpdateKeyframeValue']}
+				onUpdateKeyframeEasing={vi.fn() as TimelineKeyframeLaneProps['onUpdateKeyframeEasing']}
+				onDeleteKeyframe={vi.fn() as TimelineKeyframeLaneProps['onDeleteKeyframe']}
+				onSeek={vi.fn()}
+			/>
+		);
+		const { rerender, getAllByRole, getByRole, queryByRole } = render(lane(twoKeyframeTrack));
+		const diamonds = getAllByRole('button', { name: /keyframe at/i });
+		fireEvent.doubleClick(diamonds[1]); // popover on index 1
+		expect(getByRole('dialog')).toBeTruthy();
+
+		rerender(lane(oneKeyframeTrack)); // undo shrank the track
+
+		expect(queryByRole('dialog')).toBeNull();
+		expect(() => fireEvent.doubleClick(getByRole('group'), { clientX: 300 })).not.toThrow();
+	});
+
 	it('clears the selection when deleting through the popover button', () => {
 		// Regression test: the popover's Delete Keyframe button cleared only
 		// the popover; the successor keyframe inherited the deleted one's

@@ -1592,11 +1592,33 @@ function BackgroundVideo({ asset, initialTimeSecs }: { asset: Asset; initialTime
 							if (!response.ok) {
 								throw new Error(`asset fetch failed: ${response.status}`);
 							}
+							// Fast-path reject on the header, but don't TRUST it —
+							// a missing or malformed Content-Length must not
+							// bypass the cap, so it's also enforced while the
+							// stream is consumed below.
 							const length = Number(response.headers.get('content-length') ?? '0');
 							if (length > VIDEO_PREVIEW_BLOB_CAP_BYTES) {
 								throw new Error('source too large for blob preview');
 							}
-							const blob = await response.blob();
+							let blob: Blob;
+							if (response.body) {
+								const reader = response.body.getReader();
+								const chunks: BlobPart[] = [];
+								let received = 0;
+								for (;;) {
+									const { done, value } = await reader.read();
+									if (done) break;
+									received += value.byteLength;
+									if (received > VIDEO_PREVIEW_BLOB_CAP_BYTES) {
+										controller.abort();
+										throw new Error('source too large for blob preview');
+									}
+									chunks.push(value);
+								}
+								blob = new Blob(chunks);
+							} else {
+								blob = await response.blob();
+							}
 							if (!mountedRef.current || assetIdRef.current !== fallbackAssetId) {
 								return;
 							}

@@ -11,7 +11,7 @@
 // value/easing popover; double-click empty lane space inserts a keyframe at
 // that time; Delete/Backspace removes the selected keyframe.
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type {
 	AnimatableProperty,
 	AnimationTrack,
@@ -113,6 +113,19 @@ export function TimelineKeyframeLane({
 
 	const keyframes = track?.keyframes ?? [];
 
+	// The keyframe array can shrink from OUTSIDE the lane's own guarded paths
+	// — the editor's global undo is the obvious one — leaving popover/selection
+	// indices pointing past the end. Clear them, or the next handler that
+	// dereferences `keyframes[popoverIndex]` throws instead of editing.
+	useEffect(() => {
+		if (popoverIndex !== null && popoverIndex >= keyframes.length) {
+			setPopoverIndex(null);
+		}
+		if (selectedIndex !== null && selectedIndex >= keyframes.length) {
+			setSelectedIndex(null);
+		}
+	}, [keyframes.length, popoverIndex, selectedIndex]);
+
 	const pxXFromClientX = useCallback((clientX: number) => {
 		const rect = laneRef.current?.getBoundingClientRect();
 		return rect ? clientX - rect.left : 0;
@@ -172,10 +185,14 @@ export function TimelineKeyframeLane({
 			// one. Same stale-index hazard `willReorder` guards against above —
 			// close rather than silently let the popover/selection drift onto
 			// whatever keyframe the sort left behind at that index.
-			if (popoverIndex !== null && timestampSecs < keyframes[popoverIndex].timestampSecs) {
+			// Optional-chained: an out-of-range index (external shrink, e.g.
+			// undo, before the clearing effect has run) must not throw here.
+			const popoverKf = popoverIndex !== null ? keyframes[popoverIndex] : undefined;
+			if (popoverIndex !== null && (!popoverKf || timestampSecs < popoverKf.timestampSecs)) {
 				setPopoverIndex(null);
 			}
-			if (selectedIndex !== null && timestampSecs < keyframes[selectedIndex].timestampSecs) {
+			const selectedKf = selectedIndex !== null ? keyframes[selectedIndex] : undefined;
+			if (selectedIndex !== null && (!selectedKf || timestampSecs < selectedKf.timestampSecs)) {
 				setSelectedIndex(null);
 			}
 			onAddKeyframe(nodeId, target, timestampSecs, sampled ?? defaultValue);
