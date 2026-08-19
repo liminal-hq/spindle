@@ -142,13 +142,17 @@ export function MenuLevelInspector({
 		setDurationDraft(authoredDuration);
 	}
 	const commitDurationDraft = () => {
+		// Identity commits are skipped — every write pushes an undo snapshot,
+		// so a focus-then-blur (or Enter followed by its blur) must not create
+		// empty undo steps.
+		const authored = document?.timing.loopDurationSecs ?? 0;
 		if (durationDraft === '') {
-			onUpdateMotionDurationSecs?.(null);
+			if (authored > 0) onUpdateMotionDurationSecs?.(null);
 			return;
 		}
 		const parsed = Number(durationDraft);
 		if (Number.isFinite(parsed)) {
-			onUpdateMotionDurationSecs?.(parsed);
+			if (parsed !== authored) onUpdateMotionDurationSecs?.(parsed);
 		} else {
 			setDurationDraft(authoredDuration);
 		}
