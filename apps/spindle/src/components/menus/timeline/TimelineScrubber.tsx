@@ -1,6 +1,9 @@
 // Playhead line + drag-to-seek, and the playback transport (play/pause,
 // ±1 frame step, loop-region toggle).
 //
+// (c) Copyright 2026 Liminal HQ, Scott Morris
+// SPDX-License-Identifier: MIT
+
 // The playhead line uses a transient zustand subscription and a direct DOM
 // style transform instead of a selector hook — `currentTime` changes at
 // rAF cadence while playing, and re-rendering this component's React tree
@@ -15,9 +18,6 @@
 // viewport whose `scrollLeft` `TimelineStrip` keeps mirrored to the
 // scrollable ruler area beneath it (also imperatively, for the same
 // no-re-render reason), so the two stay visually locked together.
-//
-// (c) Copyright 2026 Liminal HQ, Scott Morris
-// SPDX-License-Identifier: MIT
 
 import { useCallback, useEffect, useRef } from 'react';
 import { useMenuPlaybackStore } from '../../../store/menu-playback-store';
