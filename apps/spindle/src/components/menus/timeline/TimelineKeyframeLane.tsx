@@ -166,17 +166,32 @@ export function TimelineKeyframeLane({
 			const rawSecs = Math.max(0, geometry.pxToSecs(pxX) - loopStartSecs);
 			const timestampSecs = clamp(snapSecsToFrame(rawSecs, fps), 0, loopDurationSecs);
 			const sampled = track ? evaluateTrack(track, timestampSecs) : null;
+			// Inserting re-sorts the track's keyframes (see `animationWriters`'
+			// `addKeyframe`): a new keyframe timestamped strictly before the
+			// popover's/selection's keyframe shifts that keyframe's index up by
+			// one. Same stale-index hazard `willReorder` guards against above —
+			// close rather than silently let the popover/selection drift onto
+			// whatever keyframe the sort left behind at that index.
+			if (popoverIndex !== null && timestampSecs < keyframes[popoverIndex].timestampSecs) {
+				setPopoverIndex(null);
+			}
+			if (selectedIndex !== null && timestampSecs < keyframes[selectedIndex].timestampSecs) {
+				setSelectedIndex(null);
+			}
 			onAddKeyframe(nodeId, target, timestampSecs, sampled ?? defaultValue);
 		},
 		[
 			defaultValue,
 			fps,
 			geometry,
+			keyframes,
 			loopDurationSecs,
 			loopStartSecs,
 			nodeId,
 			onAddKeyframe,
+			popoverIndex,
 			pxXFromClientX,
+			selectedIndex,
 			target,
 			track,
 		],

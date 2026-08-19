@@ -19,6 +19,7 @@ function renderLane(overrides: { track: AnimationTrack; fps?: number }) {
 	const onMoveKeyframe = vi.fn();
 	const onAddKeyframe = vi.fn();
 	const onDeleteKeyframe = vi.fn();
+	const onSeek = vi.fn();
 
 	const utils = render(
 		<TimelineKeyframeLane
@@ -35,10 +36,11 @@ function renderLane(overrides: { track: AnimationTrack; fps?: number }) {
 			onUpdateKeyframeValue={vi.fn() as TimelineKeyframeLaneProps['onUpdateKeyframeValue']}
 			onUpdateKeyframeEasing={vi.fn() as TimelineKeyframeLaneProps['onUpdateKeyframeEasing']}
 			onDeleteKeyframe={onDeleteKeyframe as TimelineKeyframeLaneProps['onDeleteKeyframe']}
+			onSeek={onSeek}
 		/>,
 	);
 
-	return { ...utils, onMoveKeyframe, onAddKeyframe, onDeleteKeyframe };
+	return { ...utils, onMoveKeyframe, onAddKeyframe, onDeleteKeyframe, onSeek };
 }
 
 const oneKeyframeTrack: AnimationTrack = {
@@ -202,5 +204,56 @@ describe('TimelineKeyframeLane', () => {
 		fireEvent.pointerUp(lane);
 
 		expect(queryByRole('dialog')).toBeNull();
+	});
+
+	it('does not seek or insert a keyframe when clicking/double-clicking inside the open popover', () => {
+		// Regression test: the popover is rendered as a child of the lane it
+		// edits, so a click/double-click on one of its fields would otherwise
+		// bubble up to the lane's own click (seek) and double-click (insert)
+		// handlers.
+		const { getAllByRole, getByRole, onAddKeyframe, onSeek } = renderLane({
+			track: twoKeyframeTrack,
+		});
+		const [firstDiamond] = getAllByRole('button', { name: /keyframe at/i });
+		fireEvent.doubleClick(firstDiamond);
+		expect(getByRole('dialog')).toBeTruthy();
+		onAddKeyframe.mockClear();
+
+		const timestampInput = getByRole('spinbutton', { name: /timestamp/i });
+		fireEvent.click(timestampInput);
+		fireEvent.doubleClick(timestampInput);
+
+		expect(onSeek).not.toHaveBeenCalled();
+		expect(onAddKeyframe).not.toHaveBeenCalled();
+		expect(getByRole('dialog')).toBeTruthy();
+	});
+
+	it('closes the popover when a keyframe is inserted before it', () => {
+		// Regression test: inserting a keyframe re-sorts the track's array
+		// (see `animationWriters.addKeyframe`) — a new keyframe timestamped
+		// before the open popover's keyframe shifts that keyframe's index up
+		// by one. Without a fix, the popover would silently keep editing
+		// whatever keyframe the sort left behind at the stale index.
+		const { getAllByRole, getByRole, queryByRole } = renderLane({ track: twoKeyframeTrack });
+		const [, secondDiamond] = getAllByRole('button', { name: /keyframe at/i });
+		fireEvent.doubleClick(secondDiamond); // popover open on the 5s keyframe (index 1)
+		expect(getByRole('dialog')).toBeTruthy();
+
+		const lane = getByRole('group');
+		fireEvent.doubleClick(lane, { clientX: 80 }); // 2s, before the open 5s keyframe
+
+		expect(queryByRole('dialog')).toBeNull();
+	});
+
+	it('keeps the popover open when a keyframe is inserted after it', () => {
+		const { getAllByRole, getByRole } = renderLane({ track: twoKeyframeTrack });
+		const [firstDiamond] = getAllByRole('button', { name: /keyframe at/i });
+		fireEvent.doubleClick(firstDiamond); // popover open on the 1s keyframe (index 0)
+		expect(getByRole('dialog')).toBeTruthy();
+
+		const lane = getByRole('group');
+		fireEvent.doubleClick(lane, { clientX: 320 }); // 8s, after the open 1s keyframe
+
+		expect(getByRole('dialog')).toBeTruthy();
 	});
 });

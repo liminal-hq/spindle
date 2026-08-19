@@ -49,6 +49,20 @@ export function KeyframeEditorPopover({
 					e.stopPropagation();
 				}
 			}}
+			onClick={(e) => {
+				// The popover renders as a child of the lane it edits — a click
+				// on any of its inputs/buttons (including the number/colour
+				// inputs' native chrome) would otherwise bubble to the lane's
+				// `onClick` and seek playback underneath it.
+				e.stopPropagation();
+			}}
+			onDoubleClick={(e) => {
+				// Same hazard as `onClick` above, but for the lane's
+				// `onDoubleClick` (`handleLaneDoubleClick`), which INSERTS a new
+				// keyframe — double-clicking a popover field (e.g. to select an
+				// input's text) must never edit the lane underneath it.
+				e.stopPropagation();
+			}}
 		>
 			<div className="keyframe-popover__header">
 				<span className="keyframe-popover__title">{target}</span>
