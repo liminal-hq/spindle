@@ -661,7 +661,7 @@ The preview is not merely visual. It must also simulate remote-navigation logic 
 Motion menus are implemented as an extension of the menu asset and compilation model rather than as a separate system. Current support includes:
 
 - motion-video backgrounds trimmed from an imported video asset
-- looping menu audio from an authored audio bed, the background video's own audio, or synthesized silence
+- looping menu audio from an authored audio bed, the background video's own audio, or synthesised silence
 - clip-based menu intros that transition into looping states, with loop count and timeout actions
 - animated button highlights driven by keyframe tracks (highlight and activated-state colour and opacity on DVD)
 - motion-aware preview: in-canvas video playback, a timeline strip, and highlight animation sampled from the same tracks the build compiles

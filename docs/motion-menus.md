@@ -20,7 +20,7 @@ This document describes the implemented model, build pipeline, editor UI, and va
 A DVD motion menu is a standard menu VOB domain containing:
 
 - **Video stream**: a looping MPEG-2 clip. The player loops playback via a PGC `<post>` command that jumps back to the loop cell when the cell finishes.
-- **Audio stream**: background music or ambient sound. Spindle always encodes AC-3, even when the bed is synthesized silence — dvdauthor requires every cell in a PGC to share an identical stream layout.
+- **Audio stream**: background music or ambient sound. Spindle always encodes AC-3, even when the bed is synthesised silence — dvdauthor requires every cell in a PGC to share an identical stream layout.
 - **Subpicture stream**: the button highlight overlay, composited by `spumux` with timing synchronised to the video.
 
 Spindle authors an optional **intro cell** ahead of the loop cell: the same PGC carries two `<vob>` elements (intro = cell 1, loop = cell 2), the intro plays once, and the `<post>` loops only the loop cell. The intro cell carries no subpicture stream — buttons appear when the loop cell starts, which is standard commercial-DVD behaviour, and dvdauthor tolerates the missing SPU stream on the intro cell.
@@ -35,7 +35,7 @@ Spindle authors an optional **intro cell** ahead of the loop cell: the same PGC 
 
 ## Data Model
 
-All motion and animation state lives on `MenuDocument` (the single authored menu model — see `CLAUDE.md`). The legacy flat fields this document once specified (`Menu.backgroundMode`, `Menu.motionDurationSecs`, `Menu.motionAudioAssetId`, `Menu.motionLoopCount`, `Menu.timeoutAction`, and per-button `highlightMode`/`highlightKeyframes`) are deserialize-only compatibility shims, lifted into the document on load.
+All motion and animation state lives on `MenuDocument` (the single authored menu model — see `CLAUDE.md`). The legacy flat fields this document once specified (`Menu.backgroundMode`, `Menu.motionDurationSecs`, `Menu.motionAudioAssetId`, `Menu.motionLoopCount`, `Menu.timeoutAction`, and per-button `highlightMode`/`highlightKeyframes`) are deserialise-only compatibility shims, lifted into the document on load.
 
 ### Timing — `MenuDocument.timing`
 
@@ -121,7 +121,7 @@ Motion menus ride the existing `BuildJob::RenderMenu` job: it gains `introComman
 - **Audio bed** — a three-way fallback chain:
   1. the authored bed asset (`timing.audioAssetId`), looped with `-stream_loop -1` and windowed with `atrim=start={off}:duration={dur},asetpts=PTS-STARTPTS,apad`;
   2. the background video's own audio, already time-aligned by the same input-side trim;
-  3. synthesized silence (`-f lavfi -i anullsrc=r=48000:cl=stereo`).
+  3. synthesised silence (`-f lavfi -i anullsrc=r=48000:cl=stereo`).
 - **Bed windows are continuous across intro+loop**: the intro plays bed `[0..introDur)` and the loop plays `[introDur..introDur+loopDur)`, so first-play audio doesn't hiccup at the intro/loop boundary. (On the second and later loop passes the bed restarts at its loop-window offset — an accepted artefact of cell-based looping.)
 - **AC-3 always**: `-c:a ac3 -b:a 192k -ar 48000` in _both_ cells, silence included — dvdauthor rejects a PGC whose cells have differing stream layouts.
 - **Encode**: `mpeg2video`, `-b:v 4000k -maxrate 7000k -bufsize 1835k`, `-g 18` (NTSC) / `-g 12` (PAL), `-flags +cgop` for a clean loop cut. ffmpeg's mpeg2video encoder cannot combine closed GOPs with scene-change-triggered GOP breaks, so scene-cut detection is disabled with `-sc_threshold 1000000000` — the workaround the encoder itself suggests, which also keeps every GOP exactly `-g` frames long.
