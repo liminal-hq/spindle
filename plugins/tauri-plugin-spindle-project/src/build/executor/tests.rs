@@ -15,8 +15,8 @@ use crate::build::{
     execute_build_plan, generate_build_plan, BuildJob, BuildPlan, BuildProgress, BuildSummary,
 };
 use crate::models::{
-    BackgroundMode, MenuTiming, PlaybackAction, SubtitleRenderMode, SubtitleStreamInfo,
-    SubtitleType,
+    AnimatableProperty, AnimationTrack, BackgroundMode, Easing, KeyValue, Keyframe, MenuTiming,
+    PlaybackAction, SubtitleRenderMode, SubtitleStreamInfo, SubtitleType,
 };
 
 use super::{reset_workspace_directory, subtitle_file_has_cues};
@@ -706,6 +706,30 @@ fn execute_build_plan_smoke_authors_motion_menu_intro_and_loop() {
         doc.interaction.timeout_action = Some(PlaybackAction::PlayTitle {
             title_id: "title-1".to_string(),
         });
+        // Design decision D8: a highlight animation track on a motion menu's
+        // existing button ("btn-1", authored by `test_menu_with_action`)
+        // must lower to a multi-`<spu>` DCSQ schedule and still build
+        // successfully — see the plan/spumux assertions below.
+        doc.animation = vec![AnimationTrack {
+            node_id: "btn-1".to_string(),
+            target: AnimatableProperty::HighlightColour,
+            keyframes: vec![
+                Keyframe {
+                    timestamp_secs: 0.0,
+                    value: KeyValue::Colour {
+                        hex: "#ff0000".to_string(),
+                    },
+                    easing: Easing::Hold,
+                },
+                Keyframe {
+                    timestamp_secs: 1.5,
+                    value: KeyValue::Colour {
+                        hex: "#00ff00".to_string(),
+                    },
+                    easing: Easing::Hold,
+                },
+            ],
+        }];
     }
     project.disc.global_menus.push(motion_menu);
 
@@ -720,6 +744,20 @@ fn execute_build_plan_smoke_authors_motion_menu_intro_and_loop() {
         plan.dvdauthor_xml.contains("jump cell 2"),
         "expected the loop <post> to target cell 2 (intro is cell 1), got:\n{}",
         plan.dvdauthor_xml
+    );
+
+    let spumux_xml = plan
+        .jobs
+        .iter()
+        .find_map(|job| match job {
+            BuildJob::ComposeMenuHighlights { spumux_xml, .. } => Some(spumux_xml.as_str()),
+            _ => None,
+        })
+        .expect("expected a ComposeMenuHighlights job");
+    assert_eq!(
+        spumux_xml.matches("<spu ").count(),
+        2,
+        "expected two <spu> entries for the two-keyframe highlight track, got:\n{spumux_xml}"
     );
 
     let result = execute_build_plan(&plan, |_| {});
