@@ -1086,6 +1086,8 @@ function BackgroundVideo({ asset, initialTimeSecs }: { asset: Asset; initialTime
 	const [loadFailed, setLoadFailed] = useState(false);
 	const posterUrl = useThumbnailBlobUrl(asset);
 	const registerVideo = useMenuPlaybackStore((s) => s.registerVideo);
+	const reportTime = useMenuPlaybackStore((s) => s.reportTime);
+	const reportDuration = useMenuPlaybackStore((s) => s.reportDuration);
 
 	useEffect(() => {
 		setLoadFailed(false);
@@ -1123,7 +1125,10 @@ function BackgroundVideo({ asset, initialTimeSecs }: { asset: Asset; initialTime
 			poster={posterUrl ?? undefined}
 			onLoadedMetadata={(e) => {
 				e.currentTarget.currentTime = initialTimeSecs;
+				reportDuration(e.currentTarget.duration);
 			}}
+			onDurationChange={(e) => reportDuration(e.currentTarget.duration)}
+			onTimeUpdate={(e) => reportTime(e.currentTarget.currentTime)}
 			onError={() => setLoadFailed(true)}
 		/>
 	);

@@ -93,6 +93,40 @@ describe('menu-playback-store', () => {
 		expect(useMenuPlaybackStore.getState().playing).toBe(false);
 	});
 
+	it('reportTime updates currentTime, mirroring a video timeupdate event', () => {
+		const video = fakeVideoEl();
+		useMenuPlaybackStore.getState().registerVideo(video);
+
+		useMenuPlaybackStore.getState().reportTime(7.25);
+
+		expect(useMenuPlaybackStore.getState().currentTime).toBe(7.25);
+	});
+
+	it('reportDuration updates duration, mirroring a video loadedmetadata/durationchange event', () => {
+		const video = fakeVideoEl({ duration: 0 });
+		useMenuPlaybackStore.getState().registerVideo(video);
+		expect(useMenuPlaybackStore.getState().duration).toBe(0);
+
+		useMenuPlaybackStore.getState().reportDuration(42.5);
+
+		expect(useMenuPlaybackStore.getState().duration).toBe(42.5);
+	});
+
+	it('"Set loop start from playhead" reads the value reportTime last wrote, not a stale 0', () => {
+		// Regression test: before BackgroundVideo wired its `timeupdate` handler
+		// into `reportTime`, nothing ever updated `currentTime` after
+		// `registerVideo`, so MenuEditor's `handleSetLoopStartFromPlayhead` —
+		// which reads `useMenuPlaybackStore.getState().currentTime` directly —
+		// always saw 0 regardless of where playback actually was.
+		const video = fakeVideoEl();
+		useMenuPlaybackStore.getState().registerVideo(video);
+
+		useMenuPlaybackStore.getState().reportTime(8.4);
+
+		const loopStartFromPlayhead = useMenuPlaybackStore.getState().currentTime;
+		expect(loopStartFromPlayhead).toBe(8.4);
+	});
+
 	it('play/pause are no-ops when no video is registered', () => {
 		expect(() => useMenuPlaybackStore.getState().play()).not.toThrow();
 		expect(() => useMenuPlaybackStore.getState().pause()).not.toThrow();

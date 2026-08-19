@@ -12,16 +12,23 @@ export interface MenuPlaybackState {
 	/** The `<video>` element currently registered by `BackgroundMedia`'s ref
 	 * callback, or `null` when no motion background is mounted. */
 	videoEl: HTMLVideoElement | null;
-	/** Source-relative playback position in seconds. Updated by a rAF loop
-	 * reading `videoEl.currentTime` (wired up in a later PR) — for now this
-	 * mirrors the last `seek()` target so the scrub row stays in sync. */
+	/** Source-relative playback position in seconds. Kept in sync by
+	 * `reportTime`, called from the registered video's `timeupdate` handler
+	 * (coarse, browser-native ~4Hz — a rAF loop for smoother scrubbing is a
+	 * later PR) as well as `seek()`. */
 	currentTime: number;
 	playing: boolean;
 	/** The video element's reported duration in seconds, or 0 before metadata
-	 * has loaded. */
+	 * has loaded. Kept in sync by `reportDuration`. */
 	duration: number;
 	/** Register (or clear, with `null`) the mounted preview `<video>` element. */
 	registerVideo: (el: HTMLVideoElement | null) => void;
+	/** Record the registered video's current playback position, e.g. from a
+	 * `timeupdate` event. */
+	reportTime: (tSecs: number) => void;
+	/** Record the registered video's reported duration, e.g. from a
+	 * `loadedmetadata`/`durationchange` event. */
+	reportDuration: (durationSecs: number) => void;
 	/** Seek the registered video to `tSecs` (source-relative). No-op if no
 	 * video is registered. */
 	seek: (tSecs: number) => void;
@@ -42,6 +49,14 @@ export const useMenuPlaybackStore = create<MenuPlaybackState>((set, get) => ({
 			duration: el?.duration || 0,
 			playing: el ? !el.paused : false,
 		});
+	},
+
+	reportTime: (tSecs) => {
+		set({ currentTime: Number.isFinite(tSecs) ? tSecs : 0 });
+	},
+
+	reportDuration: (durationSecs) => {
+		set({ duration: Number.isFinite(durationSecs) ? durationSecs : 0 });
 	},
 
 	seek: (tSecs) => {
