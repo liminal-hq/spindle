@@ -120,6 +120,15 @@ export function deleteKeyframe(
 	return tracks.map((t, i) => (i === index ? { ...t, keyframes } : t));
 }
 
+/** Drop every track belonging to `nodeId` (all targets). Used when a scene
+ * node is deleted — `document.animation` is not addressed by node-removal
+ * itself, so without this its tracks linger and reference a scene node that
+ * no longer exists, tripping `menu.animation-node-missing` on the next
+ * validate. */
+export function removeNodeTracks(tracks: AnimationTrack[], nodeId: string): AnimationTrack[] {
+	return tracks.filter((t) => t.nodeId !== nodeId);
+}
+
 /** Find the (node, target) track, or `null` if none exists yet. */
 export function findTrack(
 	tracks: AnimationTrack[],

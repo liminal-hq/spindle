@@ -13,6 +13,7 @@ import {
 	deleteKeyframe,
 	findTrack,
 	moveKeyframe,
+	removeNodeTracks,
 	updateKeyframeEasing,
 	updateKeyframeValue,
 } from './animationWriters';
@@ -142,6 +143,24 @@ describe('deleteKeyframe', () => {
 		];
 		const tracks = deleteKeyframe(base, 'btn-1', 'highlight-colour', 0);
 		expect(tracks).toHaveLength(0);
+	});
+});
+
+describe('removeNodeTracks', () => {
+	it('drops every track belonging to the given node, regardless of target', () => {
+		const base: AnimationTrack[] = [
+			{ nodeId: 'btn-1', target: 'highlight-colour', keyframes: [] },
+			{ nodeId: 'btn-1', target: 'activate-opacity', keyframes: [] },
+			{ nodeId: 'btn-2', target: 'highlight-colour', keyframes: [] },
+		];
+		const tracks = removeNodeTracks(base, 'btn-1');
+		expect(tracks).toHaveLength(1);
+		expect(tracks[0].nodeId).toBe('btn-2');
+	});
+
+	it('is a no-op when the node has no tracks', () => {
+		const base: AnimationTrack[] = [{ nodeId: 'btn-2', target: 'highlight-colour', keyframes: [] }];
+		expect(removeNodeTracks(base, 'btn-1')).toEqual(base);
 	});
 });
 

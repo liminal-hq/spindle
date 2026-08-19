@@ -44,6 +44,7 @@ import {
 	deleteKeyframe,
 	findTrack,
 	moveKeyframe,
+	removeNodeTracks,
 	updateKeyframeEasing,
 	updateKeyframeValue,
 } from './timeline/animationWriters';
@@ -372,6 +373,10 @@ export function MenuEditor({
 						? null
 						: document.interaction.defaultFocusId,
 			},
+			// Otherwise a track left targeting the deleted button surfaces as
+			// `menu.animation-node-missing` on the next validate — reachable
+			// from the ordinary add-keyframe-then-delete-button flow.
+			animation: removeNodeTracks(document.animation ?? [], buttonId),
 		}));
 		if (selectedNodeId === buttonId) setSelectedNodeId(null);
 	};
@@ -422,6 +427,9 @@ export function MenuEditor({
 						...m.authoredDocument.scene,
 						nodes: m.authoredDocument.scene.nodes.filter((n) => n.id !== nodeId),
 					},
+					// Same orphaned-track hazard as `handleRemoveButton` — an
+					// `opacity`/`position` track can target a non-button node.
+					animation: removeNodeTracks(m.authoredDocument.animation ?? [], nodeId),
 				},
 			};
 		});
