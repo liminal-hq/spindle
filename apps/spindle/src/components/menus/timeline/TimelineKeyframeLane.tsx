@@ -215,11 +215,18 @@ export function TimelineKeyframeLane({
 		(e: React.KeyboardEvent) => {
 			if ((e.key === 'Delete' || e.key === 'Backspace') && selectedIndex !== null) {
 				e.preventDefault();
+				// Deleting at or before the popover's index shifts what that
+				// index points at — the same stale-index hazard the insert and
+				// retime paths guard against, so close rather than let the
+				// popover silently rebind to the next keyframe.
+				if (popoverIndex !== null && selectedIndex <= popoverIndex) {
+					setPopoverIndex(null);
+				}
 				onDeleteKeyframe(nodeId, target, selectedIndex);
 				setSelectedIndex(null);
 			}
 		},
-		[nodeId, onDeleteKeyframe, selectedIndex, target],
+		[nodeId, onDeleteKeyframe, popoverIndex, selectedIndex, target],
 	);
 
 	const loopEndPx = geometry.secsToPx(loopStartSecs + Math.max(loopDurationSecs, 0));

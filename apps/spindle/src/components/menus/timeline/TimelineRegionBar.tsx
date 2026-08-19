@@ -17,6 +17,12 @@ export interface TimelineRegionBarProps {
 	 * the minimum intro/loop duration at one frame — the project's disc
 	 * standard (NTSC/PAL), not a hardcoded 30fps. */
 	fps: number;
+	/** The latest animation-keyframe timestamp (loop-relative seconds) across
+	 * the menu's tracks, or 0 with no keyframes. Loop edges can't shorten the
+	 * loop below this — keyframes are loop-relative, so a shorter loop would
+	 * strand them out of range and fail `menu.motion-keyframe-out-of-range`
+	 * on the next validate. */
+	minLoopDurationSecs?: number;
 	onSetTimingField: (patch: Partial<MenuTiming>) => void;
 }
 
@@ -26,6 +32,7 @@ export function TimelineRegionBar({
 	geometry,
 	timing,
 	fps,
+	minLoopDurationSecs = 0,
 	onSetTimingField,
 }: TimelineRegionBarProps) {
 	const barRef = useRef<HTMLDivElement>(null);
@@ -101,16 +108,18 @@ export function TimelineRegionBar({
 					break;
 				}
 				case 'loopStart': {
-					const maxStart = Math.max(0, loopEnd - minDurationSecs);
+					const minLoop = Math.max(minDurationSecs, minLoopDurationSecs);
+					const maxStart = Math.max(0, loopEnd - minLoop);
 					const start = Math.min(Math.max(0, dragSecs), maxStart);
 					onSetTimingField({
 						loopStartSecs: start,
-						loopDurationSecs: Math.max(minDurationSecs, loopEnd - start),
+						loopDurationSecs: Math.max(minLoop, loopEnd - start),
 					});
 					break;
 				}
 				case 'loopEnd': {
-					const end = Math.min(Math.max(loopStart + minDurationSecs, dragSecs), maxEndSecs);
+					const minLoop = Math.max(minDurationSecs, minLoopDurationSecs);
+					const end = Math.min(Math.max(loopStart + minLoop, dragSecs), maxEndSecs);
 					onSetTimingField({ loopDurationSecs: end - loopStart });
 					break;
 				}
@@ -127,6 +136,7 @@ export function TimelineRegionBar({
 		loopStart,
 		maxEndSecs,
 		minDurationSecs,
+		minLoopDurationSecs,
 		onSetTimingField,
 	]);
 

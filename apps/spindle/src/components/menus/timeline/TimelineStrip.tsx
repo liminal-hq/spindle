@@ -173,6 +173,10 @@ export function TimelineStrip({
 					geometry={geometry}
 					timing={timing}
 					fps={fps}
+					minLoopDurationSecs={Math.max(
+						0,
+						...tracks.flatMap((t) => t.keyframes.map((kf) => kf.timestampSecs)),
+					)}
 					onSetTimingField={onSetTimingField}
 				/>
 				<TimelineAudioLane

@@ -106,6 +106,26 @@ describe('TimelineKeyframeLane', () => {
 		expect(onDeleteKeyframe).toHaveBeenCalledWith('btn-1', 'highlight-colour', 0);
 	});
 
+	it('closes an open popover when keyboard deletion removes its keyframe', () => {
+		// Regression test: double-clicking a diamond opens the popover AND
+		// leaves that diamond focused/selected, so Delete reaches the lane's
+		// key handler. Deleting at/before the popover's index re-points that
+		// index at the next keyframe — the popover must close, not rebind.
+		const { getAllByRole, getByRole, queryByRole, onDeleteKeyframe } = renderLane({
+			track: twoKeyframeTrack,
+		});
+		const [firstDiamond] = getAllByRole('button', { name: /keyframe at/i });
+		fireEvent.click(firstDiamond);
+		fireEvent.doubleClick(firstDiamond);
+		expect(getByRole('dialog')).toBeTruthy();
+
+		const lane = getByRole('group');
+		fireEvent.keyDown(lane, { key: 'Delete' });
+
+		expect(onDeleteKeyframe).toHaveBeenCalledWith('btn-1', 'highlight-colour', 0);
+		expect(queryByRole('dialog')).toBeNull();
+	});
+
 	it('a click without a drag (pointerdown, pointerup, no pointermove) does not commit a move', () => {
 		// Regression test: selecting a diamond with a plain click must not
 		// write an identity retime and burn an undo entry.
