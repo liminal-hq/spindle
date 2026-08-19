@@ -588,6 +588,10 @@ vi.mock('@tauri-apps/plugin-fs', () => ({
 	BaseDirectory: { AppCache: 13 },
 }));
 
+vi.mock('@tauri-apps/api/core', () => ({
+	convertFileSrc: vi.fn((path: string) => `asset://localhost/${path}`),
+}));
+
 describe('SceneCanvas', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
@@ -1111,6 +1115,127 @@ describe('SceneCanvas', () => {
 		expect(container.querySelector('.scene-canvas__viewport')).toHaveStyle({
 			aspectRatio: '16 / 9',
 		});
+	});
+
+	// ── BackgroundMedia (design decision D5) ────────────────────────────────
+
+	const stillBackgroundAsset: Asset = {
+		...imageAsset,
+		id: 'asset-bg-still',
+		fileName: 'menu-bg.png',
+		sourcePath: '/tmp/menu-bg.png',
+		thumbnailPath: null,
+	};
+
+	const motionBackgroundAsset: Asset = {
+		...imageAsset,
+		id: 'asset-bg-video',
+		fileName: 'menu-bg.mp4',
+		sourcePath: '/tmp/menu-bg.mp4',
+		thumbnailPath: null,
+		videoStreams: [
+			{
+				index: 0,
+				codec: 'h264',
+				width: 1920,
+				height: 1080,
+				frameRate: 30,
+				aspectRatio: null,
+				scanType: null,
+				bitrateBps: null,
+				title: null,
+				colorTransfer: null,
+				colorPrimaries: null,
+				dolbyVisionProfile: null,
+			},
+		],
+	};
+
+	it('renders a still <img> background when the asset has no video stream', () => {
+		const { container } = render(
+			<SceneCanvas
+				buttons={buttons}
+				canvasHeight={480}
+				sceneNodes={[]}
+				onUpdateButton={vi.fn()}
+				onUpdateSceneNode={vi.fn()}
+				showSafeArea={false}
+				backgroundLabel={null}
+				backgroundColour={null}
+				backgroundAsset={stillBackgroundAsset}
+				defaultButtonId={null}
+				previewMode={false}
+				highlightColours={DEFAULT_HIGHLIGHT_COLOURS}
+				honestPreview={false}
+				showNavLines={false}
+				selectedNodeId={null}
+				onSelectNode={vi.fn()}
+			/>,
+		);
+
+		const img = container.querySelector('img.scene-canvas__bg-image');
+		expect(img).not.toBeNull();
+		expect(img?.getAttribute('src')).toBe('asset://localhost//tmp/menu-bg.png');
+		expect(container.querySelector('video')).toBeNull();
+	});
+
+	it('renders a still <img> background for a motion-capable asset when backgroundIsMotion is false', () => {
+		const { container } = render(
+			<SceneCanvas
+				buttons={buttons}
+				canvasHeight={480}
+				sceneNodes={[]}
+				onUpdateButton={vi.fn()}
+				onUpdateSceneNode={vi.fn()}
+				showSafeArea={false}
+				backgroundLabel={null}
+				backgroundColour={null}
+				backgroundAsset={motionBackgroundAsset}
+				backgroundIsMotion={false}
+				defaultButtonId={null}
+				previewMode={false}
+				highlightColours={DEFAULT_HIGHLIGHT_COLOURS}
+				honestPreview={false}
+				showNavLines={false}
+				selectedNodeId={null}
+				onSelectNode={vi.fn()}
+			/>,
+		);
+
+		expect(container.querySelector('video')).toBeNull();
+		expect(container.querySelector('img.scene-canvas__bg-image')).not.toBeNull();
+	});
+
+	it('renders a looping <video> background via convertFileSrc when the menu is a motion menu', () => {
+		const { container } = render(
+			<SceneCanvas
+				buttons={buttons}
+				canvasHeight={480}
+				sceneNodes={[]}
+				onUpdateButton={vi.fn()}
+				onUpdateSceneNode={vi.fn()}
+				showSafeArea={false}
+				backgroundLabel={null}
+				backgroundColour={null}
+				backgroundAsset={motionBackgroundAsset}
+				backgroundIsMotion={true}
+				backgroundInitialTimeSecs={2.5}
+				defaultButtonId={null}
+				previewMode={false}
+				highlightColours={DEFAULT_HIGHLIGHT_COLOURS}
+				honestPreview={false}
+				showNavLines={false}
+				selectedNodeId={null}
+				onSelectNode={vi.fn()}
+			/>,
+		);
+
+		const video = container.querySelector('video.scene-canvas__bg-image');
+		expect(video).not.toBeNull();
+		expect(video?.getAttribute('src')).toBe('asset://localhost//tmp/menu-bg.mp4');
+		expect(video).toHaveAttribute('muted');
+		expect(video).toHaveAttribute('loop');
+		expect(container.querySelector('img.scene-canvas__bg-image')).toBeNull();
 	});
 
 	it('creates generated menus with the standard-appropriate authored design height', () => {

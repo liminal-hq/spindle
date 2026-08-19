@@ -17,6 +17,7 @@ import type {
 	FormatProfile,
 } from '../../types/project';
 import { DEFAULT_DVD_FORMAT_PROFILE } from '../../format/useFormatProfile';
+import { useMenuPlaybackStore } from '../../store/menu-playback-store';
 
 // The canvas's fixed interactive coordinate space width. This is *not* yet
 // sourced from `FormatProfile.designSizes` (1024 for DVD-Video) — every menu
@@ -60,8 +61,15 @@ export interface SceneCanvasProps {
 	backgroundLabel: string | null;
 	/** Solid background colour (CSS hex) when no asset is assigned. */
 	backgroundColour: string | null;
-	/** Background image asset to render behind scene nodes. */
+	/** Background image or video asset to render behind scene nodes. */
 	backgroundAsset?: Asset | null;
+	/** When true and `backgroundAsset` has a video stream, render it as a
+	 * looping `<video>` instead of a static image. */
+	backgroundIsMotion?: boolean;
+	/** Source-relative seconds to seek the background `<video>` to once its
+	 * metadata loads — the menu's authored `timing.loopStartSecs` in design
+	 * mode. Ignored for still backgrounds. */
+	backgroundInitialTimeSecs?: number;
 	defaultButtonId: string | null;
 	/** When true, render in navigation preview mode with highlight colours. */
 	previewMode: boolean;
@@ -93,6 +101,8 @@ export function SceneCanvas({
 	backgroundLabel,
 	backgroundColour,
 	backgroundAsset = null,
+	backgroundIsMotion = false,
+	backgroundInitialTimeSecs = 0,
 	defaultButtonId,
 	previewMode,
 	highlightColours,
@@ -115,6 +125,8 @@ export function SceneCanvas({
 				backgroundLabel={backgroundLabel}
 				backgroundColour={backgroundColour}
 				backgroundAsset={backgroundAsset}
+				backgroundIsMotion={backgroundIsMotion}
+				backgroundInitialTimeSecs={backgroundInitialTimeSecs}
 				defaultButtonId={defaultButtonId}
 				highlightColours={highlightColours}
 				honestPreview={honestPreview}
@@ -136,6 +148,8 @@ export function SceneCanvas({
 			backgroundLabel={backgroundLabel}
 			backgroundColour={backgroundColour}
 			backgroundAsset={backgroundAsset}
+			backgroundIsMotion={backgroundIsMotion}
+			backgroundInitialTimeSecs={backgroundInitialTimeSecs}
 			defaultButtonId={defaultButtonId}
 			honestPreview={honestPreview}
 			showNavLines={showNavLines}
@@ -161,6 +175,8 @@ function DesignCanvas({
 	backgroundLabel,
 	backgroundColour,
 	backgroundAsset,
+	backgroundIsMotion,
+	backgroundInitialTimeSecs,
 	defaultButtonId,
 	honestPreview,
 	showNavLines,
@@ -180,6 +196,8 @@ function DesignCanvas({
 	backgroundLabel: string | null;
 	backgroundColour: string | null;
 	backgroundAsset: Asset | null;
+	backgroundIsMotion: boolean;
+	backgroundInitialTimeSecs: number;
 	defaultButtonId: string | null;
 	honestPreview: boolean;
 	showNavLines: boolean;
@@ -506,7 +524,13 @@ function DesignCanvas({
 			}}
 			onClick={() => onSelectNode(null)}
 		>
-			{backgroundAsset && <BackgroundImage asset={backgroundAsset} />}
+			{backgroundAsset && (
+				<BackgroundMedia
+					asset={backgroundAsset}
+					isMotion={backgroundIsMotion}
+					initialTimeSecs={backgroundInitialTimeSecs}
+				/>
+			)}
 			{backgroundLabel && (
 				<div className="scene-canvas__bg-label text-muted">{backgroundLabel}</div>
 			)}
@@ -653,6 +677,8 @@ function NavigationPreview({
 	backgroundLabel,
 	backgroundColour,
 	backgroundAsset,
+	backgroundIsMotion,
+	backgroundInitialTimeSecs,
 	defaultButtonId,
 	highlightColours,
 	honestPreview,
@@ -667,6 +693,8 @@ function NavigationPreview({
 	backgroundLabel: string | null;
 	backgroundColour: string | null;
 	backgroundAsset: Asset | null;
+	backgroundIsMotion: boolean;
+	backgroundInitialTimeSecs: number;
 	defaultButtonId: string | null;
 	highlightColours: MenuHighlightColours;
 	honestPreview: boolean;
@@ -785,7 +813,13 @@ function NavigationPreview({
 				...(backgroundColour ? { backgroundColor: backgroundColour } : {}),
 			}}
 		>
-			{backgroundAsset && <BackgroundImage asset={backgroundAsset} />}
+			{backgroundAsset && (
+				<BackgroundMedia
+					asset={backgroundAsset}
+					isMotion={backgroundIsMotion}
+					initialTimeSecs={backgroundInitialTimeSecs}
+				/>
+			)}
 			{backgroundLabel && (
 				<div className="scene-canvas__bg-label text-muted">{backgroundLabel}</div>
 			)}
@@ -980,6 +1014,118 @@ function RenderedSceneNode({
 					))
 				: null}
 		</div>
+	);
+}
+
+/**
+ * Background renderer for a menu's assigned background asset — a looping
+ * `<video>` for motion menus whose asset has a video stream, otherwise a
+ * still `<img>` (see design decision D5).
+ */
+function BackgroundMedia({
+	asset,
+	isMotion = false,
+	initialTimeSecs = 0,
+}: {
+	asset: Asset;
+	isMotion?: boolean;
+	initialTimeSecs?: number;
+}) {
+	if (isMotion && asset.videoStreams.length > 0) {
+		return <BackgroundVideo asset={asset} initialTimeSecs={initialTimeSecs} />;
+	}
+	return <BackgroundImage asset={asset} />;
+}
+
+/** Load a menu background asset's cached thumbnail as a blob URL, or `null`
+ * when there is no cached thumbnail or the read fails. Used as the poster
+ * frame for `BackgroundVideo` so the canvas shows something before the
+ * video's own first frame decodes. */
+function useThumbnailBlobUrl(asset: Asset): string | null {
+	const [url, setUrl] = useState<string | null>(null);
+
+	useEffect(() => {
+		let revokedUrl: string | null = null;
+		let cancelled = false;
+
+		async function load() {
+			if (!asset.thumbnailPath) {
+				setUrl(null);
+				return;
+			}
+			const fileName = asset.thumbnailPath.split(/[/\\]/).pop();
+			if (!fileName) {
+				setUrl(null);
+				return;
+			}
+			try {
+				const bytes = await readFile(`thumbnails/${fileName}`, {
+					baseDir: BaseDirectory.AppCache,
+				});
+				if (cancelled) return;
+				const blob = new Blob([bytes], { type: 'image/jpeg' });
+				const objectUrl = URL.createObjectURL(blob);
+				revokedUrl = objectUrl;
+				setUrl(objectUrl);
+			} catch {
+				if (!cancelled) setUrl(null);
+			}
+		}
+		void load();
+
+		return () => {
+			cancelled = true;
+			if (revokedUrl) URL.revokeObjectURL(revokedUrl);
+		};
+	}, [asset.id, asset.thumbnailPath]);
+
+	return url;
+}
+
+function BackgroundVideo({ asset, initialTimeSecs }: { asset: Asset; initialTimeSecs: number }) {
+	const [loadFailed, setLoadFailed] = useState(false);
+	const posterUrl = useThumbnailBlobUrl(asset);
+	const registerVideo = useMenuPlaybackStore((s) => s.registerVideo);
+
+	useEffect(() => {
+		setLoadFailed(false);
+	}, [asset.id]);
+
+	// Unregister the video from the playback store on unmount (e.g. switching
+	// away from this menu or out of design mode) so a stale element reference
+	// doesn't linger.
+	useEffect(() => {
+		return () => registerVideo(null);
+	}, [registerVideo]);
+
+	if (loadFailed) {
+		return (
+			<div className="scene-canvas__image-placeholder" aria-hidden="true">
+				<div className="scene-canvas__image-placeholder-sun" />
+				<div className="scene-canvas__image-placeholder-horizon" />
+				<div className="scene-canvas__image-overlay">
+					<span className="scene-canvas__image-kicker">Background</span>
+					<span className="scene-canvas__image-caption">Preview unavailable</span>
+				</div>
+			</div>
+		);
+	}
+
+	return (
+		<video
+			ref={registerVideo}
+			className="scene-canvas__bg-image"
+			src={convertFileSrc(asset.sourcePath)}
+			muted
+			loop
+			playsInline
+			preload="auto"
+			poster={posterUrl ?? undefined}
+			onLoadedMetadata={(e) => {
+				e.currentTarget.currentTime = initialTimeSecs;
+			}}
+			onError={() => setLoadFailed(true)}
+		/>
 	);
 }
 
