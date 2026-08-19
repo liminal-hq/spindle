@@ -138,7 +138,18 @@ export function TimelineKeyframeLane({
 			const sampled = track ? evaluateTrack(track, timestampSecs) : null;
 			onAddKeyframe(nodeId, target, timestampSecs, sampled ?? defaultValue);
 		},
-		[defaultValue, fps, geometry, loopDurationSecs, loopStartSecs, nodeId, onAddKeyframe, pxXFromClientX, target, track],
+		[
+			defaultValue,
+			fps,
+			geometry,
+			loopDurationSecs,
+			loopStartSecs,
+			nodeId,
+			onAddKeyframe,
+			pxXFromClientX,
+			target,
+			track,
+		],
 	);
 
 	const handleLaneClick = useCallback(

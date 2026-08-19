@@ -22,7 +22,12 @@ export interface TimelineRegionBarProps {
 
 type EdgeId = 'introStart' | 'introEnd' | 'loopStart' | 'loopEnd';
 
-export function TimelineRegionBar({ geometry, timing, fps, onSetTimingField }: TimelineRegionBarProps) {
+export function TimelineRegionBar({
+	geometry,
+	timing,
+	fps,
+	onSetTimingField,
+}: TimelineRegionBarProps) {
 	const barRef = useRef<HTMLDivElement>(null);
 	const [dragEdge, setDragEdge] = useState<EdgeId | null>(null);
 	const [dragSecs, setDragSecs] = useState<number | null>(null);
@@ -104,7 +109,16 @@ export function TimelineRegionBar({ geometry, timing, fps, onSetTimingField }: T
 		}
 		setDragEdge(null);
 		setDragSecs(null);
-	}, [dragEdge, dragSecs, introEnd, introStart, loopEnd, loopStart, minDurationSecs, onSetTimingField]);
+	}, [
+		dragEdge,
+		dragSecs,
+		introEnd,
+		introStart,
+		loopEnd,
+		loopStart,
+		minDurationSecs,
+		onSetTimingField,
+	]);
 
 	const liveIntroStart = dragEdge === 'introStart' && dragSecs !== null ? dragSecs : introStart;
 	const liveIntroEnd = dragEdge === 'introEnd' && dragSecs !== null ? dragSecs : introEnd;

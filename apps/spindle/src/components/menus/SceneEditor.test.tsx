@@ -1879,7 +1879,9 @@ describe('Navigation preview highlight animation (PR 8)', () => {
 		// btn-1 starts focused (via defaultButtonId); Enter also activates it
 		// — the activated-state outline (from its own `activate-colour`
 		// track) then wins over the focused-state one in the merged style.
-		fireEvent.keyDown(container.querySelector('.scene-canvas__viewport--preview')!, { key: 'Enter' });
+		fireEvent.keyDown(container.querySelector('.scene-canvas__viewport--preview')!, {
+			key: 'Enter',
+		});
 
 		const node = container.querySelector('.scene-canvas__node--focused') as HTMLElement;
 		expect(node.style.outline).toContain('#0000ff');

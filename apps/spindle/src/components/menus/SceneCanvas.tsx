@@ -19,7 +19,11 @@ import type {
 } from '../../types/project';
 import { DEFAULT_DVD_FORMAT_PROFILE } from '../../format/useFormatProfile';
 import { useMenuPlaybackStore } from '../../store/menu-playback-store';
-import { keyValueToColour, keyValueToOpacity, sampleTrackForPreview } from './timeline/timelineUtils';
+import {
+	keyValueToColour,
+	keyValueToOpacity,
+	sampleTrackForPreview,
+} from './timeline/timelineUtils';
 
 // The canvas's fixed interactive coordinate space width. This is *not* yet
 // sourced from `FormatProfile.designSizes` (1024 for DVD-Video) — every menu
