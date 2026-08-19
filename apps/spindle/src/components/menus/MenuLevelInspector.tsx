@@ -226,7 +226,11 @@ export function MenuLevelInspector({
 										type="number"
 										min="0"
 										step="0.5"
-										value={document?.timing.loopDurationSecs ?? ''}
+										value={
+											document && document.timing.loopDurationSecs > 0
+												? document.timing.loopDurationSecs
+												: ''
+										}
 										onChange={(e) =>
 											onUpdateMotionDurationSecs?.(
 												e.target.value === '' ? null : Number(e.target.value),

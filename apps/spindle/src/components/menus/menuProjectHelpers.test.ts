@@ -68,6 +68,122 @@ function buildProject(menus: Menu[]): SpindleProjectFile {
 	};
 }
 
+describe('getMenuButtons', () => {
+	it('joins scene-node geometry and highlight authoring with the interaction-graph fields', () => {
+		// Regression guard for the `getMenuButtons` unification: this view must
+		// carry everything the legacy `MenuButton` shape did (bounds, highlight
+		// authoring, button video) so `MenuEditor`'s `currentButtons` can
+		// consume it directly instead of re-deriving its own join.
+		const menu = emptyMenu('menu-a', 'Menu A');
+		menu.authoredDocument!.scene.nodes = [
+			{
+				type: 'button',
+				id: 'btn-1',
+				label: 'Play',
+				x: 10,
+				y: 20,
+				width: 200,
+				height: 40,
+				highlightMode: 'animated',
+				highlightKeyframes: [
+					{
+						timestampSecs: 0.5,
+						selectColour: '#ffaa40',
+						selectOpacity: 0.6,
+						activateColour: null,
+						activateOpacity: null,
+					},
+				],
+				videoAssetId: 'asset-video-1',
+			},
+		];
+		menu.authoredDocument!.interaction.nodes = [
+			{
+				nodeId: 'btn-1',
+				navUp: 'btn-2',
+				navDown: null,
+				navLeft: null,
+				navRight: null,
+				action: { type: 'playTitle', titleId: 'title-1' },
+			},
+		];
+
+		expect(getMenuButtons(menu)).toEqual([
+			{
+				id: 'btn-1',
+				label: 'Play',
+				bounds: { x: 10, y: 20, width: 200, height: 40 },
+				action: { type: 'playTitle', titleId: 'title-1' },
+				navUp: 'btn-2',
+				navDown: null,
+				navLeft: null,
+				navRight: null,
+				highlightMode: 'animated',
+				highlightKeyframes: [
+					{
+						timestampSecs: 0.5,
+						selectColour: '#ffaa40',
+						selectOpacity: 0.6,
+						activateColour: null,
+						activateOpacity: null,
+					},
+				],
+				videoAssetId: 'asset-video-1',
+			},
+		]);
+	});
+
+	it('defaults highlightMode/highlightKeyframes/videoAssetId when the scene node omits them', () => {
+		const menu = emptyMenu('menu-a', 'Menu A');
+		menu.authoredDocument!.scene.nodes = [
+			{
+				type: 'button',
+				id: 'btn-1',
+				label: 'Play',
+				x: 0,
+				y: 0,
+				width: 100,
+				height: 40,
+			},
+		];
+
+		const [button] = getMenuButtons(menu);
+		expect(button.highlightMode).toBe('static');
+		expect(button.highlightKeyframes).toEqual([]);
+		expect(button.videoAssetId).toBeNull();
+		// No matching interaction node either — nav/action fields fall back too.
+		expect(button.action).toBeNull();
+		expect(button.navUp).toBeNull();
+	});
+
+	it('does not see a button nested inside a Group (top-level scan only)', () => {
+		const menu = emptyMenu('menu-a', 'Menu A');
+		menu.authoredDocument!.scene.nodes = [
+			{
+				type: 'group',
+				id: 'group-1',
+				name: 'Group',
+				children: [
+					{
+						type: 'button',
+						id: 'grouped-btn',
+						label: 'Grouped',
+						x: 0,
+						y: 0,
+						width: 100,
+						height: 40,
+						highlightMode: 'static',
+						highlightKeyframes: [],
+						videoAssetId: null,
+					},
+				],
+			},
+		];
+
+		expect(getMenuButtons(menu)).toHaveLength(0);
+	});
+});
+
 describe('computeMenuConnectionCounts', () => {
 	it('counts an edge whose only source is a group-nested button focus node', () => {
 		// Regression guard: `getMenuButtons` only sees top-level scene

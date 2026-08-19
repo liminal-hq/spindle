@@ -5,6 +5,7 @@
 
 import { useMemo } from 'react';
 import type { SpindleProjectFile, PlaybackAction } from '../../types/project';
+import { getMenuButtons } from './menuProjectHelpers';
 
 // ── Layout constants ────────────────────────────────────────────────────────
 
@@ -646,10 +647,7 @@ export function FullMenuMap({
 		...project.disc.titlesets.flatMap((ts) => ts.menus),
 	];
 	const selectedMenu = allMenus.find((m) => m.id === selectedMenuId) ?? null;
-	const selectedMenuButtonCount = selectedMenu
-		? (selectedMenu.authoredDocument?.scene.nodes.filter((node) => node.type === 'button').length ??
-			0)
-		: 0;
+	const selectedMenuButtonCount = selectedMenu ? getMenuButtons(selectedMenu).length : 0;
 	const selectedMenuHeight = project.disc.standard === 'PAL' ? 576 : 480;
 
 	// Compute outgoing and incoming connections for the selected menu

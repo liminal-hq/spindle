@@ -4,21 +4,38 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: MIT
 
-import type { Menu, PlaybackAction, SceneNode, SpindleProjectFile } from '../../types/project';
+import type {
+	ButtonBounds,
+	HighlightKeyframe,
+	HighlightMode,
+	Menu,
+	PlaybackAction,
+	SceneNode,
+	SpindleProjectFile,
+} from '../../types/project';
 
 /** A top-level scene button joined with its interaction-graph node — the
  * shared "what counts as a button" view, mirroring
  * `MenuDocument::buttons()` on the Rust side, so every reader here agrees.
  * Scans only top-level `scene.nodes` `button` variants; recursive group
- * flattening is deferred to a later PR (matching the Rust side). */
+ * flattening is deferred to a later PR (matching the Rust side).
+ *
+ * Carries the same fields as the legacy `MenuButton` shape (bounds,
+ * highlight authoring, button video) so this is the single "what counts as
+ * a button" join for callers that need scene geometry (e.g. `MenuEditor`),
+ * not just the navigation-graph fields connection-count callers use. */
 export interface MenuButtonView {
 	id: string;
 	label: string;
+	bounds: ButtonBounds;
 	action: PlaybackAction | null;
 	navUp: string | null;
 	navDown: string | null;
 	navLeft: string | null;
 	navRight: string | null;
+	highlightMode: HighlightMode;
+	highlightKeyframes: HighlightKeyframe[];
+	videoAssetId: string | null;
 }
 
 export function getMenuButtons(menu: Menu): MenuButtonView[] {
@@ -31,11 +48,15 @@ export function getMenuButtons(menu: Menu): MenuButtonView[] {
 			return {
 				id: node.id,
 				label: node.label,
+				bounds: { x: node.x, y: node.y, width: node.width, height: node.height },
 				action: interaction?.action ?? null,
 				navUp: interaction?.navUp ?? null,
 				navDown: interaction?.navDown ?? null,
 				navLeft: interaction?.navLeft ?? null,
 				navRight: interaction?.navRight ?? null,
+				highlightMode: node.highlightMode ?? 'static',
+				highlightKeyframes: node.highlightKeyframes ?? [],
+				videoAssetId: node.videoAssetId ?? null,
 			};
 		});
 }

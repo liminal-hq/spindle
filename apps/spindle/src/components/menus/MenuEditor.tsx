@@ -28,6 +28,7 @@ import { SceneCanvas } from './SceneCanvas';
 import { InspectorPanel } from './InspectorPanel';
 import { FullMenuMap } from './MenuMap';
 import { DEFAULT_BUTTON_STYLE_MAP, DEFAULT_TEXT_STYLE } from './menuDefaults';
+import { getMenuButtons } from './menuProjectHelpers';
 import './SceneEditor.css';
 
 function resolveMenuDisplayAspect(project: SpindleProjectFile, menu: Menu): AspectMode {
@@ -166,27 +167,11 @@ export function MenuEditor({
 	// which is guaranteed present for any menu loaded via parseProject or
 	// created in-app (see MenusPage's createMenu).
 	const sceneNodes: SceneNode[] = menu.authoredDocument?.scene.nodes ?? [];
-	const currentButtons: MenuButton[] =
-		menu.authoredDocument?.scene.nodes
-			.filter((n): n is Extract<SceneNode, { type: 'button' }> => n.type === 'button')
-			.map((node) => {
-				const interaction = menu.authoredDocument!.interaction.nodes.find(
-					(i) => i.nodeId === node.id,
-				);
-				return {
-					id: node.id,
-					label: node.label,
-					bounds: { x: node.x, y: node.y, width: node.width, height: node.height },
-					action: interaction?.action ?? null,
-					navUp: interaction?.navUp ?? null,
-					navDown: interaction?.navDown ?? null,
-					navLeft: interaction?.navLeft ?? null,
-					navRight: interaction?.navRight ?? null,
-					highlightMode: node.highlightMode ?? 'static',
-					highlightKeyframes: node.highlightKeyframes ?? [],
-					videoAssetId: node.videoAssetId ?? null,
-				};
-			}) ?? [];
+	// `getMenuButtons` is the single "what counts as a button" join (scene
+	// button node + its interaction-graph focus node), shared with
+	// `menuProjectHelpers`'s connection-count computation and the Rust
+	// `MenuDocument::buttons()` it mirrors — this used to be duplicated here.
+	const currentButtons: MenuButton[] = getMenuButtons(menu);
 
 	const backgroundAssetId = menu.authoredDocument?.scene.background.assetId ?? null;
 	const backgroundAsset = backgroundAssetId
@@ -210,8 +195,7 @@ export function MenuEditor({
 
 	const handleAddButton = () => {
 		const id = crypto.randomUUID();
-		const btnCount =
-			menu.authoredDocument?.scene.nodes.filter((n) => n.type === 'button').length ?? 0;
+		const btnCount = currentButtons.length;
 		const label = `Button ${btnCount + 1}`;
 		const x = 100 + btnCount * 20;
 		const y = Math.min(300 + btnCount * 20, canvasHeight - 60);
@@ -346,7 +330,19 @@ export function MenuEditor({
 			},
 			interaction: {
 				...document.interaction,
-				nodes: document.interaction.nodes.filter((n) => n.nodeId !== buttonId),
+				nodes: document.interaction.nodes
+					.filter((n) => n.nodeId !== buttonId)
+					// Clear any surviving nav_* link that pointed at the
+					// deleted button — otherwise it's left dangling and only
+					// surfaces later as a `menu.dangling-nav-ref` validation
+					// error, instead of being cleaned up at delete time.
+					.map((n) => ({
+						...n,
+						navUp: n.navUp === buttonId ? null : n.navUp,
+						navDown: n.navDown === buttonId ? null : n.navDown,
+						navLeft: n.navLeft === buttonId ? null : n.navLeft,
+						navRight: n.navRight === buttonId ? null : n.navRight,
+					})),
 				defaultFocusId:
 					document.interaction.defaultFocusId === buttonId
 						? null
@@ -465,9 +461,12 @@ export function MenuEditor({
 	};
 
 	const handleMotionDurationChange = (secs: number | null) => {
+		// A cleared input writes the unset sentinel (0.0) rather than
+		// snapping back to the previous value — `MenuDocument::motion_loop_duration`
+		// on the Rust side already treats `<= 0.0` as "not authored".
 		updateMenuDocument(menu.id, (document) => ({
 			...document,
-			timing: { ...document.timing, loopDurationSecs: secs ?? document.timing.loopDurationSecs },
+			timing: { ...document.timing, loopDurationSecs: secs ?? 0.0 },
 		}));
 	};
 

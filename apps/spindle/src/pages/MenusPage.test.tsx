@@ -444,4 +444,72 @@ describe('MenusPage', () => {
 
 		expect(screen.getByText('No menus yet')).toBeInTheDocument();
 	});
+
+	it('clears a motion menu duration to the unset sentinel (0) instead of snapping back', () => {
+		const project = buildProject();
+		const menu = project.disc.globalMenus[0];
+		menu.authoredDocument!.backgroundMode = 'motion';
+		menu.authoredDocument!.timing.loopDurationSecs = 12.5;
+		useProjectStore.setState({ project, selectedMenuId: menu.id });
+
+		render(<MenusPage />);
+
+		const durationInput = screen.getByDisplayValue('12.5');
+		fireEvent.change(durationInput, { target: { value: '' } });
+
+		const updatedProject = useProjectStore.getState().project!;
+		const updatedMenu = updatedProject.disc.globalMenus.find((m) => m.id === menu.id)!;
+		expect(updatedMenu.authoredDocument!.timing.loopDurationSecs).toBe(0);
+	});
+
+	it('clears a surviving button’s nav ref when its nav target button is deleted', () => {
+		const project = buildProject();
+		const menu = project.disc.globalMenus[0];
+		const doc = menu.authoredDocument!;
+		const buttonAId = (doc.scene.nodes[0] as { id: string }).id;
+		const buttonBId = 'global-menu-1-button-2';
+
+		doc.scene.nodes.push({
+			type: 'button',
+			id: buttonBId,
+			label: 'Extra',
+			x: 400,
+			y: 100,
+			width: 200,
+			height: 40,
+			highlightMode: 'static',
+			highlightKeyframes: [],
+			videoAssetId: null,
+		});
+		doc.interaction.nodes.push({
+			nodeId: buttonBId,
+			navUp: null,
+			navDown: null,
+			navLeft: null,
+			navRight: null,
+			action: null,
+		});
+		// Button A's right-nav points at button B, the one about to be deleted.
+		doc.interaction.nodes[0].navRight = buttonBId;
+
+		useProjectStore.setState({ project, selectedMenuId: menu.id });
+
+		render(<MenusPage />);
+
+		// Expand the Layers section and select button B so its inspector
+		// (with the "Remove Button" action) renders. "Extra" also appears as
+		// the scene-canvas node label, so scope the click to the layers list.
+		fireEvent.click(screen.getByText('Layers'));
+		const layersPanel = document.querySelector('.layers-panel') as HTMLElement;
+		fireEvent.click(within(layersPanel).getByText('Extra'));
+		fireEvent.click(screen.getByRole('button', { name: 'Remove Button' }));
+
+		const updatedProject = useProjectStore.getState().project!;
+		const updatedMenu = updatedProject.disc.globalMenus.find((m) => m.id === menu.id)!;
+		const survivingNode = updatedMenu.authoredDocument!.interaction.nodes.find(
+			(n) => n.nodeId === buttonAId,
+		);
+		expect(survivingNode).toBeDefined();
+		expect(survivingNode?.navRight).toBeNull();
+	});
 });
