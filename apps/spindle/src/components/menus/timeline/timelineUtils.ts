@@ -140,6 +140,36 @@ export function sampleHonestFold(
 }
 
 /**
+ * Honest-preview sampling for one state group (highlight or activate) on a
+ * STILL menu that carries animation tracks. Mirrors
+ * `build_overlay_keyframe_schedule`'s still-menu degrade path in
+ * `build/planner/animation.rs`: a still menu's video decode freezes after
+ * its first second and never resumes, so it can't host a schedule at all —
+ * the disc instead folds every relevant track (every button's, menu-wide,
+ * last-track-wins — same as {@link sampleHonestFold}) at each track's own
+ * *first* keyframe (`effective_colour_hex`'s `track.keyframes.first()`
+ * sampling), ignoring the playhead entirely. Unlike {@link sampleHonestFold}
+ * there is no schedule boundary to compute: the disc shows exactly one baked
+ * frame regardless of `tSecs`.
+ */
+export function sampleHonestFoldStill(
+	groupTracks: AnimationTrack[],
+	colourTarget: AnimatableProperty,
+	opacityTarget: AnimatableProperty,
+	defaultHex: string,
+	defaultOpacity: number,
+): FoldedTrackValue {
+	return foldRelevantTracks(
+		groupTracks,
+		colourTarget,
+		opacityTarget,
+		defaultHex,
+		defaultOpacity,
+		(track) => track.keyframes[0]?.value ?? null,
+	);
+}
+
+/**
  * Sample `track` the way the compiled disc's DCSQ schedule actually plays
  * it back. The disc doesn't quantize each track independently: every
  * track in `relevantTracks` (e.g. a node's `highlight-colour` +

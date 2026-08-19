@@ -25,6 +25,7 @@ import {
 	keyValueToColour,
 	keyValueToOpacity,
 	sampleHonestFold,
+	sampleHonestFoldStill,
 	sampleTrackForPreview,
 } from './timeline/timelineUtils';
 import { fpsForStandard } from './timeline/useTimelineGeometry';
@@ -952,10 +953,17 @@ function NavigationPreview({
  *
  * Sampling dispatches on `isMotion`/`honestPreview`:
  *
- * - Still menu: bakes in this button's own track's first keyframe
- *   regardless of the playhead (`sampleTrackForPreview`), mirroring the
- *   disc's still-menu degrade path (a still menu can't host a schedule at
- *   all — see `build_overlay_keyframe_schedule`).
+ * - Still menu, honest preview: menu-wide fold (`sampleHonestFoldStill`) —
+ *   every button's relevant track for the state group is folded into ONE
+ *   value, document-order last-track-wins, each sampled at its own FIRST
+ *   keyframe, mirroring the disc's still-menu degrade path exactly (a
+ *   still menu can't host a schedule at all — see
+ *   `build_overlay_keyframe_schedule`'s `!matches!(.., BackgroundMode::Motion)`
+ *   branch, which folds the same way rather than showing each button's own
+ *   track in isolation).
+ * - Still menu, not honest: this button's own track's first keyframe only,
+ *   regardless of the playhead (`sampleTrackForPreview`) — a friendlier,
+ *   per-button view than the disc's menu-wide fold.
  * - Motion menu, honest preview: menu-wide fold (`sampleHonestFold`) —
  *   every button's relevant track for the state group is folded into ONE
  *   value, document-order last-track-wins, quantized to the compiled
@@ -1093,17 +1101,26 @@ function PreviewButtonNode({
 	const sampledHl = useMenuPlaybackStore(
 		useShallow((s) => {
 			const tSecs = s.currentTime - loopStartSecs;
-			if (isMotion && honestPreview) {
-				return sampleHonestFold(
+			if (honestPreview) {
+				if (isMotion) {
+					return sampleHonestFold(
+						relevantHighlightTracks,
+						relevantSchedulingTracks,
+						'highlight-colour',
+						'highlight-opacity',
+						highlightColours.selectColour,
+						highlightColours.selectOpacity,
+						tSecs,
+						loopDurationSecs,
+						fps,
+					);
+				}
+				return sampleHonestFoldStill(
 					relevantHighlightTracks,
-					relevantSchedulingTracks,
 					'highlight-colour',
 					'highlight-opacity',
 					highlightColours.selectColour,
 					highlightColours.selectOpacity,
-					tSecs,
-					loopDurationSecs,
-					fps,
 				);
 			}
 			return {
@@ -1137,17 +1154,26 @@ function PreviewButtonNode({
 	const sampledActivate = useMenuPlaybackStore(
 		useShallow((s) => {
 			const tSecs = s.currentTime - loopStartSecs;
-			if (isMotion && honestPreview) {
-				return sampleHonestFold(
+			if (honestPreview) {
+				if (isMotion) {
+					return sampleHonestFold(
+						relevantActivateTracks,
+						relevantSchedulingTracks,
+						'activate-colour',
+						'activate-opacity',
+						highlightColours.activateColour,
+						highlightColours.activateOpacity,
+						tSecs,
+						loopDurationSecs,
+						fps,
+					);
+				}
+				return sampleHonestFoldStill(
 					relevantActivateTracks,
-					relevantSchedulingTracks,
 					'activate-colour',
 					'activate-opacity',
 					highlightColours.activateColour,
 					highlightColours.activateOpacity,
-					tSecs,
-					loopDurationSecs,
-					fps,
 				);
 			}
 			return {

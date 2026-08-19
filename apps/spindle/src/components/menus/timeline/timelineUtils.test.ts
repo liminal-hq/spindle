@@ -11,6 +11,7 @@ import {
 	keyValueToColour,
 	keyValueToOpacity,
 	sampleHonestFold,
+	sampleHonestFoldStill,
 	sampleHonestPreview,
 	sampleTrackForPreview,
 } from './timelineUtils';
@@ -246,6 +247,64 @@ describe('sampleHonestFold', () => {
 			30,
 		);
 		expect(folded.hex).toBe('#808000'); // u=0.5 lerp from #ff0000 to #00ff00
+	});
+});
+
+describe('sampleHonestFoldStill', () => {
+	it('folds every relevant track menu-wide at its own FIRST keyframe, last-track-wins', () => {
+		// Mirrors `build_overlay_keyframe_schedule`'s still-menu degrade path
+		// (`effective_colour_hex` sampled with `track.keyframes.first()`):
+		// two buttons' highlight-colour tracks fold into ONE value (the
+		// disc's single menu-wide CLUT), the later track in document order
+		// winning, each read at its own first keyframe regardless of any
+		// later keyframes it might carry.
+		const firstButtonColour: AnimationTrack = {
+			nodeId: 'btn-1',
+			target: 'highlight-colour',
+			keyframes: [
+				{ timestampSecs: 0, value: { kind: 'colour', hex: '#ff0000' }, easing: 'hold' },
+				{ timestampSecs: 5, value: { kind: 'colour', hex: '#ff00ff' }, easing: 'hold' },
+			],
+		};
+		const secondButtonColour: AnimationTrack = {
+			nodeId: 'btn-2',
+			target: 'highlight-colour',
+			keyframes: [{ timestampSecs: 2, value: { kind: 'colour', hex: '#0000ff' }, easing: 'hold' }],
+		};
+		const opacity: AnimationTrack = {
+			nodeId: 'btn-1',
+			target: 'highlight-opacity',
+			keyframes: [{ timestampSecs: 0, value: { kind: 'scalar', value: 0.4 }, easing: 'hold' }],
+		};
+		const groupTracks = [firstButtonColour, secondButtonColour, opacity];
+
+		const folded = sampleHonestFoldStill(
+			groupTracks,
+			'highlight-colour',
+			'highlight-opacity',
+			'#000000',
+			1,
+		);
+
+		expect(folded.hex).toBe('#0000ff'); // last colour-target track wins, at ITS first keyframe
+		expect(folded.opacity).toBeCloseTo(0.4, 9);
+	});
+
+	it('falls back to the defaults when nothing in the group resolves that property', () => {
+		const colourOnly: AnimationTrack = {
+			nodeId: 'btn-1',
+			target: 'activate-colour',
+			keyframes: [{ timestampSecs: 0, value: { kind: 'colour', hex: '#123456' }, easing: 'hold' }],
+		};
+		const folded = sampleHonestFoldStill(
+			[colourOnly],
+			'activate-colour',
+			'activate-opacity',
+			'#ffffff',
+			0.5,
+		);
+		expect(folded.hex).toBe('#123456');
+		expect(folded.opacity).toBe(0.5);
 	});
 });
 
