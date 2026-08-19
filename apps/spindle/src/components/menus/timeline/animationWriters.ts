@@ -1,11 +1,12 @@
-// Pure keyframe CRUD helpers over `MenuDocument.animation` — kept free of
-// React/store dependencies so timeline interactions (drag, popover edits,
-// delete) can be unit-tested directly, and so every call site (MenuEditor's
-// `updateMenuDocument` writers) shares exactly one code path for finding or
-// creating the right track and keeping its keyframes sorted.
+// Pure keyframe CRUD helpers over `MenuDocument.animation`.
 //
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: MIT
+
+// Kept free of React/store dependencies so timeline interactions (drag,
+// popover edits, delete) can be unit-tested directly, and so every call site
+// (MenuEditor's `updateMenuDocument` writers) shares exactly one code path
+// for finding or creating the right track and keeping its keyframes sorted.
 
 import type {
 	AnimatableProperty,
