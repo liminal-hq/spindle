@@ -10,6 +10,7 @@ import type { AnimationTrack } from '../../../types/project';
 import {
 	keyValueToColour,
 	keyValueToOpacity,
+	sampleHonestFold,
 	sampleHonestPreview,
 	sampleTrackForPreview,
 } from './timelineUtils';
@@ -111,6 +112,103 @@ describe('sampleHonestPreview', () => {
 		// interpolation) reports a colour already nudged off pure red.
 		expect(keyValueToColour(sampleHonestPreview([track], track, 4.9, 5))).toBe('#ff0000');
 		expect(keyValueToColour(sampleHonestPreview([track], track, 5, 5))).not.toBe('#ff0000');
+	});
+});
+
+describe('sampleHonestFold', () => {
+	it('folds the LAST track in document order per property, independently for colour vs opacity', () => {
+		// Two buttons' highlight-colour tracks — the disc has one CLUT for
+		// the whole menu, so the later track in `doc.animation` order wins,
+		// not "this button's own track".
+		const firstButtonColour: AnimationTrack = {
+			nodeId: 'btn-1',
+			target: 'highlight-colour',
+			keyframes: [{ timestampSecs: 0, value: { kind: 'colour', hex: '#ff0000' }, easing: 'hold' }],
+		};
+		const secondButtonColour: AnimationTrack = {
+			nodeId: 'btn-2',
+			target: 'highlight-colour',
+			keyframes: [{ timestampSecs: 0, value: { kind: 'colour', hex: '#0000ff' }, easing: 'hold' }],
+		};
+		const opacity: AnimationTrack = {
+			nodeId: 'btn-1',
+			target: 'highlight-opacity',
+			keyframes: [{ timestampSecs: 0, value: { kind: 'scalar', value: 0.4 }, easing: 'hold' }],
+		};
+		const groupTracks = [firstButtonColour, secondButtonColour, opacity];
+
+		const folded = sampleHonestFold(
+			groupTracks,
+			groupTracks,
+			'highlight-colour',
+			'highlight-opacity',
+			'#000000',
+			1,
+			0,
+			10,
+		);
+
+		expect(folded.hex).toBe('#0000ff'); // last colour-target track wins
+		expect(folded.opacity).toBeCloseTo(0.4, 9); // untouched by the colour fold
+	});
+
+	it('falls back to the defaults when nothing in the group resolves that property', () => {
+		const colourOnly: AnimationTrack = {
+			nodeId: 'btn-1',
+			target: 'activate-colour',
+			keyframes: [{ timestampSecs: 0, value: { kind: 'colour', hex: '#123456' }, easing: 'hold' }],
+		};
+		const folded = sampleHonestFold(
+			[colourOnly],
+			[colourOnly],
+			'activate-colour',
+			'activate-opacity',
+			'#ffffff',
+			0.5,
+			0,
+			10,
+		);
+		expect(folded.hex).toBe('#123456');
+		expect(folded.opacity).toBe(0.5); // no activate-opacity track — default kept
+	});
+
+	it('quantizes at a boundary from the COMPLETE union across both groups, not just the folded group', () => {
+		// The highlight group being folded has no keyframe of its own past
+		// 0s, but an activate-group track (passed only via `schedulingTracks`)
+		// adds a boundary at 3s — the disc bakes ONE overlay image per shared
+		// schedule instant, so that boundary must still apply.
+		const highlightColour: AnimationTrack = {
+			nodeId: 'btn-1',
+			target: 'highlight-colour',
+			keyframes: [
+				{ timestampSecs: 0, value: { kind: 'colour', hex: '#ff0000' }, easing: 'linear' },
+				{ timestampSecs: 6, value: { kind: 'colour', hex: '#00ff00' }, easing: 'hold' },
+			],
+		};
+		const activateOpacity: AnimationTrack = {
+			nodeId: 'btn-1',
+			target: 'activate-opacity',
+			keyframes: [{ timestampSecs: 3, value: { kind: 'scalar', value: 0.1 }, easing: 'hold' }],
+		};
+		const groupTracks = [highlightColour];
+		const schedulingTracks = [highlightColour, activateOpacity];
+
+		// At tSecs=4, the union {0, 3} from `schedulingTracks` puts the
+		// boundary at 3 — the highlight colour's own linear ease evaluated
+		// at t=3 (halfway to its 6s keyframe), not at t=4 and not held at
+		// its own last-keyframe-at-or-before (which, ignoring the activate
+		// track, would still be 0).
+		const folded = sampleHonestFold(
+			groupTracks,
+			schedulingTracks,
+			'highlight-colour',
+			'highlight-opacity',
+			'#000000',
+			1,
+			4,
+			10,
+		);
+		expect(folded.hex).toBe('#808000'); // u=0.5 lerp from #ff0000 to #00ff00
 	});
 });
 

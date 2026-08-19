@@ -7,7 +7,7 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: MIT
 
-import type { AnimationTrack, KeyValue } from '../../../types/project';
+import type { AnimatableProperty, AnimationTrack, KeyValue } from '../../../types/project';
 import { evaluateTrack } from '../../../utils/animation';
 
 /**
@@ -42,6 +42,78 @@ function scheduleBoundarySecs(
 		}
 	}
 	return boundary;
+}
+
+export interface FoldedTrackValue {
+	hex: string;
+	opacity: number;
+}
+
+/**
+ * Fold every track in `tracks` (all of them relevant to ONE state group —
+ * e.g. every button's `highlight-colour`/`highlight-opacity` tracks, or
+ * every button's `activate-colour`/`activate-opacity` tracks) into a
+ * single (hex, opacity) pair the way `effective_colour_hex` does: sample
+ * each track with `sample`, letting the LAST track in `tracks` (document
+ * order) that resolves a value win — independently for colour vs.
+ * opacity — since DVD's subpicture model bakes one CLUT entry per
+ * schedule instant for the whole menu, not one per button. Falls back to
+ * `defaultHex`/`defaultOpacity` when nothing in `tracks` resolves that
+ * property.
+ */
+function foldRelevantTracks(
+	tracks: AnimationTrack[],
+	colourTarget: AnimatableProperty,
+	opacityTarget: AnimatableProperty,
+	defaultHex: string,
+	defaultOpacity: number,
+	sample: (track: AnimationTrack) => KeyValue | null,
+): FoldedTrackValue {
+	let hex = defaultHex;
+	let opacity = defaultOpacity;
+	for (const track of tracks) {
+		const value = sample(track);
+		if (!value) continue;
+		if (value.kind === 'colour' && track.target === colourTarget) {
+			hex = value.hex;
+		} else if (value.kind === 'scalar' && track.target === opacityTarget) {
+			opacity = value.value;
+		}
+	}
+	return { hex, opacity };
+}
+
+/**
+ * Honest-preview sampling for one state group (highlight or activate),
+ * folded menu-wide the way the compiled disc's single CLUT actually
+ * would show it, instead of each button showing its own track's value.
+ * Mirrors `build_overlay_keyframe_schedule`'s per-frame
+ * `effective_colour_hex` call: `groupTracks` (every button's relevant
+ * track for this group) is folded at the schedule boundary found from
+ * `schedulingTracks`, which must be the COMPLETE union of highlight AND
+ * activate relevant tracks (see {@link scheduleBoundarySecs}) — a
+ * keyframe in either group can force a new schedule instant that both
+ * states are re-sampled at.
+ */
+export function sampleHonestFold(
+	groupTracks: AnimationTrack[],
+	schedulingTracks: AnimationTrack[],
+	colourTarget: AnimatableProperty,
+	opacityTarget: AnimatableProperty,
+	defaultHex: string,
+	defaultOpacity: number,
+	tSecs: number,
+	loopDurationSecs: number,
+): FoldedTrackValue {
+	const boundarySecs = scheduleBoundarySecs(schedulingTracks, tSecs, loopDurationSecs);
+	return foldRelevantTracks(
+		groupTracks,
+		colourTarget,
+		opacityTarget,
+		defaultHex,
+		defaultOpacity,
+		(track) => evaluateTrack(track, boundarySecs),
+	);
 }
 
 /**
