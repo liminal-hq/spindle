@@ -10,6 +10,7 @@ mod executor;
 mod ffmpeg;
 mod ffmpeg_progress;
 mod menu;
+mod menu_motion;
 mod navigation;
 mod planner;
 mod skia;

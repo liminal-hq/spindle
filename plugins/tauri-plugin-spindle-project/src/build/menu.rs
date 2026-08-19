@@ -40,22 +40,18 @@ impl<'a> AuthorableMenuRef<'a> {
         &self.menu.doc().highlight_colours
     }
 
-    #[allow(dead_code)]
     pub(crate) fn background_mode(&self) -> BackgroundMode {
         self.menu.resolved_background_mode()
     }
 
-    #[allow(dead_code)]
     pub(crate) fn timeout_action(&self) -> Option<&PlaybackAction> {
         self.menu.doc().interaction.timeout_action.as_ref()
     }
 
-    #[allow(dead_code)]
     pub(crate) fn motion_duration_secs(&self) -> Option<f64> {
         self.menu.resolved_motion_duration_secs()
     }
 
-    #[allow(dead_code)]
     pub(crate) fn motion_loop_count(&self) -> u32 {
         self.menu.doc().timing.loop_count
     }

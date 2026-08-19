@@ -530,11 +530,32 @@ fn is_hdr_source(info: &VideoStreamInfo) -> bool {
     )
 }
 
+/// DVD-Video colour-metadata flags for a motion-menu segment compose
+/// (`build_ffmpeg_motion_segment_command` — motion compose only; still/title
+/// colour tagging is a follow-up, see design decision D1). Tags the encoded
+/// mpeg2video stream with the analogue-broadcast primaries/transfer/matrix a
+/// DVD player assumes for each standard: SMPTE 170M for NTSC, ITU-R BT.470
+/// System B/G for PAL.
+pub(crate) fn dvd_colour_flags(standard: VideoStandard) -> Vec<String> {
+    let value = match standard {
+        VideoStandard::Ntsc => "smpte170m",
+        VideoStandard::Pal => "bt470bg",
+    };
+    vec![
+        "-color_primaries".to_string(),
+        value.to_string(),
+        "-color_trc".to_string(),
+        value.to_string(),
+        "-colorspace".to_string(),
+        value.to_string(),
+    ]
+}
+
 #[cfg(test)]
 mod tests {
     use crate::build::generate_build_plan;
     use crate::build::test_support::test_project;
-    use crate::models::AudioOutputTarget;
+    use crate::models::{AudioOutputTarget, VideoStandard};
 
     #[test]
     fn ffmpeg_vf_has_scale_and_pad() {
@@ -906,6 +927,38 @@ mod tests {
         assert_eq!(
             ba_val, "192k",
             "expected the override bitrate, not AC3's 448k default"
+        );
+    }
+
+    #[test]
+    fn dvd_colour_flags_uses_smpte170m_for_ntsc() {
+        let flags = super::dvd_colour_flags(VideoStandard::Ntsc);
+        assert_eq!(
+            flags,
+            vec![
+                "-color_primaries".to_string(),
+                "smpte170m".to_string(),
+                "-color_trc".to_string(),
+                "smpte170m".to_string(),
+                "-colorspace".to_string(),
+                "smpte170m".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn dvd_colour_flags_uses_bt470bg_for_pal() {
+        let flags = super::dvd_colour_flags(VideoStandard::Pal);
+        assert_eq!(
+            flags,
+            vec![
+                "-color_primaries".to_string(),
+                "bt470bg".to_string(),
+                "-color_trc".to_string(),
+                "bt470bg".to_string(),
+                "-colorspace".to_string(),
+                "bt470bg".to_string(),
+            ]
         );
     }
 
