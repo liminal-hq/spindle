@@ -383,13 +383,16 @@ impl MenuDocument {
     }
 
     /// Drop all but the LAST track per `(node_id, target)` pair, preserving
-    /// the survivors' relative order. The editor's writers can only ever
-    /// create one track per pair, but a hand-edited or imported document can
-    /// carry duplicates — and every consumer would then disagree about which
-    /// one counts (the DCSQ lowering's tie-break is last-listed-wins, while
-    /// the editor's writers find the first match). Normalising at load keeps
-    /// the track the disc would have honoured and gives the editor a single
-    /// unambiguous target. Idempotent.
+    /// the survivors' relative order — and within each surviving track, drop
+    /// all but the LAST keyframe per timestamp. The editor's writers can only
+    /// ever create one track per pair (and merge keyframe-timestamp
+    /// collisions), but a hand-edited or imported document can carry
+    /// duplicates — and every consumer would then disagree about which one
+    /// counts (the DCSQ lowering's track tie-break is last-listed-wins, the
+    /// evaluator lets the later keyframe win a shared timestamp, while the
+    /// editor's index/timestamp lookups find the first match). Normalising at
+    /// load keeps what the disc would have honoured and gives the editor a
+    /// single unambiguous target. Idempotent.
     pub fn dedupe_animation_tracks(&mut self) {
         use std::collections::HashSet;
         let mut seen: HashSet<(String, AnimatableProperty)> = HashSet::new();
@@ -405,6 +408,24 @@ impl MenuDocument {
             idx += 1;
             k
         });
+
+        for track in &mut self.animation {
+            let mut keep = vec![false; track.keyframes.len()];
+            let mut seen_ts: Vec<f64> = Vec::new();
+            for (i, kf) in track.keyframes.iter().enumerate().rev() {
+                if seen_ts.contains(&kf.timestamp_secs) {
+                    continue;
+                }
+                seen_ts.push(kf.timestamp_secs);
+                keep[i] = true;
+            }
+            let mut idx = 0;
+            track.keyframes.retain(|_| {
+                let k = keep[idx];
+                idx += 1;
+                k
+            });
+        }
     }
 
     /// Collect the top-level buttons in this document's scene, joined with
@@ -1656,6 +1677,40 @@ mod lift_tests {
         let before = doc.animation.clone();
         doc.dedupe_animation_tracks();
         assert_eq!(doc.animation, before);
+    }
+
+    #[test]
+    fn dedupe_animation_tracks_collapses_shared_timestamps_keeping_the_last() {
+        // Within a track, two keyframes on the same timestamp are one DCSQ
+        // boundary where the evaluator lets the LATER keyframe win — load
+        // normalisation keeps that one and drops the earlier.
+        let mut doc = document_with_animated_button(vec![]);
+        let kf = |ts: f64, hex: &str| Keyframe {
+            timestamp_secs: ts,
+            value: KeyValue::Colour {
+                hex: hex.to_string(),
+            },
+            easing: Easing::Hold,
+        };
+        doc.animation = vec![AnimationTrack {
+            node_id: "btn-1".to_string(),
+            target: AnimatableProperty::HighlightColour,
+            keyframes: vec![
+                kf(0.0, "#111111"),
+                kf(2.0, "#222222"),
+                kf(2.0, "#333333"),
+                kf(4.0, "#444444"),
+            ],
+        }];
+
+        doc.dedupe_animation_tracks();
+
+        let kfs = &doc.animation[0].keyframes;
+        assert_eq!(kfs.len(), 3);
+        assert!(matches!(
+            &kfs[1].value,
+            KeyValue::Colour { hex } if hex == "#333333"
+        ));
     }
 }
 

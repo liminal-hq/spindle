@@ -1,11 +1,12 @@
-// Tests for TimelineKeyframeLane's drag interaction: a keyframe drag that
-// generates several pointermove events must still commit exactly once, on
-// pointer-up — that's what gives one undo entry per drag (see
-// `project-store`'s `updateMenuDocument`, which pushes one undo entry per
-// call).
+// Tests for TimelineKeyframeLane's drag, selection, and popover interactions.
 //
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: MIT
+
+// The central drag invariant: a keyframe drag that generates several
+// pointermove events must still commit exactly once, on pointer-up — that's
+// what gives one undo entry per drag (see `project-store`'s
+// `updateMenuDocument`, which pushes one undo entry per call).
 
 import { describe, expect, it, vi } from 'vitest';
 import { render, fireEvent } from '@testing-library/react';

@@ -45,8 +45,20 @@ export function addKeyframe(
 	if (index === -1) {
 		return [...tracks, { nodeId, target, keyframes: [keyframe] }];
 	}
+	// Two keyframes on the same timestamp are meaningless on the disc (one
+	// DCSQ boundary; the evaluator lets the later one win) and would break
+	// the lane's timestamp-identity bindings — inserting onto an existing
+	// keyframe's time REPLACES it.
 	return tracks.map((t, i) =>
-		i === index ? { ...t, keyframes: sortedKeyframes([...t.keyframes, keyframe]) } : t,
+		i === index
+			? {
+					...t,
+					keyframes: sortedKeyframes([
+						...t.keyframes.filter((kf) => kf.timestampSecs !== timestampSecs),
+						keyframe,
+					]),
+				}
+			: t,
 	);
 }
 
@@ -63,9 +75,15 @@ export function moveKeyframe(
 	if (index === -1) return tracks;
 	const track = tracks[index];
 	if (keyframeIndex < 0 || keyframeIndex >= track.keyframes.length) return tracks;
-	const updated = track.keyframes.map((kf, i) =>
-		i === keyframeIndex ? { ...kf, timestampSecs: Math.max(0, newTimestampSecs) } : kf,
-	);
+	const clampedSecs = Math.max(0, newTimestampSecs);
+	// Retiming onto another keyframe's timestamp REPLACES it — duplicates are
+	// meaningless on the disc (one DCSQ boundary, later wins) and would break
+	// the lane's timestamp-identity bindings.
+	const updated = track.keyframes
+		.filter((kf, i) => i === keyframeIndex || kf.timestampSecs !== clampedSecs)
+		.map((kf) =>
+			kf === track.keyframes[keyframeIndex] ? { ...kf, timestampSecs: clampedSecs } : kf,
+		);
 	return tracks.map((t, i) => (i === index ? { ...t, keyframes: sortedKeyframes(updated) } : t));
 }
 

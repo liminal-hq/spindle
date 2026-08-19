@@ -91,6 +91,36 @@ describe('moveKeyframe', () => {
 		const tracks = moveKeyframe(base, 'btn-1', 'highlight-colour', 5, 3);
 		expect(tracks).toBe(base);
 	});
+
+	it('replaces an existing keyframe when retimed onto its timestamp', () => {
+		// Duplicate timestamps are one DCSQ boundary on the disc (later wins)
+		// and would break the lane's timestamp-identity bindings — retiming
+		// onto an occupied time merges: the moved keyframe survives.
+		const tracks = moveKeyframe(base, 'btn-1', 'highlight-colour', 1, 0);
+		expect(tracks[0].keyframes).toHaveLength(1);
+		expect(tracks[0].keyframes[0].timestampSecs).toBe(0);
+		expect(tracks[0].keyframes[0].value).toEqual({ kind: 'colour', hex: '#222222' });
+	});
+});
+
+describe('addKeyframe timestamp collisions', () => {
+	it('replaces an existing keyframe when inserting onto its timestamp', () => {
+		const base: AnimationTrack[] = [
+			{
+				nodeId: 'btn-1',
+				target: 'highlight-colour',
+				keyframes: [
+					{ timestampSecs: 2, value: { kind: 'colour', hex: '#111111' }, easing: 'hold' },
+				],
+			},
+		];
+		const tracks = addKeyframe(base, 'btn-1', 'highlight-colour', 2, {
+			kind: 'colour',
+			hex: '#999999',
+		});
+		expect(tracks[0].keyframes).toHaveLength(1);
+		expect(tracks[0].keyframes[0].value).toEqual({ kind: 'colour', hex: '#999999' });
+	});
 });
 
 describe('updateKeyframeValue / updateKeyframeEasing', () => {
