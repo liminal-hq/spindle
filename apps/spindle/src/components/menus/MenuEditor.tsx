@@ -643,11 +643,7 @@ export function MenuEditor({
 			Math.max(0, currentTime - loopStartSecs),
 			Math.max(0, loopDurationSecs),
 		);
-		const track = findTrack(
-			menu.authoredDocument?.animation ?? [],
-			buttonId,
-			'highlight-colour',
-		);
+		const track = findTrack(menu.authoredDocument?.animation ?? [], buttonId, 'highlight-colour');
 		const sampled = track ? evaluateTrack(track, timestampSecs) : null;
 		const value: KeyValue = sampled ?? { kind: 'colour', hex: highlightColours.selectColour };
 		handleAddKeyframe(buttonId, 'highlight-colour', timestampSecs, value);
