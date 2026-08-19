@@ -246,7 +246,7 @@ Each slice is independently shippable and lists what it must do differently beca
 
 ### Slice A — Format profile & terminology layer
 
-**Status: partial** — the format-profile and menu-role work landed: `FormatProfile`/`profile_for` (`models/format_profile.rs`) drive validation and editor chrome, and the frontend terminology map (`apps/spindle/src/format/terminology.ts`, `useFormatProfile`) is in place. Still outstanding: `FormatProfile` has no raster or safe-area fields, so `SceneCanvas.tsx` still hardcodes `CANVAS_DESIGN_WIDTH = 720` and fixed `ACTION_SAFE_PCT`/`TITLE_SAFE_PCT` percentages instead of reading them from the profile.
+**Status: partial** — the format-profile and menu-role work landed: `FormatProfile`/`profile_for` (`models/format_profile.rs`) drive validation and editor chrome, and the frontend terminology map (`apps/spindle/src/format/terminology.ts`, `useFormatProfile`) is in place. Still outstanding: `FormatProfile` has no raster or safe-area fields, so `SceneCanvas.tsx` still hardcodes `CANVAS_DESIGN_WIDTH = 720` and fixed `ACTION_SAFE_PCT`/`TITLE_SAFE_PCT` percentages instead of reading them from the profile; and the compile preview is not yet profile-driven — `CompileOverlay` unconditionally renders the "DVD output simulation" banner, DVD fallback prose, and the 4-colour CLUT treatment, reading only `formatProfile.maxButtonsPerMenu`.
 
 **Goal:** the UI reflects the disc type; DVD-isms move from constants into data.
 
