@@ -1,11 +1,13 @@
 // Small shared helpers for the timeline UI and its preview-sampling call
 // sites in SceneCanvas: honest-preview quantization and KeyValue<->CSS
-// conversions. Kept separate from `utils/animation.ts` (the Rust evaluator
-// twin, pinned to the shared parity fixture) since none of this is part of
-// that parity contract.
+// conversions.
 //
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: MIT
+
+// Kept separate from `utils/animation.ts` (the Rust evaluator twin, pinned
+// to the shared parity fixture) since none of this is part of that parity
+// contract.
 
 import type { AnimatableProperty, AnimationTrack, KeyValue } from '../../../types/project';
 import { evaluateTrack } from '../../../utils/animation';

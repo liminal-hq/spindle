@@ -1,10 +1,11 @@
 // The timeline strip mounted below the canvas: playback transport, intro/loop
 // region bar, audio-bed lane, and one keyframe lane group per animated node.
-// Visible when the menu has a motion background or any authored animation
-// track — see design decision D9.
 //
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: MIT
+
+// Visible when the menu has a motion background or any authored animation
+// track — see design decision D9.
 
 import { useEffect, useMemo, useRef } from 'react';
 import type {
