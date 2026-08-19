@@ -624,6 +624,58 @@ fn build_plan_motion_menu_with_highlight_track_builds_multi_frame_schedule() {
     assert_eq!(compose_menu_spumux_xml(&plan).matches("<spu ").count(), 2);
 }
 
+#[test]
+fn build_plan_motion_menu_keyframe_at_exact_loop_duration_gets_a_non_zero_final_frame() {
+    // Regression test for codex finding 3813775868: a keyframe authored at
+    // (or past) the loop's own duration — e.g. an NTSC 5-second loop with a
+    // keyframe at 5.0 seconds — previously set the terminal frame's `end`
+    // equal to its own `start` (`last_frame_end.max(start_secs)`), emitting
+    // a zero-length `<spu>` with no display interval at all.
+    let mut project = test_project();
+    let mut menu = test_menu();
+    {
+        let doc = menu.doc_mut();
+        doc.background_mode = BackgroundMode::Motion;
+        doc.scene.background.asset_id = Some("asset-1".to_string());
+        doc.timing.loop_start_secs = 0.0;
+        doc.timing.loop_duration_secs = 4.0;
+        doc.animation = vec![highlight_colour_track(
+            "btn-1",
+            &[(0.0, "#ff0000"), (4.0, "#00ff00")],
+        )];
+    }
+    project.disc.global_menus.push(menu);
+
+    let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+
+    let frames = render_menu_overlay_keyframes(&plan);
+    assert_eq!(
+        frames.len(),
+        2,
+        "the keyframe at exactly loopDurationSecs should clamp onto its own \
+         frame, distinct from the 0.0s frame"
+    );
+    let last = frames.last().unwrap();
+    assert!(
+        last.end_secs > last.start_secs,
+        "the final frame must never be zero-length, got start={} end={}",
+        last.start_secs,
+        last.end_secs
+    );
+    assert!(
+        last.start_secs < 4.0,
+        "the terminal start must clamp below the loop duration to the last \
+         presentable frame, got {}",
+        last.start_secs
+    );
+    assert_eq!(
+        last.end_secs, 4.0,
+        "the terminal frame's end should extend to the loop boundary"
+    );
+
+    assert_eq!(compose_menu_spumux_xml(&plan).matches("<spu ").count(), 2);
+}
+
 fn activate_colour_track(node_id: &str, stops: &[(f64, &str)]) -> AnimationTrack {
     AnimationTrack {
         node_id: node_id.to_string(),

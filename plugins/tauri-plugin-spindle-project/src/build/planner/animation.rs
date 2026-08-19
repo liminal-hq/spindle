@@ -130,9 +130,20 @@ pub(super) fn build_overlay_keyframe_schedule(
         return vec![trivial_frame()];
     };
 
+    // The last timestamp a keyframe can actually start displaying at: past
+    // this, playback wraps back to 0 before the frame is ever reached.
+    let frame_duration_secs = 1.0 / standard.frame_rate();
+    let last_presentable_secs = (loop_duration_secs - frame_duration_secs).max(0.0);
+
     // Union of every relevant track's keyframe timestamps (highlight and
     // select alike — either kind of track can drive a schedule instant),
-    // clamped inside the loop window, sorted, deduped, always including 0.0.
+    // clamped to the last presentable timestamp *before* dedup, sorted,
+    // deduped, always including 0.0. Clamping here — rather than to
+    // `loop_duration_secs` — means a keyframe authored at or past the end
+    // of the loop (e.g. exactly at `loopDurationSecs`) collapses onto the
+    // same start as the last frame that will actually be reached, instead
+    // of creating an unreachable start with nothing after it to bound its
+    // end (which previously produced a zero-length `<spu>`).
     let mut timestamps: Vec<f64> = std::iter::once(0.0)
         .chain(
             relevant_highlight_tracks
@@ -142,25 +153,25 @@ pub(super) fn build_overlay_keyframe_schedule(
                     track
                         .keyframes
                         .iter()
-                        .map(|kf| kf.timestamp_secs.clamp(0.0, loop_duration_secs))
+                        .map(|kf| kf.timestamp_secs.clamp(0.0, last_presentable_secs))
                 }),
         )
         .collect();
     timestamps.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
     timestamps.dedup_by(|a, b| (*a - *b).abs() < 1e-9);
 
-    // Defensive clamp so the last frame's `end` never lands past the last
-    // presentable frame of the loop (spumux `end` past the last PTS is
-    // undefined — see the design's risk list).
-    let frame_duration_secs = 1.0 / standard.frame_rate();
-    let last_frame_end = (loop_duration_secs - frame_duration_secs).max(0.0);
-
     let base_name = sanitise_filename(&menu_ref.menu.id);
     let mut frames = Vec::with_capacity(timestamps.len());
     for (index, &start_secs) in timestamps.iter().enumerate() {
         let end_secs = match timestamps.get(index + 1) {
             Some(&next) => next,
-            None => last_frame_end.max(start_secs),
+            // The final frame's interval always extends to the loop
+            // boundary itself, where playback wraps back to the start. This
+            // is always strictly greater than `start_secs`, since starts are
+            // clamped to at most `last_presentable_secs` (< loop_duration_secs
+            // whenever the loop is at least one frame long) — so the last
+            // frame can never come out zero-length.
+            None => loop_duration_secs,
         };
         let highlight_colour = effective_colour_hex(
             &relevant_highlight_tracks,
