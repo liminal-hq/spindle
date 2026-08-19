@@ -10,7 +10,13 @@
 // SPDX-License-Identifier: MIT
 
 import { useCallback, useRef, useState } from 'react';
-import type { AnimatableProperty, AnimationTrack, Easing, KeyValue } from '../../../types/project';
+import type {
+	AnimatableProperty,
+	AnimationTrack,
+	Easing,
+	Keyframe,
+	KeyValue,
+} from '../../../types/project';
 import type { TimelineGeometry } from './useTimelineGeometry';
 import { snapSecsToFrame } from './useTimelineGeometry';
 import { evaluateTrack } from '../../../utils/animation';
@@ -18,6 +24,20 @@ import { KeyframeEditorPopover } from './KeyframeEditorPopover';
 
 function clamp(v: number, lo: number, hi: number): number {
 	return Math.min(Math.max(v, lo), Math.max(lo, hi));
+}
+
+/** Whether retiming the keyframe at `index` to `newTimestampSecs` would move
+ * it across an immediate neighbour, which `moveKeyframe` resolves by
+ * re-sorting the whole array. Index-keyed UI state (selection, the open
+ * popover) that refers to a DIFFERENT keyframe than the one just retimed
+ * must not survive a reorder — it would silently point at whatever
+ * keyframe the sort left behind at that index. */
+function willReorder(keyframes: Keyframe[], index: number, newTimestampSecs: number): boolean {
+	const prev = keyframes[index - 1];
+	const next = keyframes[index + 1];
+	if (prev && newTimestampSecs < prev.timestampSecs) return true;
+	if (next && newTimestampSecs > next.timestampSecs) return true;
+	return false;
 }
 
 export interface TimelineKeyframeLaneProps {
@@ -124,11 +144,19 @@ export function TimelineKeyframeLane({
 	const handlePointerUp = useCallback(() => {
 		if (dragIndex === null || dragTimestampSecs === null) return;
 		if (hasMovedRef.current) {
+			if (willReorder(keyframes, dragIndex, dragTimestampSecs)) {
+				// The commit below re-sorts the array; any open popover or
+				// selection keyed by index would silently start pointing at
+				// whatever keyframe the sort left at that index. Close/clear
+				// rather than risk an edit or delete landing on the wrong one.
+				setSelectedIndex(null);
+				setPopoverIndex(null);
+			}
 			onMoveKeyframe(nodeId, target, dragIndex, dragTimestampSecs);
 		}
 		setDragIndex(null);
 		setDragTimestampSecs(null);
-	}, [dragIndex, dragTimestampSecs, nodeId, onMoveKeyframe, target]);
+	}, [dragIndex, dragTimestampSecs, keyframes, nodeId, onMoveKeyframe, target]);
 
 	const handleLaneDoubleClick = useCallback(
 		(e: React.MouseEvent) => {
@@ -226,9 +254,17 @@ export function TimelineKeyframeLane({
 					target={target}
 					onChangeValue={(value) => onUpdateKeyframeValue(nodeId, target, popoverIndex, value)}
 					onChangeEasing={(easing) => onUpdateKeyframeEasing(nodeId, target, popoverIndex, easing)}
-					onChangeTimestamp={(timestampSecs) =>
-						onMoveKeyframe(nodeId, target, popoverIndex, timestampSecs)
-					}
+					onChangeTimestamp={(timestampSecs) => {
+						// Same stale-index hazard as the drag path above: retiming
+						// past a neighbour re-sorts the array, so keep editing the
+						// keyframe under the popover only while it's still the one
+						// at `popoverIndex` after the commit — otherwise close it.
+						if (willReorder(keyframes, popoverIndex, timestampSecs)) {
+							setSelectedIndex(null);
+							setPopoverIndex(null);
+						}
+						onMoveKeyframe(nodeId, target, popoverIndex, timestampSecs);
+					}}
 					onDelete={() => {
 						onDeleteKeyframe(nodeId, target, popoverIndex);
 						setPopoverIndex(null);
