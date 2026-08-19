@@ -517,10 +517,23 @@ export function MenuEditor({
 		// A cleared input writes the unset sentinel (0.0) rather than
 		// snapping back to the previous value — `MenuDocument::motion_loop_duration`
 		// on the Rust side already treats `<= 0.0` as "not authored".
-		updateMenuDocument(menu.id, (document) => ({
-			...document,
-			timing: { ...document.timing, loopDurationSecs: secs ?? 0.0 },
-		}));
+		updateMenuDocument(menu.id, (document) => {
+			// Same latest-keyframe floor as the timeline's region-bar drags:
+			// keyframes are loop-relative, so a shorter loop would strand them
+			// out of range and fail `menu.motion-keyframe-out-of-range` on the
+			// next validate. Applied at the writer so EVERY duration input
+			// respects it. A cleared input (unset sentinel) stays clearable.
+			const minLoop = Math.max(
+				0,
+				...(document.animation ?? []).flatMap((t) => t.keyframes.map((kf) => kf.timestampSecs)),
+			);
+			const requested = secs ?? 0.0;
+			const clamped = requested > 0 ? Math.max(requested, minLoop) : requested;
+			return {
+				...document,
+				timing: { ...document.timing, loopDurationSecs: clamped },
+			};
+		});
 	};
 
 	const handleMotionLoopCountChange = (count: number) => {

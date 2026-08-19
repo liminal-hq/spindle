@@ -16,9 +16,15 @@ import { computeLoopWraparound, useMenuPlaybackStore } from '../../../store/menu
  * loop start) when enabled and the playhead has reached the end of the
  * loop window. A no-op (but still scheduled) when no video is registered or
  * it's paused, so scrubbing while paused isn't fought over.
+ *
+ * Pass `enabled: false` to schedule nothing at all — the caller renders for
+ * a still menu whose timeline is hidden, and a hidden strip must not wake
+ * the main thread every frame (hooks can't be mounted conditionally, so the
+ * flag does it instead).
  */
-export function useVideoPlayhead(): void {
+export function useVideoPlayhead(enabled = true): void {
 	useEffect(() => {
+		if (!enabled) return;
 		let raf = 0;
 
 		const tick = () => {
@@ -38,5 +44,5 @@ export function useVideoPlayhead(): void {
 
 		raf = requestAnimationFrame(tick);
 		return () => cancelAnimationFrame(raf);
-	}, []);
+	}, [enabled]);
 }

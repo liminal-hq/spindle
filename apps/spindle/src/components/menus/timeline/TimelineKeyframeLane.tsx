@@ -145,7 +145,10 @@ export function TimelineKeyframeLane({
 
 	const handlePointerUp = useCallback(() => {
 		if (dragIndex === null || dragTimestampSecs === null) return;
-		if (hasMovedRef.current) {
+		// Jitter within one frame cell snaps back to the original timestamp —
+		// an identity retime that would burn an undo entry for nothing, so
+		// only commit when the snapped time actually changed.
+		if (hasMovedRef.current && dragTimestampSecs !== keyframes[dragIndex]?.timestampSecs) {
 			// The dragged keyframe's identity IS its timestamp — retarget any
 			// binding that referred to the old one before committing, so the
 			// selection/popover follow the keyframe to its new time (a reorder
