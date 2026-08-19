@@ -931,6 +931,7 @@ export function MenuEditor({
 								backgroundAsset={backgroundAsset}
 								backgroundIsMotion={menu.authoredDocument?.backgroundMode === 'motion'}
 								backgroundInitialTimeSecs={menu.authoredDocument?.timing.loopStartSecs ?? 0}
+								loopDurationSecs={menu.authoredDocument?.timing.loopDurationSecs ?? 0}
 								animationTracks={menu.authoredDocument?.animation ?? []}
 								defaultButtonId={defaultFocusId}
 								previewMode={previewMode}

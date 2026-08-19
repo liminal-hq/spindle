@@ -19,8 +19,7 @@ import type {
 } from '../../types/project';
 import { DEFAULT_DVD_FORMAT_PROFILE } from '../../format/useFormatProfile';
 import { useMenuPlaybackStore } from '../../store/menu-playback-store';
-import { evaluateTrack } from '../../utils/animation';
-import { keyValueToColour, keyValueToOpacity, sampleHonestPreview } from './timeline/timelineUtils';
+import { keyValueToColour, keyValueToOpacity, sampleTrackForPreview } from './timeline/timelineUtils';
 
 // The canvas's fixed interactive coordinate space width. This is *not* yet
 // sourced from `FormatProfile.designSizes` (1024 for DVD-Video) — every menu
@@ -73,6 +72,10 @@ export interface SceneCanvasProps {
 	 * metadata loads — the menu's authored `timing.loopStartSecs` in design
 	 * mode. Ignored for still backgrounds. */
 	backgroundInitialTimeSecs?: number;
+	/** The menu's authored `timing.loopDurationSecs` — used by the navigation
+	 * preview's honest-preview quantization to clamp keyframe timestamps into
+	 * the loop window (mirrors `build_overlay_keyframe_schedule`). */
+	loopDurationSecs?: number;
 	/** Animation tracks from `document.animation` — used by the navigation
 	 * preview to sample the focused/activated button's highlight colour and
 	 * opacity at the playhead's loop-relative time. */
@@ -110,6 +113,7 @@ export function SceneCanvas({
 	backgroundAsset = null,
 	backgroundIsMotion = false,
 	backgroundInitialTimeSecs = 0,
+	loopDurationSecs = 0,
 	animationTracks = [],
 	defaultButtonId,
 	previewMode,
@@ -135,6 +139,7 @@ export function SceneCanvas({
 				backgroundAsset={backgroundAsset}
 				backgroundIsMotion={backgroundIsMotion}
 				backgroundInitialTimeSecs={backgroundInitialTimeSecs}
+				loopDurationSecs={loopDurationSecs}
 				animationTracks={animationTracks}
 				defaultButtonId={defaultButtonId}
 				highlightColours={highlightColours}
@@ -688,6 +693,7 @@ function NavigationPreview({
 	backgroundAsset,
 	backgroundIsMotion,
 	backgroundInitialTimeSecs,
+	loopDurationSecs = 0,
 	animationTracks = [],
 	defaultButtonId,
 	highlightColours,
@@ -705,6 +711,7 @@ function NavigationPreview({
 	backgroundAsset: Asset | null;
 	backgroundIsMotion: boolean;
 	backgroundInitialTimeSecs: number;
+	loopDurationSecs?: number;
 	animationTracks?: AnimationTrack[];
 	defaultButtonId: string | null;
 	highlightColours: MenuHighlightColours;
@@ -890,6 +897,7 @@ function NavigationPreview({
 					highlightColours={highlightColours}
 					animationTracks={animationTracks}
 					loopStartSecs={backgroundInitialTimeSecs}
+					loopDurationSecs={loopDurationSecs}
 					isMotion={backgroundIsMotion}
 					honestPreview={honestPreview}
 					canvasHeight={canvasHeight}
@@ -901,14 +909,33 @@ function NavigationPreview({
 }
 
 /**
- * One button in the navigation preview. Focused/activated highlight colour
- * and opacity are sampled from this node's `highlight-colour`/
- * `highlight-opacity` animation tracks (if any) at the loop-relative
- * playhead time, falling back to the menu's static `highlightColours` —
- * see design decision D9. Honest preview quantizes to the last keyframe
- * at-or-before the playhead (what the compiled disc actually shows);
- * otherwise the full eased curve is sampled, matching the DOM preview's
- * general "friendlier than the disc" posture elsewhere in this file.
+ * One button in the navigation preview.
+ *
+ * Focused-state highlight colour/opacity are sampled from this node's
+ * `highlight-colour`/`highlight-opacity` tracks; activated-state colour is
+ * sampled from its `activate-colour` track (DVD naming: spumux's
+ * "highlight" state is the focused/selected one, its "select" state is the
+ * activated/pressed one — see `AnimatableProperty`'s doc comment) — both
+ * fall back to the menu's static `highlightColours` when there's no track.
+ *
+ * Sampling dispatches on `isMotion`/`honestPreview` via
+ * `sampleTrackForPreview` (`timelineUtils.ts`):
+ *
+ * - Still menu: bakes in the track's first keyframe regardless of the
+ *   playhead, mirroring the disc's still-menu degrade path (a still menu
+ *   can't host a schedule at all — see `build_overlay_keyframe_schedule`).
+ * - Motion menu, honest preview: quantizes to the compiled disc's actual
+ *   DCSQ schedule (`sampleHonestPreview` — the UNION of every relevant
+ *   track's keyframe timestamps, not a per-track hold).
+ * - Motion menu, not honest: the full eased curve, friendlier than the
+ *   disc actually produces, matching this file's preview posture
+ *   elsewhere — see design decision D9.
+ *
+ * Each sampled value is read via its own zustand selector rather than a
+ * raw `currentTime` subscription, so this component only re-renders when
+ * the SAMPLED value changes (e.g. never, for Hold easing, except right at
+ * a keyframe boundary) instead of at rAF/timeupdate cadence for every
+ * button on the canvas while playing.
  */
 function PreviewButtonNode({
 	btn,
@@ -919,6 +946,7 @@ function PreviewButtonNode({
 	highlightColours,
 	animationTracks,
 	loopStartSecs,
+	loopDurationSecs,
 	isMotion,
 	honestPreview,
 	canvasHeight,
@@ -932,46 +960,98 @@ function PreviewButtonNode({
 	highlightColours: MenuHighlightColours;
 	animationTracks: AnimationTrack[];
 	loopStartSecs: number;
+	loopDurationSecs: number;
 	isMotion: boolean;
 	honestPreview: boolean;
 	canvasHeight: number;
 	onFocus: () => void;
 }) {
-	// Subscribed unconditionally (rules-of-hooks) — a no-op re-render cost for
-	// still menus and buttons without tracks, since `isMotion` and the track
-	// lookups below are cheap and only the focused/activated node's outline
-	// actually changes as a result.
-	const currentTime = useMenuPlaybackStore((s) => s.currentTime);
-
 	const visualState = isActivated ? 'activate' : isFocused ? 'focus' : 'normal';
 	const buttonStyle = buttonNode?.buttonStyle?.[visualState];
 	const labelStyle = buttonNode?.labelStyle;
 
-	let hlColour = highlightColours.selectColour;
-	let hlOpacity = highlightColours.selectOpacity;
-	let activateColour = highlightColours.activateColour;
-	if (isMotion && (isFocused || isActivated)) {
-		const tLoop = currentTime - loopStartSecs;
-		const colourTrack = animationTracks.find(
-			(t) => t.nodeId === btn.id && t.target === 'highlight-colour',
-		);
-		const opacityTrack = animationTracks.find(
-			(t) => t.nodeId === btn.id && t.target === 'highlight-opacity',
-		);
-		const sample = (track: AnimationTrack | undefined) =>
-			track
-				? honestPreview
-					? sampleHonestPreview(track, tLoop)
-					: evaluateTrack(track, tLoop)
-				: null;
-		const sampledColour = keyValueToColour(sample(colourTrack));
-		const sampledOpacity = keyValueToOpacity(sample(opacityTrack));
-		if (sampledColour) {
-			hlColour = sampledColour;
-			activateColour = sampledColour;
-		}
-		if (sampledOpacity !== null) hlOpacity = sampledOpacity;
-	}
+	// Only look up a track when the corresponding state is actually shown —
+	// an unfocused/inactive button never needs its track sampled.
+	const colourTrack = isFocused
+		? animationTracks.find((t) => t.nodeId === btn.id && t.target === 'highlight-colour')
+		: undefined;
+	const opacityTrack = isFocused
+		? animationTracks.find((t) => t.nodeId === btn.id && t.target === 'highlight-opacity')
+		: undefined;
+	const activateColourTrack = isActivated
+		? animationTracks.find((t) => t.nodeId === btn.id && t.target === 'activate-colour')
+		: undefined;
+
+	// The DCSQ schedule is shared across every relevant track for a given
+	// state (highlight vs. select — see `sampleHonestPreview`'s doc
+	// comment), so the "relevant tracks" group passed to it must include
+	// every highlight/activate-target track across every button, not just
+	// this one — mirroring `build_overlay_keyframe_schedule`'s
+	// `relevant_highlight_tracks`/`relevant_select_tracks`.
+	const relevantHighlightTracks = useMemo(
+		() =>
+			animationTracks.filter(
+				(t) =>
+					(t.target === 'highlight-colour' || t.target === 'highlight-opacity') &&
+					t.keyframes.length > 0,
+			),
+		[animationTracks],
+	);
+	const relevantActivateTracks = useMemo(
+		() =>
+			animationTracks.filter(
+				(t) =>
+					(t.target === 'activate-colour' || t.target === 'activate-opacity') &&
+					t.keyframes.length > 0,
+			),
+		[animationTracks],
+	);
+
+	// Each selector reads out a SAMPLED value (a colour/opacity primitive,
+	// or `null`), not the raw `currentTime` — zustand's default equality
+	// (`Object.is`, which works correctly on primitives) then only
+	// re-renders this node when the sampled value itself changes, instead
+	// of at rAF/timeupdate cadence for every button while playing.
+	const sampledHlColour = useMenuPlaybackStore((s) =>
+		keyValueToColour(
+			sampleTrackForPreview(
+				colourTrack,
+				relevantHighlightTracks,
+				s.currentTime - loopStartSecs,
+				loopDurationSecs,
+				isMotion,
+				honestPreview,
+			),
+		),
+	);
+	const sampledHlOpacity = useMenuPlaybackStore((s) =>
+		keyValueToOpacity(
+			sampleTrackForPreview(
+				opacityTrack,
+				relevantHighlightTracks,
+				s.currentTime - loopStartSecs,
+				loopDurationSecs,
+				isMotion,
+				honestPreview,
+			),
+		),
+	);
+	const sampledActivateColour = useMenuPlaybackStore((s) =>
+		keyValueToColour(
+			sampleTrackForPreview(
+				activateColourTrack,
+				relevantActivateTracks,
+				s.currentTime - loopStartSecs,
+				loopDurationSecs,
+				isMotion,
+				honestPreview,
+			),
+		),
+	);
+
+	const hlColour = sampledHlColour ?? highlightColours.selectColour;
+	const hlOpacity = sampledHlOpacity ?? highlightColours.selectOpacity;
+	const activateColour = sampledActivateColour ?? highlightColours.activateColour;
 
 	return (
 		<div

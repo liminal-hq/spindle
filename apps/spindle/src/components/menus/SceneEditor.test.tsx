@@ -1760,4 +1760,128 @@ describe('Navigation preview highlight animation (PR 8)', () => {
 
 		expect(focused().style.outline).toContain('#00ff00');
 	});
+
+	it("bakes in a still menu's first keyframe regardless of the playhead, mirroring the disc's degrade path", () => {
+		const previewButtons: MenuButton[] = [
+			{
+				id: 'btn-1',
+				label: 'Play',
+				bounds: { x: 100, y: 300, width: 200, height: 40 },
+				action: null,
+				navUp: null,
+				navDown: null,
+				navLeft: null,
+				navRight: null,
+				highlightMode: 'static',
+				highlightKeyframes: [],
+				videoAssetId: null,
+			},
+		];
+		const tracks: AnimationTrack[] = [
+			{
+				nodeId: 'btn-1',
+				target: 'highlight-colour',
+				keyframes: [
+					{ timestampSecs: 0, value: { kind: 'colour', hex: '#ff0000' }, easing: 'hold' },
+					{ timestampSecs: 2, value: { kind: 'colour', hex: '#00ff00' }, easing: 'hold' },
+				],
+			},
+		];
+
+		act(() => {
+			useMenuPlaybackStore.setState({ currentTime: 2.5 });
+		});
+
+		const { container } = render(
+			<SceneCanvas
+				buttons={previewButtons}
+				canvasHeight={480}
+				sceneNodes={[]}
+				onUpdateButton={vi.fn()}
+				onUpdateSceneNode={vi.fn()}
+				showSafeArea={false}
+				backgroundLabel={null}
+				backgroundColour={null}
+				backgroundIsMotion={false}
+				backgroundInitialTimeSecs={0}
+				animationTracks={tracks}
+				defaultButtonId="btn-1"
+				previewMode={true}
+				highlightColours={DEFAULT_HIGHLIGHT_COLOURS}
+				honestPreview={false}
+				showNavLines={false}
+				selectedNodeId={null}
+				onSelectNode={vi.fn()}
+			/>,
+		);
+
+		// Playhead is past the second keyframe (2.5s > 2s), but a still menu
+		// can't host a schedule at all — the disc bakes in only the track's
+		// first keyframe (`build_overlay_keyframe_schedule`'s still-menu
+		// degrade path), so the preview must too.
+		const focused = container.querySelector('.scene-canvas__node--focused') as HTMLElement;
+		expect(focused.style.outline).toContain('#ff0000');
+	});
+
+	it("samples the activated button's outline from its activate-colour track", () => {
+		const previewButtons: MenuButton[] = [
+			{
+				id: 'btn-1',
+				label: 'Play',
+				bounds: { x: 100, y: 300, width: 200, height: 40 },
+				action: null,
+				navUp: null,
+				navDown: null,
+				navLeft: null,
+				navRight: null,
+				highlightMode: 'static',
+				highlightKeyframes: [],
+				videoAssetId: null,
+			},
+		];
+		const tracks: AnimationTrack[] = [
+			{
+				nodeId: 'btn-1',
+				target: 'activate-colour',
+				keyframes: [
+					{ timestampSecs: 0, value: { kind: 'colour', hex: '#0000ff' }, easing: 'hold' },
+				],
+			},
+		];
+
+		act(() => {
+			useMenuPlaybackStore.setState({ currentTime: 0 });
+		});
+
+		const { container } = render(
+			<SceneCanvas
+				buttons={previewButtons}
+				canvasHeight={480}
+				sceneNodes={[]}
+				onUpdateButton={vi.fn()}
+				onUpdateSceneNode={vi.fn()}
+				showSafeArea={false}
+				backgroundLabel={null}
+				backgroundColour={null}
+				backgroundIsMotion={true}
+				backgroundInitialTimeSecs={0}
+				animationTracks={tracks}
+				defaultButtonId="btn-1"
+				previewMode={true}
+				highlightColours={DEFAULT_HIGHLIGHT_COLOURS}
+				honestPreview={false}
+				showNavLines={false}
+				selectedNodeId={null}
+				onSelectNode={vi.fn()}
+			/>,
+		);
+
+		// btn-1 starts focused (via defaultButtonId); Enter also activates it
+		// — the activated-state outline (from its own `activate-colour`
+		// track) then wins over the focused-state one in the merged style.
+		fireEvent.keyDown(container.querySelector('.scene-canvas__viewport--preview')!, { key: 'Enter' });
+
+		const node = container.querySelector('.scene-canvas__node--focused') as HTMLElement;
+		expect(node.style.outline).toContain('#0000ff');
+	});
 });
