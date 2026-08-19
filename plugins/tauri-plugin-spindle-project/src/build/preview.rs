@@ -163,6 +163,7 @@ mod tests {
 
     fn dvd_project_with_menu(menu_id: &str) -> SpindleProjectFile {
         let menu = Menu::new(menu_id, "Preview Test").with_document(MenuDocument {
+            animation: vec![],
             id: menu_id.to_string(),
             name: "Preview Test Menu".to_string(),
             domain: models::MenuDomain::Vmgm,

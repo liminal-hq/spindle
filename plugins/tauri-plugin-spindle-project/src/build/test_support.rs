@@ -125,6 +125,7 @@ pub(crate) fn test_menu_with_action(
     action: PlaybackAction,
 ) -> Menu {
     Menu::new(menu_id, menu_name).with_document(MenuDocument {
+        animation: vec![],
         id: menu_id.to_string(),
         name: menu_name.to_string(),
         domain: MenuDomain::Vmgm,

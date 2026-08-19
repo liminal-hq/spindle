@@ -568,6 +568,7 @@ mod tests {
     #[test]
     fn render_menu_scene_to_png_produces_valid_png_at_raster_dimensions() {
         let menu = Menu::new("test-menu", "Test").with_document(MenuDocument {
+            animation: vec![],
             id: "test-menu".to_string(),
             name: "Test Menu".to_string(),
             domain: crate::models::MenuDomain::Vmgm,
@@ -817,6 +818,7 @@ mod tests {
             };
 
             Menu::new("btn-test-menu", "Untitled Menu").with_document(MenuDocument {
+                animation: vec![],
                 id: "btn-test-menu".to_string(),
                 name: "Button Test".to_string(),
                 domain: crate::models::MenuDomain::Vmgm,
@@ -888,6 +890,7 @@ mod tests {
     #[test]
     fn render_button_with_rgba_fill_produces_valid_png() {
         let menu = Menu::new("rgba-btn-menu", "Untitled Menu").with_document(MenuDocument {
+            animation: vec![],
             id: "rgba-btn-menu".to_string(),
             name: "RGBA Fill Test".to_string(),
             domain: crate::models::MenuDomain::Vmgm,

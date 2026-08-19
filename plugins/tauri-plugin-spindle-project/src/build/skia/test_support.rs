@@ -33,6 +33,7 @@ pub(super) fn menu_with_text_node(
     font_size: f64,
 ) -> Menu {
     Menu::new("test-menu", "Test").with_document(MenuDocument {
+        animation: vec![],
         id: "test-menu".to_string(),
         name: "Test Menu".to_string(),
         domain: crate::models::MenuDomain::Vmgm,

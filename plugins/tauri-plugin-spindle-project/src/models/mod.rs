@@ -848,6 +848,7 @@ mod tests {
                 titlesets: vec![Titleset {
                     menus: vec![
                         Menu::new("menu-1", "Styled Menu").with_document(MenuDocument {
+                            animation: vec![],
                             id: "menu-1".to_string(),
                             name: "Styled Menu".to_string(),
                             domain: MenuDomain::Titleset,
@@ -1034,6 +1035,7 @@ mod tests {
             .global_menus
             .push(
                 Menu::new("menu-1", "Main Menu").with_document(MenuDocument {
+                    animation: vec![],
                     id: "menu-1".to_string(),
                     name: "Main Menu".to_string(),
                     domain: MenuDomain::Vmgm,
@@ -1239,6 +1241,7 @@ mod tests {
             .menus
             .push(
                 Menu::new("menu-1", "Main Menu").with_document(MenuDocument {
+                    animation: vec![],
                     id: "menu-1".to_string(),
                     name: "Main Menu".to_string(),
                     domain: MenuDomain::Titleset,

@@ -562,6 +562,7 @@ mod tests {
 
     fn authored_document_with_timeout(action: Option<PlaybackAction>) -> MenuDocument {
         MenuDocument {
+            animation: vec![],
             id: "menu-1".to_string(),
             name: "Main Menu".to_string(),
             domain: MenuDomain::Vmgm,
@@ -599,6 +600,7 @@ mod tests {
         timeout_action: Option<PlaybackAction>,
     ) -> MenuDocument {
         MenuDocument {
+            animation: vec![],
             id: "menu-1".to_string(),
             name: "Motion Menu".to_string(),
             domain: MenuDomain::Vmgm,
@@ -1048,6 +1050,7 @@ mod tests {
         // dangling background asset) must still run rather than being
         // short-circuited.
         let menu = Menu::new("menu-1", "Scene Menu").with_document(MenuDocument {
+            animation: vec![],
             id: "menu-1".to_string(),
             name: "Scene Menu".to_string(),
             domain: MenuDomain::Vmgm,
@@ -1132,6 +1135,7 @@ mod tests {
         // (b) an orphaned focus node whose scene button was deleted but
         // whose interaction node was left behind.
         let menu = Menu::new("menu-1", "Main Menu").with_document(MenuDocument {
+            animation: vec![],
             id: "menu-1".to_string(),
             name: "Main Menu".to_string(),
             domain: MenuDomain::Vmgm,

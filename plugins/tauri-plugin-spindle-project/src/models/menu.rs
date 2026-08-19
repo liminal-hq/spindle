@@ -6,7 +6,7 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use super::{AspectMode, DiscFamily, PlaybackAction, VideoStandard};
+use super::{AnimationTrack, AspectMode, DiscFamily, PlaybackAction, VideoStandard};
 
 /// The nine legacy flat-menu fields, retired in favour of `MenuDocument`.
 ///
@@ -178,6 +178,7 @@ impl Menu {
         };
 
         self.authored_document = Some(MenuDocument {
+            animation: vec![],
             id: self.id.clone(),
             name: self.name.clone(),
             domain,
@@ -339,6 +340,13 @@ pub struct MenuDocument {
     pub theme_ref: Option<String>,
     pub generation_meta: Option<MenuGenerationMeta>,
     pub compile_policy: MenuCompilePolicy,
+    /// Keyframed animation tracks (highlight colour/opacity, and eventually
+    /// opacity/position) for this document's scene nodes. Supersedes the
+    /// legacy per-button `highlight_keyframes`/`highlight_mode` model.
+    /// `#[serde(default)]` so project files written before this field
+    /// existed deserialise cleanly.
+    #[serde(default)]
+    pub animation: Vec<AnimationTrack>,
 }
 
 impl MenuDocument {
@@ -1090,6 +1098,7 @@ mod role_tests {
     /// `infer_role`.
     fn empty_document(name: &str) -> MenuDocument {
         MenuDocument {
+            animation: vec![],
             id: "menu-1".to_string(),
             name: name.to_string(),
             domain: MenuDomain::Titleset,

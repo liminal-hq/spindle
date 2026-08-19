@@ -389,6 +389,7 @@ mod tests {
     #[test]
     fn authorable_menu_ref_reads_from_the_authored_document() {
         let menu = Menu::new("menu-1", "Legacy Name").with_document(MenuDocument {
+            animation: vec![],
             id: "menu-1".to_string(),
             name: "Authored Name".to_string(),
             domain: crate::models::MenuDomain::Vmgm,
@@ -459,6 +460,7 @@ mod tests {
         // The command should not contain drawbox/drawtext; instead it should include
         // a Skia scene PNG input and an overlay=0:0 filter chain.
         let menu = Menu::new("menu-1", "Untitled Menu").with_document(MenuDocument {
+            animation: vec![],
             id: "menu-1".to_string(),
             name: "Test Menu".to_string(),
             domain: crate::models::MenuDomain::Vmgm,
@@ -571,6 +573,7 @@ mod tests {
     fn build_ffmpeg_menu_command_includes_setsar_in_overlay_filter() {
         // The setsar filter must appear in the filter chain even with the Skia path.
         let menu = Menu::new("menu-sar", "Untitled Menu").with_document(MenuDocument {
+            animation: vec![],
             id: "menu-sar".to_string(),
             name: "SAR Test Menu".to_string(),
             domain: crate::models::MenuDomain::Vmgm,
@@ -632,6 +635,7 @@ mod tests {
     #[test]
     fn build_ffmpeg_menu_command_scales_still_image_backgrounds_into_dvd_raster() {
         let menu = Menu::new("menu-1", "Image Menu").with_document(MenuDocument {
+            animation: vec![],
             id: "menu-1".to_string(),
             name: "Image Menu".to_string(),
             domain: crate::models::MenuDomain::Vmgm,
@@ -703,6 +707,7 @@ mod tests {
         // to introduce spurious black bars even when source and target
         // aspect ratios matched.
         let menu = Menu::new("menu-1", "Image Menu").with_document(MenuDocument {
+            animation: vec![],
             id: "menu-1".to_string(),
             name: "Image Menu".to_string(),
             domain: crate::models::MenuDomain::Vmgm,
@@ -785,6 +790,7 @@ mod tests {
         // letterboxed/pillarboxed appropriately, proving the fix didn't just
         // remove padding outright.
         let menu = Menu::new("menu-1", "Image Menu").with_document(MenuDocument {
+            animation: vec![],
             id: "menu-1".to_string(),
             name: "Image Menu".to_string(),
             domain: crate::models::MenuDomain::Vmgm,

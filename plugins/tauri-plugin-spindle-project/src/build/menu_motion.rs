@@ -332,6 +332,7 @@ mod tests {
 
     fn motion_menu_document() -> MenuDocument {
         MenuDocument {
+            animation: vec![],
             id: "menu-1".to_string(),
             name: "Motion Menu".to_string(),
             domain: MenuDomain::Vmgm,

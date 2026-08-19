@@ -348,6 +348,7 @@ mod tests {
     #[test]
     fn validate_menu_aspect_section_reports_mixed_authored_aspects() {
         let menu_a = Menu::new("menu-a", "Menu A").with_document(MenuDocument {
+            animation: vec![],
             id: "menu-a".to_string(),
             name: "Menu A".to_string(),
             domain: MenuDomain::Vmgm,
@@ -381,6 +382,7 @@ mod tests {
             },
         });
         let menu_b = Menu::new("menu-b", "Menu B").with_document(MenuDocument {
+            animation: vec![],
             id: "menu-b".to_string(),
             name: "Menu B".to_string(),
             domain: MenuDomain::Vmgm,
@@ -430,6 +432,7 @@ mod tests {
     #[test]
     fn validate_motion_keyframes_flags_out_of_range_entries() {
         let menu = Menu::new("menu-1", "Motion Menu").with_document(MenuDocument {
+            animation: vec![],
             id: "menu-1".to_string(),
             name: "Motion Menu".to_string(),
             domain: MenuDomain::Vmgm,
@@ -500,6 +503,7 @@ mod tests {
     #[test]
     fn validate_button_video_usage_warns_for_still_menus() {
         let menu = Menu::new("menu-1", "Still Menu").with_document(MenuDocument {
+            animation: vec![],
             id: "menu-1".to_string(),
             name: "Still Menu".to_string(),
             domain: MenuDomain::Vmgm,

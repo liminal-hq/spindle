@@ -482,6 +482,7 @@ fn build_plan_rejects_menu_with_missing_image_asset() {
     let mut project = test_project();
     let mut menu = test_menu();
     menu.authored_document = Some(MenuDocument {
+        animation: vec![],
         id: "menu-1".to_string(),
         name: "Main Menu".to_string(),
         domain: MenuDomain::Vmgm,

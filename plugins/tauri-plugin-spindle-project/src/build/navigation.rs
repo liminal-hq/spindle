@@ -151,6 +151,7 @@ mod tests {
             .collect();
 
         Menu::new(id, name).with_document(MenuDocument {
+            animation: vec![],
             id: id.to_string(),
             name: name.to_string(),
             domain: MenuDomain::Vmgm,
