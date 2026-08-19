@@ -144,15 +144,27 @@ export function MenuLevelInspector({
 	const commitDurationDraft = () => {
 		// Identity commits are skipped — every write pushes an undo snapshot,
 		// so a focus-then-blur (or Enter followed by its blur) must not create
-		// empty undo steps.
+		// empty undo steps. The comparison mirrors the writer's latest-keyframe
+		// floor: a value the writer would clamp back to the authored duration
+		// is an identity write too, and its draft resets so the field can't
+		// keep displaying an unsaved value.
 		const authored = document?.timing.loopDurationSecs ?? 0;
 		if (durationDraft === '') {
 			if (authored > 0) onUpdateMotionDurationSecs?.(null);
 			return;
 		}
 		const parsed = Number(durationDraft);
-		if (Number.isFinite(parsed)) {
-			if (parsed !== authored) onUpdateMotionDurationSecs?.(parsed);
+		if (!Number.isFinite(parsed)) {
+			setDurationDraft(authoredDuration);
+			return;
+		}
+		const keyframeFloor = Math.max(
+			0,
+			...(document?.animation ?? []).flatMap((t) => t.keyframes.map((kf) => kf.timestampSecs)),
+		);
+		const floored = parsed > 0 ? Math.max(parsed, keyframeFloor) : parsed;
+		if (floored !== authored) {
+			onUpdateMotionDurationSecs?.(parsed);
 		} else {
 			setDurationDraft(authoredDuration);
 		}
