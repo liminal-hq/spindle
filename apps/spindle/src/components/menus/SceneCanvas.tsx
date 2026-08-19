@@ -7,6 +7,7 @@ import { readFile, BaseDirectory } from '@tauri-apps/plugin-fs';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import type {
+	AnimationTrack,
 	MenuButton,
 	MenuHighlightColours,
 	ButtonBounds,
@@ -18,6 +19,8 @@ import type {
 } from '../../types/project';
 import { DEFAULT_DVD_FORMAT_PROFILE } from '../../format/useFormatProfile';
 import { useMenuPlaybackStore } from '../../store/menu-playback-store';
+import { evaluateTrack } from '../../utils/animation';
+import { keyValueToColour, keyValueToOpacity, sampleHonestPreview } from './timeline/timelineUtils';
 
 // The canvas's fixed interactive coordinate space width. This is *not* yet
 // sourced from `FormatProfile.designSizes` (1024 for DVD-Video) — every menu
@@ -70,6 +73,10 @@ export interface SceneCanvasProps {
 	 * metadata loads — the menu's authored `timing.loopStartSecs` in design
 	 * mode. Ignored for still backgrounds. */
 	backgroundInitialTimeSecs?: number;
+	/** Animation tracks from `document.animation` — used by the navigation
+	 * preview to sample the focused/activated button's highlight colour and
+	 * opacity at the playhead's loop-relative time. */
+	animationTracks?: AnimationTrack[];
 	defaultButtonId: string | null;
 	/** When true, render in navigation preview mode with highlight colours. */
 	previewMode: boolean;
@@ -103,6 +110,7 @@ export function SceneCanvas({
 	backgroundAsset = null,
 	backgroundIsMotion = false,
 	backgroundInitialTimeSecs = 0,
+	animationTracks = [],
 	defaultButtonId,
 	previewMode,
 	highlightColours,
@@ -127,6 +135,7 @@ export function SceneCanvas({
 				backgroundAsset={backgroundAsset}
 				backgroundIsMotion={backgroundIsMotion}
 				backgroundInitialTimeSecs={backgroundInitialTimeSecs}
+				animationTracks={animationTracks}
 				defaultButtonId={defaultButtonId}
 				highlightColours={highlightColours}
 				honestPreview={honestPreview}
@@ -679,6 +688,7 @@ function NavigationPreview({
 	backgroundAsset,
 	backgroundIsMotion,
 	backgroundInitialTimeSecs,
+	animationTracks = [],
 	defaultButtonId,
 	highlightColours,
 	honestPreview,
@@ -695,6 +705,7 @@ function NavigationPreview({
 	backgroundAsset: Asset | null;
 	backgroundIsMotion: boolean;
 	backgroundInitialTimeSecs: number;
+	animationTracks?: AnimationTrack[];
 	defaultButtonId: string | null;
 	highlightColours: MenuHighlightColours;
 	honestPreview: boolean;
@@ -868,73 +879,155 @@ function NavigationPreview({
 					canvasHeight={canvasHeight}
 				/>
 			))}
-			{buttons.map((btn) => {
-				const isFocused = btn.id === focusedId;
-				const isActivated = btn.id === activatedId;
-				const hl = highlightColours;
-				const buttonNode = buttonNodeMap.get(btn.id);
-				const visualState = isActivated ? 'activate' : isFocused ? 'focus' : 'normal';
-				const buttonStyle = buttonNode?.buttonStyle?.[visualState];
-				const labelStyle = buttonNode?.labelStyle;
-				return (
-					<div
-						key={btn.id}
-						className={`scene-canvas__node ${isFocused ? 'scene-canvas__node--focused' : ''} ${
-							defaultButtonId === btn.id ? 'scene-canvas__node--default' : ''
-						}`}
-						style={{
-							left: `${(btn.bounds.x / CANVAS_DESIGN_WIDTH) * 100}%`,
-							top: `${(btn.bounds.y / canvasHeight) * 100}%`,
-							width: `${(btn.bounds.width / CANVAS_DESIGN_WIDTH) * 100}%`,
-							height: `${(btn.bounds.height / canvasHeight) * 100}%`,
-							...(buttonStyle
-								? {
-										background: buttonStyle.bgFill,
-										borderColor: buttonStyle.borderColour,
-										borderWidth: `${buttonStyle.borderWidth}px`,
-										borderRadius: `${buttonStyle.borderRadius}px`,
-										paddingInline: `${buttonStyle.paddingH}px`,
-										paddingBlock: `${buttonStyle.paddingV}px`,
-										boxShadow: buttonShadowCss(buttonStyle),
-									}
-								: {}),
-							...(labelStyle
-								? {
-										fontFamily: labelStyle.fontFamily,
-										fontSize: `${labelStyle.fontSize}px`,
-										fontWeight: labelStyle.fontWeight === 'bold' ? 700 : 400,
-										fontStyle: labelStyle.fontItalic ? 'italic' : 'normal',
-										textDecoration: labelStyle.textDecoration,
-										textAlign: labelStyle.textAlign,
-										color: labelStyle.colour,
-										lineHeight: labelStyle.lineHeight,
-										letterSpacing: `${labelStyle.letterSpacing}px`,
-									}
-								: {}),
-							...(isFocused
-								? {
-										outline: `1px solid ${hl.selectColour}`,
-										outlineOffset: '-1px',
-										boxShadow: buttonStyle
-											? `${buttonShadowCss(buttonStyle)}, 0 0 12px ${hexToRgba(hl.selectColour, 0.5)}`
-											: `0 0 12px ${hexToRgba(hl.selectColour, 0.5)}, 0 0 24px ${hexToRgba(hl.selectColour, 0.2)}`,
-									}
-								: {}),
-							...(isActivated
-								? {
-										outline: `2px solid ${hl.activateColour}`,
-										outlineOffset: '-2px',
-									}
-								: {}),
-						}}
-						onClick={() => setFocusedId(btn.id)}
-					>
-						<div className="scene-canvas__node-body">
-							<span className="scene-canvas__node-label">{btn.label}</span>
-						</div>
-					</div>
-				);
-			})}
+			{buttons.map((btn) => (
+				<PreviewButtonNode
+					key={btn.id}
+					btn={btn}
+					isFocused={btn.id === focusedId}
+					isActivated={btn.id === activatedId}
+					isDefault={defaultButtonId === btn.id}
+					buttonNode={buttonNodeMap.get(btn.id)}
+					highlightColours={highlightColours}
+					animationTracks={animationTracks}
+					loopStartSecs={backgroundInitialTimeSecs}
+					isMotion={backgroundIsMotion}
+					honestPreview={honestPreview}
+					canvasHeight={canvasHeight}
+					onFocus={() => setFocusedId(btn.id)}
+				/>
+			))}
+		</div>
+	);
+}
+
+/**
+ * One button in the navigation preview. Focused/activated highlight colour
+ * and opacity are sampled from this node's `highlight-colour`/
+ * `highlight-opacity` animation tracks (if any) at the loop-relative
+ * playhead time, falling back to the menu's static `highlightColours` —
+ * see design decision D9. Honest preview quantizes to the last keyframe
+ * at-or-before the playhead (what the compiled disc actually shows);
+ * otherwise the full eased curve is sampled, matching the DOM preview's
+ * general "friendlier than the disc" posture elsewhere in this file.
+ */
+function PreviewButtonNode({
+	btn,
+	isFocused,
+	isActivated,
+	isDefault,
+	buttonNode,
+	highlightColours,
+	animationTracks,
+	loopStartSecs,
+	isMotion,
+	honestPreview,
+	canvasHeight,
+	onFocus,
+}: {
+	btn: MenuButton;
+	isFocused: boolean;
+	isActivated: boolean;
+	isDefault: boolean;
+	buttonNode: Extract<SceneNode, { type: 'button' }> | undefined;
+	highlightColours: MenuHighlightColours;
+	animationTracks: AnimationTrack[];
+	loopStartSecs: number;
+	isMotion: boolean;
+	honestPreview: boolean;
+	canvasHeight: number;
+	onFocus: () => void;
+}) {
+	// Subscribed unconditionally (rules-of-hooks) — a no-op re-render cost for
+	// still menus and buttons without tracks, since `isMotion` and the track
+	// lookups below are cheap and only the focused/activated node's outline
+	// actually changes as a result.
+	const currentTime = useMenuPlaybackStore((s) => s.currentTime);
+
+	const visualState = isActivated ? 'activate' : isFocused ? 'focus' : 'normal';
+	const buttonStyle = buttonNode?.buttonStyle?.[visualState];
+	const labelStyle = buttonNode?.labelStyle;
+
+	let hlColour = highlightColours.selectColour;
+	let hlOpacity = highlightColours.selectOpacity;
+	let activateColour = highlightColours.activateColour;
+	if (isMotion && (isFocused || isActivated)) {
+		const tLoop = currentTime - loopStartSecs;
+		const colourTrack = animationTracks.find(
+			(t) => t.nodeId === btn.id && t.target === 'highlight-colour',
+		);
+		const opacityTrack = animationTracks.find(
+			(t) => t.nodeId === btn.id && t.target === 'highlight-opacity',
+		);
+		const sample = (track: AnimationTrack | undefined) =>
+			track
+				? honestPreview
+					? sampleHonestPreview(track, tLoop)
+					: evaluateTrack(track, tLoop)
+				: null;
+		const sampledColour = keyValueToColour(sample(colourTrack));
+		const sampledOpacity = keyValueToOpacity(sample(opacityTrack));
+		if (sampledColour) {
+			hlColour = sampledColour;
+			activateColour = sampledColour;
+		}
+		if (sampledOpacity !== null) hlOpacity = sampledOpacity;
+	}
+
+	return (
+		<div
+			className={`scene-canvas__node ${isFocused ? 'scene-canvas__node--focused' : ''} ${
+				isDefault ? 'scene-canvas__node--default' : ''
+			}`}
+			style={{
+				left: `${(btn.bounds.x / CANVAS_DESIGN_WIDTH) * 100}%`,
+				top: `${(btn.bounds.y / canvasHeight) * 100}%`,
+				width: `${(btn.bounds.width / CANVAS_DESIGN_WIDTH) * 100}%`,
+				height: `${(btn.bounds.height / canvasHeight) * 100}%`,
+				...(buttonStyle
+					? {
+							background: buttonStyle.bgFill,
+							borderColor: buttonStyle.borderColour,
+							borderWidth: `${buttonStyle.borderWidth}px`,
+							borderRadius: `${buttonStyle.borderRadius}px`,
+							paddingInline: `${buttonStyle.paddingH}px`,
+							paddingBlock: `${buttonStyle.paddingV}px`,
+							boxShadow: buttonShadowCss(buttonStyle),
+						}
+					: {}),
+				...(labelStyle
+					? {
+							fontFamily: labelStyle.fontFamily,
+							fontSize: `${labelStyle.fontSize}px`,
+							fontWeight: labelStyle.fontWeight === 'bold' ? 700 : 400,
+							fontStyle: labelStyle.fontItalic ? 'italic' : 'normal',
+							textDecoration: labelStyle.textDecoration,
+							textAlign: labelStyle.textAlign,
+							color: labelStyle.colour,
+							lineHeight: labelStyle.lineHeight,
+							letterSpacing: `${labelStyle.letterSpacing}px`,
+						}
+					: {}),
+				...(isFocused
+					? {
+							outline: `1px solid ${hlColour}`,
+							outlineOffset: '-1px',
+							boxShadow: buttonStyle
+								? `${buttonShadowCss(buttonStyle)}, 0 0 12px ${hexToRgba(hlColour, hlOpacity)}`
+								: `0 0 12px ${hexToRgba(hlColour, hlOpacity)}, 0 0 24px ${hexToRgba(hlColour, hlOpacity * 0.4)}`,
+						}
+					: {}),
+				...(isActivated
+					? {
+							outline: `2px solid ${activateColour}`,
+							outlineOffset: '-2px',
+						}
+					: {}),
+			}}
+			onClick={onFocus}
+		>
+			<div className="scene-canvas__node-body">
+				<span className="scene-canvas__node-label">{btn.label}</span>
+			</div>
 		</div>
 	);
 }
