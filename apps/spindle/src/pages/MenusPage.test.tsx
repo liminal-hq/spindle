@@ -522,7 +522,11 @@ describe('MenusPage', () => {
 		render(<MenusPage />);
 
 		const durationInput = screen.getByDisplayValue('12.5');
+		// Duration commits on blur/Enter, never per keystroke — the writer's
+		// latest-keyframe floor would otherwise clamp parseable intermediate
+		// values mid-edit.
 		fireEvent.change(durationInput, { target: { value: '' } });
+		fireEvent.blur(durationInput);
 
 		const updatedProject = useProjectStore.getState().project!;
 		const updatedMenu = updatedProject.disc.globalMenus.find((m) => m.id === menu.id)!;

@@ -124,6 +124,36 @@ export function MenuLevelInspector({
 			asset.videoStreams.length > 0 || asset.fileName.match(/\.(png|jpg|jpeg|bmp|tiff?)$/i),
 	);
 	const audioAssets = assets.filter((asset) => asset.audioStreams.length > 0);
+	// Local draft for the motion Duration input, committed on blur/Enter —
+	// never per keystroke: the writer floors the duration at the latest
+	// keyframe timestamp, so committing a parseable intermediate value
+	// (typing "10" passes through "1") would clamp mid-edit and the rerender
+	// would fight the user's typing.
+	const authoredDuration =
+		document && document.timing.loopDurationSecs > 0
+			? String(document.timing.loopDurationSecs)
+			: '';
+	const [durationDraft, setDurationDraft] = useState<string>(authoredDuration);
+	const [durationDraftKey, setDurationDraftKey] = useState(authoredDuration);
+	if (durationDraftKey !== authoredDuration) {
+		// Re-sync the draft when the authored value changes externally
+		// (undo, timeline drags) — the render-time state-adjustment pattern.
+		setDurationDraftKey(authoredDuration);
+		setDurationDraft(authoredDuration);
+	}
+	const commitDurationDraft = () => {
+		if (durationDraft === '') {
+			onUpdateMotionDurationSecs?.(null);
+			return;
+		}
+		const parsed = Number(durationDraft);
+		if (Number.isFinite(parsed)) {
+			onUpdateMotionDurationSecs?.(parsed);
+		} else {
+			setDurationDraft(authoredDuration);
+		}
+	};
+
 	const [backgroundTab, setBackgroundTab] = useState<'solid' | 'image' | 'video' | 'audio'>(
 		document?.backgroundMode === 'motion' ? 'video' : 'solid',
 	);
@@ -301,16 +331,15 @@ export function MenuLevelInspector({
 										type="number"
 										min="0"
 										step="0.5"
-										value={
-											document && document.timing.loopDurationSecs > 0
-												? document.timing.loopDurationSecs
-												: ''
-										}
-										onChange={(e) =>
-											onUpdateMotionDurationSecs?.(
-												e.target.value === '' ? null : Number(e.target.value),
-											)
-										}
+										value={durationDraft}
+										onChange={(e) => setDurationDraft(e.target.value)}
+										onBlur={commitDurationDraft}
+										onKeyDown={(e) => {
+											if (e.key === 'Enter') {
+												e.preventDefault();
+												commitDurationDraft();
+											}
+										}}
 										disabled={document?.backgroundMode !== 'motion'}
 									/>
 									<span className="inspector-panel__unit">s</span>

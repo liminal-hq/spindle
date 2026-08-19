@@ -103,35 +103,47 @@ export function TimelineRegionBar({
 	const handlePointerUp = useCallback(() => {
 		if (!dragEdge || dragSecs === null) return;
 		if (hasMovedRef.current) {
+			// Only commit when the constrained result actually differs from the
+			// authored timing — jitter within one snapped frame, or a drag held
+			// against a clamp, resolves to the existing values and would burn
+			// an undo entry on an identity write.
 			switch (dragEdge) {
 				case 'introStart': {
 					const maxStart = Math.max(0, introEnd - minDurationSecs);
 					const start = Math.min(Math.max(0, dragSecs), maxStart);
-					onSetTimingField({
-						introStartSecs: start,
-						introDurationSecs: Math.max(minDurationSecs, introEnd - start),
-					});
+					if (start !== introStart) {
+						onSetTimingField({
+							introStartSecs: start,
+							introDurationSecs: Math.max(minDurationSecs, introEnd - start),
+						});
+					}
 					break;
 				}
 				case 'introEnd': {
 					const end = Math.min(Math.max(introStart + minDurationSecs, dragSecs), maxEndSecs);
-					onSetTimingField({ introDurationSecs: end - introStart });
+					if (end !== introEnd) {
+						onSetTimingField({ introDurationSecs: end - introStart });
+					}
 					break;
 				}
 				case 'loopStart': {
 					const minLoop = Math.max(minDurationSecs, minLoopDurationSecs);
 					const maxStart = Math.max(0, loopEnd - minLoop);
 					const start = Math.min(Math.max(0, dragSecs), maxStart);
-					onSetTimingField({
-						loopStartSecs: start,
-						loopDurationSecs: Math.max(minLoop, loopEnd - start),
-					});
+					if (start !== loopStart) {
+						onSetTimingField({
+							loopStartSecs: start,
+							loopDurationSecs: Math.max(minLoop, loopEnd - start),
+						});
+					}
 					break;
 				}
 				case 'loopEnd': {
 					const minLoop = Math.max(minDurationSecs, minLoopDurationSecs);
 					const end = Math.min(Math.max(loopStart + minLoop, dragSecs), maxEndSecs);
-					onSetTimingField({ loopDurationSecs: end - loopStart });
+					if (end !== loopEnd) {
+						onSetTimingField({ loopDurationSecs: end - loopStart });
+					}
 					break;
 				}
 			}
