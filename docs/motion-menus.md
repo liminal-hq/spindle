@@ -245,9 +245,9 @@ Current motion and animation validation codes (ground truth: `src/validation/men
 
 ## Known gaps and deferred work
 
-- **`MenuCompiler` trait deferred.** The build system is a serializable job list, and a trait with one implementor buys nothing today. The module seam in `build/menu_motion.rs` documents the future carve (`render_states → compose_background → mux`); the trait lands when a second backend (BD) exists to justify it.
+- **`MenuCompiler` trait deferred.** The build system is a serialisable job list, and a trait with one implementor buys nothing today. The module seam in `build/menu_motion.rs` documents the future carve (`render_states → compose_background → mux`); the trait lands when a second backend (BD) exists to justify it.
 - **BD motion backend not built.** Everything here is the DVD lowering; the Blu-ray path (IGS, per-state bitmaps, frame-sequence animation) is future work tracked in `docs/rich-menu-editor-plan.md` and `docs/lib-igs-author-plan.md`.
 - **Video buttons (motion thumbnails) are model-only.** `SceneNode::Button.videoAssetId` and `SceneNode::Video` exist and are validated, but nothing composites per-button video into the motion background yet — that is Slice E (#109).
 - **Colour flags are motion-only.** `dvd_colour_flags()` is applied to motion composes; retrofitting the still-menu and title transcode commands is a pending follow-up (kept out of the motion stack to avoid pinned-test churn).
-- **`opacity`/`position` tracks don't lower on DVD** — authoring them is possible, the disc ignores them, and validation says so.
+- **`opacity`/`position` tracks don't lower on DVD** — they are model-supported only: the editor has no control to create them (`ButtonInspector` creates only `highlight-colour` tracks, and the timeline renders lanes only for tracks already present), so they enter a project via hand-edited or imported data; the disc ignores them, and validation says so.
 - **Render parity and rich visual properties (Slice B)** remain pending (#53, #106); themes (Slice F, #110) are untouched.
