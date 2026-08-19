@@ -1179,7 +1179,7 @@ This is a local-first desktop tool.
 - Builds occur locally.
 - No account is required.
 - External tool execution should be constrained to known commands and validated arguments.
-- The webview's media access is scoped: at project open, asset import, and relink, the app grants the embedded webview access to exactly the imported assets' source paths — nothing broader. These grants are cumulative (nothing revokes an earlier path when a project closes, an asset is relinked, or a different project opens in the same process) and persisted across restarts (`tauri_plugin_persisted_scope`, registered in `apps/spindle/src-tauri/src/lib.rs`), so the scope is the union of every path ever granted, not a per-session allowlist. Revoking stale grants and dropping persistence is tracked as a follow-up (issue #129).
+- The webview's media access is scoped: at project open, asset import, and relink, the app grants the embedded webview access to exactly the imported assets' source paths — these runtime grants add nothing broader on top of the static asset-protocol scope, which remains confined to `$APPCACHE/**` and `$APPDATA/**` (`apps/spindle/src-tauri/tauri.conf.json`). These grants are cumulative (nothing revokes an earlier path when a project closes, an asset is relinked, or a different project opens in the same process) and persisted across restarts (`tauri_plugin_persisted_scope`, registered in `apps/spindle/src-tauri/src/lib.rs`), so the scope is the union of every path ever granted, not a per-session allowlist. Revoking stale grants and dropping persistence is tracked as a follow-up (issue #129).
 
 ### 24.2 User trust
 
