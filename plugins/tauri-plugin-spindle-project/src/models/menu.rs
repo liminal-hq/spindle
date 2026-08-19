@@ -100,7 +100,22 @@ impl Menu {
     ) {
         let legacy = std::mem::take(&mut self.legacy);
 
-        if self.authored_document.is_some() {
+        if let Some(doc) = &mut self.authored_document {
+            // Every legacy field except `motion_audio_asset_id` already had a
+            // document home on main: the old editor's sync layer mirrored
+            // background/buttons/highlights/etc into `authoredDocument` the
+            // moment a menu was opened, so any project file that carries both
+            // a document and legacy fields has a document that's already
+            // up to date for those eight fields. Motion audio is the one
+            // exception — the editor wrote `motionAudioAssetId` directly and
+            // the old sync layer never mirrored it, and old `MenuTiming` had
+            // no audio field to mirror it into — so it's the only field that
+            // can be sitting exclusively in `legacy` even when a document is
+            // already present. Backfill it (without clobbering an audio
+            // asset already authored directly on the document) and stop.
+            if doc.timing.audio_asset_id.is_none() {
+                doc.timing.audio_asset_id = legacy.motion_audio_asset_id.clone();
+            }
             return;
         }
 
@@ -179,6 +194,28 @@ impl Menu {
                 palette_strategy: PaletteStrategy::Auto,
             },
         });
+    }
+
+    /// Run the full per-menu migration sequence — lift legacy fields into a
+    /// document (or backfill motion audio onto an existing one), then apply
+    /// the compile-default and design-size-aspect backfills that follow it.
+    /// This is the single per-menu entry point shared by
+    /// [`SpindleProjectFile::migrate_all_menus`] (the load path) and any
+    /// Tauri command that receives a `Menu`/`SpindleProjectFile` payload
+    /// straight from the webview, where the guest-js type still allows
+    /// `authoredDocument: null` — those commands call this defensively so
+    /// [`Menu::doc`]/[`Menu::doc_mut`]'s "populated after load" invariant
+    /// genuinely holds regardless of how the payload arrived. Idempotent:
+    /// safe to call on an already-migrated menu.
+    pub fn ensure_document(
+        &mut self,
+        domain: MenuDomain,
+        standard: VideoStandard,
+        display_aspect: AspectMode,
+    ) {
+        self.migrate_to_document(domain, standard, display_aspect);
+        self.ensure_authored_compile_defaults(display_aspect);
+        self.backfill_design_size_aspect(display_aspect);
     }
 
     pub fn ensure_authored_compile_defaults(&mut self, display_aspect: AspectMode) {

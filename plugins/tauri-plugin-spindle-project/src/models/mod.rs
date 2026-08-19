@@ -48,16 +48,12 @@ impl SpindleProjectFile {
             .map(|index| self.inferred_titleset_menu_aspect(index))
             .collect();
         for menu in &mut self.disc.global_menus {
-            menu.migrate_to_document(MenuDomain::Vmgm, standard, global_display_aspect);
-            menu.ensure_authored_compile_defaults(global_display_aspect);
-            menu.backfill_design_size_aspect(global_display_aspect);
+            menu.ensure_document(MenuDomain::Vmgm, standard, global_display_aspect);
         }
         for (titleset_index, titleset) in self.disc.titlesets.iter_mut().enumerate() {
             let display_aspect = titleset_display_aspects[titleset_index];
             for menu in &mut titleset.menus {
-                menu.migrate_to_document(MenuDomain::Titleset, standard, display_aspect);
-                menu.ensure_authored_compile_defaults(display_aspect);
-                menu.backfill_design_size_aspect(display_aspect);
+                menu.ensure_document(MenuDomain::Titleset, standard, display_aspect);
             }
         }
     }
@@ -683,6 +679,147 @@ mod tests {
             }
             other => panic!("expected button node, found {other:?}"),
         }
+    }
+
+    /// The data-loss shape from real project files: a menu that already has
+    /// an `authoredDocument` (from the old editor's mirror-on-open sync
+    /// layer) AND a legacy `motionAudioAssetId` that the sync layer never
+    /// mirrored anywhere. Migration must backfill the document's
+    /// `timing.audioAssetId` from the legacy field instead of dropping it,
+    /// and the legacy key must never resurface on save.
+    #[test]
+    fn migrate_to_document_backfills_motion_audio_when_document_already_exists() {
+        let json = r##"
+        {
+          "schemaVersion": 1,
+          "project": {
+            "id": "project-1",
+            "name": "Backfill Audio",
+            "createdAt": "2026-04-01T00:00:00Z",
+            "modifiedAt": "2026-04-01T00:00:00Z"
+          },
+          "disc": {
+            "family": "dvd-video",
+            "standard": "NTSC",
+            "capacityTarget": "DVD5",
+            "firstPlayAction": null,
+            "titlesets": [
+              {
+                "id": "titleset-1",
+                "name": "Titleset 1",
+                "titles": [],
+                "menus": [
+                  {
+                    "id": "menu-1",
+                    "name": "Main Menu",
+                    "backgroundAssetId": null,
+                    "buttons": [],
+                    "defaultButtonId": null,
+                    "highlightColours": {
+                      "selectColour": "#ffaa40",
+                      "selectOpacity": 0.6,
+                      "activateColour": "#ffffff",
+                      "activateOpacity": 0.8
+                    },
+                    "backgroundMode": "motion",
+                    "motionDurationSecs": 12.5,
+                    "motionAudioAssetId": "asset-audio",
+                    "motionLoopCount": 3,
+                    "timeoutAction": null,
+                    "authoredDocument": {
+                      "id": "menu-1",
+                      "name": "Main Menu",
+                      "domain": "titleset",
+                      "scene": {
+                        "designSize": { "width": 720.0, "height": 480.0 },
+                        "background": { "assetId": null, "colour": "#101014" },
+                        "nodes": [],
+                        "guides": []
+                      },
+                      "interaction": {
+                        "defaultFocusId": null,
+                        "nodes": [],
+                        "timeoutAction": null
+                      },
+                      "timing": {
+                        "introDurationSecs": 0.0,
+                        "loopDurationSecs": 12.5,
+                        "loopCount": 3
+                      },
+                      "highlightColours": {
+                        "selectColour": "#ffaa40",
+                        "selectOpacity": 0.6,
+                        "activateColour": "#ffffff",
+                        "activateOpacity": 0.8
+                      },
+                      "backgroundMode": "motion",
+                      "themeRef": null,
+                      "generationMeta": null,
+                      "compilePolicy": {
+                        "safeAreaMode": "action-safe",
+                        "paletteStrategy": "auto"
+                      }
+                    }
+                  }
+                ]
+              }
+            ],
+            "globalMenus": []
+          },
+          "assets": [],
+          "buildSettings": {
+            "outputDirectory": null,
+            "generateIso": false,
+            "safetyMarginBytes": 50000000,
+            "allocationStrategy": "duration-weighted"
+          }
+        }
+        "##;
+
+        let mut project: SpindleProjectFile = serde_json::from_str(json).unwrap();
+        // Sanity check: the document does NOT carry audio before migration —
+        // it's exclusively in the legacy field, mirroring a real project file.
+        assert!(project.disc.titlesets[0].menus[0]
+            .authored_document
+            .as_ref()
+            .unwrap()
+            .timing
+            .audio_asset_id
+            .is_none());
+
+        project.migrate_all_menus();
+
+        let doc = project.disc.titlesets[0].menus[0]
+            .authored_document
+            .as_ref()
+            .expect("menu should retain authored document");
+        assert_eq!(
+            doc.timing.audio_asset_id.as_deref(),
+            Some("asset-audio"),
+            "motionAudioAssetId must be backfilled into timing.audioAssetId, not dropped"
+        );
+
+        // Re-serialise: no legacy keys reappear, and the audio asset is
+        // present in the document.
+        let serialised = serde_json::to_string(&project).unwrap();
+        let value: serde_json::Value = serde_json::from_str(&serialised).unwrap();
+        let menu_value = &value["disc"]["titlesets"][0]["menus"][0];
+        let menu_keys: std::collections::BTreeSet<&str> = menu_value
+            .as_object()
+            .expect("menu should serialise as a JSON object")
+            .keys()
+            .map(|k| k.as_str())
+            .collect();
+        let expected_keys: std::collections::BTreeSet<&str> =
+            ["id", "name", "authoredDocument"].into_iter().collect();
+        assert_eq!(
+            menu_keys, expected_keys,
+            "serialised menu must only contain id/name/authoredDocument — no legacy keys"
+        );
+        assert_eq!(
+            menu_value["authoredDocument"]["timing"]["audioAssetId"],
+            serde_json::json!("asset-audio")
+        );
     }
 
     #[test]
