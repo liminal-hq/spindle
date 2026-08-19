@@ -1536,26 +1536,40 @@
 	gap: 2px;
 }
 
+/* NOT a flex row: `.timeline-scrubber__viewport` must start at the SAME
+ * physical left edge as the ruler/region-bar/audio-lane/keyframe-lane rows
+ * below it (all flush against `.timeline-strip`'s own left edge — see
+ * `.timeline-strip__scroll`), so `geometry.secsToPx(0)` lands at the same
+ * pixel in every row and the playhead lines up with the ruler's ticks. A
+ * flex row with `.timeline-scrubber__controls` ahead of the viewport (as
+ * before) pushed that origin right by the controls' width, offsetting the
+ * scrubber/playhead from every other row by a fixed physical amount. The
+ * controls instead overlay the viewport's own left edge, consuming no
+ * timeline-coordinate width — the same technique
+ * `.timeline-node-lane__track-label` uses for the keyframe-lane label. */
 .timeline-scrubber {
-	display: flex;
-	align-items: center;
-	gap: var(--space-2);
-	padding: var(--space-1) var(--space-2);
+	position: relative;
+	padding-block: var(--space-1);
 	border-bottom: 1px solid var(--border-subtle);
 	flex-shrink: 0;
 }
 
 .timeline-scrubber__controls {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	left: 0;
+	z-index: 1;
 	display: flex;
 	align-items: center;
 	gap: 2px;
-	flex-shrink: 0;
+	padding-inline: var(--space-2);
+	background: rgba(8, 8, 12, 0.9);
 }
 
 .timeline-scrubber__viewport {
 	position: relative;
-	flex: 1;
-	min-width: 0;
+	width: 100%;
 	height: 18px;
 	overflow: hidden;
 }

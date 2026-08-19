@@ -18,6 +18,14 @@
 // viewport whose `scrollLeft` `TimelineStrip` keeps mirrored to the
 // scrollable ruler area beneath it (also imperatively, for the same
 // no-re-render reason), so the two stay visually locked together.
+//
+// The transport controls are laid out ahead of the viewport in markup, but
+// CSS overlays them on top of it (see `.timeline-scrubber__controls` in
+// SceneEditor.css) rather than placing them in a flex row before it — a
+// flex row would push the viewport's own left edge, and with it
+// `geometry.secsToPx(0)`, right by the controls' width, offsetting the
+// scrubber/playhead from the ruler/region/audio/keyframe rows below by a
+// fixed physical amount despite sharing the same `TimelineGeometry`.
 
 import { useCallback, useEffect, useRef } from 'react';
 import { useMenuPlaybackStore } from '../../../store/menu-playback-store';
