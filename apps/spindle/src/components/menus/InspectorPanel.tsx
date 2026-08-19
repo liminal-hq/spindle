@@ -16,6 +16,7 @@ import type {
 	FontEntry,
 	FormatProfile,
 	MenuRole,
+	PlaybackAction,
 } from '../../types/project';
 import { LayersPanel } from './LayersPanel';
 import { CollapsibleSection } from './InspectorCollapsibleSection';
@@ -82,6 +83,16 @@ export interface InspectorPanelProps {
 	onUpdateMotionDurationSecs?: (secs: number | null) => void;
 	/** Update the motion menu loop count. */
 	onUpdateMotionLoopCount?: (count: number) => void;
+	/** Update the motion menu loop start time. */
+	onUpdateMotionLoopStart?: (secs: number) => void;
+	/** Update the motion menu intro start time. */
+	onUpdateMotionIntroStart?: (secs: number) => void;
+	/** Update the motion menu intro duration. */
+	onUpdateMotionIntroDuration?: (secs: number | null) => void;
+	/** Update the motion menu timeout action. */
+	onUpdateMotionTimeoutAction?: (action: PlaybackAction | null) => void;
+	/** Set the loop start time from the current preview playhead position. */
+	onSetLoopStartFromPlayhead?: () => void;
 	/** Run automatic navigation generation for the current menu. */
 	onAutoNav?: () => void;
 	/** Export a DAR-corrected render preview PNG for the current menu. */
@@ -131,6 +142,11 @@ export function InspectorPanel({
 	onUpdateMotionAudioAsset,
 	onUpdateMotionDurationSecs,
 	onUpdateMotionLoopCount,
+	onUpdateMotionLoopStart,
+	onUpdateMotionIntroStart,
+	onUpdateMotionIntroDuration,
+	onUpdateMotionTimeoutAction,
+	onSetLoopStartFromPlayhead,
 	onAutoNav,
 	onExportRenderPreview,
 	buttonPreviewState,
@@ -189,6 +205,11 @@ export function InspectorPanel({
 							onUpdateMotionAudioAsset={onUpdateMotionAudioAsset}
 							onUpdateMotionDurationSecs={onUpdateMotionDurationSecs}
 							onUpdateMotionLoopCount={onUpdateMotionLoopCount}
+							onUpdateMotionLoopStart={onUpdateMotionLoopStart}
+							onUpdateMotionIntroStart={onUpdateMotionIntroStart}
+							onUpdateMotionIntroDuration={onUpdateMotionIntroDuration}
+							onUpdateMotionTimeoutAction={onUpdateMotionTimeoutAction}
+							onSetLoopStartFromPlayhead={onSetLoopStartFromPlayhead}
 							onAutoNav={onAutoNav}
 							onExportRenderPreview={onExportRenderPreview}
 							displayAspect={displayAspect ?? 'four-by-three'}

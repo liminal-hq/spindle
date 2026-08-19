@@ -89,17 +89,16 @@ export function computeDiagnostics(
 	}
 
 	// Motion menu timing safety gate — a loop start of 0.0 blocks the build.
-	if (doc?.backgroundMode === 'motion') {
-		if (doc.timing.loopStartSecs === 0.0) {
-			results.push({
-				severity: 'error',
-				message:
-					'Motion menu: loop start time is 0.0 s. Set a loop start point before building — this will block the build.',
-			});
-		}
+	// The generic "background will be rendered as looping MPEG video" info
+	// notice that used to sit alongside this is gone now that motion builds
+	// are supported and the inspector has real controls for this (loop
+	// start/intro fields, scrub row) — see `MenuLevelInspector`'s Motion
+	// Settings section.
+	if (doc?.backgroundMode === 'motion' && doc.timing.loopStartSecs === 0.0) {
 		results.push({
-			severity: 'info',
-			message: 'Motion menu: background will be rendered as looping MPEG video.',
+			severity: 'error',
+			message:
+				'Motion menu: loop start time is 0.0 s. Set a loop start point before building — this will block the build.',
 		});
 	}
 

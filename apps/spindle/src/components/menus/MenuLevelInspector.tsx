@@ -15,6 +15,7 @@ import type {
 	Menu,
 	MenuDomain,
 	MenuRole,
+	PlaybackAction,
 	Asset,
 	AspectMode,
 	FormatProfile,
@@ -26,6 +27,7 @@ import { actionToString, stringToAction } from './inspectorHelpers';
 import { computeDiagnostics } from './inspectorDiagnostics';
 import { terminologyFor } from '../../format/terminology';
 import { DEFAULT_DVD_FORMAT_PROFILE } from '../../format/useFormatProfile';
+import { useMenuPlaybackStore } from '../../store/menu-playback-store';
 
 /** Every `MenuRole`, in a stable display order for the role picker. */
 const ROLE_ORDER: MenuRole[] = ['root', 'title-select', 'chapter', 'setup', 'extras', 'popup'];
@@ -51,6 +53,11 @@ export function MenuLevelInspector({
 	onUpdateMotionAudioAsset,
 	onUpdateMotionDurationSecs,
 	onUpdateMotionLoopCount,
+	onUpdateMotionLoopStart,
+	onUpdateMotionIntroStart,
+	onUpdateMotionIntroDuration,
+	onUpdateMotionTimeoutAction,
+	onSetLoopStartFromPlayhead,
 	onAutoNav,
 	onExportRenderPreview,
 	displayAspect,
@@ -79,6 +86,11 @@ export function MenuLevelInspector({
 	onUpdateMotionAudioAsset?: (assetId: string | null) => void;
 	onUpdateMotionDurationSecs?: (secs: number | null) => void;
 	onUpdateMotionLoopCount?: (count: number) => void;
+	onUpdateMotionLoopStart?: (secs: number) => void;
+	onUpdateMotionIntroStart?: (secs: number) => void;
+	onUpdateMotionIntroDuration?: (secs: number | null) => void;
+	onUpdateMotionTimeoutAction?: (action: PlaybackAction | null) => void;
+	onSetLoopStartFromPlayhead?: () => void;
 	onAutoNav?: () => void;
 	onExportRenderPreview?: () => void;
 	displayAspect: AspectMode;
@@ -113,6 +125,9 @@ export function MenuLevelInspector({
 			asset.videoStreams.length > 0 || asset.fileName.match(/\.(png|jpg|jpeg|bmp|tiff?)$/i),
 	);
 	const audioAssets = assets.filter((asset) => asset.audioStreams.length > 0);
+	const playbackDuration = useMenuPlaybackStore((s) => s.duration);
+	const playbackCurrentTime = useMenuPlaybackStore((s) => s.currentTime);
+	const playbackSeek = useMenuPlaybackStore((s) => s.seek);
 	const [backgroundTab, setBackgroundTab] = useState<'solid' | 'image' | 'video' | 'audio'>(
 		document?.backgroundMode === 'motion' ? 'video' : 'solid',
 	);
@@ -281,10 +296,6 @@ export function MenuLevelInspector({
 						className={`inspector-panel__fieldset ${document?.backgroundMode !== 'motion' ? 'inspector-panel__fieldset--disabled' : ''}`}
 					>
 						<div className="inspector-panel__sub-label">Motion Settings</div>
-						<p className="inspector-panel__hint text-muted">
-							These controls preserve authored intent, but motion-menu build and runtime support are
-							still blocked until the next backend slice lands.
-						</p>
 						<div className="inspector-panel__grid-2">
 							<label className="inspector-panel__field">
 								<span className="inspector-panel__field-label">Duration</span>
@@ -324,6 +335,92 @@ export function MenuLevelInspector({
 								</div>
 							</label>
 						</div>
+						<div className="inspector-panel__grid-2">
+							<label className="inspector-panel__field">
+								<span className="inspector-panel__field-label">Loop start</span>
+								<div className="inspector-panel__inline-unit">
+									<input
+										className="inspector-panel__input inspector-panel__input--num"
+										type="number"
+										min="0"
+										step="0.1"
+										value={document?.timing.loopStartSecs ?? 0}
+										onChange={(e) => onUpdateMotionLoopStart?.(Number(e.target.value))}
+										disabled={document?.backgroundMode !== 'motion'}
+									/>
+									<span className="inspector-panel__unit">s</span>
+								</div>
+							</label>
+							<div className="inspector-panel__field">
+								<span className="inspector-panel__field-label">&nbsp;</span>
+								<button
+									type="button"
+									className="btn btn--sm btn--ghost"
+									onClick={onSetLoopStartFromPlayhead}
+									disabled={document?.backgroundMode !== 'motion'}
+									title="Set loop start to the current preview playhead position"
+								>
+									Set loop start from playhead
+								</button>
+							</div>
+						</div>
+						<div className="inspector-panel__grid-2">
+							<label className="inspector-panel__field">
+								<span className="inspector-panel__field-label">Intro start</span>
+								<div className="inspector-panel__inline-unit">
+									<input
+										className="inspector-panel__input inspector-panel__input--num"
+										type="number"
+										min="0"
+										step="0.1"
+										value={document?.timing.introStartSecs ?? 0}
+										onChange={(e) => onUpdateMotionIntroStart?.(Number(e.target.value))}
+										disabled={document?.backgroundMode !== 'motion'}
+									/>
+									<span className="inspector-panel__unit">s</span>
+								</div>
+							</label>
+							<label className="inspector-panel__field">
+								<span className="inspector-panel__field-label">Intro duration</span>
+								<div className="inspector-panel__inline-unit">
+									<input
+										className="inspector-panel__input inspector-panel__input--num"
+										type="number"
+										min="0"
+										step="0.1"
+										value={
+											document && document.timing.introDurationSecs > 0
+												? document.timing.introDurationSecs
+												: ''
+										}
+										onChange={(e) =>
+											onUpdateMotionIntroDuration?.(
+												e.target.value === '' ? null : Number(e.target.value),
+											)
+										}
+										disabled={document?.backgroundMode !== 'motion'}
+									/>
+									<span className="inspector-panel__unit">s</span>
+								</div>
+							</label>
+						</div>
+						<label className="inspector-panel__field">
+							<span className="inspector-panel__field-label">Timeout action</span>
+							<select
+								className="inspector-panel__select"
+								value={actionToString(document?.interaction.timeoutAction ?? null)}
+								onChange={(e) => onUpdateMotionTimeoutAction?.(stringToAction(e.target.value))}
+								disabled={document?.backgroundMode !== 'motion'}
+							>
+								<option value="">No timeout action</option>
+								<ActionOptions
+									allTitles={allTitles}
+									allMenus={allMenus}
+									currentMenuId={currentMenuId}
+									menuDomain={menuDomain}
+								/>
+							</select>
+						</label>
 						<label className="inspector-panel__field">
 							<span className="inspector-panel__field-label">Audio asset</span>
 							<select
@@ -339,6 +436,21 @@ export function MenuLevelInspector({
 									</option>
 								))}
 							</select>
+						</label>
+						<label className="inspector-panel__field">
+							<span className="inspector-panel__field-label">
+								Scrub {playbackDuration > 0 ? `(${playbackDuration.toFixed(1)}s)` : ''}
+							</span>
+							<input
+								className="inspector-panel__range"
+								type="range"
+								min={0}
+								max={playbackDuration || 0}
+								step={0.1}
+								value={Math.min(playbackCurrentTime, playbackDuration || 0)}
+								onChange={(e) => playbackSeek(Number(e.target.value))}
+								disabled={document?.backgroundMode !== 'motion' || playbackDuration <= 0}
+							/>
 						</label>
 					</div>
 				</CollapsibleSection>

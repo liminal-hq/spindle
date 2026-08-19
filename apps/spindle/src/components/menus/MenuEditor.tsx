@@ -9,6 +9,7 @@ import type { CSSProperties } from 'react';
 import { save } from '@tauri-apps/plugin-dialog';
 import { exportMenuRenderPreview, listAvailableFonts } from 'tauri-plugin-spindle-project-api';
 import { useProjectStore } from '../../store/project-store';
+import { useMenuPlaybackStore } from '../../store/menu-playback-store';
 import type { DisplayDensity } from '../../hooks/useDisplayDensity';
 import type {
 	AspectMode,
@@ -17,6 +18,7 @@ import type {
 	MenuButton,
 	MenuHighlightColours,
 	MenuRole,
+	PlaybackAction,
 	SpindleProjectFile,
 	SceneNode,
 } from '../../types/project';
@@ -483,6 +485,41 @@ export function MenuEditor({
 		}));
 	};
 
+	const handleMotionLoopStartChange = (secs: number) => {
+		updateMenuDocument(menu.id, (document) => ({
+			...document,
+			timing: { ...document.timing, loopStartSecs: Math.max(0, secs) },
+		}));
+	};
+
+	const handleMotionIntroStartChange = (secs: number) => {
+		updateMenuDocument(menu.id, (document) => ({
+			...document,
+			timing: { ...document.timing, introStartSecs: Math.max(0, secs) },
+		}));
+	};
+
+	const handleMotionIntroDurationChange = (secs: number | null) => {
+		// A cleared input writes 0.0 (no intro authored), mirroring
+		// `handleMotionDurationChange`'s loop-duration sentinel.
+		updateMenuDocument(menu.id, (document) => ({
+			...document,
+			timing: { ...document.timing, introDurationSecs: Math.max(0, secs ?? 0.0) },
+		}));
+	};
+
+	const handleMotionTimeoutActionChange = (action: PlaybackAction | null) => {
+		updateMenuDocument(menu.id, (document) => ({
+			...document,
+			interaction: { ...document.interaction, timeoutAction: action },
+		}));
+	};
+
+	const handleSetLoopStartFromPlayhead = () => {
+		const currentTime = useMenuPlaybackStore.getState().currentTime;
+		handleMotionLoopStartChange(currentTime);
+	};
+
 	const handleDisplayAspectChange = (aspect: AspectMode) => {
 		updateMenuDocument(menu.id, (document) => ({
 			...document,
@@ -772,6 +809,8 @@ export function MenuEditor({
 								backgroundLabel={backgroundAssetLabel}
 								backgroundColour={menu.authoredDocument?.scene.background.colour ?? null}
 								backgroundAsset={backgroundAsset}
+								backgroundIsMotion={menu.authoredDocument?.backgroundMode === 'motion'}
+								backgroundInitialTimeSecs={menu.authoredDocument?.timing.loopStartSecs ?? 0}
 								defaultButtonId={defaultFocusId}
 								previewMode={previewMode}
 								highlightColours={highlightColours}
@@ -817,6 +856,11 @@ export function MenuEditor({
 								onUpdateMotionAudioAsset={handleMotionAudioChange}
 								onUpdateMotionDurationSecs={handleMotionDurationChange}
 								onUpdateMotionLoopCount={handleMotionLoopCountChange}
+								onUpdateMotionLoopStart={handleMotionLoopStartChange}
+								onUpdateMotionIntroStart={handleMotionIntroStartChange}
+								onUpdateMotionIntroDuration={handleMotionIntroDurationChange}
+								onUpdateMotionTimeoutAction={handleMotionTimeoutActionChange}
+								onSetLoopStartFromPlayhead={handleSetLoopStartFromPlayhead}
 								onAutoNav={onAutoNav}
 								onExportRenderPreview={
 									menu.authoredDocument ? handleExportRenderPreview : undefined
