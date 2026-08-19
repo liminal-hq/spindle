@@ -18,7 +18,7 @@ import {
 describe('sampleHonestPreview', () => {
 	it('returns null for an empty track', () => {
 		const track: AnimationTrack = { nodeId: 'btn-1', target: 'highlight-colour', keyframes: [] };
-		expect(sampleHonestPreview([track], track, 5, 10)).toBeNull();
+		expect(sampleHonestPreview([track], track, 5, 10, 30)).toBeNull();
 	});
 
 	it('evaluates the queried track at the UNION schedule boundary, not its own last keyframe', () => {
@@ -48,7 +48,7 @@ describe('sampleHonestPreview', () => {
 		// opacity track) would be 0. Evaluating the colour track's linear
 		// ease at boundary=1 (halfway to its 2s keyframe) gives the midpoint
 		// colour, not the pure red a same-track hold would return.
-		const sampled = sampleHonestPreview(relevantTracks, colourTrack, 1.5, 10);
+		const sampled = sampleHonestPreview(relevantTracks, colourTrack, 1.5, 10, 30);
 		const hex = keyValueToColour(sampled);
 		expect(hex).not.toBe('#ff0000');
 		expect(hex).toBe('#808000'); // u=0.5 lerp from #ff0000 to #00ff00
@@ -56,7 +56,7 @@ describe('sampleHonestPreview', () => {
 		// Below the opacity track's boundary (tSecs=0.5), the schedule
 		// boundary is 0 — pure red, matching a same-track hold here since
 		// there's no earlier sibling boundary to diverge on.
-		expect(keyValueToColour(sampleHonestPreview(relevantTracks, colourTrack, 0.5, 10))).toBe(
+		expect(keyValueToColour(sampleHonestPreview(relevantTracks, colourTrack, 0.5, 10, 30))).toBe(
 			'#ff0000',
 		);
 	});
@@ -82,14 +82,16 @@ describe('sampleHonestPreview', () => {
 
 		// Boundary at tSecs=1.5 is 0 (colour track's own keyframe, the only
 		// one before 1.5) — opacity evaluated there, not at 1.5 itself.
-		const opacity = keyValueToOpacity(sampleHonestPreview(relevantTracks, opacityTrack, 1.5, 10));
+		const opacity = keyValueToOpacity(
+			sampleHonestPreview(relevantTracks, opacityTrack, 1.5, 10, 30),
+		);
 		expect(opacity).toBeCloseTo(1, 9);
 
 		// Boundary at tSecs=2.5 is 2 (colour track's second keyframe) —
 		// opacity's linear ease evaluated at 2/3 of the way to its own 3s
 		// keyframe, not at 2.5/3.
 		const opacityAt2_5 = keyValueToOpacity(
-			sampleHonestPreview(relevantTracks, opacityTrack, 2.5, 10),
+			sampleHonestPreview(relevantTracks, opacityTrack, 2.5, 10, 30),
 		);
 		expect(opacityAt2_5).toBeCloseTo(1 / 3, 9);
 	});
@@ -106,12 +108,44 @@ describe('sampleHonestPreview', () => {
 		// Unclamped, this track's own far-out keyframe at 100s would never
 		// become a schedule boundary within the 5s loop, so every tSecs in
 		// [0, 5) would resolve to the same boundary=0. Clamping the keyframe
-		// into [0, loopDurationSecs] adds a boundary at 5s instead — at
+		// into [0, lastPresentableSecs] adds a boundary near 5s instead — at
 		// tSecs=5 the schedule has moved past 0, so `evaluateTrack` (still
 		// using the keyframe's real, unclamped timestamp for its own
 		// interpolation) reports a colour already nudged off pure red.
-		expect(keyValueToColour(sampleHonestPreview([track], track, 4.9, 5))).toBe('#ff0000');
-		expect(keyValueToColour(sampleHonestPreview([track], track, 5, 5))).not.toBe('#ff0000');
+		expect(keyValueToColour(sampleHonestPreview([track], track, 4.9, 5, 30))).toBe('#ff0000');
+		expect(keyValueToColour(sampleHonestPreview([track], track, 5, 5, 30))).not.toBe('#ff0000');
+	});
+
+	it('clamps a keyframe at exactly loopDurationSecs to the standard-aware last-presentable frame', () => {
+		// Regression test: `scheduleBoundarySecs` used to clamp into
+		// `[0, loopDurationSecs]`, the SAME bound the planner's
+		// `last_presentable_secs = loop_duration_secs - frame_duration_secs`
+		// clamps *short of* — a keyframe authored exactly at `loopDurationSecs`
+		// only ever added a schedule boundary at `loopDurationSecs` itself, an
+		// instant playback never actually reaches before wrapping to `0`, so
+		// the preview kept showing boundary=0 (pure red) right up to the
+		// wrap, no matter how close `tSecs` got to the end — unlike the
+		// compiled disc, whose last frame starts at `last_presentable_secs`
+		// and IS reached.
+		const track: AnimationTrack = {
+			nodeId: 'btn-1',
+			target: 'highlight-colour',
+			keyframes: [
+				{ timestampSecs: 0, value: { kind: 'colour', hex: '#ff0000' }, easing: 'linear' },
+				{ timestampSecs: 5, value: { kind: 'colour', hex: '#00ff00' }, easing: 'hold' },
+			],
+		};
+		// loopDurationSecs=5, fps=25 (PAL) -> frame duration 0.04s ->
+		// last-presentable = 4.96s, an instant playback actually reaches
+		// before wrapping.
+		//
+		// Just below that boundary, still held at the schedule's only other
+		// instant (0) — pure red.
+		expect(keyValueToColour(sampleHonestPreview([track], track, 4.9, 5, 25))).toBe('#ff0000');
+		// At 4.96, the schedule has moved to the new boundary this clamp
+		// adds — `evaluateTrack` reports the linear ease already 99.2% of
+		// the way to green, clearly not red.
+		expect(keyValueToColour(sampleHonestPreview([track], track, 4.96, 5, 25))).not.toBe('#ff0000');
 	});
 });
 
@@ -146,6 +180,7 @@ describe('sampleHonestFold', () => {
 			1,
 			0,
 			10,
+			30,
 		);
 
 		expect(folded.hex).toBe('#0000ff'); // last colour-target track wins
@@ -167,6 +202,7 @@ describe('sampleHonestFold', () => {
 			0.5,
 			0,
 			10,
+			30,
 		);
 		expect(folded.hex).toBe('#123456');
 		expect(folded.opacity).toBe(0.5); // no activate-opacity track — default kept
@@ -207,6 +243,7 @@ describe('sampleHonestFold', () => {
 			1,
 			4,
 			10,
+			30,
 		);
 		expect(folded.hex).toBe('#808000'); // u=0.5 lerp from #ff0000 to #00ff00
 	});
@@ -223,28 +260,28 @@ describe('sampleTrackForPreview', () => {
 	};
 
 	it('returns null for an undefined track', () => {
-		expect(sampleTrackForPreview(undefined, [], 1, 10, true, false)).toBeNull();
+		expect(sampleTrackForPreview(undefined, [], 1, 10, 30, true, false)).toBeNull();
 	});
 
 	it('still menu: bakes in the first keyframe regardless of tSecs, mirroring the disc degrade path', () => {
-		expect(keyValueToColour(sampleTrackForPreview(track, [track], 0, 10, false, false))).toBe(
+		expect(keyValueToColour(sampleTrackForPreview(track, [track], 0, 10, 30, false, false))).toBe(
 			'#ff0000',
 		);
-		expect(keyValueToColour(sampleTrackForPreview(track, [track], 1.9, 10, false, false))).toBe(
+		expect(keyValueToColour(sampleTrackForPreview(track, [track], 1.9, 10, 30, false, false))).toBe(
 			'#ff0000',
 		);
-		expect(keyValueToColour(sampleTrackForPreview(track, [track], 1.9, 10, false, true))).toBe(
+		expect(keyValueToColour(sampleTrackForPreview(track, [track], 1.9, 10, 30, false, true))).toBe(
 			'#ff0000',
 		);
 	});
 
 	it('motion menu, not honest: full eased curve', () => {
-		const hex = keyValueToColour(sampleTrackForPreview(track, [track], 1, 10, true, false));
+		const hex = keyValueToColour(sampleTrackForPreview(track, [track], 1, 10, 30, true, false));
 		expect(hex).toBe('#808000'); // u=0.5 lerp
 	});
 
 	it('motion menu, honest: quantized via the union schedule', () => {
-		const hex = keyValueToColour(sampleTrackForPreview(track, [track], 1, 10, true, true));
+		const hex = keyValueToColour(sampleTrackForPreview(track, [track], 1, 10, 30, true, true));
 		expect(hex).toBe('#ff0000'); // boundary at 0, held there
 	});
 });

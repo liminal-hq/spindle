@@ -950,6 +950,7 @@ export function MenuEditor({
 								backgroundInitialTimeSecs={menu.authoredDocument?.timing.loopStartSecs ?? 0}
 								loopDurationSecs={menu.authoredDocument?.timing.loopDurationSecs ?? 0}
 								animationTracks={menu.authoredDocument?.animation ?? []}
+								standard={project.disc.standard}
 								defaultButtonId={defaultFocusId}
 								previewMode={previewMode}
 								highlightColours={highlightColours}

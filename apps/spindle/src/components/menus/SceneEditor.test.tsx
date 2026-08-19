@@ -1786,14 +1786,18 @@ describe('Navigation preview highlight animation (PR 8)', () => {
 			/>,
 		);
 
+		// The outline's opacity is baked into its alpha (no `highlight-opacity`
+		// track here, so it falls back to `DEFAULT_HIGHLIGHT_COLOURS.selectOpacity`
+		// = 0.6), mirroring `bake_opacity_into_alpha`'s `highlight_colour`
+		// handling.
 		const focused = () => container.querySelector('.scene-canvas__node--focused') as HTMLElement;
-		expect(focused().style.outline).toContain('#ff0000');
+		expect(focused().style.outline).toContain('rgba(255, 0, 0, 0.6)');
 
 		act(() => {
 			useMenuPlaybackStore.setState({ currentTime: 2.5 });
 		});
 
-		expect(focused().style.outline).toContain('#00ff00');
+		expect(focused().style.outline).toContain('rgba(0, 255, 0, 0.6)');
 	});
 
 	it("bakes in a still menu's first keyframe regardless of the playhead, mirroring the disc's degrade path", () => {
@@ -1855,7 +1859,7 @@ describe('Navigation preview highlight animation (PR 8)', () => {
 		// first keyframe (`build_overlay_keyframe_schedule`'s still-menu
 		// degrade path), so the preview must too.
 		const focused = container.querySelector('.scene-canvas__node--focused') as HTMLElement;
-		expect(focused.style.outline).toContain('#ff0000');
+		expect(focused.style.outline).toContain('rgba(255, 0, 0, 0.6)');
 	});
 
 	it("samples the activated button's outline from its activate-colour track", () => {
@@ -1992,6 +1996,75 @@ describe('Navigation preview highlight animation (PR 8)', () => {
 		expect(node.style.outline).toContain('rgba(0, 0, 255, 0.25)');
 	});
 
+	it("bakes the focused button's highlight-opacity track into the outline's alpha", () => {
+		// Regression test: the focused-state outline used the raw
+		// `highlight-colour` hex with no alpha, ignoring `hlOpacity` entirely
+		// — only the decorative glow (`boxShadow`) used it. The compiler
+		// bakes highlight opacity into the highlight colour's own alpha
+		// (`bake_opacity_into_alpha`'s `highlight_colour` handling, the same
+		// treatment `select_colour`/the activated state already gets), so
+		// the outline must match.
+		const previewButtons: MenuButton[] = [
+			{
+				id: 'btn-1',
+				label: 'Play',
+				bounds: { x: 100, y: 300, width: 200, height: 40 },
+				action: null,
+				navUp: null,
+				navDown: null,
+				navLeft: null,
+				navRight: null,
+				highlightMode: 'static',
+				highlightKeyframes: [],
+				videoAssetId: null,
+			},
+		];
+		const tracks: AnimationTrack[] = [
+			{
+				nodeId: 'btn-1',
+				target: 'highlight-colour',
+				keyframes: [
+					{ timestampSecs: 0, value: { kind: 'colour', hex: '#0000ff' }, easing: 'hold' },
+				],
+			},
+			{
+				nodeId: 'btn-1',
+				target: 'highlight-opacity',
+				keyframes: [{ timestampSecs: 0, value: { kind: 'scalar', value: 0.25 }, easing: 'hold' }],
+			},
+		];
+
+		act(() => {
+			useMenuPlaybackStore.setState({ currentTime: 0 });
+		});
+
+		const { container } = render(
+			<SceneCanvas
+				buttons={previewButtons}
+				canvasHeight={480}
+				sceneNodes={[]}
+				onUpdateButton={vi.fn()}
+				onUpdateSceneNode={vi.fn()}
+				showSafeArea={false}
+				backgroundLabel={null}
+				backgroundColour={null}
+				backgroundIsMotion={true}
+				backgroundInitialTimeSecs={0}
+				animationTracks={tracks}
+				defaultButtonId="btn-1"
+				previewMode={true}
+				highlightColours={DEFAULT_HIGHLIGHT_COLOURS}
+				honestPreview={false}
+				showNavLines={false}
+				selectedNodeId={null}
+				onSelectNode={vi.fn()}
+			/>,
+		);
+
+		const node = container.querySelector('.scene-canvas__node--focused') as HTMLElement;
+		expect(node.style.outline).toContain('rgba(0, 0, 255, 0.25)');
+	});
+
 	it('honest preview folds every button into the same menu-wide activate colour', () => {
 		// The compiled disc has exactly one CLUT for the whole menu — two
 		// buttons with different `activate-colour` tracks can't both show
@@ -2079,5 +2152,82 @@ describe('Navigation preview highlight animation (PR 8)', () => {
 		});
 		const activatedNode = container.querySelector('.scene-canvas__node--focused') as HTMLElement;
 		expect(activatedNode.style.outline).toContain('rgba(255, 0, 255, 0.8)');
+	});
+
+	it('honest preview excludes tracks targeting nodes outside the compiled top-level button set', () => {
+		// Regression test: the planner only ever lowers TOP-LEVEL buttons
+		// (`menu_ref.buttons()`) — a track on a group-nested button (named by
+		// `menu.animation-node-not-compiled`) is silently dropped from the
+		// disc's schedule. The honest-preview fold must drop it too, or it
+		// shows a colour the compiled disc never would. `buttons` here
+		// stands in for the compiled top-level set; `group-nested-btn` is
+		// NOT a member of it, even though it carries a track.
+		const previewButtons: MenuButton[] = [
+			{
+				id: 'btn-1',
+				label: 'Play',
+				bounds: { x: 100, y: 300, width: 200, height: 40 },
+				action: null,
+				navUp: null,
+				navDown: null,
+				navLeft: null,
+				navRight: null,
+				highlightMode: 'static',
+				highlightKeyframes: [],
+				videoAssetId: null,
+			},
+		];
+		const tracks: AnimationTrack[] = [
+			{
+				nodeId: 'btn-1',
+				target: 'activate-colour',
+				keyframes: [
+					{ timestampSecs: 0, value: { kind: 'colour', hex: '#0000ff' }, easing: 'hold' },
+				],
+			},
+			// Last in document order — would win the fold's last-track-wins
+			// tie-break if it weren't filtered out, since it isn't a member
+			// of `buttons`.
+			{
+				nodeId: 'group-nested-btn',
+				target: 'activate-colour',
+				keyframes: [
+					{ timestampSecs: 0, value: { kind: 'colour', hex: '#ff00ff' }, easing: 'hold' },
+				],
+			},
+		];
+
+		act(() => {
+			useMenuPlaybackStore.setState({ currentTime: 0 });
+		});
+
+		const { container } = render(
+			<SceneCanvas
+				buttons={previewButtons}
+				canvasHeight={480}
+				sceneNodes={[]}
+				onUpdateButton={vi.fn()}
+				onUpdateSceneNode={vi.fn()}
+				showSafeArea={false}
+				backgroundLabel={null}
+				backgroundColour={null}
+				backgroundIsMotion={true}
+				backgroundInitialTimeSecs={0}
+				animationTracks={tracks}
+				defaultButtonId="btn-1"
+				previewMode={true}
+				highlightColours={DEFAULT_HIGHLIGHT_COLOURS}
+				honestPreview={true}
+				showNavLines={false}
+				selectedNodeId={null}
+				onSelectNode={vi.fn()}
+			/>,
+		);
+
+		fireEvent.keyDown(container.querySelector('.scene-canvas__viewport--preview')!, {
+			key: 'Enter',
+		});
+		const activatedNode = container.querySelector('.scene-canvas__node--focused') as HTMLElement;
+		expect(activatedNode.style.outline).toContain('rgba(0, 0, 255, 0.8)');
 	});
 });

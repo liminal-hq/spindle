@@ -11,22 +11,42 @@ import type { AnimatableProperty, AnimationTrack, KeyValue } from '../../../type
 import { evaluateTrack } from '../../../utils/animation';
 
 /**
+ * The last timestamp a frame can actually start displaying at before
+ * playback wraps back to `0` — mirrors
+ * `build/planner/animation.rs::build_overlay_keyframe_schedule`'s
+ * `last_presentable_secs = (loop_duration_secs - frame_duration_secs).max(0.0)`,
+ * where `frame_duration_secs = 1 / standard.frame_rate()`. A keyframe
+ * authored at or past this (including exactly at `loopDurationSecs`) is
+ * pulled back to it, the same way the planner's clamp does, rather than to
+ * the unreachable wrap instant `loopDurationSecs` itself.
+ */
+function lastPresentableSecs(loopDurationSecs: number, fps: number): number {
+	const frameDurationSecs = fps > 0 ? 1 / fps : 0;
+	return Math.max(loopDurationSecs - frameDurationSecs, 0);
+}
+
+/**
  * The DCSQ frame-schedule boundary (start instant) containing `tSecs`:
  * the last timestamp at-or-before `tSecs` in the UNION of every track in
  * `relevantTracks`' own keyframe timestamps (each clamped into
- * `[0, loopDurationSecs]`, always including 0.0) — mirrors
+ * `[0, lastPresentableSecs]`, always including 0.0) — mirrors
  * `build/planner/animation.rs::build_overlay_keyframe_schedule`'s
  * `timestamps` union, which combines every highlight/select-relevant
  * track's keyframes (across every button) into ONE shared frame schedule,
  * since a DVD menu bakes both states into one subpicture image per
- * schedule instant.
+ * schedule instant. Clamping to {@link lastPresentableSecs} rather than
+ * `loopDurationSecs` matters: a keyframe at exactly `loopDurationSecs`
+ * would otherwise add a boundary at an instant playback never actually
+ * reaches (it wraps to `0` first), making that keyframe show on the
+ * compiled disc but never in this preview.
  */
 function scheduleBoundarySecs(
 	relevantTracks: AnimationTrack[],
 	tSecs: number,
 	loopDurationSecs: number,
+	fps: number,
 ): number {
-	const maxSecs = Math.max(loopDurationSecs, 0);
+	const maxSecs = lastPresentableSecs(loopDurationSecs, fps);
 	const timestamps = new Set<number>([0]);
 	for (const track of relevantTracks) {
 		for (const kf of track.keyframes) {
@@ -104,8 +124,9 @@ export function sampleHonestFold(
 	defaultOpacity: number,
 	tSecs: number,
 	loopDurationSecs: number,
+	fps: number,
 ): FoldedTrackValue {
-	const boundarySecs = scheduleBoundarySecs(schedulingTracks, tSecs, loopDurationSecs);
+	const boundarySecs = scheduleBoundarySecs(schedulingTracks, tSecs, loopDurationSecs, fps);
 	return foldRelevantTracks(
 		groupTracks,
 		colourTarget,
@@ -138,9 +159,10 @@ export function sampleHonestPreview(
 	track: AnimationTrack,
 	tSecs: number,
 	loopDurationSecs: number,
+	fps: number,
 ): KeyValue | null {
 	if (track.keyframes.length === 0) return null;
-	const boundarySecs = scheduleBoundarySecs(relevantTracks, tSecs, loopDurationSecs);
+	const boundarySecs = scheduleBoundarySecs(relevantTracks, tSecs, loopDurationSecs, fps);
 	return evaluateTrack(track, boundarySecs);
 }
 
@@ -165,13 +187,14 @@ export function sampleTrackForPreview(
 	relevantTracks: AnimationTrack[],
 	tSecs: number,
 	loopDurationSecs: number,
+	fps: number,
 	isMotion: boolean,
 	honestPreview: boolean,
 ): KeyValue | null {
 	if (!track || track.keyframes.length === 0) return null;
 	if (!isMotion) return track.keyframes[0].value;
 	return honestPreview
-		? sampleHonestPreview(relevantTracks, track, tSecs, loopDurationSecs)
+		? sampleHonestPreview(relevantTracks, track, tSecs, loopDurationSecs, fps)
 		: evaluateTrack(track, tSecs);
 }
 

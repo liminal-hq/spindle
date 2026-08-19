@@ -16,6 +16,7 @@ import type {
 	AspectMode,
 	Asset,
 	FormatProfile,
+	VideoStandard,
 } from '../../types/project';
 import { DEFAULT_DVD_FORMAT_PROFILE } from '../../format/useFormatProfile';
 import { useShallow } from 'zustand/react/shallow';
@@ -26,6 +27,7 @@ import {
 	sampleHonestFold,
 	sampleTrackForPreview,
 } from './timeline/timelineUtils';
+import { fpsForStandard } from './timeline/useTimelineGeometry';
 
 // The canvas's fixed interactive coordinate space width. This is *not* yet
 // sourced from `FormatProfile.designSizes` (1024 for DVD-Video) — every menu
@@ -86,6 +88,11 @@ export interface SceneCanvasProps {
 	 * preview to sample the focused/activated button's highlight colour and
 	 * opacity at the playhead's loop-relative time. */
 	animationTracks?: AnimationTrack[];
+	/** The project's disc video standard — drives the honest-preview
+	 * schedule's standard-aware last-presentable-frame clamp (`fpsForStandard`),
+	 * mirroring `build_overlay_keyframe_schedule`'s `frame_duration_secs`.
+	 * Defaults to NTSC when not supplied. */
+	standard?: VideoStandard;
 	defaultButtonId: string | null;
 	/** When true, render in navigation preview mode with highlight colours. */
 	previewMode: boolean;
@@ -121,6 +128,7 @@ export function SceneCanvas({
 	backgroundInitialTimeSecs = 0,
 	loopDurationSecs = 0,
 	animationTracks = [],
+	standard = 'NTSC',
 	defaultButtonId,
 	previewMode,
 	highlightColours,
@@ -147,6 +155,7 @@ export function SceneCanvas({
 				backgroundInitialTimeSecs={backgroundInitialTimeSecs}
 				loopDurationSecs={loopDurationSecs}
 				animationTracks={animationTracks}
+				fps={fpsForStandard(standard)}
 				defaultButtonId={defaultButtonId}
 				highlightColours={highlightColours}
 				honestPreview={honestPreview}
@@ -701,6 +710,7 @@ function NavigationPreview({
 	backgroundInitialTimeSecs,
 	loopDurationSecs = 0,
 	animationTracks = [],
+	fps,
 	defaultButtonId,
 	highlightColours,
 	honestPreview,
@@ -719,6 +729,10 @@ function NavigationPreview({
 	backgroundInitialTimeSecs: number;
 	loopDurationSecs?: number;
 	animationTracks?: AnimationTrack[];
+	/** Frame rate for the honest-preview schedule's last-presentable-frame
+	 * clamp — the project's disc standard (NTSC/PAL), not a hardcoded 30fps
+	 * (see `fpsForStandard`). */
+	fps: number;
 	defaultButtonId: string | null;
 	highlightColours: MenuHighlightColours;
 	honestPreview: boolean;
@@ -756,6 +770,13 @@ function NavigationPreview({
 			),
 		[sceneNodes],
 	);
+	// The compiled disc only ever lowers TOP-LEVEL buttons (`buttons`, which
+	// mirrors `MenuDocument::buttons()`/`menu_ref.buttons()` — see
+	// `PreviewButtonNode`'s doc comment) — a track targeting any other node
+	// (e.g. a group-nested button, named by `menu.animation-node-not-compiled`)
+	// is silently dropped by the planner and must be excluded here too, or
+	// the honest-preview fold would include a track the disc never shows.
+	const compiledButtonIds = useMemo(() => new Set(buttons.map((b) => b.id)), [buttons]);
 
 	useEffect(() => {
 		if (!activatedId) return;
@@ -902,8 +923,10 @@ function NavigationPreview({
 					buttonNode={buttonNodeMap.get(btn.id)}
 					highlightColours={highlightColours}
 					animationTracks={animationTracks}
+					compiledButtonIds={compiledButtonIds}
 					loopStartSecs={backgroundInitialTimeSecs}
 					loopDurationSecs={loopDurationSecs}
+					fps={fps}
 					isMotion={backgroundIsMotion}
 					honestPreview={honestPreview}
 					canvasHeight={canvasHeight}
@@ -960,8 +983,10 @@ function PreviewButtonNode({
 	buttonNode,
 	highlightColours,
 	animationTracks,
+	compiledButtonIds,
 	loopStartSecs,
 	loopDurationSecs,
+	fps,
 	isMotion,
 	honestPreview,
 	canvasHeight,
@@ -974,8 +999,16 @@ function PreviewButtonNode({
 	buttonNode: Extract<SceneNode, { type: 'button' }> | undefined;
 	highlightColours: MenuHighlightColours;
 	animationTracks: AnimationTrack[];
+	/** The menu's top-level (compiled) button IDs — mirrors
+	 * `MenuDocument::buttons()`/`menu_ref.buttons()`, which the planner
+	 * restricts relevant tracks to. */
+	compiledButtonIds: Set<string>;
 	loopStartSecs: number;
 	loopDurationSecs: number;
+	/** Frame rate for the honest-preview schedule's last-presentable-frame
+	 * clamp — the project's disc standard (NTSC/PAL), not a hardcoded 30fps
+	 * (see `fpsForStandard`). */
+	fps: number;
 	isMotion: boolean;
 	honestPreview: boolean;
 	canvasHeight: number;
@@ -1005,24 +1038,30 @@ function PreviewButtonNode({
 	// comment), so the "relevant tracks" group passed to it must include
 	// every highlight/activate-target track across every button, not just
 	// this one — mirroring `build_overlay_keyframe_schedule`'s
-	// `relevant_highlight_tracks`/`relevant_select_tracks`.
+	// `relevant_highlight_tracks`/`relevant_select_tracks`. The
+	// `compiledButtonIds` check mirrors that same function's
+	// `button_ids.contains(track.node_id)` guard: a track targeting a node
+	// that isn't a top-level button (e.g. group-nested) is dropped by the
+	// planner and must be excluded here too.
 	const relevantHighlightTracks = useMemo(
 		() =>
 			animationTracks.filter(
 				(t) =>
 					(t.target === 'highlight-colour' || t.target === 'highlight-opacity') &&
-					t.keyframes.length > 0,
+					t.keyframes.length > 0 &&
+					compiledButtonIds.has(t.nodeId),
 			),
-		[animationTracks],
+		[animationTracks, compiledButtonIds],
 	);
 	const relevantActivateTracks = useMemo(
 		() =>
 			animationTracks.filter(
 				(t) =>
 					(t.target === 'activate-colour' || t.target === 'activate-opacity') &&
-					t.keyframes.length > 0,
+					t.keyframes.length > 0 &&
+					compiledButtonIds.has(t.nodeId),
 			),
-		[animationTracks],
+		[animationTracks, compiledButtonIds],
 	);
 	// The compiled disc bakes ONE overlay image per schedule instant
 	// covering BOTH states, so a keyframe in either group can force a new
@@ -1064,6 +1103,7 @@ function PreviewButtonNode({
 					highlightColours.selectOpacity,
 					tSecs,
 					loopDurationSecs,
+					fps,
 				);
 			}
 			return {
@@ -1074,6 +1114,7 @@ function PreviewButtonNode({
 							relevantHighlightTracks,
 							tSecs,
 							loopDurationSecs,
+							fps,
 							isMotion,
 							honestPreview,
 						),
@@ -1085,6 +1126,7 @@ function PreviewButtonNode({
 							relevantHighlightTracks,
 							tSecs,
 							loopDurationSecs,
+							fps,
 							isMotion,
 							honestPreview,
 						),
@@ -1105,6 +1147,7 @@ function PreviewButtonNode({
 					highlightColours.activateOpacity,
 					tSecs,
 					loopDurationSecs,
+					fps,
 				);
 			}
 			return {
@@ -1115,6 +1158,7 @@ function PreviewButtonNode({
 							relevantActivateTracks,
 							tSecs,
 							loopDurationSecs,
+							fps,
 							isMotion,
 							honestPreview,
 						),
@@ -1126,6 +1170,7 @@ function PreviewButtonNode({
 							relevantActivateTracks,
 							tSecs,
 							loopDurationSecs,
+							fps,
 							isMotion,
 							honestPreview,
 						),
@@ -1138,8 +1183,10 @@ function PreviewButtonNode({
 	const hlOpacity = sampledHl.opacity;
 	// Baked into the outline's alpha via `hexToRgba` rather than kept as a
 	// separate CSS property, mirroring `bake_opacity_into_alpha`'s
-	// `select_colour` handling — the compiled disc has no separate opacity
-	// channel for the activated state, only the baked alpha.
+	// `highlight_colour`/`select_colour` handling — the compiled disc has no
+	// separate opacity channel for either the focused or activated state,
+	// only the baked alpha.
+	const focusedOutlineColour = hexToRgba(hlColour, hlOpacity);
 	const activateColour = hexToRgba(sampledActivate.hex, sampledActivate.opacity);
 
 	return (
@@ -1178,7 +1225,7 @@ function PreviewButtonNode({
 					: {}),
 				...(isFocused
 					? {
-							outline: `1px solid ${hlColour}`,
+							outline: `1px solid ${focusedOutlineColour}`,
 							outlineOffset: '-1px',
 							boxShadow: buttonStyle
 								? `${buttonShadowCss(buttonStyle)}, 0 0 12px ${hexToRgba(hlColour, hlOpacity)}`
