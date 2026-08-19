@@ -182,9 +182,11 @@ export function KeyframeEditorPopover({
 								onChangeValue({ kind: 'scalar', value: Math.min(1, Math.max(0, parsed)) });
 						}}
 						onBlur={() => {
-							if (parseDraftNumber(opacityDraft) === null) {
-								setOpacityDraft(String(scalarValue ?? 0));
-							}
+							// Re-sync unconditionally: an unparseable draft reverts,
+							// and a parseable-but-clamped one (typing `2` when the
+							// saved value is already `1`) snaps to what was actually
+							// persisted instead of keeping the unsaved text.
+							setOpacityDraft(String(scalarValue ?? 0));
 						}}
 					/>
 				</label>
@@ -222,9 +224,11 @@ export function KeyframeEditorPopover({
 						}
 					}}
 					onBlur={() => {
-						if (parseDraftNumber(timestampDraft) === null) {
-							setTimestampDraft(String(keyframe.timestampSecs));
-						}
+						// Same unconditional re-sync as the opacity field — a
+						// clamped retime (typing past 0/loopDurationSecs when the
+						// keyframe already sits at the bound) must not leave the
+						// unsaved text behind.
+						setTimestampDraft(String(keyframe.timestampSecs));
 					}}
 				/>
 			</label>
