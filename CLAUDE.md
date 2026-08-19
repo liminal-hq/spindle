@@ -40,6 +40,7 @@ If host Rust tooling is unavailable, run commands in the `ghcr.io/liminal-hq/tau
 - **Commits**: Conventional Commits with markdown bodies (what/why, `test:` for test-only changes); write bodies to a file and `git commit -F` when they contain backticks.
 - **Licence headers** on new/substantially rewritten `.rs`/`.ts`/`.tsx` files in `src/` (one-line summary + `(c) Copyright 2026 Liminal HQ, Scott Morris` + `SPDX-License-Identifier: MIT`).
 - **Docs sync**: user-facing changes update `README.md` and `SPEC.md`.
+- **No hard wrapping**: write each markdown paragraph or list item as a single line and let viewers soft-wrap; deliberate short lines, one-liners, and bullets stay as-is.
 - **Git**: never push (especially force-push) unless explicitly asked; prefer the `gh` CLI for GitHub work.
 
 Keep this file and `AGENTS.md` in sync: when a convention changes there, update the summary here in the same PR.
