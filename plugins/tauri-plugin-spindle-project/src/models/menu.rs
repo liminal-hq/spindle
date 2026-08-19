@@ -6,7 +6,10 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use super::{AnimationTrack, AspectMode, DiscFamily, PlaybackAction, VideoStandard};
+use super::{
+    AnimatableProperty, AnimationTrack, AspectMode, DiscFamily, Easing, KeyValue, Keyframe,
+    PlaybackAction, VideoStandard,
+};
 
 /// The nine legacy flat-menu fields, retired in favour of `MenuDocument`.
 ///
@@ -357,6 +360,27 @@ impl MenuDocument {
         (self.timing.loop_duration_secs > 0.0).then_some(self.timing.loop_duration_secs)
     }
 
+    /// Lift legacy per-button `highlight_keyframes` (the Stage 2
+    /// animated-highlight model) into [`AnimationTrack`]s on `self.animation`,
+    /// clearing the source arrays afterwards. Idempotent: a document with no
+    /// `HighlightMode::Animated` button carrying keyframes — including one
+    /// this method has already lifted — is a no-op, since the guard is
+    /// "non-empty `highlight_keyframes`", not "has ever been lifted".
+    ///
+    /// Called from [`crate::SpindleProjectFile::migrate_all_menus`] (the
+    /// load-path migration hook), not from [`Menu::migrate_to_document`] —
+    /// that method only runs for menus with no authored document yet
+    /// (legacy-mirror projects), whereas keyframes can appear on
+    /// already-documented menus too.
+    pub fn lift_highlight_keyframes(&mut self) {
+        let defaults = self.highlight_colours.clone();
+        let mut lifted = Vec::new();
+        for node in &mut self.scene.nodes {
+            lift_highlight_keyframes_in_node(node, &defaults, &mut lifted);
+        }
+        self.animation.append(&mut lifted);
+    }
+
     /// Collect the top-level buttons in this document's scene, joined with
     /// their interaction-graph nodes. This is the single definition of "what
     /// counts as a button" shared by both the build pipeline
@@ -492,6 +516,75 @@ impl MenuDocument {
         }
 
         None
+    }
+}
+
+/// Recursive worker for [`MenuDocument::lift_highlight_keyframes`]: lift one
+/// animated button's `highlight_keyframes` into an `AnimationTrack` (plus a
+/// second `HighlightOpacity` track when any keyframe overrides opacity),
+/// appending to `lifted` and clearing the source array. Descends into
+/// `Group` children the same way scene traversal does elsewhere in this
+/// module (see `validate_motion_keyframes_in_node` in `validation::scene`).
+fn lift_highlight_keyframes_in_node(
+    node: &mut SceneNode,
+    defaults: &MenuHighlightColours,
+    lifted: &mut Vec<AnimationTrack>,
+) {
+    match node {
+        SceneNode::Button {
+            id,
+            highlight_mode: HighlightMode::Animated,
+            highlight_keyframes,
+            ..
+        } if !highlight_keyframes.is_empty() => {
+            let colour_keyframes: Vec<Keyframe> = highlight_keyframes
+                .iter()
+                .map(|kf| Keyframe {
+                    timestamp_secs: kf.timestamp_secs,
+                    value: KeyValue::Colour {
+                        hex: kf
+                            .select_colour
+                            .clone()
+                            .unwrap_or_else(|| defaults.select_colour.clone()),
+                    },
+                    easing: Easing::Hold,
+                })
+                .collect();
+            lifted.push(AnimationTrack {
+                node_id: id.clone(),
+                target: AnimatableProperty::HighlightColour,
+                keyframes: colour_keyframes,
+            });
+
+            if highlight_keyframes
+                .iter()
+                .any(|kf| kf.select_opacity.is_some())
+            {
+                let opacity_keyframes: Vec<Keyframe> = highlight_keyframes
+                    .iter()
+                    .map(|kf| Keyframe {
+                        timestamp_secs: kf.timestamp_secs,
+                        value: KeyValue::Scalar {
+                            value: kf.select_opacity.unwrap_or(defaults.select_opacity),
+                        },
+                        easing: Easing::Hold,
+                    })
+                    .collect();
+                lifted.push(AnimationTrack {
+                    node_id: id.clone(),
+                    target: AnimatableProperty::HighlightOpacity,
+                    keyframes: opacity_keyframes,
+                });
+            }
+
+            highlight_keyframes.clear();
+        }
+        SceneNode::Group { children, .. } => {
+            for child in children {
+                lift_highlight_keyframes_in_node(child, defaults, lifted);
+            }
+        }
+        _ => {}
     }
 }
 
@@ -725,7 +818,17 @@ pub enum SceneNode {
         height: f64,
         #[serde(default, rename = "highlightMode", alias = "highlight_mode")]
         highlight_mode: HighlightMode,
-        #[serde(default, rename = "highlightKeyframes", alias = "highlight_keyframes")]
+        /// Legacy Stage-2 animated-highlight keyframes, superseded by
+        /// [`MenuDocument::animation`]. Deserialise-compat only — lifted (and
+        /// cleared) by [`MenuDocument::lift_highlight_keyframes`] on load, so
+        /// this is always empty and omitted from output once a document has
+        /// been through migration.
+        #[serde(
+            default,
+            rename = "highlightKeyframes",
+            alias = "highlight_keyframes",
+            skip_serializing_if = "Vec::is_empty"
+        )]
         highlight_keyframes: Vec<HighlightKeyframe>,
         #[serde(default, rename = "videoAssetId", alias = "video_asset_id")]
         video_asset_id: Option<String>,
@@ -1087,6 +1190,218 @@ pub struct ButtonBounds {
     pub y: f64,
     pub width: f64,
     pub height: f64,
+}
+
+#[cfg(test)]
+mod lift_tests {
+    use super::*;
+
+    fn document_with_animated_button(keyframes: Vec<HighlightKeyframe>) -> MenuDocument {
+        MenuDocument {
+            animation: vec![],
+            id: "menu-1".to_string(),
+            name: "Menu".to_string(),
+            domain: MenuDomain::Vmgm,
+            role: MenuRole::TitleSelect,
+            scene: MenuScene {
+                design_size: MenuSize::default(),
+                background: SceneBackground {
+                    asset_id: None,
+                    colour: None,
+                },
+                nodes: vec![SceneNode::Button {
+                    id: "btn-1".to_string(),
+                    label: "Play".to_string(),
+                    x: 0.0,
+                    y: 0.0,
+                    width: 100.0,
+                    height: 50.0,
+                    highlight_mode: HighlightMode::Animated,
+                    highlight_keyframes: keyframes,
+                    video_asset_id: None,
+                    button_style: None,
+                    label_style: None,
+                }],
+                guides: vec![],
+            },
+            interaction: MenuInteractionGraph {
+                default_focus_id: None,
+                nodes: vec![],
+                timeout_action: None,
+            },
+            timing: MenuTiming::default(),
+            highlight_colours: MenuHighlightColours::default(),
+            background_mode: BackgroundMode::Motion,
+            theme_ref: None,
+            generation_meta: None,
+            compile_policy: MenuCompilePolicy::default(),
+        }
+    }
+
+    #[test]
+    fn lifts_colour_keyframes_into_a_highlight_colour_track() {
+        let mut doc = document_with_animated_button(vec![
+            HighlightKeyframe {
+                timestamp_secs: 0.0,
+                select_colour: Some("#ff0000".to_string()),
+                select_opacity: None,
+                activate_colour: None,
+                activate_opacity: None,
+            },
+            HighlightKeyframe {
+                timestamp_secs: 1.0,
+                select_colour: Some("#00ff00".to_string()),
+                select_opacity: None,
+                activate_colour: None,
+                activate_opacity: None,
+            },
+        ]);
+
+        doc.lift_highlight_keyframes();
+
+        assert_eq!(doc.animation.len(), 1);
+        let track = &doc.animation[0];
+        assert_eq!(track.node_id, "btn-1");
+        assert_eq!(track.target, AnimatableProperty::HighlightColour);
+        assert_eq!(track.keyframes.len(), 2);
+        assert_eq!(
+            track.keyframes[0].value,
+            KeyValue::Colour {
+                hex: "#ff0000".to_string()
+            }
+        );
+        assert_eq!(track.keyframes[0].easing, Easing::Hold);
+        assert_eq!(
+            track.keyframes[1].value,
+            KeyValue::Colour {
+                hex: "#00ff00".to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn missing_per_keyframe_colour_falls_back_to_menu_default() {
+        let mut doc = document_with_animated_button(vec![HighlightKeyframe {
+            timestamp_secs: 0.0,
+            select_colour: None,
+            select_opacity: None,
+            activate_colour: None,
+            activate_opacity: None,
+        }]);
+        let default_colour = doc.highlight_colours.select_colour.clone();
+
+        doc.lift_highlight_keyframes();
+
+        assert_eq!(
+            doc.animation[0].keyframes[0].value,
+            KeyValue::Colour {
+                hex: default_colour
+            }
+        );
+    }
+
+    #[test]
+    fn adds_a_second_opacity_track_only_when_a_keyframe_overrides_opacity() {
+        let mut doc = document_with_animated_button(vec![HighlightKeyframe {
+            timestamp_secs: 0.0,
+            select_colour: Some("#ff0000".to_string()),
+            select_opacity: Some(0.25),
+            activate_colour: None,
+            activate_opacity: None,
+        }]);
+
+        doc.lift_highlight_keyframes();
+
+        assert_eq!(doc.animation.len(), 2);
+        assert_eq!(doc.animation[0].target, AnimatableProperty::HighlightColour);
+        assert_eq!(doc.animation[1].target, AnimatableProperty::HighlightOpacity);
+        assert_eq!(
+            doc.animation[1].keyframes[0].value,
+            KeyValue::Scalar { value: 0.25 }
+        );
+    }
+
+    #[test]
+    fn clears_the_legacy_arrays_after_lifting() {
+        let mut doc = document_with_animated_button(vec![HighlightKeyframe {
+            timestamp_secs: 0.0,
+            select_colour: Some("#ff0000".to_string()),
+            select_opacity: None,
+            activate_colour: None,
+            activate_opacity: None,
+        }]);
+
+        doc.lift_highlight_keyframes();
+
+        let SceneNode::Button {
+            highlight_keyframes,
+            ..
+        } = &doc.scene.nodes[0]
+        else {
+            panic!("expected a button node");
+        };
+        assert!(highlight_keyframes.is_empty());
+    }
+
+    #[test]
+    fn is_idempotent() {
+        let mut doc = document_with_animated_button(vec![HighlightKeyframe {
+            timestamp_secs: 0.0,
+            select_colour: Some("#ff0000".to_string()),
+            select_opacity: None,
+            activate_colour: None,
+            activate_opacity: None,
+        }]);
+
+        doc.lift_highlight_keyframes();
+        let first_pass = doc.animation.clone();
+        doc.lift_highlight_keyframes();
+
+        assert_eq!(doc.animation, first_pass);
+    }
+
+    #[test]
+    fn a_document_with_no_animated_buttons_is_a_no_op() {
+        let mut doc = document_with_animated_button(vec![]);
+        doc.scene.nodes[0] = SceneNode::Button {
+            id: "btn-1".to_string(),
+            label: "Play".to_string(),
+            x: 0.0,
+            y: 0.0,
+            width: 100.0,
+            height: 50.0,
+            highlight_mode: HighlightMode::Static,
+            highlight_keyframes: vec![],
+            video_asset_id: None,
+            button_style: None,
+            label_style: None,
+        };
+
+        doc.lift_highlight_keyframes();
+
+        assert!(doc.animation.is_empty());
+    }
+
+    #[test]
+    fn serialisation_round_trip_omits_the_now_empty_legacy_array() {
+        let mut doc = document_with_animated_button(vec![HighlightKeyframe {
+            timestamp_secs: 0.0,
+            select_colour: Some("#ff0000".to_string()),
+            select_opacity: None,
+            activate_colour: None,
+            activate_opacity: None,
+        }]);
+        doc.lift_highlight_keyframes();
+
+        let json = serde_json::to_string(&doc).unwrap();
+        assert!(
+            !json.contains("highlightKeyframes"),
+            "expected the emptied legacy array to be omitted from output, got: {json}"
+        );
+
+        let round_tripped: MenuDocument = serde_json::from_str(&json).unwrap();
+        assert_eq!(round_tripped.animation, doc.animation);
+    }
 }
 
 #[cfg(test)]

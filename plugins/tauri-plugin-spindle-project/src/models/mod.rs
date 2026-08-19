@@ -67,12 +67,14 @@ impl SpindleProjectFile {
             // ("VMGM menu 1" — see `build/dvd_navigation.rs`, which numbers
             // `global_menus` 1-based in this same order).
             menu.backfill_role(MenuDomain::Vmgm, menu_index == 0);
+            menu.doc_mut().lift_highlight_keyframes();
         }
         for (titleset_index, titleset) in self.disc.titlesets.iter_mut().enumerate() {
             let display_aspect = titleset_display_aspects[titleset_index];
             for menu in &mut titleset.menus {
                 menu.ensure_document(MenuDomain::Titleset, standard, display_aspect);
                 menu.backfill_role(MenuDomain::Titleset, false);
+                menu.doc_mut().lift_highlight_keyframes();
             }
         }
     }
