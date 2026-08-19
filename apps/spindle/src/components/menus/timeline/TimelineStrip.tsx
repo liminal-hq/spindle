@@ -140,7 +140,11 @@ export function TimelineStrip({
 		syncScrubber();
 		scrollEl.addEventListener('scroll', syncScrubber);
 		return () => scrollEl.removeEventListener('scroll', syncScrubber);
-	}, []);
+		// `visible` matters: the strip can mount hidden (still menu, no tracks)
+		// where both refs are unset — when it later becomes visible (switched
+		// to Motion, first track added), the effect must rerun to bind the
+		// freshly created DOM nodes or the scrubber never follows the scroll.
+	}, [visible]);
 
 	const { timing, highlightColours } = document;
 	const loopStartSecs = timing.loopStartSecs;
