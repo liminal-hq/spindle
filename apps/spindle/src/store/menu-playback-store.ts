@@ -29,6 +29,11 @@ export interface MenuPlaybackState {
 	/** Record the registered video's reported duration, e.g. from a
 	 * `loadedmetadata`/`durationchange` event. */
 	reportDuration: (durationSecs: number) => void;
+	/** Record the registered video's actual play/pause state, e.g. from
+	 * `onPlay`/`onPause` events. Keeps `playing` accurate when playback
+	 * starts or stops outside of `play()`/`pause()` — notably muted
+	 * `autoPlay` starting the element without either being called. */
+	reportPlaying: (playing: boolean) => void;
 	/** Seek the registered video to `tSecs` (source-relative). No-op if no
 	 * video is registered. */
 	seek: (tSecs: number) => void;
@@ -57,6 +62,10 @@ export const useMenuPlaybackStore = create<MenuPlaybackState>((set, get) => ({
 
 	reportDuration: (durationSecs) => {
 		set({ duration: Number.isFinite(durationSecs) ? durationSecs : 0 });
+	},
+
+	reportPlaying: (playing) => {
+		set({ playing });
 	},
 
 	seek: (tSecs) => {

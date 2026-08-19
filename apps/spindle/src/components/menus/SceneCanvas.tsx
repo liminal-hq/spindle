@@ -1088,6 +1088,7 @@ function BackgroundVideo({ asset, initialTimeSecs }: { asset: Asset; initialTime
 	const registerVideo = useMenuPlaybackStore((s) => s.registerVideo);
 	const reportTime = useMenuPlaybackStore((s) => s.reportTime);
 	const reportDuration = useMenuPlaybackStore((s) => s.reportDuration);
+	const reportPlaying = useMenuPlaybackStore((s) => s.reportPlaying);
 	const videoElRef = useRef<HTMLVideoElement | null>(null);
 	// Whether this mount has already retried a load failure once — the
 	// asset-scope grant (`allowAssetScope`, project-store's openProject/
@@ -1135,6 +1136,7 @@ function BackgroundVideo({ asset, initialTimeSecs }: { asset: Asset; initialTime
 			className="scene-canvas__bg-image"
 			src={convertFileSrc(asset.sourcePath)}
 			muted
+			autoPlay
 			loop
 			playsInline
 			preload="auto"
@@ -1145,6 +1147,8 @@ function BackgroundVideo({ asset, initialTimeSecs }: { asset: Asset; initialTime
 			}}
 			onDurationChange={(e) => reportDuration(e.currentTarget.duration)}
 			onTimeUpdate={(e) => reportTime(e.currentTarget.currentTime)}
+			onPlay={() => reportPlaying(true)}
+			onPause={() => reportPlaying(false)}
 			onError={() => {
 				if (!retriedRef.current) {
 					retriedRef.current = true;

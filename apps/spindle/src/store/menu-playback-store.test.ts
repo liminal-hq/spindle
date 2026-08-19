@@ -132,4 +132,27 @@ describe('menu-playback-store', () => {
 		expect(() => useMenuPlaybackStore.getState().pause()).not.toThrow();
 		expect(useMenuPlaybackStore.getState().playing).toBe(false);
 	});
+
+	it('reportPlaying(true) mirrors a video onPlay event, e.g. from muted autoPlay starting', () => {
+		// Regression test: muted `autoPlay` starts the element without going
+		// through `play()`, so `playing` must be updated from the video's own
+		// `onPlay`/`onPause` events, not only from the store's own actions.
+		const video = fakeVideoEl();
+		useMenuPlaybackStore.getState().registerVideo(video);
+		expect(useMenuPlaybackStore.getState().playing).toBe(false);
+
+		useMenuPlaybackStore.getState().reportPlaying(true);
+
+		expect(useMenuPlaybackStore.getState().playing).toBe(true);
+	});
+
+	it('reportPlaying(false) mirrors a video onPause event', () => {
+		const video = fakeVideoEl({ paused: false });
+		useMenuPlaybackStore.getState().registerVideo(video);
+		expect(useMenuPlaybackStore.getState().playing).toBe(true);
+
+		useMenuPlaybackStore.getState().reportPlaying(false);
+
+		expect(useMenuPlaybackStore.getState().playing).toBe(false);
+	});
 });
