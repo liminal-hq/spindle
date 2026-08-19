@@ -1391,8 +1391,15 @@ function useThumbnailBlobUrl(asset: Asset): string | null {
 	return url;
 }
 
+// Upper bound for the blob-URL video fallback (see `BackgroundVideo`'s
+// onError): the whole file is fetched into webview memory, and while menu
+// background loops are normally short, the asset could be a feature-length
+// file — fetching it whole has to stop somewhere.
+const VIDEO_PREVIEW_BLOB_CAP_BYTES = 512 * 1024 * 1024;
+
 function BackgroundVideo({ asset, initialTimeSecs }: { asset: Asset; initialTimeSecs: number }) {
 	const [loadFailed, setLoadFailed] = useState(false);
+	const [blobSrc, setBlobSrc] = useState<string | null>(null);
 	const posterUrl = useThumbnailBlobUrl(asset);
 	const registerVideo = useMenuPlaybackStore((s) => s.registerVideo);
 	const reportTime = useMenuPlaybackStore((s) => s.reportTime);
@@ -1405,6 +1412,14 @@ function BackgroundVideo({ asset, initialTimeSecs }: { asset: Asset; initialTime
 	// loading, so one retry avoids a permanent "Preview unavailable" for a
 	// background that's actually fine.
 	const retriedRef = useRef(false);
+	// Whether the blob-URL fallback fetch has been started for this asset, so
+	// a failing blob source doesn't loop back into another fetch.
+	const blobAttemptedRef = useRef(false);
+	// The asset id the component currently renders — read inside the async
+	// fallback fetch so a result landing after the user switched backgrounds
+	// is dropped instead of applied to the wrong asset.
+	const assetIdRef = useRef(asset.id);
+	assetIdRef.current = asset.id;
 
 	const setVideoRef = useCallback(
 		(el: HTMLVideoElement | null) => {
@@ -1417,7 +1432,19 @@ function BackgroundVideo({ asset, initialTimeSecs }: { asset: Asset; initialTime
 	useEffect(() => {
 		setLoadFailed(false);
 		retriedRef.current = false;
+		blobAttemptedRef.current = false;
+		setBlobSrc(null);
 	}, [asset.id]);
+
+	// Revoke a fallback object URL once it's replaced or the component
+	// unmounts, so the fetched bytes don't outlive the preview needing them.
+	useEffect(() => {
+		return () => {
+			if (blobSrc) {
+				URL.revokeObjectURL(blobSrc);
+			}
+		};
+	}, [blobSrc]);
 
 	// Unregister the video from the playback store on unmount (e.g. switching
 	// away from this menu or out of design mode) so a stale element reference
@@ -1441,9 +1468,14 @@ function BackgroundVideo({ asset, initialTimeSecs }: { asset: Asset; initialTime
 
 	return (
 		<video
+			// Keyed on the source so switching to the blob fallback mounts a
+			// fresh element: the failed asset:// load can still deliver a
+			// queued error event after React swaps `src`, which would read as
+			// a bogus blob failure on a reused element.
+			key={blobSrc ?? 'asset-protocol'}
 			ref={setVideoRef}
 			className="scene-canvas__bg-image"
-			src={convertFileSrc(asset.sourcePath)}
+			src={blobSrc ?? convertFileSrc(asset.sourcePath)}
 			muted
 			autoPlay
 			// No native `loop` attribute: looping is driven by the playback
@@ -1471,6 +1503,39 @@ function BackgroundVideo({ asset, initialTimeSecs }: { asset: Asset; initialTime
 				if (!retriedRef.current) {
 					retriedRef.current = true;
 					setTimeout(() => videoElRef.current?.load(), 300);
+					return;
+				}
+				// WebKitGTK's media player cannot stream over Tauri's custom
+				// asset:// scheme (plain fetches through it work fine), so on
+				// Linux the <video> above always fails with
+				// MEDIA_ERR_SRC_NOT_SUPPORTED regardless of codecs. Fall back
+				// to fetching the file through the asset protocol — which
+				// still enforces the runtime scope grants — and playing it
+				// from an in-memory blob URL.
+				if (!blobAttemptedRef.current) {
+					blobAttemptedRef.current = true;
+					const fallbackAssetId = asset.id;
+					void (async () => {
+						try {
+							const response = await fetch(convertFileSrc(asset.sourcePath));
+							if (!response.ok) {
+								throw new Error(`asset fetch failed: ${response.status}`);
+							}
+							const length = Number(response.headers.get('content-length') ?? '0');
+							if (length > VIDEO_PREVIEW_BLOB_CAP_BYTES) {
+								throw new Error('source too large for blob preview');
+							}
+							const blob = await response.blob();
+							if (assetIdRef.current !== fallbackAssetId) {
+								return;
+							}
+							setBlobSrc(URL.createObjectURL(blob));
+						} catch {
+							if (assetIdRef.current === fallbackAssetId) {
+								setLoadFailed(true);
+							}
+						}
+					})();
 					return;
 				}
 				setLoadFailed(true);

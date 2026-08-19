@@ -4,7 +4,7 @@
 // SPDX-License-Identifier: MIT
 
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
 import { LayersPanel } from './LayersPanel';
 import { InspectorPanel } from './InspectorPanel';
 import { SceneCanvas } from './SceneCanvas';
@@ -1286,6 +1286,89 @@ describe('SceneCanvas', () => {
 
 		expect(useMenuPlaybackStore.getState().playing).toBe(false);
 		useMenuPlaybackStore.setState(initialPlaybackState, true);
+	});
+
+	// WebKitGTK cannot stream media over the custom asset:// scheme (plain
+	// fetches through it work fine), so BackgroundVideo falls back to fetching
+	// the file through the asset protocol and playing an in-memory blob URL
+	// after the element's own load fails past its one scope-grant retry.
+	describe('blob-URL fallback when asset:// media streaming fails', () => {
+		const renderMotionCanvas = () =>
+			render(
+				<SceneCanvas
+					buttons={buttons}
+					canvasHeight={480}
+					sceneNodes={[]}
+					onUpdateButton={vi.fn()}
+					onUpdateSceneNode={vi.fn()}
+					showSafeArea={false}
+					backgroundLabel={null}
+					backgroundColour={null}
+					backgroundAsset={motionBackgroundAsset}
+					backgroundIsMotion={true}
+					backgroundInitialTimeSecs={0}
+					defaultButtonId={null}
+					previewMode={false}
+					highlightColours={DEFAULT_HIGHLIGHT_COLOURS}
+					honestPreview={false}
+					showNavLines={false}
+					selectedNodeId={null}
+					onSelectNode={vi.fn()}
+				/>,
+			);
+
+		const failPastRetry = async (container: HTMLElement) => {
+			const video = container.querySelector('video.scene-canvas__bg-image');
+			expect(video).not.toBeNull();
+			// First error schedules the scope-grant retry; second exhausts it
+			// and starts the blob fallback fetch.
+			fireEvent.error(video!);
+			fireEvent.error(video!);
+		};
+
+		afterEach(() => {
+			vi.unstubAllGlobals();
+			delete (URL as { createObjectURL?: unknown }).createObjectURL;
+			delete (URL as { revokeObjectURL?: unknown }).revokeObjectURL;
+		});
+
+		it('swaps the video onto a blob URL fetched through the asset protocol', async () => {
+			URL.createObjectURL = vi.fn(() => 'blob:spindle/preview-fallback');
+			URL.revokeObjectURL = vi.fn();
+			const fetchMock = vi.fn(async () => ({
+				ok: true,
+				headers: new Headers({ 'content-length': '3' }),
+				blob: async () => new Blob(['abc']),
+			}));
+			vi.stubGlobal('fetch', fetchMock);
+
+			const { container } = renderMotionCanvas();
+			await failPastRetry(container);
+
+			await waitFor(() => {
+				const video = container.querySelector('video.scene-canvas__bg-image');
+				expect(video).toHaveAttribute('src', 'blob:spindle/preview-fallback');
+			});
+			expect(fetchMock).toHaveBeenCalledWith('asset://localhost//tmp/menu-bg.mp4');
+			expect(container.querySelector('.scene-canvas__image-placeholder')).toBeNull();
+		});
+
+		it('shows the preview-unavailable placeholder when the fallback fetch fails too', async () => {
+			vi.stubGlobal(
+				'fetch',
+				vi.fn(async () => {
+					throw new Error('scope denied');
+				}),
+			);
+
+			const { container } = renderMotionCanvas();
+			await failPastRetry(container);
+
+			await waitFor(() => {
+				expect(container.querySelector('video')).toBeNull();
+			});
+			expect(screen.getByText('Preview unavailable')).toBeInTheDocument();
+		});
 	});
 
 	it('creates generated menus with the standard-appropriate authored design height', () => {
