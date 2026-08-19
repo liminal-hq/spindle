@@ -332,21 +332,6 @@ pub(super) fn validate_menus(
         validate_scene_nodes(&doc.scene.nodes, asset_ids, &menu.name, &menu.id, issues);
 
         if matches!(background_mode, BackgroundMode::Motion) {
-            issues.push(ValidationIssue {
-                severity: IssueSeverity::Warning,
-                code: "menu.motion-build-pending".to_string(),
-                message: format!(
-                    "Menu \"{}\" is authored as a motion menu, but the backend still blocks motion-menu builds until video-loop authoring is implemented.",
-                    menu.name
-                ),
-                context: Some(menu.id.clone()),
-                entity_type: Some("menu".to_string()),
-                entity_name: Some(menu.name.clone()),
-                suggested_fix: Some(
-                    "Keep authoring the motion timing and assets, but switch this menu back to still mode before building for now.".to_string(),
-                ),
-            });
-
             if background_asset_id.is_none() {
                 issues.push(ValidationIssue {
                     severity: IssueSeverity::Error,
@@ -473,6 +458,73 @@ pub(super) fn validate_menus(
                     }
                 }
             }
+
+            let background_asset = background_asset_id.and_then(|id| asset_map.get(id));
+            let source_duration_secs = background_asset.and_then(|asset| asset.duration_secs);
+
+            if let (Some(loop_duration_secs), Some(source_duration_secs)) =
+                (motion_duration_secs, source_duration_secs)
+            {
+                if motion_loop_start_secs + loop_duration_secs > source_duration_secs {
+                    issues.push(ValidationIssue {
+                        severity: IssueSeverity::Error,
+                        code: "menu.motion-loop-exceeds-source".to_string(),
+                        message: format!(
+                            "Motion menu \"{}\" loop window (start {:.2}s + duration {:.2}s) runs past the end of its background asset ({:.2}s).",
+                            menu.name, motion_loop_start_secs, loop_duration_secs, source_duration_secs
+                        ),
+                        context: Some(menu.id.clone()),
+                        entity_type: Some("menu".to_string()),
+                        entity_name: Some(menu.name.clone()),
+                        suggested_fix: Some(
+                            "Shorten the loop duration or move the loop start earlier so the window fits inside the source video."
+                                .to_string(),
+                        ),
+                    });
+                }
+            }
+
+            let intro_duration_secs = doc.timing.intro_duration_secs;
+            let intro_window_invalid = intro_duration_secs < 0.0
+                || (intro_duration_secs > 0.0
+                    && source_duration_secs.is_some_and(|source_duration_secs| {
+                        doc.timing.intro_start_secs + intro_duration_secs > source_duration_secs
+                    }));
+            if intro_window_invalid {
+                issues.push(ValidationIssue {
+                    severity: IssueSeverity::Error,
+                    code: "menu.motion-intro-invalid".to_string(),
+                    message: format!(
+                        "Motion menu \"{}\" intro window is invalid — either the duration is negative, or it runs past the end of the background asset.",
+                        menu.name
+                    ),
+                    context: Some(menu.id.clone()),
+                    entity_type: Some("menu".to_string()),
+                    entity_name: Some(menu.name.clone()),
+                    suggested_fix: Some(
+                        "Set a non-negative intro duration that fits inside the source video, starting from the intro start time."
+                            .to_string(),
+                    ),
+                });
+            }
+
+            if doc.timing.loop_count > 0 && doc.interaction.timeout_action.is_none() {
+                issues.push(ValidationIssue {
+                    severity: IssueSeverity::Warning,
+                    code: "menu.motion-loop-count-without-timeout".to_string(),
+                    message: format!(
+                        "Motion menu \"{}\" has a loop count of {}, but no timeout action — it will loop forever instead of stopping after {} plays.",
+                        menu.name, doc.timing.loop_count, doc.timing.loop_count
+                    ),
+                    context: Some(menu.id.clone()),
+                    entity_type: Some("menu".to_string()),
+                    entity_name: Some(menu.name.clone()),
+                    suggested_fix: Some(
+                        "Set a timeout action, or set the loop count to 0 for an intentional infinite loop."
+                            .to_string(),
+                    ),
+                });
+            }
         }
 
         validate_button_video_usage(menu, background_mode, asset_map, issues);
@@ -539,6 +591,354 @@ mod tests {
             generation_meta: None,
             compile_policy: MenuCompilePolicy::default(),
         }
+    }
+
+    fn motion_document(
+        timing: MenuTiming,
+        background_asset_id: Option<&str>,
+        timeout_action: Option<PlaybackAction>,
+    ) -> MenuDocument {
+        MenuDocument {
+            id: "menu-1".to_string(),
+            name: "Motion Menu".to_string(),
+            domain: MenuDomain::Vmgm,
+            role: MenuRole::TitleSelect,
+            scene: MenuScene {
+                design_size: MenuSize {
+                    width: 720.0,
+                    height: 480.0,
+                    aspect: AspectMode::SixteenByNine,
+                },
+                background: SceneBackground {
+                    asset_id: background_asset_id.map(|id| id.to_string()),
+                    colour: None,
+                },
+                nodes: vec![],
+                guides: vec![],
+            },
+            interaction: MenuInteractionGraph {
+                default_focus_id: None,
+                nodes: vec![],
+                timeout_action,
+            },
+            timing,
+            highlight_colours: MenuHighlightColours::default(),
+            background_mode: BackgroundMode::Motion,
+            theme_ref: None,
+            generation_meta: None,
+            compile_policy: MenuCompilePolicy::default(),
+        }
+    }
+
+    fn motion_video_asset(id: &str, duration_secs: f64) -> Asset {
+        let mut asset = Asset::new(format!("{id}.mp4"), format!("/tmp/{id}.mp4"));
+        asset.id = id.to_string();
+        asset.duration_secs = Some(duration_secs);
+        asset.video_streams = vec![VideoStreamInfo {
+            index: 0,
+            codec: "h264".to_string(),
+            width: 1920,
+            height: 1080,
+            frame_rate: Some(30.0),
+            aspect_ratio: None,
+            scan_type: None,
+            bitrate_bps: None,
+            title: None,
+            color_transfer: None,
+            color_primaries: None,
+            dolby_vision_profile: None,
+        }];
+        asset.audio_streams = vec![AudioStreamInfo {
+            index: 1,
+            codec: "aac".to_string(),
+            channels: 2,
+            sample_rate: 48000,
+            language: None,
+            bitrate_bps: None,
+            title: None,
+        }];
+        asset
+    }
+
+    #[test]
+    fn motion_build_pending_warning_is_gone() {
+        let menu = Menu::new("menu-1", "Motion Menu").with_document(motion_document(
+            MenuTiming {
+                intro_start_secs: 0.0,
+                intro_duration_secs: 0.0,
+                loop_start_secs: 1.0,
+                loop_duration_secs: 3.0,
+                loop_count: 0,
+                audio_asset_id: None,
+            },
+            Some("bg-video"),
+            None,
+        ));
+        let project = project_with_menu(menu);
+        let asset = motion_video_asset("bg-video", 10.0);
+        let asset_ids: HashSet<&str> = ["bg-video"].into_iter().collect();
+        let mut asset_map = HashMap::new();
+        asset_map.insert("bg-video", &asset);
+        let all_title_ids = HashSet::new();
+        let all_menu_ids: HashSet<&str> = ["menu-1"].into_iter().collect();
+        let mut issues = Vec::new();
+
+        validate_menus(
+            &project,
+            &asset_ids,
+            &asset_map,
+            &all_title_ids,
+            &all_menu_ids,
+            &mut issues,
+        );
+
+        assert!(
+            !issues.iter().any(|i| i.code == "menu.motion-build-pending"),
+            "the motion-build-pending warning must be gone now that motion builds are supported, got {issues:?}"
+        );
+    }
+
+    #[test]
+    fn motion_loop_exceeds_source_is_flagged_when_window_runs_past_asset_duration() {
+        let menu = Menu::new("menu-1", "Motion Menu").with_document(motion_document(
+            MenuTiming {
+                intro_start_secs: 0.0,
+                intro_duration_secs: 0.0,
+                loop_start_secs: 8.0,
+                loop_duration_secs: 5.0, // 8 + 5 = 13, past the 10s source
+                loop_count: 0,
+                audio_asset_id: None,
+            },
+            Some("bg-video"),
+            None,
+        ));
+        let project = project_with_menu(menu);
+        let asset = motion_video_asset("bg-video", 10.0);
+        let asset_ids: HashSet<&str> = ["bg-video"].into_iter().collect();
+        let mut asset_map = HashMap::new();
+        asset_map.insert("bg-video", &asset);
+        let all_title_ids = HashSet::new();
+        let all_menu_ids: HashSet<&str> = ["menu-1"].into_iter().collect();
+        let mut issues = Vec::new();
+
+        validate_menus(
+            &project,
+            &asset_ids,
+            &asset_map,
+            &all_title_ids,
+            &all_menu_ids,
+            &mut issues,
+        );
+
+        assert!(
+            issues
+                .iter()
+                .any(|i| i.code == "menu.motion-loop-exceeds-source"
+                    && i.severity == IssueSeverity::Error),
+            "expected a motion-loop-exceeds-source error, got {issues:?}"
+        );
+    }
+
+    #[test]
+    fn motion_loop_within_source_is_not_flagged() {
+        let menu = Menu::new("menu-1", "Motion Menu").with_document(motion_document(
+            MenuTiming {
+                intro_start_secs: 0.0,
+                intro_duration_secs: 0.0,
+                loop_start_secs: 1.0,
+                loop_duration_secs: 3.0,
+                loop_count: 0,
+                audio_asset_id: None,
+            },
+            Some("bg-video"),
+            None,
+        ));
+        let project = project_with_menu(menu);
+        let asset = motion_video_asset("bg-video", 10.0);
+        let asset_ids: HashSet<&str> = ["bg-video"].into_iter().collect();
+        let mut asset_map = HashMap::new();
+        asset_map.insert("bg-video", &asset);
+        let all_title_ids = HashSet::new();
+        let all_menu_ids: HashSet<&str> = ["menu-1"].into_iter().collect();
+        let mut issues = Vec::new();
+
+        validate_menus(
+            &project,
+            &asset_ids,
+            &asset_map,
+            &all_title_ids,
+            &all_menu_ids,
+            &mut issues,
+        );
+
+        assert!(
+            !issues
+                .iter()
+                .any(|i| i.code == "menu.motion-loop-exceeds-source"),
+            "loop window fits inside the source, got {issues:?}"
+        );
+    }
+
+    #[test]
+    fn motion_intro_invalid_is_flagged_for_negative_duration() {
+        let menu = Menu::new("menu-1", "Motion Menu").with_document(motion_document(
+            MenuTiming {
+                intro_start_secs: 0.0,
+                intro_duration_secs: -1.0,
+                loop_start_secs: 1.0,
+                loop_duration_secs: 3.0,
+                loop_count: 0,
+                audio_asset_id: None,
+            },
+            Some("bg-video"),
+            None,
+        ));
+        let project = project_with_menu(menu);
+        let asset = motion_video_asset("bg-video", 10.0);
+        let asset_ids: HashSet<&str> = ["bg-video"].into_iter().collect();
+        let mut asset_map = HashMap::new();
+        asset_map.insert("bg-video", &asset);
+        let all_title_ids = HashSet::new();
+        let all_menu_ids: HashSet<&str> = ["menu-1"].into_iter().collect();
+        let mut issues = Vec::new();
+
+        validate_menus(
+            &project,
+            &asset_ids,
+            &asset_map,
+            &all_title_ids,
+            &all_menu_ids,
+            &mut issues,
+        );
+
+        assert!(
+            issues.iter().any(
+                |i| i.code == "menu.motion-intro-invalid" && i.severity == IssueSeverity::Error
+            ),
+            "expected a motion-intro-invalid error for negative duration, got {issues:?}"
+        );
+    }
+
+    #[test]
+    fn motion_intro_invalid_is_flagged_when_intro_window_runs_past_source() {
+        let menu = Menu::new("menu-1", "Motion Menu").with_document(motion_document(
+            MenuTiming {
+                intro_start_secs: 8.0,
+                intro_duration_secs: 5.0, // 8 + 5 = 13, past the 10s source
+                loop_start_secs: 1.0,
+                loop_duration_secs: 3.0,
+                loop_count: 0,
+                audio_asset_id: None,
+            },
+            Some("bg-video"),
+            None,
+        ));
+        let project = project_with_menu(menu);
+        let asset = motion_video_asset("bg-video", 10.0);
+        let asset_ids: HashSet<&str> = ["bg-video"].into_iter().collect();
+        let mut asset_map = HashMap::new();
+        asset_map.insert("bg-video", &asset);
+        let all_title_ids = HashSet::new();
+        let all_menu_ids: HashSet<&str> = ["menu-1"].into_iter().collect();
+        let mut issues = Vec::new();
+
+        validate_menus(
+            &project,
+            &asset_ids,
+            &asset_map,
+            &all_title_ids,
+            &all_menu_ids,
+            &mut issues,
+        );
+
+        assert!(
+            issues
+                .iter()
+                .any(|i| i.code == "menu.motion-intro-invalid"
+                    && i.severity == IssueSeverity::Error),
+            "expected a motion-intro-invalid error for an out-of-range intro window, got {issues:?}"
+        );
+    }
+
+    #[test]
+    fn motion_loop_count_without_timeout_is_a_warning() {
+        let menu = Menu::new("menu-1", "Motion Menu").with_document(motion_document(
+            MenuTiming {
+                intro_start_secs: 0.0,
+                intro_duration_secs: 0.0,
+                loop_start_secs: 1.0,
+                loop_duration_secs: 3.0,
+                loop_count: 3,
+                audio_asset_id: None,
+            },
+            Some("bg-video"),
+            None,
+        ));
+        let project = project_with_menu(menu);
+        let asset = motion_video_asset("bg-video", 10.0);
+        let asset_ids: HashSet<&str> = ["bg-video"].into_iter().collect();
+        let mut asset_map = HashMap::new();
+        asset_map.insert("bg-video", &asset);
+        let all_title_ids = HashSet::new();
+        let all_menu_ids: HashSet<&str> = ["menu-1"].into_iter().collect();
+        let mut issues = Vec::new();
+
+        validate_menus(
+            &project,
+            &asset_ids,
+            &asset_map,
+            &all_title_ids,
+            &all_menu_ids,
+            &mut issues,
+        );
+
+        assert!(
+            issues
+                .iter()
+                .any(|i| i.code == "menu.motion-loop-count-without-timeout"
+                    && i.severity == IssueSeverity::Warning),
+            "expected a motion-loop-count-without-timeout warning, got {issues:?}"
+        );
+    }
+
+    #[test]
+    fn motion_loop_count_with_timeout_is_not_flagged() {
+        let menu = Menu::new("menu-1", "Motion Menu").with_document(motion_document(
+            MenuTiming {
+                intro_start_secs: 0.0,
+                intro_duration_secs: 0.0,
+                loop_start_secs: 1.0,
+                loop_duration_secs: 3.0,
+                loop_count: 3,
+                audio_asset_id: None,
+            },
+            Some("bg-video"),
+            Some(PlaybackAction::Stop),
+        ));
+        let project = project_with_menu(menu);
+        let asset = motion_video_asset("bg-video", 10.0);
+        let asset_ids: HashSet<&str> = ["bg-video"].into_iter().collect();
+        let mut asset_map = HashMap::new();
+        asset_map.insert("bg-video", &asset);
+        let all_title_ids = HashSet::new();
+        let all_menu_ids: HashSet<&str> = ["menu-1"].into_iter().collect();
+        let mut issues = Vec::new();
+
+        validate_menus(
+            &project,
+            &asset_ids,
+            &asset_map,
+            &all_title_ids,
+            &all_menu_ids,
+            &mut issues,
+        );
+
+        assert!(
+            !issues
+                .iter()
+                .any(|i| i.code == "menu.motion-loop-count-without-timeout"),
+            "a timeout action is authored, so this should not be flagged, got {issues:?}"
+        );
     }
 
     #[test]
