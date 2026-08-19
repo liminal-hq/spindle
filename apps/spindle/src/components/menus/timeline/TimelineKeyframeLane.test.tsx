@@ -236,6 +236,7 @@ describe('TimelineKeyframeLane', () => {
 
 		const timestampInput = getByRole('spinbutton', { name: /timestamp/i });
 		fireEvent.change(timestampInput, { target: { value: '6' } });
+		fireEvent.blur(timestampInput);
 
 		expect(onMoveKeyframe).toHaveBeenCalledWith('btn-1', 'highlight-colour', 0, 6);
 		expect(queryByRole('dialog')).toBeNull();
@@ -252,7 +253,8 @@ describe('TimelineKeyframeLane', () => {
 		fireEvent.doubleClick(firstDiamond);
 
 		const timestampInput = getByRole('spinbutton', { name: /timestamp/i });
-		fireEvent.change(timestampInput, { target: { value: '2' } }); // still before the 5s keyframe
+		fireEvent.change(timestampInput, { target: { value: '2' } });
+		fireEvent.blur(timestampInput); // still before the 5s keyframe
 		expect(onMoveKeyframe).toHaveBeenCalledWith('btn-1', 'highlight-colour', 0, 2);
 
 		rerenderLane({
@@ -274,7 +276,8 @@ describe('TimelineKeyframeLane', () => {
 		fireEvent.doubleClick(firstDiamond);
 
 		const timestampInput = getByRole('spinbutton', { name: /timestamp/i });
-		fireEvent.change(timestampInput, { target: { value: '15' } }); // past loopDurationSecs=10
+		fireEvent.change(timestampInput, { target: { value: '15' } });
+		fireEvent.blur(timestampInput); // past loopDurationSecs=10
 
 		expect(onMoveKeyframe).toHaveBeenCalledWith('btn-1', 'highlight-colour', 0, 10);
 	});
@@ -382,8 +385,12 @@ describe('TimelineKeyframeLane', () => {
 		expect(queryByRole('dialog')).toBeTruthy();
 		expect((timestampInput as HTMLInputElement).value).toBe('');
 
-		// Typing a replacement value still commits normally.
+		// Typing a replacement value commits on blur (never per keystroke —
+		// `moveKeyframe` merges timestamp collisions, so a parseable
+		// intermediate draft could silently delete a real keyframe).
 		fireEvent.change(timestampInput, { target: { value: '3' } });
+		expect(onMoveKeyframe).not.toHaveBeenCalled();
+		fireEvent.blur(timestampInput);
 		expect(onMoveKeyframe).toHaveBeenCalledWith('btn-1', 'highlight-colour', 1, 3);
 	});
 

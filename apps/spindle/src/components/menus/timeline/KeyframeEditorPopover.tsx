@@ -211,23 +211,30 @@ export function KeyframeEditorPopover({
 					max={loopDurationSecs}
 					step={0.1}
 					value={timestampDraft}
-					onChange={(e) => {
-						setTimestampDraft(e.target.value);
-						const parsed = parseDraftNumber(e.target.value);
-						// Ignore an empty/unparseable draft rather than committing
-						// `Number('') === 0` — for a non-first keyframe that
-						// immediately retimes it to 0, crossing its neighbour and
-						// closing this very popover before a replacement can be
-						// typed.
-						if (parsed !== null) {
-							onChangeTimestamp(Math.min(Math.max(0, parsed), loopDurationSecs));
+					// Retimes commit on blur/Enter ONLY — never per keystroke.
+					// `moveKeyframe` replaces any keyframe at the destination
+					// time, so committing a parseable intermediate draft (typing
+					// "10" passes through "1") would silently merge away a real
+					// keyframe sitting at the intermediate time.
+					onChange={(e) => setTimestampDraft(e.target.value)}
+					onKeyDown={(e) => {
+						if (e.key === 'Enter') {
+							e.preventDefault();
+							const parsed = parseDraftNumber(timestampDraft);
+							if (parsed !== null) {
+								onChangeTimestamp(Math.min(Math.max(0, parsed), loopDurationSecs));
+							} else {
+								setTimestampDraft(String(keyframe.timestampSecs));
+							}
 						}
 					}}
 					onBlur={() => {
-						// Same unconditional re-sync as the opacity field — a
-						// clamped retime (typing past 0/loopDurationSecs when the
-						// keyframe already sits at the bound) must not leave the
-						// unsaved text behind.
+						const parsed = parseDraftNumber(timestampDraft);
+						if (parsed !== null) {
+							onChangeTimestamp(Math.min(Math.max(0, parsed), loopDurationSecs));
+						}
+						// Unconditional re-sync: an unparseable draft reverts, and
+						// a clamped one snaps to what was actually persisted.
 						setTimestampDraft(String(keyframe.timestampSecs));
 					}}
 				/>
