@@ -1,5 +1,5 @@
 // Small shared helpers for the timeline UI and its preview-sampling call
-// sites in SceneCanvas: honest-preview quantization and KeyValue<->CSS
+// sites in SceneCanvas: honest-preview quantisation and KeyValue<->CSS
 // conversions.
 //
 // (c) Copyright 2026 Liminal HQ, Scott Morris
@@ -171,7 +171,7 @@ export function sampleHonestFoldStill(
 
 /**
  * Sample `track` the way the compiled disc's DCSQ schedule actually plays
- * it back. The disc doesn't quantize each track independently: every
+ * it back. The disc doesn't quantise each track independently: every
  * track in `relevantTracks` (e.g. a node's `highlight-colour` +
  * `highlight-opacity` pair, or its `activate-colour` + `activate-opacity`
  * pair — see `build_overlay_keyframe_schedule`'s "relevant" track groups)
@@ -209,7 +209,7 @@ export function sampleHonestPreview(
  *   single static frame regardless of preview playhead position.
  * - Motion menu: the full eased curve (`evaluateTrack`) when
  *   `honestPreview` is off — a friendlier, continuous preview than the
- *   disc actually produces — or the quantized {@link sampleHonestPreview}
+ *   disc actually produces — or the quantised {@link sampleHonestPreview}
  *   when it's on.
  *
  * Returns `null` when `track` is `undefined`/empty.

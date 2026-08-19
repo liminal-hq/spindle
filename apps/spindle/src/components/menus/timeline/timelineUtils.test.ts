@@ -1,4 +1,4 @@
-// Tests for the preview-sampling helpers: honest-preview quantization
+// Tests for the preview-sampling helpers: honest-preview quantisation
 // (union-of-tracks DCSQ schedule semantics, mirroring
 // build/planner/animation.rs) and the still/motion preview dispatcher.
 //
@@ -209,7 +209,7 @@ describe('sampleHonestFold', () => {
 		expect(folded.opacity).toBe(0.5); // no activate-opacity track — default kept
 	});
 
-	it('quantizes at a boundary from the COMPLETE union across both groups, not just the folded group', () => {
+	it('quantises at a boundary from the COMPLETE union across both groups, not just the folded group', () => {
 		// The highlight group being folded has no keyframe of its own past
 		// 0s, but an activate-group track (passed only via `schedulingTracks`)
 		// adds a boundary at 3s — the disc bakes ONE overlay image per shared
@@ -339,7 +339,7 @@ describe('sampleTrackForPreview', () => {
 		expect(hex).toBe('#808000'); // u=0.5 lerp
 	});
 
-	it('motion menu, honest: quantized via the union schedule', () => {
+	it('motion menu, honest: quantised via the union schedule', () => {
 		const hex = keyValueToColour(sampleTrackForPreview(track, [track], 1, 10, 30, true, true));
 		expect(hex).toBe('#ff0000'); // boundary at 0, held there
 	});

@@ -91,6 +91,15 @@ export function TimelineRegionBar({
 	// next validate.
 	const maxEndSecs = geometry.durationSecs;
 
+	// An interrupted drag (`pointercancel`/lost capture — OS gesture, focus
+	// change) must reset WITHOUT committing, or the component stays in drag
+	// mode and a later stray pointer-up commits an unintended retime.
+	const handlePointerCancel = useCallback(() => {
+		setDragEdge(null);
+		setDragSecs(null);
+		hasMovedRef.current = false;
+	}, []);
+
 	const handlePointerUp = useCallback(() => {
 		if (!dragEdge || dragSecs === null) return;
 		if (hasMovedRef.current) {
@@ -154,6 +163,8 @@ export function TimelineRegionBar({
 			style={{ width: geometry.totalWidthPx }}
 			onPointerMove={handlePointerMove}
 			onPointerUp={handlePointerUp}
+			onPointerCancel={handlePointerCancel}
+			onLostPointerCapture={handlePointerCancel}
 		>
 			{hasIntro && (
 				<div

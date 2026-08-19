@@ -82,7 +82,7 @@ export interface SceneCanvasProps {
 	 * mode. Ignored for still backgrounds. */
 	backgroundInitialTimeSecs?: number;
 	/** The menu's authored `timing.loopDurationSecs` — used by the navigation
-	 * preview's honest-preview quantization to clamp keyframe timestamps into
+	 * preview's honest-preview quantisation to clamp keyframe timestamps into
 	 * the loop window (mirrors `build_overlay_keyframe_schedule`). */
 	loopDurationSecs?: number;
 	/** Animation tracks from `document.animation` — used by the navigation
@@ -969,7 +969,7 @@ function NavigationPreview({
  *   per-button view than the disc's menu-wide fold.
  * - Motion menu, honest preview: menu-wide fold (`sampleHonestFold`) —
  *   every button's relevant track for the state group is folded into ONE
- *   value, document-order last-track-wins, quantized to the compiled
+ *   value, document-order last-track-wins, quantised to the compiled
  *   disc's actual DCSQ schedule boundary (the UNION of every highlight AND
  *   activate relevant track's keyframe timestamps together, since a
  *   keyframe in either group can force a new shared schedule instant —

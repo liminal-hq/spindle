@@ -173,6 +173,16 @@ export function TimelineKeyframeLane({
 		target,
 	]);
 
+	// An interrupted drag (`pointercancel`/lost capture — OS gesture, focus
+	// change) must reset WITHOUT committing, or the lane stays in drag mode
+	// and a later stray pointer-up commits an unintended retime. Fires after
+	// pointerup on a normal release too, where it's an idempotent no-op.
+	const handlePointerCancel = useCallback(() => {
+		setDragIndex(null);
+		setDragTimestampSecs(null);
+		hasMovedRef.current = false;
+	}, []);
+
 	const handleLaneDoubleClick = useCallback(
 		(e: React.MouseEvent) => {
 			const pxX = pxXFromClientX(e.clientX);
@@ -247,6 +257,11 @@ export function TimelineKeyframeLane({
 			onDoubleClick={handleLaneDoubleClick}
 			onPointerMove={handlePointerMove}
 			onPointerUp={handlePointerUp}
+			// Deliberately NOT onLostPointerCapture: it also fires after a
+			// normal pointerup, and resetting `hasMovedRef` there would defeat
+			// the trailing-click suppression that keeps a reordering drag from
+			// re-selecting a stale index.
+			onPointerCancel={handlePointerCancel}
 			onKeyDown={handleKeyDown}
 			tabIndex={0}
 			role="group"
