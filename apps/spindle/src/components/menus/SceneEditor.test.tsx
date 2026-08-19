@@ -1244,8 +1244,48 @@ describe('SceneCanvas', () => {
 		expect(video).not.toBeNull();
 		expect(video?.getAttribute('src')).toBe('asset://localhost//tmp/menu-bg.mp4');
 		expect(video).toHaveAttribute('muted');
-		expect(video).toHaveAttribute('loop');
+		// No native `loop` attribute: looping is driven by the playback
+		// store's loop-region logic, not the browser's own end-of-file
+		// restart (which would always jump to 0, ignoring the loop-region
+		// toggle and the authored loop window's start — see SceneCanvas's
+		// `BackgroundVideo` comment).
+		expect(video).not.toHaveAttribute('loop');
 		expect(container.querySelector('img.scene-canvas__bg-image')).toBeNull();
+	});
+
+	it("syncs the playback store's playing flag to false when the video reaches its natural end", () => {
+		const initialPlaybackState = useMenuPlaybackStore.getState();
+		useMenuPlaybackStore.setState({ playing: true }, false);
+
+		const { container } = render(
+			<SceneCanvas
+				buttons={buttons}
+				canvasHeight={480}
+				sceneNodes={[]}
+				onUpdateButton={vi.fn()}
+				onUpdateSceneNode={vi.fn()}
+				showSafeArea={false}
+				backgroundLabel={null}
+				backgroundColour={null}
+				backgroundAsset={motionBackgroundAsset}
+				backgroundIsMotion={true}
+				backgroundInitialTimeSecs={0}
+				defaultButtonId={null}
+				previewMode={false}
+				highlightColours={DEFAULT_HIGHLIGHT_COLOURS}
+				honestPreview={false}
+				showNavLines={false}
+				selectedNodeId={null}
+				onSelectNode={vi.fn()}
+			/>,
+		);
+
+		const video = container.querySelector('video.scene-canvas__bg-image');
+		expect(video).not.toBeNull();
+		fireEvent.ended(video!);
+
+		expect(useMenuPlaybackStore.getState().playing).toBe(false);
+		useMenuPlaybackStore.setState(initialPlaybackState, true);
 	});
 
 	it('creates generated menus with the standard-appropriate authored design height', () => {

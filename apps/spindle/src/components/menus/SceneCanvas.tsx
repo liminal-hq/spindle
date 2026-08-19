@@ -1230,7 +1230,15 @@ function BackgroundVideo({ asset, initialTimeSecs }: { asset: Asset; initialTime
 			src={convertFileSrc(asset.sourcePath)}
 			muted
 			autoPlay
-			loop
+			// No native `loop` attribute: looping is driven by the playback
+			// store's loop-region logic (`computeLoopWraparound`, applied by
+			// `useVideoPlayhead`'s rAF tick), which wraps back to the authored
+			// loop *region* start — not necessarily 0. The native attribute
+			// would always restart at 0 the instant the file reaches its end,
+			// racing the store's own wraparound and ignoring the loop-region
+			// toggle entirely. With `loop` removed, reaching end-of-file while
+			// loop-region playback is disabled (or the loop region ends at the
+			// file's end) just pauses there, which is the sane fallback.
 			playsInline
 			preload="auto"
 			poster={posterUrl ?? undefined}
@@ -1242,6 +1250,7 @@ function BackgroundVideo({ asset, initialTimeSecs }: { asset: Asset; initialTime
 			onTimeUpdate={(e) => reportTime(e.currentTarget.currentTime)}
 			onPlay={() => reportPlaying(true)}
 			onPause={() => reportPlaying(false)}
+			onEnded={() => useMenuPlaybackStore.getState().pause()}
 			onError={() => {
 				if (!retriedRef.current) {
 					retriedRef.current = true;

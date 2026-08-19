@@ -100,8 +100,15 @@ export const useMenuPlaybackStore = create<MenuPlaybackState>((set, get) => ({
 	play: () => {
 		const { videoEl } = get();
 		if (!videoEl) return;
-		void videoEl.play();
-		set({ playing: true });
+		// `HTMLMediaElement.play()` returns a promise that rejects if playback
+		// is blocked (e.g. an autoplay policy) — set `playing` from its
+		// outcome rather than optimistically, or a rejected play leaves the
+		// transport showing "playing" while the video never actually started
+		// (and the unhandled rejection warns in the console).
+		videoEl
+			.play()
+			.then(() => set({ playing: true }))
+			.catch(() => set({ playing: false }));
 	},
 
 	pause: () => {

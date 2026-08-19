@@ -20,6 +20,12 @@ function fakeVideoEl(overrides: Partial<HTMLVideoElement> = {}): HTMLVideoElemen
 	} as unknown as HTMLVideoElement;
 }
 
+/** Flush pending microtasks (e.g. `play()`'s `.then`/`.catch`) so a test can
+ * observe their effect deterministically. */
+function flushMicrotasks(): Promise<void> {
+	return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
 describe('menu-playback-store', () => {
 	afterEach(() => {
 		useMenuPlaybackStore.setState(initialState, true);
@@ -73,20 +79,32 @@ describe('menu-playback-store', () => {
 		expect(useMenuPlaybackStore.getState().currentTime).toBe(0);
 	});
 
-	it('play calls videoEl.play() and sets playing true', () => {
+	it('play calls videoEl.play() and sets playing true once the play promise resolves', async () => {
 		const video = fakeVideoEl();
 		useMenuPlaybackStore.getState().registerVideo(video);
 
 		useMenuPlaybackStore.getState().play();
-
 		expect(video.play).toHaveBeenCalledTimes(1);
+
+		await flushMicrotasks();
 		expect(useMenuPlaybackStore.getState().playing).toBe(true);
 	});
 
-	it('pause calls videoEl.pause() and sets playing false', () => {
+	it('play sets playing false (not stuck optimistically true) when the play promise rejects', async () => {
+		const video = fakeVideoEl({ play: vi.fn().mockRejectedValue(new Error('NotAllowedError')) });
+		useMenuPlaybackStore.getState().registerVideo(video);
+
+		useMenuPlaybackStore.getState().play();
+		await flushMicrotasks();
+
+		expect(useMenuPlaybackStore.getState().playing).toBe(false);
+	});
+
+	it('pause calls videoEl.pause() and sets playing false', async () => {
 		const video = fakeVideoEl({ paused: false });
 		useMenuPlaybackStore.getState().registerVideo(video);
 		useMenuPlaybackStore.getState().play();
+		await flushMicrotasks();
 
 		useMenuPlaybackStore.getState().pause();
 
