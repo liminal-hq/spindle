@@ -320,4 +320,26 @@ describe('TimelineKeyframeLane', () => {
 		fireEvent.change(timestampInput, { target: { value: '3' } });
 		expect(onMoveKeyframe).toHaveBeenCalledWith('btn-1', 'highlight-colour', 1, 3);
 	});
+
+	it('suppresses the trailing click after a reordering drag, so it does not reselect a stale index', () => {
+		// Regression test: releasing a dragged diamond fires a `click` that
+		// re-set `selectedIndex` back to the pre-drag index right after
+		// `handlePointerUp` cleared it on reorder — a follow-up Delete then
+		// removed whatever keyframe the re-sort left at that index instead of
+		// doing nothing (the correct behaviour once the selection is cleared).
+		const { getAllByRole, onDeleteKeyframe } = renderLane({ track: twoKeyframeTrack });
+		const [firstDiamond] = getAllByRole('button', { name: /keyframe at/i });
+		(firstDiamond as unknown as { setPointerCapture: () => void }).setPointerCapture = () => {};
+		const lane = firstDiamond.closest('[role="group"]')!;
+
+		fireEvent.pointerDown(firstDiamond, { clientX: 40, pointerId: 1 }); // 1s keyframe, index 0
+		fireEvent.pointerMove(lane, { clientX: 280 }); // 7s, past the 5s neighbour -> reorder
+		fireEvent.pointerUp(lane);
+		// The browser fires a trailing `click` on the same pointer-captured
+		// element after pointerup, even though the drag reordered the array.
+		fireEvent.click(firstDiamond);
+
+		fireEvent.keyDown(lane, { key: 'Delete' });
+		expect(onDeleteKeyframe).not.toHaveBeenCalled();
+	});
 });

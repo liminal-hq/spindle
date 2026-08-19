@@ -263,6 +263,19 @@ export function TimelineKeyframeLane({
 						onDoubleClick={(e) => handleDiamondDoubleClick(index, e)}
 						onClick={(e) => {
 							e.stopPropagation();
+							// The pointerup that ends a real drag is followed by a
+							// trailing native `click` on this same element — if that
+							// drag reordered the array, `handlePointerUp` already
+							// cleared the selection (see `willReorder` above), but
+							// this click would otherwise re-set it to `index`, which
+							// after the re-sort may now refer to a DIFFERENT
+							// keyframe than the one the user actually dragged. Consume
+							// it rather than let a follow-up Delete remove the wrong
+							// keyframe.
+							if (hasMovedRef.current) {
+								hasMovedRef.current = false;
+								return;
+							}
 							setSelectedIndex(index);
 						}}
 						title={`${kf.timestampSecs.toFixed(2)}s`}
