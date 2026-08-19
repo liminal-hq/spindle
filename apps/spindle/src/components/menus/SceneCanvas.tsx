@@ -662,14 +662,17 @@ function DesignCanvas({
 							...(labelStyle
 								? {
 										fontFamily: labelStyle.fontFamily,
-										fontSize: `${labelStyle.fontSize}px`,
+										// Design-space size scaled via the viewport
+										// container, like text nodes — see
+										// `RenderedSceneNode`.
+										fontSize: `calc(${labelStyle.fontSize} / ${canvasHeight} * 100cqh)`,
 										fontWeight: labelStyle.fontWeight === 'bold' ? 700 : 400,
 										fontStyle: labelStyle.fontItalic ? 'italic' : 'normal',
 										textDecoration: labelStyle.textDecoration,
 										textAlign: labelStyle.textAlign,
 										color: labelStyle.colour,
 										lineHeight: labelStyle.lineHeight,
-										letterSpacing: `${labelStyle.letterSpacing}px`,
+										letterSpacing: `calc(${labelStyle.letterSpacing} / ${canvasHeight} * 100cqh)`,
 									}
 								: {}),
 						}}
@@ -1239,14 +1242,16 @@ function PreviewButtonNode({
 				...(labelStyle
 					? {
 							fontFamily: labelStyle.fontFamily,
-							fontSize: `${labelStyle.fontSize}px`,
+							// Design-space size scaled via the viewport container,
+							// like text nodes — see `RenderedSceneNode`.
+							fontSize: `calc(${labelStyle.fontSize} / ${canvasHeight} * 100cqh)`,
 							fontWeight: labelStyle.fontWeight === 'bold' ? 700 : 400,
 							fontStyle: labelStyle.fontItalic ? 'italic' : 'normal',
 							textDecoration: labelStyle.textDecoration,
 							textAlign: labelStyle.textAlign,
 							color: labelStyle.colour,
 							lineHeight: labelStyle.lineHeight,
-							letterSpacing: `${labelStyle.letterSpacing}px`,
+							letterSpacing: `calc(${labelStyle.letterSpacing} / ${canvasHeight} * 100cqh)`,
 						}
 					: {}),
 				...(isFocused
@@ -1309,8 +1314,13 @@ function RenderedSceneNode({
 					? { backgroundColor: node.fill }
 					: {}),
 				...(node.type === 'text' && 'colour' in node && node.colour ? { color: node.colour } : {}),
+				// Font size is authored in design-space pixels; the box scales
+				// with the viewport via percentages, so the glyphs must scale
+				// the same way — `cqh` against the viewport container keeps
+				// text height at fontSize/designHeight of the canvas at every
+				// zoom, matching the Skia render's proportion on the disc.
 				...(node.type === 'text' && 'fontSize' in node && node.fontSize
-					? { fontSize: `${node.fontSize}px` }
+					? { fontSize: `calc(${node.fontSize} / ${canvasHeight} * 100cqh)` }
 					: {}),
 				...(node.type === 'text' && 'fontFamily' in node && node.fontFamily
 					? { fontFamily: node.fontFamily }
@@ -1331,7 +1341,7 @@ function RenderedSceneNode({
 					? { lineHeight: node.lineHeight }
 					: {}),
 				...(node.type === 'text' && 'letterSpacing' in node && node.letterSpacing !== undefined
-					? { letterSpacing: `${node.letterSpacing}px` }
+					? { letterSpacing: `calc(${node.letterSpacing} / ${canvasHeight} * 100cqh)` }
 					: {}),
 			}}
 			onClick={(event) => interactive && event.stopPropagation()}
@@ -1524,7 +1534,20 @@ function BackgroundVideo({ asset, initialTimeSecs }: { asset: Asset; initialTime
 			onTimeUpdate={(e) => reportTime(e.currentTarget.currentTime)}
 			onPlay={() => reportPlaying(true)}
 			onPause={() => reportPlaying(false)}
-			onEnded={() => useMenuPlaybackStore.getState().pause()}
+			onEnded={() => {
+				// When the authored loop window ends exactly at the source's
+				// end, the browser can emit `ended` before the rAF tick
+				// observes `currentTime >= loopEnd` — wrap here too, or an
+				// enabled loop touching EOF stops instead of looping.
+				const { loopRegion, loopRegionEnabled, seek, play, pause } =
+					useMenuPlaybackStore.getState();
+				if (loopRegionEnabled && loopRegion) {
+					seek(loopRegion.startSecs);
+					play();
+				} else {
+					pause();
+				}
+			}}
 			onError={() => {
 				if (!retriedRef.current) {
 					retriedRef.current = true;

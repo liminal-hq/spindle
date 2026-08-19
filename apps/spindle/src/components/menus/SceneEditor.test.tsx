@@ -1288,6 +1288,52 @@ describe('SceneCanvas', () => {
 		useMenuPlaybackStore.setState(initialPlaybackState, true);
 	});
 
+	it('wraps an enabled loop region back to its start when the video emits ended', async () => {
+		// A loop window ending at the source's end can see the browser emit
+		// `ended` before the rAF tick observes the wrap boundary — the ended
+		// handler must perform the wrap itself, not unconditionally pause.
+		const initialPlaybackState = useMenuPlaybackStore.getState();
+		const playMock = vi
+			.spyOn(window.HTMLMediaElement.prototype, 'play')
+			.mockImplementation(() => Promise.resolve());
+
+		const { container } = render(
+			<SceneCanvas
+				buttons={buttons}
+				canvasHeight={480}
+				sceneNodes={[]}
+				onUpdateButton={vi.fn()}
+				onUpdateSceneNode={vi.fn()}
+				showSafeArea={false}
+				backgroundLabel={null}
+				backgroundColour={null}
+				backgroundAsset={motionBackgroundAsset}
+				backgroundIsMotion={true}
+				backgroundInitialTimeSecs={0}
+				defaultButtonId={null}
+				previewMode={false}
+				highlightColours={DEFAULT_HIGHLIGHT_COLOURS}
+				honestPreview={false}
+				showNavLines={false}
+				selectedNodeId={null}
+				onSelectNode={vi.fn()}
+			/>,
+		);
+		useMenuPlaybackStore.setState(
+			{ loopRegion: { startSecs: 2, durationSecs: 8 }, loopRegionEnabled: true },
+			false,
+		);
+
+		const video = container.querySelector('video.scene-canvas__bg-image') as HTMLVideoElement;
+		fireEvent.ended(video);
+
+		expect(video.currentTime).toBe(2);
+		await waitFor(() => expect(useMenuPlaybackStore.getState().playing).toBe(true));
+
+		playMock.mockRestore();
+		useMenuPlaybackStore.setState(initialPlaybackState, true);
+	});
+
 	// WebKitGTK cannot stream media over the custom asset:// scheme (plain
 	// fetches through it work fine), so BackgroundVideo falls back to fetching
 	// the file through the asset protocol and playing an in-memory blob URL

@@ -294,6 +294,11 @@ export function TimelineKeyframeLane({
 					onDelete={() => {
 						onDeleteKeyframe(nodeId, target, popoverIndex);
 						setPopoverIndex(null);
+						// A successor keyframe inherits the deleted one's index
+						// on the rerender — clear the selection too, or a lane
+						// Delete keypress removes it unintentionally (same
+						// guard as the keyboard-deletion path).
+						setSelectedIndex(null);
 					}}
 					onClose={() => setPopoverIndex(null)}
 				/>

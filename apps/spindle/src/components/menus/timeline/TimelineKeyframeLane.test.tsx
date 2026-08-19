@@ -106,6 +106,25 @@ describe('TimelineKeyframeLane', () => {
 		expect(onDeleteKeyframe).toHaveBeenCalledWith('btn-1', 'highlight-colour', 0);
 	});
 
+	it('clears the selection when deleting through the popover button', () => {
+		// Regression test: the popover's Delete Keyframe button cleared only
+		// the popover; the successor keyframe inherited the deleted one's
+		// index and its stale selection, so a follow-up lane Delete keypress
+		// removed it unintentionally.
+		const { getAllByRole, getByRole, getByText, onDeleteKeyframe } = renderLane({
+			track: twoKeyframeTrack,
+		});
+		const [firstDiamond] = getAllByRole('button', { name: /keyframe at/i });
+		fireEvent.click(firstDiamond);
+		fireEvent.doubleClick(firstDiamond);
+		fireEvent.click(getByText('Delete Keyframe'));
+		expect(onDeleteKeyframe).toHaveBeenCalledTimes(1);
+
+		const lane = getByRole('group');
+		fireEvent.keyDown(lane, { key: 'Delete' });
+		expect(onDeleteKeyframe).toHaveBeenCalledTimes(1);
+	});
+
 	it('closes an open popover when keyboard deletion removes its keyframe', () => {
 		// Regression test: double-clicking a diamond opens the popover AND
 		// leaves that diamond focused/selected, so Delete reaches the lane's

@@ -351,6 +351,12 @@
 	border: 1px solid var(--border-subtle);
 	border-radius: var(--radius-sm);
 	overflow: hidden;
+	/* Size container so text nodes can express their design-space font size
+	   in `cqh` units — the canvas displays the design raster scaled to the
+	   disc's display aspect, and node boxes scale via percentages, but a raw
+	   `px` font size would NOT scale with them (glyphs rendered ~18% larger
+	   than the disc at 100% zoom, drifting further at other zooms). */
+	container-type: size;
 }
 
 .scene-canvas__viewport--preview {
