@@ -346,6 +346,25 @@ pub(crate) async fn list_available_fonts<R: Runtime>(
     Ok(build::enumerate_fonts(&asset_refs))
 }
 
+/// Grant the asset protocol's runtime scope read access to the given
+/// absolute file paths, without widening the app's static
+/// `$APPCACHE/**`/`$APPDATA/**` scope (`tauri.conf.json`). Imported/relinked
+/// assets can live anywhere on disk, and `convertFileSrc` reads go through
+/// this protocol — see design decision D4. Grants are runtime-only and reset
+/// on restart; callers re-grant on `openProject`/`importAssets`/relink.
+#[command]
+pub(crate) async fn allow_asset_scope<R: Runtime>(
+    app: AppHandle<R>,
+    paths: Vec<String>,
+) -> Result<()> {
+    for path in &paths {
+        app.asset_protocol_scope().allow_file(path).map_err(|e| {
+            crate::Error::Build(format!("Failed to grant asset scope for \"{path}\": {e}"))
+        })?;
+    }
+    Ok(())
+}
+
 /// Return the application cache directory for storing thumbnails and other transient data.
 #[command]
 pub(crate) async fn get_cache_dir<R: Runtime>(app: AppHandle<R>) -> Result<String> {

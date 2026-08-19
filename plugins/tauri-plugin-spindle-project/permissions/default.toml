@@ -19,4 +19,5 @@ permissions = [
   "allow-export-diagnostics",
   "allow-list-available-fonts",
   "allow-export-menu-render-preview",
+  "allow-allow-asset-scope",
 ]

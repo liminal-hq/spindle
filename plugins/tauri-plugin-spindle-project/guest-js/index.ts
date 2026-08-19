@@ -605,6 +605,12 @@ export type BuildJob =
 			menuName: string;
 			outputPath: string;
 			command: string[];
+			/** Motion menus with an authored intro: the separate compose command for
+			 * the intro segment, run before `command` (the loop segment). */
+			introCommand?: string[] | null;
+			/** Segment duration in seconds, and the signal the executor uses to run
+			 * with progress reporting. `null`/absent for still menus. */
+			durationSecs?: number | null;
 			label: string;
 	  }
 	| {
@@ -903,6 +909,16 @@ export async function listAvailableFonts(project: SpindleProjectFile): Promise<F
 /** Return the application cache directory for storing thumbnails and other transient data. */
 export async function getCacheDir(): Promise<string> {
 	return await invoke('plugin:spindle-project|get_cache_dir');
+}
+
+/**
+ * Grant the asset protocol's runtime scope read access to the given absolute
+ * file paths, without widening the app's static scope. Call on
+ * `openProject`/`importAssets`/relink with the paths of the assets involved
+ * — grants are runtime-only and reset on restart.
+ */
+export async function allowAssetScope(paths: string[]): Promise<void> {
+	await invoke('plugin:spindle-project|allow_asset_scope', { paths });
 }
 
 /** Export a diagnostics bundle as a JSON string for troubleshooting. */

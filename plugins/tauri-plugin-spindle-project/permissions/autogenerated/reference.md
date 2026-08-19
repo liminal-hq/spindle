@@ -22,6 +22,7 @@ Default permissions for the spindle-project plugin
 - `allow-export-diagnostics`
 - `allow-list-available-fonts`
 - `allow-export-menu-render-preview`
+- `allow-allow-asset-scope`
 
 ## Permission Table
 
@@ -31,6 +32,32 @@ Default permissions for the spindle-project plugin
 <th>Description</th>
 </tr>
 
+
+<tr>
+<td>
+
+`spindle-project:allow-allow-asset-scope`
+
+</td>
+<td>
+
+Enables the allow_asset_scope command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`spindle-project:deny-allow-asset-scope`
+
+</td>
+<td>
+
+Denies the allow_asset_scope command without any pre-configured scope.
+
+</td>
+</tr>
 
 <tr>
 <td>

@@ -8,6 +8,7 @@ const COMMANDS: &[&str] = &[
     "inspect_asset",
     "extract_video_thumbnail",
     "extract_image_thumbnail",
+    "allow_asset_scope",
 ];
 
 fn main() {
