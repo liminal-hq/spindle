@@ -180,7 +180,13 @@ function lerpColourHex(hex0: string, hex1: string, u: number): string {
  * keyframe's value (see {@link evaluateTrack}'s boundary semantics —
  * easing's effect is confined to the open interval *between* keyframes),
  * this is equivalent to reading the keyframes' `(timestamp, value)` pairs
- * directly, with no evaluator call needed.
+ * directly, with no evaluator call needed. Not used by the DCSQ lowering
+ * (`build/planner/animation.rs`), which samples the *union* of every
+ * relevant track's keyframe timestamps via {@link evaluateTrack} — a menu
+ * can have several tracks in play at once, so no single track's own
+ * timestamps are the whole schedule. Exercised directly by this module's
+ * and the Rust evaluator's own tests, and kept as a convenience for callers
+ * that only care about one track's own keyframes.
  */
 export function sampleAtKeyframes(track: AnimationTrack): Array<[number, KeyValue]> {
 	return track.keyframes.map((kf) => [kf.timestampSecs, kf.value]);

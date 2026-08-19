@@ -206,9 +206,13 @@ fn lerp_colour_hex(hex0: &str, hex1: &str, u: f64) -> String {
 /// keyframe's value (see [`evaluate_track`]'s boundary semantics —
 /// `Easing`'s effect is confined to the open interval *between* keyframes),
 /// this is equivalent to reading the keyframes' `(timestamp, value)` pairs
-/// directly, with no evaluator call needed. It's the schedule the DCSQ
-/// lowering (`build/planner`) samples highlight tracks against: one overlay
-/// frame per keyframe, exact by construction.
+/// directly, with no evaluator call needed. Not used by the DCSQ lowering
+/// (`build/planner/animation.rs`), which samples the *union* of every
+/// relevant track's keyframe timestamps via [`evaluate_track`] — a menu can
+/// have several tracks in play at once, so no single track's own timestamps
+/// are the whole schedule. Exercised directly by this module's and
+/// `animation.test.ts`'s tests, and kept as a convenience for callers that
+/// only care about one track's own keyframes.
 pub fn sample_at_keyframes(track: &AnimationTrack) -> Vec<(f64, KeyValue)> {
     track
         .keyframes
