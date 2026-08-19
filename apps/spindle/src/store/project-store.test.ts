@@ -8,6 +8,31 @@ import { useProjectStore } from './project-store';
 import { createDefaultMenuCompilePolicy, createDefaultProject } from '../types/project';
 import type { Menu, MenuDocument } from '../types/project';
 
+function fakeAsset(overrides: Partial<import('../types/project').Asset> = {}) {
+	return {
+		id: crypto.randomUUID(),
+		fileName: 'clip.mp4',
+		sourcePath: '/media/clip.mp4',
+		fileSizeBytes: null,
+		durationSecs: null,
+		containerFormat: null,
+		videoStreams: [],
+		audioStreams: [],
+		subtitleStreams: [],
+		compatibility: null,
+		compatibilityDetail: null,
+		fingerprint: null,
+		warnings: [],
+		thumbnailPath: null,
+		thumbnailError: null,
+		sourceChapters: [],
+		// Non-null so `backfillAssetFormatTitles` (fired-and-forgotten by
+		// `openProject`) has nothing stale to re-inspect.
+		formatTitle: '',
+		...overrides,
+	};
+}
+
 function menuWithDocument(
 	id: string,
 	name: string,
@@ -295,5 +320,156 @@ describe('ProjectStore: updateMenuDocument', () => {
 			height: 480,
 			fill: '#0000ff',
 		});
+	});
+});
+
+describe('ProjectStore: asset scope grant ordering', () => {
+	// Regression tests: `openProject`/`importAssets`/`relinkAsset` must await
+	// `allowAssetScope` *before* publishing the new project state. A motion
+	// background's `<video>` starts loading the instant `project` state
+	// renders, and `BackgroundVideo`'s load-failure state is sticky, so
+	// publishing state first can permanently strand the preview on "Preview
+	// unavailable" while the grant is still in flight.
+
+	beforeEach(() => {
+		useProjectStore.setState({
+			project: null,
+			filePath: null,
+			isDirty: false,
+			validationIssues: [],
+			isLoading: false,
+			undoStack: [],
+			redoStack: [],
+		});
+		vi.clearAllMocks();
+	});
+
+	/** Mock `invoke` to resolve every command with `undefined` except the ones
+	 * explicitly listed, and to record when `allow_asset_scope` resolves. */
+	function mockInvokeWithScopeTracking(
+		events: string[],
+		handlers: Record<string, (args: any) => unknown> = {},
+	) {
+		return async (cmd: string, args?: any) => {
+			if (cmd === 'plugin:spindle-project|allow_asset_scope') {
+				events.push('scope-granted');
+				return undefined;
+			}
+			if (cmd in handlers) {
+				return handlers[cmd](args);
+			}
+			return undefined;
+		};
+	}
+
+	it('openProject grants the asset scope before publishing project state', async () => {
+		const project = createDefaultProject('Opened Project');
+		project.assets = [fakeAsset({ sourcePath: '/media/opened.mp4' })];
+
+		const { open, confirm } = await import('@tauri-apps/plugin-dialog');
+		vi.mocked(open).mockResolvedValue('/path/to/project.spindle');
+		vi.mocked(confirm).mockResolvedValue(true);
+
+		const { invoke } = await import('@tauri-apps/api/core');
+		const events: string[] = [];
+		vi.mocked(invoke).mockImplementation(
+			mockInvokeWithScopeTracking(events, {
+				read_text_file: () => JSON.stringify(project),
+				'plugin:spindle-project|parse_project': () => project,
+			}),
+		);
+
+		const unsubscribe = useProjectStore.subscribe((state, prevState) => {
+			if (state.project && !prevState.project) events.push('project-published');
+		});
+
+		await useProjectStore.getState().openProject();
+		unsubscribe();
+
+		expect(events).toEqual(['scope-granted', 'project-published']);
+	});
+
+	it('importAssets grants the asset scope before publishing the new assets', async () => {
+		const project = createDefaultProject('Import Target');
+		useProjectStore.setState({ project, filePath: '/path/to/project.spindle' });
+
+		const { open } = await import('@tauri-apps/plugin-dialog');
+		vi.mocked(open).mockResolvedValue(['/media/imported.mp4']);
+
+		const { invoke } = await import('@tauri-apps/api/core');
+		const events: string[] = [];
+		vi.mocked(invoke).mockImplementation(
+			mockInvokeWithScopeTracking(events, {
+				'plugin:spindle-project|inspect_asset': () =>
+					fakeAsset({ sourcePath: '/media/imported.mp4', fileName: 'imported.mp4' }),
+			}),
+		);
+
+		const unsubscribe = useProjectStore.subscribe((state, prevState) => {
+			if (
+				(state.project?.assets.length ?? 0) > 0 &&
+				(prevState.project?.assets.length ?? 0) === 0
+			) {
+				events.push('assets-published');
+			}
+		});
+
+		await useProjectStore.getState().importAssets();
+		unsubscribe();
+
+		expect(events).toEqual(['scope-granted', 'assets-published']);
+	});
+
+	it('relinkAsset grants the asset scope before publishing the new path', async () => {
+		const asset = fakeAsset({ id: 'asset-1', sourcePath: '/old/path.mp4' });
+		const project = createDefaultProject('Relink Target');
+		project.assets = [asset];
+		useProjectStore.setState({ project, filePath: '/path/to/project.spindle' });
+
+		const { open } = await import('@tauri-apps/plugin-dialog');
+		vi.mocked(open).mockResolvedValue('/new/path.mp4');
+
+		const { invoke } = await import('@tauri-apps/api/core');
+		const events: string[] = [];
+		vi.mocked(invoke).mockImplementation(mockInvokeWithScopeTracking(events));
+
+		const unsubscribe = useProjectStore.subscribe((state, prevState) => {
+			const newPath = state.project?.assets.find((a) => a.id === 'asset-1')?.sourcePath;
+			const oldPath = prevState.project?.assets.find((a) => a.id === 'asset-1')?.sourcePath;
+			if (newPath === '/new/path.mp4' && oldPath !== '/new/path.mp4') {
+				events.push('path-published');
+			}
+		});
+
+		await useProjectStore.getState().relinkAsset('asset-1');
+		unsubscribe();
+
+		expect(events).toEqual(['scope-granted', 'path-published']);
+	});
+
+	it('openProject still publishes project state when the scope grant fails', async () => {
+		const project = createDefaultProject('Grant Fails');
+		project.assets = [fakeAsset({ sourcePath: '/media/fails.mp4' })];
+
+		const { open, confirm } = await import('@tauri-apps/plugin-dialog');
+		vi.mocked(open).mockResolvedValue('/path/to/project.spindle');
+		vi.mocked(confirm).mockResolvedValue(true);
+
+		const { invoke } = await import('@tauri-apps/api/core');
+		vi.mocked(invoke).mockImplementation(async (cmd: string) => {
+			if (cmd === 'plugin:spindle-project|allow_asset_scope') {
+				throw new Error('scope grant failed');
+			}
+			if (cmd === 'read_text_file') return JSON.stringify(project);
+			if (cmd === 'plugin:spindle-project|parse_project') return project;
+			return undefined;
+		});
+		const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+		await useProjectStore.getState().openProject();
+
+		expect(useProjectStore.getState().project?.project.name).toBe('Grant Fails');
+		expect(warnSpy).toHaveBeenCalled();
+		warnSpy.mockRestore();
 	});
 });

@@ -1088,9 +1088,25 @@ function BackgroundVideo({ asset, initialTimeSecs }: { asset: Asset; initialTime
 	const registerVideo = useMenuPlaybackStore((s) => s.registerVideo);
 	const reportTime = useMenuPlaybackStore((s) => s.reportTime);
 	const reportDuration = useMenuPlaybackStore((s) => s.reportDuration);
+	const videoElRef = useRef<HTMLVideoElement | null>(null);
+	// Whether this mount has already retried a load failure once — the
+	// asset-scope grant (`allowAssetScope`, project-store's openProject/
+	// importAssets/relinkAsset) can still be landing when this element starts
+	// loading, so one retry avoids a permanent "Preview unavailable" for a
+	// background that's actually fine.
+	const retriedRef = useRef(false);
+
+	const setVideoRef = useCallback(
+		(el: HTMLVideoElement | null) => {
+			videoElRef.current = el;
+			registerVideo(el);
+		},
+		[registerVideo],
+	);
 
 	useEffect(() => {
 		setLoadFailed(false);
+		retriedRef.current = false;
 	}, [asset.id]);
 
 	// Unregister the video from the playback store on unmount (e.g. switching
@@ -1115,7 +1131,7 @@ function BackgroundVideo({ asset, initialTimeSecs }: { asset: Asset; initialTime
 
 	return (
 		<video
-			ref={registerVideo}
+			ref={setVideoRef}
 			className="scene-canvas__bg-image"
 			src={convertFileSrc(asset.sourcePath)}
 			muted
@@ -1129,7 +1145,14 @@ function BackgroundVideo({ asset, initialTimeSecs }: { asset: Asset; initialTime
 			}}
 			onDurationChange={(e) => reportDuration(e.currentTarget.duration)}
 			onTimeUpdate={(e) => reportTime(e.currentTarget.currentTime)}
-			onError={() => setLoadFailed(true)}
+			onError={() => {
+				if (!retriedRef.current) {
+					retriedRef.current = true;
+					setTimeout(() => videoElRef.current?.load(), 300);
+					return;
+				}
+				setLoadFailed(true);
+			}}
 		/>
 	);
 }

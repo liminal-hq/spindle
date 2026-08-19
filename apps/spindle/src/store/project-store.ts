@@ -434,6 +434,17 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 				path: selected,
 				...projectTraceSummary(project),
 			});
+			// Grant the asset scope *before* publishing project state — a motion
+			// background's `<video>` starts loading the moment `project` state
+			// renders, and `BackgroundVideo`'s load-failure state is sticky, so
+			// publishing first can permanently strand it on "Preview unavailable"
+			// while the grant is still in flight. A grant failure must not block
+			// opening the project, though — warn and publish anyway.
+			try {
+				await allowAssetScope(project.assets.map((a) => a.sourcePath));
+			} catch (error) {
+				console.warn('[project-store] Failed to grant asset scope on open', { error });
+			}
 			set({
 				project,
 				filePath: selected,
@@ -442,11 +453,6 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 				undoStack: [],
 				redoStack: [],
 			});
-			try {
-				await allowAssetScope(project.assets.map((a) => a.sourcePath));
-			} catch (error) {
-				console.warn('[project-store] Failed to grant asset scope on open', { error });
-			}
 			await ensureProjectAssetThumbnails(project);
 			void backfillAssetFormatTitles(project);
 		} finally {
@@ -614,6 +620,14 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 			};
 		});
 
+		// Grant the asset scope before publishing the new assets into project
+		// state — see the matching comment in `openProject`.
+		try {
+			await allowAssetScope(paths);
+		} catch (error) {
+			console.warn('[project-store] Failed to grant asset scope on import', { error });
+		}
+
 		set({
 			project: {
 				...project,
@@ -621,12 +635,6 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 			},
 			isDirty: true,
 		});
-
-		try {
-			await allowAssetScope(paths);
-		} catch (error) {
-			console.warn('[project-store] Failed to grant asset scope on import', { error });
-		}
 
 		// Trigger inspection and thumbnail extraction for each new asset
 		for (const asset of newAssets) {
@@ -725,7 +733,14 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 		useAppSettingsStore.getState().setLastMediaDir(parentDir(newPath));
 		const newFileName = newPath.split(/[/\\]/).pop() ?? newPath;
 
-		// Update path immediately
+		// Grant the asset scope before publishing the new path into project
+		// state — see the matching comment in `openProject`.
+		try {
+			await allowAssetScope([newPath]);
+		} catch (error) {
+			console.warn('[project-store] Failed to grant asset scope on relink', { error });
+		}
+
 		set({
 			project: {
 				...project,
@@ -735,12 +750,6 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 			},
 			isDirty: true,
 		});
-
-		try {
-			await allowAssetScope([newPath]);
-		} catch (error) {
-			console.warn('[project-store] Failed to grant asset scope on relink', { error });
-		}
 
 		// Re-inspect the relinked file
 		try {
