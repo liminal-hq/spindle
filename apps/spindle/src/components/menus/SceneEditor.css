@@ -1796,6 +1796,10 @@
 	font-size: 12px;
 	cursor: grab;
 	line-height: 1;
+	/* Above `.timeline-node-lane__track-label` (z-index: 1) — a keyframe in
+	 * the first ~110px (roughly the first 2.75s at 40px/sec) would otherwise
+	 * paint underneath the label's opaque background and be invisible. */
+	z-index: 2;
 }
 
 .timeline-keyframe-lane__diamond--selected {
