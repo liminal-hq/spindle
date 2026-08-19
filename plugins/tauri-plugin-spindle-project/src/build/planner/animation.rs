@@ -78,9 +78,10 @@ pub(super) fn build_overlay_keyframe_schedule(
     }
 
     if !matches!(menu_ref.background_mode(), BackgroundMode::Motion) {
-        let highlight_colour = effective_highlight_colour_hex(&relevant_tracks, highlight_colours, |track| {
-            track.keyframes.first().map(|kf| kf.value.clone())
-        });
+        let highlight_colour =
+            effective_highlight_colour_hex(&relevant_tracks, highlight_colours, |track| {
+                track.keyframes.first().map(|kf| kf.value.clone())
+            });
         return vec![OverlayKeyframeSpec {
             start_secs: 0.0,
             end_secs: 0.0,

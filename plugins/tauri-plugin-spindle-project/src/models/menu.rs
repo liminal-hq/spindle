@@ -1314,7 +1314,10 @@ mod lift_tests {
 
         assert_eq!(doc.animation.len(), 2);
         assert_eq!(doc.animation[0].target, AnimatableProperty::HighlightColour);
-        assert_eq!(doc.animation[1].target, AnimatableProperty::HighlightOpacity);
+        assert_eq!(
+            doc.animation[1].target,
+            AnimatableProperty::HighlightOpacity
+        );
         assert_eq!(
             doc.animation[1].keyframes[0].value,
             KeyValue::Scalar { value: 0.25 }

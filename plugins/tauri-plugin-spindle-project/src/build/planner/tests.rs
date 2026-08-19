@@ -5,8 +5,7 @@
 
 use crate::build::test_support::{test_menu, test_project};
 use crate::build::{
-    generate_build_plan, generate_build_plan_with_options, BuildJob, BuildPlan,
-    OverlayKeyframeSpec,
+    generate_build_plan, generate_build_plan_with_options, BuildJob, BuildPlan, OverlayKeyframeSpec,
 };
 use crate::models::*;
 

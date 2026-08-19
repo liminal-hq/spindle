@@ -63,17 +63,18 @@ mod tests {
     use std::collections::HashMap;
 
     use crate::models::{
-        AspectMode, Asset, AudioOutputTarget, AudioTrackMapping, BackgroundMode, ChapterPoint,
-        CompatibilityAssessment, CopyMode, Disc, HighlightKeyframe, HighlightMode, IssueSeverity,
-        Menu, MenuCompilePolicy, MenuDocument, MenuDomain, MenuHighlightColours,
-        MenuInteractionGraph, MenuRole, MenuScene, MenuSize, MenuTiming, PlaybackAction,
-        SceneBackground, SceneNode, SubtitleTrackMapping, Title, Titleset, VideoStandard,
+        AnimatableProperty, AnimationTrack, AspectMode, Asset, AudioOutputTarget,
+        AudioTrackMapping, BackgroundMode, ChapterPoint, CompatibilityAssessment, CopyMode, Disc,
+        DiscFamily, Easing, HighlightMode, IssueSeverity, KeyValue, Keyframe, Menu,
+        MenuCompilePolicy, MenuDocument, MenuDomain, MenuHighlightColours, MenuInteractionGraph,
+        MenuRole, MenuScene, MenuSize, MenuTiming, PlaybackAction, SceneBackground, SceneNode,
+        SubtitleTrackMapping, Title, Titleset, VideoStandard,
     };
 
     use super::chapter::{chapter_target_exists, dangling_play_chapter_issue};
     use super::menu_action::{validate_action, ActionSubject};
     use super::menu_aspect::{titleset_stream_counts, validate_menu_aspect_section};
-    use super::scene::{validate_button_video_usage, validate_motion_keyframes};
+    use super::scene::{validate_animation_tracks, validate_button_video_usage};
 
     #[test]
     fn chapter_target_exists_requires_matching_title_and_chapter() {
@@ -430,9 +431,19 @@ mod tests {
     }
 
     #[test]
-    fn validate_motion_keyframes_flags_out_of_range_entries() {
+    fn validate_animation_tracks_flags_out_of_range_entries() {
         let menu = Menu::new("menu-1", "Motion Menu").with_document(MenuDocument {
-            animation: vec![],
+            animation: vec![AnimationTrack {
+                node_id: "btn-1".to_string(),
+                target: AnimatableProperty::HighlightColour,
+                keyframes: vec![Keyframe {
+                    timestamp_secs: 9.0,
+                    value: KeyValue::Colour {
+                        hex: "#ffaa40".to_string(),
+                    },
+                    easing: Easing::Hold,
+                }],
+            }],
             id: "menu-1".to_string(),
             name: "Motion Menu".to_string(),
             domain: MenuDomain::Vmgm,
@@ -454,14 +465,8 @@ mod tests {
                     y: 0.0,
                     width: 100.0,
                     height: 40.0,
-                    highlight_mode: HighlightMode::Animated,
-                    highlight_keyframes: vec![HighlightKeyframe {
-                        timestamp_secs: 9.0,
-                        select_colour: None,
-                        select_opacity: None,
-                        activate_colour: None,
-                        activate_opacity: None,
-                    }],
+                    highlight_mode: HighlightMode::Static,
+                    highlight_keyframes: vec![],
                     video_asset_id: None,
                     button_style: None,
                     label_style: None,
@@ -489,15 +494,305 @@ mod tests {
         });
 
         let mut issues = Vec::new();
-        validate_motion_keyframes(
+        validate_animation_tracks(
             menu.authored_document.as_ref().expect("authored doc"),
             &menu,
             Some(5.0),
+            DiscFamily::DvdVideo,
+            &mut issues,
+        );
+
+        assert_eq!(
+            issues.len(),
+            1,
+            "expected only the out-of-range issue, got {issues:?}"
+        );
+        assert_eq!(issues[0].code, "menu.motion-keyframe-out-of-range");
+    }
+
+    /// Shared fixture for the `menu.animation-*` tests below: one button
+    /// ("btn-1"), `background_mode`/`timing`/`animation` overridden per test.
+    fn animation_test_menu(
+        background_mode: BackgroundMode,
+        timing: MenuTiming,
+        animation: Vec<AnimationTrack>,
+    ) -> Menu {
+        Menu::new("menu-1", "Test Menu").with_document(MenuDocument {
+            animation,
+            id: "menu-1".to_string(),
+            name: "Test Menu".to_string(),
+            domain: MenuDomain::Vmgm,
+            role: MenuRole::TitleSelect,
+            scene: MenuScene {
+                design_size: MenuSize {
+                    width: 720.0,
+                    height: 480.0,
+                    aspect: AspectMode::SixteenByNine,
+                },
+                background: SceneBackground {
+                    asset_id: Some("asset-1".to_string()),
+                    colour: None,
+                },
+                nodes: vec![SceneNode::Button {
+                    id: "btn-1".to_string(),
+                    label: "Play".to_string(),
+                    x: 0.0,
+                    y: 0.0,
+                    width: 100.0,
+                    height: 40.0,
+                    highlight_mode: HighlightMode::Static,
+                    highlight_keyframes: vec![],
+                    video_asset_id: None,
+                    button_style: None,
+                    label_style: None,
+                }],
+                guides: vec![],
+            },
+            interaction: MenuInteractionGraph {
+                default_focus_id: None,
+                nodes: vec![],
+                timeout_action: None,
+            },
+            timing,
+            highlight_colours: MenuHighlightColours::default(),
+            background_mode,
+            theme_ref: None,
+            generation_meta: None,
+            compile_policy: MenuCompilePolicy::default(),
+        })
+    }
+
+    fn colour_keyframe(timestamp_secs: f64, hex: &str) -> Keyframe {
+        Keyframe {
+            timestamp_secs,
+            value: KeyValue::Colour {
+                hex: hex.to_string(),
+            },
+            easing: Easing::Hold,
+        }
+    }
+
+    #[test]
+    fn validate_animation_tracks_flags_a_node_that_no_longer_exists() {
+        let menu = animation_test_menu(
+            BackgroundMode::Motion,
+            MenuTiming {
+                loop_duration_secs: 5.0,
+                ..MenuTiming::default()
+            },
+            vec![AnimationTrack {
+                node_id: "btn-deleted".to_string(),
+                target: AnimatableProperty::HighlightColour,
+                keyframes: vec![colour_keyframe(0.0, "#ff0000")],
+            }],
+        );
+
+        let mut issues = Vec::new();
+        validate_animation_tracks(
+            menu.doc(),
+            &menu,
+            Some(5.0),
+            DiscFamily::DvdVideo,
+            &mut issues,
+        );
+
+        assert!(
+            issues
+                .iter()
+                .any(|i| i.code == "menu.animation-node-missing"),
+            "expected menu.animation-node-missing, got {issues:?}"
+        );
+    }
+
+    #[test]
+    fn validate_animation_tracks_flags_an_empty_track_as_a_warning() {
+        let menu = animation_test_menu(
+            BackgroundMode::Motion,
+            MenuTiming {
+                loop_duration_secs: 5.0,
+                ..MenuTiming::default()
+            },
+            vec![AnimationTrack {
+                node_id: "btn-1".to_string(),
+                target: AnimatableProperty::HighlightColour,
+                keyframes: vec![],
+            }],
+        );
+
+        let mut issues = Vec::new();
+        validate_animation_tracks(
+            menu.doc(),
+            &menu,
+            Some(5.0),
+            DiscFamily::DvdVideo,
             &mut issues,
         );
 
         assert_eq!(issues.len(), 1);
-        assert_eq!(issues[0].code, "menu.motion-keyframe-out-of-range");
+        assert_eq!(issues[0].code, "menu.animation-empty-track");
+        assert_eq!(issues[0].severity, IssueSeverity::Warning);
+    }
+
+    #[test]
+    fn validate_animation_tracks_warns_on_opacity_and_position_for_dvd() {
+        let menu = animation_test_menu(
+            BackgroundMode::Motion,
+            MenuTiming {
+                loop_duration_secs: 5.0,
+                ..MenuTiming::default()
+            },
+            vec![
+                AnimationTrack {
+                    node_id: "btn-1".to_string(),
+                    target: AnimatableProperty::Opacity,
+                    keyframes: vec![Keyframe {
+                        timestamp_secs: 0.0,
+                        value: KeyValue::Scalar { value: 1.0 },
+                        easing: Easing::Hold,
+                    }],
+                },
+                AnimationTrack {
+                    node_id: "btn-1".to_string(),
+                    target: AnimatableProperty::Position,
+                    keyframes: vec![Keyframe {
+                        timestamp_secs: 0.0,
+                        value: KeyValue::Point { x: 0.0, y: 0.0 },
+                        easing: Easing::Hold,
+                    }],
+                },
+            ],
+        );
+
+        let mut issues = Vec::new();
+        validate_animation_tracks(
+            menu.doc(),
+            &menu,
+            Some(5.0),
+            DiscFamily::DvdVideo,
+            &mut issues,
+        );
+
+        let unsupported: Vec<_> = issues
+            .iter()
+            .filter(|i| i.code == "menu.animation-unsupported-property")
+            .collect();
+        assert_eq!(
+            unsupported.len(),
+            2,
+            "expected a warning for both Opacity and Position, got {issues:?}"
+        );
+        assert!(unsupported
+            .iter()
+            .all(|i| i.severity == IssueSeverity::Warning));
+    }
+
+    #[test]
+    fn validate_animation_tracks_errors_on_still_menu_and_names_the_degrade() {
+        let menu = animation_test_menu(
+            BackgroundMode::Still,
+            MenuTiming::default(),
+            vec![AnimationTrack {
+                node_id: "btn-1".to_string(),
+                target: AnimatableProperty::HighlightColour,
+                keyframes: vec![colour_keyframe(0.0, "#ff0000")],
+            }],
+        );
+
+        let mut issues = Vec::new();
+        validate_animation_tracks(menu.doc(), &menu, None, DiscFamily::DvdVideo, &mut issues);
+
+        assert_eq!(issues.len(), 1);
+        assert_eq!(issues[0].code, "menu.animation-on-still-menu");
+        assert_eq!(issues[0].severity, IssueSeverity::Error);
+        assert!(
+            issues[0].message.to_lowercase().contains("first keyframe"),
+            "expected the message to name the first-keyframe degrade, got: {}",
+            issues[0].message
+        );
+    }
+
+    #[test]
+    fn validate_animation_tracks_warns_on_dense_keyframe_schedules() {
+        // 6 sampled frames (union incl. the implicit 0.0) over a 2s loop is
+        // 3/s, comfortably past the ~1/s density threshold.
+        let menu = animation_test_menu(
+            BackgroundMode::Motion,
+            MenuTiming {
+                loop_duration_secs: 2.0,
+                ..MenuTiming::default()
+            },
+            vec![AnimationTrack {
+                node_id: "btn-1".to_string(),
+                target: AnimatableProperty::HighlightColour,
+                keyframes: vec![
+                    colour_keyframe(0.2, "#ff0000"),
+                    colour_keyframe(0.4, "#ff1100"),
+                    colour_keyframe(0.6, "#ff2200"),
+                    colour_keyframe(0.8, "#ff3300"),
+                    colour_keyframe(1.0, "#ff4400"),
+                ],
+            }],
+        );
+
+        let mut issues = Vec::new();
+        validate_animation_tracks(
+            menu.doc(),
+            &menu,
+            Some(2.0),
+            DiscFamily::DvdVideo,
+            &mut issues,
+        );
+
+        let density: Vec<_> = issues
+            .iter()
+            .filter(|i| i.code == "menu.animation-keyframe-density")
+            .collect();
+        assert_eq!(
+            density.len(),
+            1,
+            "expected exactly one density warning, got {issues:?}"
+        );
+        assert_eq!(density[0].severity, IssueSeverity::Warning);
+        assert!(
+            density[0].message.contains("3.36 Mbit/s"),
+            "expected the message to cite the subpicture bitrate budget, got: {}",
+            density[0].message
+        );
+    }
+
+    #[test]
+    fn validate_animation_tracks_sparse_schedule_is_not_flagged_as_dense() {
+        let menu = animation_test_menu(
+            BackgroundMode::Motion,
+            MenuTiming {
+                loop_duration_secs: 10.0,
+                ..MenuTiming::default()
+            },
+            vec![AnimationTrack {
+                node_id: "btn-1".to_string(),
+                target: AnimatableProperty::HighlightColour,
+                keyframes: vec![
+                    colour_keyframe(0.0, "#ff0000"),
+                    colour_keyframe(5.0, "#00ff00"),
+                ],
+            }],
+        );
+
+        let mut issues = Vec::new();
+        validate_animation_tracks(
+            menu.doc(),
+            &menu,
+            Some(10.0),
+            DiscFamily::DvdVideo,
+            &mut issues,
+        );
+
+        assert!(
+            !issues
+                .iter()
+                .any(|i| i.code == "menu.animation-keyframe-density"),
+            "a sparse schedule must not trigger the density warning, got {issues:?}"
+        );
     }
 
     #[test]

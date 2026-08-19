@@ -637,7 +637,11 @@ mod spumux_frame_tests {
             &frames,
         );
 
-        assert_eq!(xml.matches("<spu ").count(), 2, "expected two <spu> entries, got:\n{xml}");
+        assert_eq!(
+            xml.matches("<spu ").count(),
+            2,
+            "expected two <spu> entries, got:\n{xml}"
+        );
         assert_eq!(
             xml.matches("<button name=\"1\" x0=\"100\" y0=\"280\" x1=\"320\" y1=\"328\" />")
                 .count(),
@@ -1155,4 +1159,3 @@ mod tests {
         );
     }
 }
-

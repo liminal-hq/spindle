@@ -11,7 +11,7 @@ use crate::models::*;
 use super::menu_action::{validate_action, ActionSubject};
 use super::menu_aspect::titleset_stream_counts;
 use super::scene::{
-    count_scene_buttons, validate_button_video_usage, validate_motion_keyframes,
+    count_scene_buttons, validate_animation_tracks, validate_button_video_usage,
     validate_scene_nodes,
 };
 
@@ -528,7 +528,7 @@ pub(super) fn validate_menus(
         }
 
         validate_button_video_usage(menu, background_mode, asset_map, issues);
-        validate_motion_keyframes(doc, menu, motion_duration_secs, issues);
+        validate_animation_tracks(doc, menu, motion_duration_secs, project.disc.family, issues);
     }
 }
 

@@ -150,7 +150,8 @@ fn lerp_value(v0: &KeyValue, v1: &KeyValue, u: f64) -> KeyValue {
 /// `had_alpha` is `false` and `a` is `255` for a 6-digit input.
 fn parse_hex_colour(hex: &str) -> (u8, u8, u8, u8, bool) {
     let h = hex.trim_start_matches('#');
-    let byte = |start: usize| u8::from_str_radix(h.get(start..start + 2).unwrap_or("00"), 16).unwrap_or(0);
+    let byte =
+        |start: usize| u8::from_str_radix(h.get(start..start + 2).unwrap_or("00"), 16).unwrap_or(0);
     let r = byte(0);
     let g = byte(2);
     let b = byte(4);
