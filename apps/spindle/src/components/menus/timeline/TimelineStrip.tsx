@@ -16,6 +16,7 @@ import type {
 	KeyValue,
 	MenuButton,
 	MenuDocument,
+	MenuHighlightColours,
 	MenuTiming,
 	VideoStandard,
 } from '../../../types/project';
@@ -78,6 +79,25 @@ function groupTracksByNode(tracks: AnimationTrack[]): Map<string, AnimationTrack
 		}
 	}
 	return map;
+}
+
+/** The value a newly-inserted keyframe samples when its track has no
+ * existing keyframes to sample from (double-clicking an empty lane, or the
+ * lane's very first keyframe) — sourced from the menu's own authored
+ * defaults so the inserted keyframe is visible rather than falling through
+ * to the `position` fallback for a colour/opacity target. */
+export function defaultValueForTarget(
+	highlightColours: MenuHighlightColours,
+	target: AnimatableProperty,
+): KeyValue {
+	if (target === 'highlight-colour') return { kind: 'colour', hex: highlightColours.selectColour };
+	if (target === 'highlight-opacity')
+		return { kind: 'scalar', value: highlightColours.selectOpacity };
+	if (target === 'activate-colour') return { kind: 'colour', hex: highlightColours.activateColour };
+	if (target === 'activate-opacity')
+		return { kind: 'scalar', value: highlightColours.activateOpacity };
+	if (target === 'opacity') return { kind: 'scalar', value: 1 };
+	return { kind: 'point', x: 0, y: 0 };
 }
 
 export function TimelineStrip({
@@ -153,15 +173,6 @@ export function TimelineStrip({
 	const buttonLabelById = useMemo(() => new Map(buttons.map((b) => [b.id, b.label])), [buttons]);
 	const tracksByNode = useMemo(() => groupTracksByNode(tracks), [tracks]);
 
-	const defaultValueForTarget = (target: AnimatableProperty): KeyValue => {
-		if (target === 'highlight-colour')
-			return { kind: 'colour', hex: highlightColours.selectColour };
-		if (target === 'highlight-opacity')
-			return { kind: 'scalar', value: highlightColours.selectOpacity };
-		if (target === 'opacity') return { kind: 'scalar', value: 1 };
-		return { kind: 'point', x: 0, y: 0 };
-	};
-
 	if (!visible) return null;
 
 	return (
@@ -196,7 +207,7 @@ export function TimelineStrip({
 							loopStartSecs={loopStartSecs}
 							loopDurationSecs={loopDurationSecs}
 							fps={fps}
-							defaultValueForTarget={defaultValueForTarget}
+							defaultValueForTarget={(target) => defaultValueForTarget(highlightColours, target)}
 							onAddKeyframe={onAddKeyframe}
 							onMoveKeyframe={onMoveKeyframe}
 							onUpdateKeyframeValue={onUpdateKeyframeValue}
