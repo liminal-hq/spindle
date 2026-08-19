@@ -1,6 +1,6 @@
 # Rich Menu Editor Plan — motion, imagery, animated buttons, and BD-ready foundations
 
-**Status:** planning · July 2026 · reviewed against Spindle v0.3.0
+**Status:** planning · July 2026 · reviewed against Spindle v0.3.0 · slice statuses updated August 2026 — C and D have shipped; see the per-slice status lines in §4
 
 This document plans the next generation of the menu authoring system: motion backgrounds, animated buttons, richer imagery and styling, timeline editing, and — critically — the design decisions that must be made _now_ so the same editor can author BDMV (Blu-ray) menus later without a rewrite.
 
@@ -246,6 +246,8 @@ Each slice is independently shippable and lists what it must do differently beca
 
 ### Slice A — Format profile & terminology layer
 
+**Status: shipped** — landed earlier as the format-profile and menu-role work: `FormatProfile`/`profile_for` (`models/format_profile.rs`) drive validation and editor chrome, and the frontend terminology map (`apps/spindle/src/format/terminology.ts`, `useFormatProfile`) is in place.
+
 **Goal:** the UI reflects the disc type; DVD-isms move from constants into data.
 
 - Add a `FormatProfile` (Rust, serialised to the frontend alongside the project): raster, design-size defaults, max buttons per menu/page, palette model (`FourColourSubpicture` | `Palette256`), min font size, safe-area defaults, supported menu roles, supported background modes.
@@ -288,6 +290,8 @@ Each slice is independently shippable and lists what it must do differently beca
 
 ### Slice B — Visual fidelity foundation
 
+**Status: partial** — the legacy `Menu.buttons` mirror retirement shipped (readers migrated onto `MenuDocument`, sync-layer deleted, audio bed moved to `MenuTiming.audioAssetId`); the render-parity golden tests (#53) and the shared visual properties / any-state Skia rendering (#106) are still pending.
+
 **Goal:** what you author is what the disc shows; richer still imagery.
 
 - Skia renders **any button state** (normal/focus/activate), shadows and glows, and `Group` nodes (position offset + z-order container). The DVD compiler keeps consuming `normal` plus subpicture, but the compile preview and render-preview export can now show true focus/activate appearance. Rendering groups is not enough on its own: `AuthorableMenuRef::buttons()` (`build/menu.rs`) only scans top-level `scene.nodes`, so a button inside a group would become visible without gaining spumux rectangles or navigation. Authoring/interaction extraction must **recursively flatten grouped buttons** (with accumulated group offsets), as scene validation already does — this is an explicit acceptance criterion.
@@ -298,6 +302,8 @@ Each slice is independently shippable and lists what it must do differently beca
 Intersecting issues: #28, #29, #53, #55, #63, #64.
 
 ### Slice C — Motion menu backend
+
+**Status: implemented (#107)** — motion menus build end-to-end per `motion-menus.md` (segment composes on `BuildJob::RenderMenu`, intro+loop cells, `g1` `<post>` looping, loop-point scrub preview). Deviation: the `MenuCompiler` trait below was deliberately deferred — `build/menu_motion.rs`'s module doc-comment is the seam mapping each function to the future trait stage.
 
 **Goal:** motion backgrounds and audio beds actually build; the plan-time block is removed.
 
@@ -358,6 +364,8 @@ Intersecting issues: #28, #29, #53, #55, #63, #64.
 
 ### Slice D — Timeline & animated highlights
 
+**Status: implemented (#108)** — `AnimationTrack` model + parity-pinned Rust/TS evaluators, the timeline strip (`apps/spindle/src/components/menus/timeline/`), and the DCSQ lowering shipped; the per-keyframe multi-`<spu>` route (a) below was implemented, so the raw-DCSQ-writer fallback was not needed.
+
 **Goal:** a real timeline in the editor; keyframed animation that compiles.
 
 - **Timeline strip** under the canvas (visible when the menu is motion, or when any animation track exists): intro region, loop region, scrubber, per-node keyframe lanes.
@@ -413,6 +421,8 @@ Intersecting issues: #28, #29, #53, #55, #63, #64.
 
 ### Slice E — Motion thumbnails / video buttons
 
+**Status: pending (#109).**
+
 **Goal:** the classic "moving chapter tile" idiom.
 
 - Button `videoAssetId` and `SceneNode::Video` get compiled: ffmpeg `overlay` chains composite per-button video into the motion background at button bounds (approach 2 in `motion-menus.md`), beneath a standard highlight.
@@ -420,6 +430,8 @@ Intersecting issues: #28, #29, #53, #55, #63, #64.
 - Generators: chapter grids can opt into motion tiles sourced from the existing thumbnail/preview cache timestamps.
 
 ### Slice F — Themes & components
+
+**Status: pending (#110).**
 
 **Goal:** `theme_ref` and the Templates rail stop being stubs; generated menus restyle without regeneration.
 
