@@ -497,7 +497,7 @@ mod spumux_frame_tests {
             id: "menu-pin".to_string(),
             name: "Pin Menu".to_string(),
             domain: crate::models::MenuDomain::Vmgm,
-            role: MenuRole::TitleSelect,
+            role: Some(MenuRole::TitleSelect),
             scene: MenuScene {
                 design_size: MenuSize {
                     width: 720.0,

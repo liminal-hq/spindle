@@ -1249,7 +1249,7 @@ mod lift_tests {
             id: "menu-1".to_string(),
             name: "Menu".to_string(),
             domain: MenuDomain::Vmgm,
-            role: MenuRole::TitleSelect,
+            role: Some(MenuRole::TitleSelect),
             scene: MenuScene {
                 design_size: MenuSize::default(),
                 background: SceneBackground {
