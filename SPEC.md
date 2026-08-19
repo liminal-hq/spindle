@@ -663,7 +663,7 @@ Motion menus are implemented as an extension of the menu asset and compilation m
 - motion-video backgrounds trimmed from an imported video asset
 - looping menu audio from an authored audio bed, the background video's own audio, or synthesized silence
 - clip-based menu intros that transition into looping states, with loop count and timeout actions
-- animated button highlights driven by keyframe tracks (highlight colour and opacity on DVD)
+- animated button highlights driven by keyframe tracks (highlight and activated-state colour and opacity on DVD)
 - motion-aware preview: in-canvas video playback, a timeline strip, and highlight animation sampled from the same tracks the build compiles
 
 Remaining future motion work includes per-button video regions (motion thumbnails) and animated per-state button bitmaps where a target format supports them.

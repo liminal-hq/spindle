@@ -67,7 +67,13 @@ interface AnimationTrack {
 	keyframes: Keyframe[];
 }
 
-type AnimatableProperty = 'highlight-colour' | 'highlight-opacity' | 'opacity' | 'position';
+type AnimatableProperty =
+	| 'highlight-colour'
+	| 'highlight-opacity'
+	| 'activate-colour' // DVD: spumux's "select" (activated/pressed) state colour
+	| 'activate-opacity' // the activated-state counterpart to activate-colour
+	| 'opacity'
+	| 'position';
 
 interface Keyframe {
 	timestampSecs: number; // loop-relative seconds
@@ -92,11 +98,11 @@ Evaluator semantics:
 - `hold` steps: the segment keeps the earlier keyframe's value with no interpolation. This is the sampling mode the DCSQ lowering effectively uses — the disc schedule samples _at_ keyframe timestamps, where every easing yields the keyframe's own value exactly, so the on-disc result is exact by construction.
 - Colour interpolation is a componentwise sRGB u8 lerp, round-half-up per channel; alpha is carried iff either endpoint has it.
 
-Only `highlight-colour` and `highlight-opacity` tracks are lowered to a DVD build today; `opacity` and `position` are modelled (and previewed nowhere yet) but draw a validation warning on DVD projects because the subpicture overlay model cannot express them.
+`highlight-colour`/`highlight-opacity` and `activate-colour`/`activate-opacity` tracks are lowered to a DVD build today — the highlight pair drives spumux's "highlight" (focused/selected) state, the activate pair drives spumux's "select" (activated/pressed) state; `opacity` and `position` are modelled (and previewed nowhere yet) but draw a validation warning on DVD projects because the subpicture overlay model cannot express them.
 
 ### Migration
 
-`MenuDocument::lift_highlight_keyframes` lifts the legacy per-button `highlightKeyframes` arrays into `AnimationTrack`s (one `highlight-colour` track per animated button, plus a `highlight-opacity` track when any keyframe carried an opacity, all with `hold` easing), then clears the source arrays. It runs from `SpindleProjectFile::migrate_all_menus` — the idempotent load hook invoked on every IPC entry — so by the time validation or the planner sees a document, tracks are the only place animation lives. New optional fields default cleanly via `#[serde(default)]`, so no schema version bump was needed.
+`MenuDocument::lift_highlight_keyframes` lifts the legacy per-button `highlightKeyframes` arrays into `AnimationTrack`s (one `highlight-colour` track per animated button, plus a `highlight-opacity` track when any keyframe overrode select opacity — and, mirroring that pair, an `activate-colour` track plus an `activate-opacity` track when any keyframe overrode activate opacity — all with `hold` easing), then clears the source arrays. It runs from `SpindleProjectFile::migrate_all_menus` — the idempotent load hook invoked on every IPC entry — so by the time validation or the planner sees a document, tracks are the only place animation lives. New optional fields default cleanly via `#[serde(default)]`, so no schema version bump was needed.
 
 ---
 
@@ -171,9 +177,9 @@ Motion menu with intro, loop count K = 3 and a timeout action:
 
 For each menu, the planner builds an `overlayKeyframes` schedule of `OverlayKeyframeSpec` entries (`{ startSecs, endSecs, highlightImagePath, selectImagePath, highlightColour, selectColour }`) carried on `RenderMenu`:
 
-- The **relevant tracks** are the `highlight-colour`/`highlight-opacity` tracks with keyframes whose `nodeId` is one of the menu's buttons.
-- The schedule's instants are the **union of every relevant track's keyframe timestamps**, clamped into the loop window, sorted, deduped, always including `0.0`.
-- At each instant, every relevant track is sampled with `evaluate_track` and folded onto the menu's default select colour/opacity; the resulting opacity is baked into the alpha channel (`#rrggbbaa`).
+- The **relevant tracks** split into two groups by target: `highlight-colour`/`highlight-opacity` tracks (spumux's "highlight" state) and `activate-colour`/`activate-opacity` tracks (spumux's "select" state), each restricted to keyframes whose `nodeId` is one of the menu's buttons.
+- The schedule's instants are the **union of every relevant track's keyframe timestamps, across both groups**, clamped into the loop window, sorted, deduped, always including `0.0`.
+- At each instant, the highlight-group tracks are sampled with `evaluate_track` and folded onto the menu's default highlight colour/opacity, and the activate-group tracks are sampled and folded onto the default activate colour/opacity; each resulting opacity is baked into its own alpha channel (`#rrggbbaa`).
 - Each frame's `end` is the next instant; the last frame's `end` is defensively clamped to `loopDuration − 1 frame`, because a spumux `end` past the last PTS is undefined.
 - Per-frame overlay image paths are `{base}_hl_k{i}.png` / `{base}_sel_k{i}.png`; the executor renders one highlight/select PNG pair per frame through the existing Skia overlay renderer (`generate_menu_overlay_images_for_keyframes`). Anti-aliasing stays off for every frame — spumux's ≤16-colour palette limit applies to each one.
 
@@ -195,8 +201,8 @@ A multi-frame schedule emits one `<spu start=".." end=".." image=".." highlight=
 
 - **Inspector motion settings**: background mode toggle, loop start / intro start / intro duration numeric fields, loop count, audio bed picker, and a timeout-action select reusing the button-action option list.
 - **Canvas video preview**: a motion menu's background renders as a real `<video>` element (`convertFileSrc` over the asset's source path), seeked to the loop start in design mode. Playback state lives in a dedicated zustand store (`store/menu-playback-store.ts`), outside the project store so scrubbing never enters undo history; the playhead is driven by a rAF loop (`useVideoPlayhead`), not the ~4 Hz `timeupdate` event.
-- **Timeline strip** (`components/menus/timeline/`): mounted below the canvas, visible when the menu is motion or has any animation track. It comprises a ruler (click = seek), an intro/loop region bar (drag edges = retime the timing fields), a scrubber with transport controls (play/pause, ±1 frame step, loop-region toggle), a static audio-bed lane, and one keyframe lane per animated node (drag ◆ to retime, double-click for the value/easing/timestamp popover, double-click an empty lane to insert a keyframe sampling the current value). Drags live-preview locally and commit once on pointer-up — one undo entry. All writes go through `updateMenuDocument`. _The ±1 frame step currently uses a fixed 30 fps constant; deriving it from `disc.standard` is a pending follow-up._
-- **Preview animates**: the navigation preview samples the focused/activated button's colour from its tracks at the current loop-relative playhead via the shared evaluator, falling back to the menu's highlight colours.
+- **Timeline strip** (`components/menus/timeline/`): mounted below the canvas, visible when the menu is motion or has any animation track. It comprises a ruler (click = seek), an intro/loop region bar (drag edges = retime the timing fields), a scrubber with transport controls (play/pause, ±1 frame step, loop-region toggle), a static audio-bed lane, and one keyframe lane per animated node (drag ◆ to retime, double-click for the value/easing/timestamp popover, double-click an empty lane to insert a keyframe sampling the current value). Drags live-preview locally and commit once on pointer-up — one undo entry. All writes go through `updateMenuDocument`. The ±1 frame step and drag snapping are standard-aware: `fpsForStandard` (`components/menus/timeline/useTimelineGeometry.ts`) resolves NTSC's exact `30000/1001` or PAL's `25`, rather than a hardcoded 30 fps.
+- **Preview animates**: the navigation preview samples each button's colour from its animation tracks — `highlight-colour`/`highlight-opacity` for the focused state, `activate-colour`/`activate-opacity` for the activated state — via the shared evaluator, falling back to the menu's static highlight colours when there's no track (`sampleTrackForPreview`/`sampleHonestPreview` in `components/menus/timeline/timelineUtils.ts`). Sampling mirrors the disc's own fidelity rules: a still menu with tracks previews only the track's first keyframe regardless of playhead, matching the disc's still-menu degrade path (`build_overlay_keyframe_schedule`); a motion menu previews the full eased curve by default, or, with honest preview enabled, quantizes to the disc's actual DCSQ schedule — the union of every relevant track's keyframe timestamps (the highlight and activate groups each form their own shared schedule), matching the planner exactly.
 - **Keyframes are loop-relative; video time is source-relative**: `tLoop = video.currentTime − loopStartSecs`.
 - **Asset scope**: the webview's asset protocol is granted access to _exactly the imported assets' source paths_, at runtime — `allowAssetScope` (plugin command `allow_asset_scope`) is called on project open with all asset paths, and again on import and relink with the new paths. Grants are runtime-only (reset on restart); the static scope stays confined to the app cache/data directories. This is what lets `<video>`/thumbnail previews read source media without widening the static filesystem scope.
 
@@ -219,7 +225,9 @@ Current motion and animation validation codes (ground truth: `src/validation/men
 | `menu.motion-intro-invalid`               | Error    | Intro duration is negative, or the intro window runs past the end of the background asset.                                                    |
 | `menu.motion-loop-count-without-timeout`  | Warning  | Loop count > 0 but no timeout action — the disc will loop forever instead of stopping after N plays.                                          |
 | `menu.animation-node-missing`             | Error    | An animation track targets a scene node that no longer exists.                                                                                |
+| `menu.animation-node-not-compiled`        | Warning  | An animation track targets a button nested inside a group — group-nested buttons aren't compiled to the disc yet, so the track has no effect. |
 | `menu.animation-empty-track`              | Warning  | An animation track has no keyframes yet.                                                                                                      |
+| `menu.animation-keyframe-invalid`         | Error    | An animation keyframe has a non-finite (`NaN`/`Infinity`) timestamp.                                                                          |
 | `menu.animation-unsupported-property`     | Warning  | An `opacity`/`position` track on a DVD project — the subpicture model cannot express it.                                                      |
 | `menu.animation-on-still-menu`            | Error    | Animation tracks on a still menu; names the first-keyframe-only degrade. Build proceeds.                                                      |
 | `menu.motion-keyframe-out-of-range`       | Error    | A keyframe falls outside the motion loop window.                                                                                              |
@@ -237,6 +245,5 @@ Current motion and animation validation codes (ground truth: `src/validation/men
 - **BD motion backend not built.** Everything here is the DVD lowering; the Blu-ray path (IGS, per-state bitmaps, frame-sequence animation) is future work tracked in `docs/rich-menu-editor-plan.md` and `docs/lib-igs-author-plan.md`.
 - **Video buttons (motion thumbnails) are model-only.** `SceneNode::Button.videoAssetId` and `SceneNode::Video` exist and are validated, but nothing composites per-button video into the motion background yet — that is Slice E (#109).
 - **Colour flags are motion-only.** `dvd_colour_flags()` is applied to motion composes; retrofitting the still-menu and title transcode commands is a pending follow-up (kept out of the motion stack to avoid pinned-test churn).
-- **Timeline frame-step is fixed at 30 fps** pending a `disc.standard`-aware follow-up.
 - **`opacity`/`position` tracks don't lower on DVD** — authoring them is possible, the disc ignores them, and validation says so.
 - **Render parity and rich visual properties (Slice B)** remain pending (#53, #106); themes (Slice F, #110) are untouched.
