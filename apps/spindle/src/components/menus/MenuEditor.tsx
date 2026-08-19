@@ -42,10 +42,12 @@ import { TimelineStrip } from './timeline/TimelineStrip';
 import {
 	addKeyframe,
 	deleteKeyframe,
+	findTrack,
 	moveKeyframe,
 	updateKeyframeEasing,
 	updateKeyframeValue,
 } from './timeline/animationWriters';
+import { evaluateTrack } from '../../utils/animation';
 import './SceneEditor.css';
 
 function resolveMenuDisplayAspect(project: SpindleProjectFile, menu: Menu): AspectMode {
@@ -624,20 +626,31 @@ export function MenuEditor({
 	};
 
 	/** "Add keyframe at playhead" — used by `ButtonInspector`'s highlight
-	 * animation row. Samples the current highlight-colour track (or the
-	 * menu's static highlight colours when the button has no track yet) at
-	 * the playhead's loop-relative time. */
+	 * animation row. Samples the button's existing highlight-colour track (if
+	 * any) at the playhead's loop-relative time, falling back to the menu's
+	 * static highlight colour only when the button has no track yet — a
+	 * button mid-animation must not silently jump to the static colour.
+	 * The playhead can sit anywhere on the source-duration ruler, including
+	 * past the authored loop, so the loop-relative timestamp is clamped to
+	 * `[0, loopDurationSecs]` before it's ever persisted (an unclamped value
+	 * trips `menu.motion-keyframe-out-of-range` at build time). */
 	const handleAddKeyframeAtPlayhead = (buttonId: string) => {
 		const { currentTime } = useMenuPlaybackStore.getState();
-		const timestampSecs = Math.max(
-			0,
-			currentTime - (menu.authoredDocument?.timing.loopStartSecs ?? 0),
+		const timing = menu.authoredDocument?.timing;
+		const loopStartSecs = timing?.loopStartSecs ?? 0;
+		const loopDurationSecs = timing?.loopDurationSecs ?? 0;
+		const timestampSecs = Math.min(
+			Math.max(0, currentTime - loopStartSecs),
+			Math.max(0, loopDurationSecs),
 		);
-		const colours = highlightColours;
-		handleAddKeyframe(buttonId, 'highlight-colour', timestampSecs, {
-			kind: 'colour',
-			hex: colours.selectColour,
-		});
+		const track = findTrack(
+			menu.authoredDocument?.animation ?? [],
+			buttonId,
+			'highlight-colour',
+		);
+		const sampled = track ? evaluateTrack(track, timestampSecs) : null;
+		const value: KeyValue = sampled ?? { kind: 'colour', hex: highlightColours.selectColour };
+		handleAddKeyframe(buttonId, 'highlight-colour', timestampSecs, value);
 	};
 
 	const handleDisplayAspectChange = (aspect: AspectMode) => {
