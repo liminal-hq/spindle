@@ -1554,6 +1554,18 @@
 	flex-shrink: 0;
 }
 
+/* Overlaying the controls on the viewport's left edge (rather than a flex
+ * row ahead of it) keeps the scrubber's x=0 aligned with the ruler/lanes
+ * below (see the comment above `.timeline-scrubber`), but an opaque panel
+ * there would paint over the first couple of seconds of the track, hiding
+ * the playhead and eating seek clicks whenever it passes underneath. A
+ * shared gutter reserved across every timeline row (ruler, region bar,
+ * scrubber, audio lane, keyframe lanes) would dodge both problems too, but
+ * only by shifting every row's own x=0 by the same amount — a much larger,
+ * cross-component change for what a lighter fix handles just as well:
+ * translucency lets the playhead/track show through, and `pointer-events:
+ * none` here (with `auto` restored on the buttons below) lets clicks in the
+ * gaps around/between the buttons fall through to the track underneath. */
 .timeline-scrubber__controls {
 	position: absolute;
 	top: 0;
@@ -1564,7 +1576,12 @@
 	align-items: center;
 	gap: 2px;
 	padding-inline: var(--space-2);
-	background: rgba(8, 8, 12, 0.9);
+	background: rgba(8, 8, 12, 0.55);
+	pointer-events: none;
+}
+
+.timeline-scrubber__controls .btn {
+	pointer-events: auto;
 }
 
 .timeline-scrubber__viewport {
