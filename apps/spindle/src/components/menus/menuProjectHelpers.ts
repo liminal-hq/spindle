@@ -138,8 +138,13 @@ export function computeMenuConnectionCounts(
 	];
 
 	authoredMenus.forEach((menu) => {
-		getMenuButtons(menu).forEach((button) =>
-			inspectAction(button.action, `menu:${menu.id}:button:${button.id}`, menu.id),
+		// Walk ALL interaction-graph nodes, not just top-level scene buttons
+		// (`getMenuButtons`) — a group-nested button's focus node still lives
+		// in `interaction.nodes` and contributes a real edge that MenuMap
+		// draws, so connection counts must see it too or MenuListItem shows
+		// a false "unconnected" badge for a menu that's actually reachable.
+		(menu.authoredDocument?.interaction.nodes ?? []).forEach((node) =>
+			inspectAction(node.action, `menu:${menu.id}:node:${node.nodeId}`, menu.id),
 		);
 		inspectAction(
 			menu.authoredDocument?.interaction.timeoutAction ?? null,

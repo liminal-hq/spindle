@@ -145,6 +145,40 @@ pub(super) fn validate_menus(
 
         let button_ids: HashSet<&str> = buttons.iter().map(|b| b.id).collect();
 
+        // Validate every interaction-graph node's action for dangling
+        // targets — not just top-level scene buttons. `doc.buttons()` only
+        // sees top-level `Button` scene nodes, so a button nested inside a
+        // `Group` or a focus node left behind after its scene node was
+        // deleted (orphaned) would otherwise escape target validation
+        // entirely. Buttons are a subset of interaction nodes, so this is
+        // the ONLY pass that target-validates actions — the per-button loop
+        // below only checks dead-end (missing-action) and nav-link issues,
+        // which need `doc.buttons()` geometry/labels, so each action is
+        // target-validated exactly once.
+        for node in &doc.interaction.nodes {
+            let Some(action) = &node.action else {
+                continue;
+            };
+            let subject = match buttons.iter().find(|b| b.id == node.node_id) {
+                Some(button) => format!("Action \"{}\" in menu \"{}\"", button.label, menu.name),
+                None => format!("Interaction: {} in menu \"{}\"", node.node_id, menu.name),
+            };
+            validate_action(
+                action,
+                all_title_ids,
+                all_menu_ids,
+                &project.disc,
+                &ActionSubject {
+                    subject,
+                    entity_type: "menu",
+                    entity_name: Some(&menu.name),
+                    context_id: Some(&menu.id),
+                },
+                stream_counts,
+                issues,
+            );
+        }
+
         for button in &buttons {
             // Dead-end detection: button with no action
             if button.action.is_none() {
@@ -163,24 +197,6 @@ pub(super) fn validate_menus(
                             .to_string(),
                     ),
                 });
-            }
-
-            // Validate action targets exist.
-            if let Some(action) = button.action {
-                validate_action(
-                    action,
-                    all_title_ids,
-                    all_menu_ids,
-                    &project.disc,
-                    &ActionSubject {
-                        subject: format!("Action \"{}\" in menu \"{}\"", button.label, menu.name),
-                        entity_type: "menu",
-                        entity_name: Some(&menu.name),
-                        context_id: Some(&menu.id),
-                    },
-                    stream_counts,
-                    issues,
-                );
             }
 
             // Navigation link validation
@@ -644,6 +660,105 @@ mod tests {
                 .iter()
                 .any(|i| i.code == "menu.scene-dangling-background"),
             "expected the dangling background asset to still be reported, got {issues:?}"
+        );
+    }
+
+    #[test]
+    fn dangling_actions_on_group_nested_and_orphaned_interaction_nodes_are_flagged() {
+        // Regression guard: `doc.buttons()` only sees top-level scene
+        // buttons, so target validation must walk `interaction.nodes`
+        // directly to catch (a) a button nested inside a `Group`, whose
+        // focus node still lives in the top-level interaction graph, and
+        // (b) an orphaned focus node whose scene button was deleted but
+        // whose interaction node was left behind.
+        let menu = Menu::new("menu-1", "Main Menu").with_document(MenuDocument {
+            id: "menu-1".to_string(),
+            name: "Main Menu".to_string(),
+            domain: MenuDomain::Vmgm,
+            scene: MenuScene {
+                design_size: MenuSize {
+                    width: 720.0,
+                    height: 480.0,
+                    aspect: AspectMode::SixteenByNine,
+                },
+                background: SceneBackground {
+                    asset_id: None,
+                    colour: Some("#000000".to_string()),
+                },
+                nodes: vec![SceneNode::Group {
+                    id: "group-1".to_string(),
+                    name: "Group".to_string(),
+                    children: vec![SceneNode::Button {
+                        id: "grouped-btn".to_string(),
+                        label: "Grouped".to_string(),
+                        x: 0.0,
+                        y: 0.0,
+                        width: 100.0,
+                        height: 40.0,
+                        highlight_mode: HighlightMode::Static,
+                        highlight_keyframes: vec![],
+                        video_asset_id: None,
+                        button_style: None,
+                        label_style: None,
+                    }],
+                }],
+                guides: vec![],
+            },
+            interaction: MenuInteractionGraph {
+                default_focus_id: Some("grouped-btn".to_string()),
+                nodes: vec![
+                    FocusNode {
+                        node_id: "grouped-btn".to_string(),
+                        action: Some(PlaybackAction::ShowMenu {
+                            menu_id: "deleted-menu".to_string(),
+                        }),
+                        ..FocusNode::default()
+                    },
+                    FocusNode {
+                        node_id: "orphaned-focus".to_string(),
+                        action: Some(PlaybackAction::PlayTitle {
+                            title_id: "deleted-title".to_string(),
+                        }),
+                        ..FocusNode::default()
+                    },
+                ],
+                timeout_action: None,
+            },
+            timing: MenuTiming::default(),
+            highlight_colours: MenuHighlightColours::default(),
+            background_mode: BackgroundMode::Still,
+            theme_ref: None,
+            generation_meta: None,
+            compile_policy: MenuCompilePolicy::default(),
+        });
+        let project = project_with_menu(menu);
+
+        let asset_ids = HashSet::new();
+        let asset_map = HashMap::new();
+        let all_title_ids = HashSet::new();
+        let all_menu_ids: HashSet<&str> = ["menu-1"].into_iter().collect();
+        let mut issues = Vec::new();
+
+        validate_menus(
+            &project,
+            &asset_ids,
+            &asset_map,
+            &all_title_ids,
+            &all_menu_ids,
+            &mut issues,
+        );
+
+        assert!(
+            issues
+                .iter()
+                .any(|i| i.code == "menu.dangling-menu-ref"),
+            "expected the group-nested button's dangling showMenu target to be flagged, got {issues:?}"
+        );
+        assert!(
+            issues
+                .iter()
+                .any(|i| i.code == "menu.dangling-title-ref"),
+            "expected the orphaned focus node's dangling playTitle target to be flagged, got {issues:?}"
         );
     }
 }
