@@ -21,6 +21,7 @@ import {
 	autoGenerateMenuNav as autoGenerateMenuNavCommand,
 	checkToolchain as checkToolchainCommand,
 	getCacheDir,
+	allowAssetScope,
 } from 'tauri-plugin-spindle-project-api';
 import { useAppSettingsStore } from './app-settings-store';
 import type {
@@ -441,6 +442,11 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 				undoStack: [],
 				redoStack: [],
 			});
+			try {
+				await allowAssetScope(project.assets.map((a) => a.sourcePath));
+			} catch (error) {
+				console.warn('[project-store] Failed to grant asset scope on open', { error });
+			}
 			await ensureProjectAssetThumbnails(project);
 			void backfillAssetFormatTitles(project);
 		} finally {
@@ -616,6 +622,12 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 			isDirty: true,
 		});
 
+		try {
+			await allowAssetScope(paths);
+		} catch (error) {
+			console.warn('[project-store] Failed to grant asset scope on import', { error });
+		}
+
 		// Trigger inspection and thumbnail extraction for each new asset
 		for (const asset of newAssets) {
 			try {
@@ -646,6 +658,15 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 			} catch {
 				// Inspection failed — asset stays as stub with null metadata
 			}
+		}
+
+		// Defensive parity with `openProject`: fills in any thumbnail that the
+		// per-asset extraction above didn't manage to produce (e.g. the
+		// project was mutated again mid-loop) rather than leaving it blank
+		// until the next reload.
+		const { project: afterImport } = get();
+		if (afterImport) {
+			await ensureProjectAssetThumbnails(afterImport);
 		}
 	},
 
@@ -714,6 +735,12 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 			},
 			isDirty: true,
 		});
+
+		try {
+			await allowAssetScope([newPath]);
+		} catch (error) {
+			console.warn('[project-store] Failed to grant asset scope on relink', { error });
+		}
 
 		// Re-inspect the relinked file
 		try {
