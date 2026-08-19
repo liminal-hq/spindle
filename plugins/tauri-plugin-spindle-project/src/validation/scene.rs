@@ -190,24 +190,51 @@ pub(super) fn validate_animation_tracks(
             });
         }
 
+        // Highlight/activate-state properties only ever affect a compiled
+        // top-level button — the planner requires `button_ids.contains(...)`
+        // (see `build/planner/animation.rs`) and silently drops any track
+        // that doesn't resolve to one. That covers two distinct authoring
+        // mistakes: a button nested inside a group (not yet flattened to the
+        // disc — `all_button_ids` catches it as a button that exists but
+        // isn't top-level), and a track that targets a non-button node
+        // entirely (text/image/shape/group), which was previously invisible
+        // to this check because it only ever looked at `all_button_ids`.
+        let is_highlight_or_activate_property = matches!(
+            track.target,
+            AnimatableProperty::HighlightColour
+                | AnimatableProperty::HighlightOpacity
+                | AnimatableProperty::ActivateColour
+                | AnimatableProperty::ActivateOpacity
+        );
         if node_exists
-            && all_button_ids.contains(track.node_id.as_str())
+            && is_highlight_or_activate_property
             && !top_level_button_ids.contains(track.node_id.as_str())
         {
+            let is_nested_button = all_button_ids.contains(track.node_id.as_str());
+            let message = if is_nested_button {
+                format!(
+                    "Menu \"{}\" has an animation track for button \"{}\", which is nested inside a group. Grouped buttons aren't compiled to the disc yet, so this track will not have any effect on the build.",
+                    menu.name, track.node_id
+                )
+            } else {
+                format!(
+                    "Menu \"{}\" has a {:?} animation track targeting \"{}\", which is not a button. Highlight/activate-state properties only ever affect a compiled button, so this track will not have any effect on the build.",
+                    menu.name, track.target, track.node_id
+                )
+            };
+            let suggested_fix = if is_nested_button {
+                "Move the button out of the group, or delete the animation track until group flattening ships."
+            } else {
+                "Target a compiled top-level button with this track, or delete it."
+            };
             issues.push(ValidationIssue {
                 severity: IssueSeverity::Warning,
                 code: "menu.animation-node-not-compiled".to_string(),
-                message: format!(
-                    "Menu \"{}\" has an animation track for button \"{}\", which is nested inside a group. Grouped buttons aren't compiled to the disc yet, so this track will not have any effect on the build.",
-                    menu.name, track.node_id
-                ),
+                message,
                 context: Some(menu.id.clone()),
                 entity_type: Some("menu".to_string()),
                 entity_name: Some(menu.name.clone()),
-                suggested_fix: Some(
-                    "Move the button out of the group, or delete the animation track until group flattening ships."
-                        .to_string(),
-                ),
+                suggested_fix: Some(suggested_fix.to_string()),
             });
         }
 
@@ -271,12 +298,55 @@ pub(super) fn validate_animation_tracks(
             });
         }
 
+        // DVD lowering (`build/planner/animation.rs`) samples a highlight/
+        // activate track only at its own keyframe timestamps and holds each
+        // sampled value until the next `<spu>` — it never interpolates. The
+        // editor's evaluator (`models/animation.rs::evaluate_track`), by
+        // contrast, honours each keyframe's `easing` and smoothly
+        // interpolates between neighbouring keyframes by default (`Linear`).
+        // Any easing other than `Hold` on a segment that actually gets
+        // lowered therefore makes the DVD preview and the authored disc
+        // silently disagree: the preview eases, the disc steps. Only a
+        // keyframe that starts a segment (i.e. not the track's last one) can
+        // cause this — the last keyframe's own `easing` has no following
+        // segment to apply to.
+        if family == DiscFamily::DvdVideo
+            && is_motion
+            && matches!(
+                track.target,
+                AnimatableProperty::HighlightColour
+                    | AnimatableProperty::HighlightOpacity
+                    | AnimatableProperty::ActivateColour
+                    | AnimatableProperty::ActivateOpacity
+            )
+            && track
+                .keyframes
+                .split_last()
+                .is_some_and(|(_, leading)| leading.iter().any(|kf| kf.easing != Easing::Hold))
+        {
+            issues.push(ValidationIssue {
+                severity: IssueSeverity::Warning,
+                code: "menu.animation-easing-quantised".to_string(),
+                message: format!(
+                    "Menu \"{}\"'s animation track for node \"{}\" uses an easing curve other than \"Hold\". The editor preview interpolates smoothly between keyframes, but DVD-Video's subpicture overlay can only swap to a new image at each keyframe — the disc will step instantly instead of easing.",
+                    menu.name, track.node_id
+                ),
+                context: Some(menu.id.clone()),
+                entity_type: Some("menu".to_string()),
+                entity_name: Some(menu.name.clone()),
+                suggested_fix: Some(
+                    "Set the track's keyframes to \"Hold\" easing so the preview matches what the disc will actually show."
+                        .to_string(),
+                ),
+            });
+        }
+
         if node_exists && !is_motion {
             issues.push(ValidationIssue {
-                severity: IssueSeverity::Error,
+                severity: IssueSeverity::Warning,
                 code: "menu.animation-on-still-menu".to_string(),
                 message: format!(
-                    "Menu \"{}\" has an animation track for node \"{}\", but the menu is authored as still — a still menu's video decode freezes after its first frame and can never reach a later keyframe. The build will degrade this to a single static overlay using only the track's first keyframe.",
+                    "Menu \"{}\" has an animation track for node \"{}\", but the menu is authored as still — a still menu's video decode freezes after its first frame and can never reach a later keyframe. The menu degrades to a static overlay using only the track's first keyframe; the build proceeds.",
                     menu.name, track.node_id
                 ),
                 context: Some(menu.id.clone()),
@@ -339,7 +409,14 @@ pub(super) fn validate_animation_tracks(
 
     if let Some(loop_duration_secs) = is_motion.then_some(motion_duration_secs).flatten() {
         if loop_duration_secs > 0.0 {
-            let relevant_tracks: Vec<&AnimationTrack> = doc
+            // Union of both groups the DCSQ lowering samples together —
+            // `build/planner/animation.rs`'s `build_overlay_keyframe_schedule`
+            // unions highlight *and* activate tracks into one shared
+            // per-menu instant schedule, so a menu that only animates
+            // ActivateColour/ActivateOpacity can still produce an arbitrarily
+            // dense multi-SPU schedule; counting only HighlightColour/
+            // HighlightOpacity here would miss that entirely.
+            let relevant_highlight_tracks: Vec<&AnimationTrack> = doc
                 .animation
                 .iter()
                 .filter(|track| {
@@ -349,6 +426,21 @@ pub(super) fn validate_animation_tracks(
                     ) && !track.keyframes.is_empty()
                 })
                 .collect();
+            let relevant_activate_tracks: Vec<&AnimationTrack> = doc
+                .animation
+                .iter()
+                .filter(|track| {
+                    matches!(
+                        track.target,
+                        AnimatableProperty::ActivateColour | AnimatableProperty::ActivateOpacity
+                    ) && !track.keyframes.is_empty()
+                })
+                .collect();
+            let relevant_tracks: Vec<&AnimationTrack> = relevant_highlight_tracks
+                .iter()
+                .chain(relevant_activate_tracks.iter())
+                .copied()
+                .collect();
             let frame_count = overlay_schedule_frame_count(&relevant_tracks, loop_duration_secs);
             let frames_per_sec = frame_count as f64 / loop_duration_secs;
             if frames_per_sec > 1.0 {
@@ -356,7 +448,7 @@ pub(super) fn validate_animation_tracks(
                     severity: IssueSeverity::Warning,
                     code: "menu.animation-keyframe-density".to_string(),
                     message: format!(
-                        "Menu \"{}\"'s animated highlight schedule samples {frame_count} overlay frames over a {loop_duration_secs:.2}s loop (~{frames_per_sec:.2}/s) — each frame is a full re-rendered subpicture image, and denser schedules risk exceeding the ~3.36 Mbit/s subpicture bitrate budget.",
+                        "Menu \"{}\"'s animated highlight/activate schedule samples {frame_count} overlay frames over a {loop_duration_secs:.2}s loop (~{frames_per_sec:.2}/s) — each frame is a full re-rendered subpicture image, and denser schedules risk exceeding the ~3.36 Mbit/s subpicture bitrate budget.",
                         menu.name
                     ),
                     context: Some(menu.id.clone()),
@@ -368,8 +460,96 @@ pub(super) fn validate_animation_tracks(
                     ),
                 });
             }
+
+            if family == DiscFamily::DvdVideo {
+                validate_animation_palette_budget(
+                    menu,
+                    &relevant_highlight_tracks,
+                    &relevant_activate_tracks,
+                    issues,
+                );
+            }
         }
     }
+}
+
+/// The number of palette entries DVD-Video's subpicture overlay always
+/// reserves regardless of animation: the transparent background entry, and
+/// the button-outline "stroke" colour every rendered overlay carries
+/// (`build/skia/overlay.rs`). This is a conservative floor, not a precise
+/// count — the real budget also depends on the menu's base (unanimated)
+/// highlight/select colours, which are already included in the sampled sets
+/// below whenever a track exists, or otherwise stay fixed across the whole
+/// schedule.
+const RESERVED_PALETTE_ENTRIES: usize = 2;
+
+/// The palette every subpicture stream in one PGC must share has exactly 16
+/// entries (`docs/motion-menus.md`'s DCSQ CLUT constraint section). Warn
+/// when the distinct colours sampled across a menu's *whole* animated
+/// schedule — both the highlight (selected-state) and activate
+/// (activated-state) groups — plus the reserved entries above, would exceed
+/// it. This is deliberately conservative: it counts every distinct
+/// `#rrggbb` value reachable by any keyframe on a relevant track, not just
+/// the values that end up adjacent in the same schedule instant, so it can
+/// over-warn but should never under-warn.
+fn validate_animation_palette_budget(
+    menu: &Menu,
+    relevant_highlight_tracks: &[&AnimationTrack],
+    relevant_activate_tracks: &[&AnimationTrack],
+    issues: &mut Vec<ValidationIssue>,
+) {
+    let mut distinct_colours: HashSet<String> = HashSet::new();
+    for track in relevant_highlight_tracks
+        .iter()
+        .chain(relevant_activate_tracks.iter())
+    {
+        if !matches!(
+            track.target,
+            AnimatableProperty::HighlightColour | AnimatableProperty::ActivateColour
+        ) {
+            continue;
+        }
+        for keyframe in &track.keyframes {
+            if let KeyValue::Colour { hex } = &keyframe.value {
+                distinct_colours.insert(normalise_hex_rgb(hex));
+            }
+        }
+    }
+
+    let budget_used = RESERVED_PALETTE_ENTRIES + distinct_colours.len();
+    if budget_used > 16 {
+        issues.push(ValidationIssue {
+            severity: IssueSeverity::Warning,
+            code: "menu.animation-palette-exhausted".to_string(),
+            message: format!(
+                "Menu \"{}\"'s animated highlight/activate schedule samples {} distinct colours. Together with the {RESERVED_PALETTE_ENTRIES} entries DVD-Video's subpicture overlay always reserves (transparent background, button-outline stroke), that needs {budget_used} palette entries — more than the 16-entry CLUT every subpicture stream in a PGC must share. This is a conservative estimate: it counts colours that could appear anywhere in the schedule, not just ones that must coexist.",
+                menu.name,
+                distinct_colours.len()
+            ),
+            context: Some(menu.id.clone()),
+            entity_type: Some("menu".to_string()),
+            entity_name: Some(menu.name.clone()),
+            suggested_fix: Some(
+                "Reduce the number of distinct colours used across the animated tracks."
+                    .to_string(),
+            ),
+        });
+    }
+}
+
+/// Normalise a `#rrggbb`/`#rrggbbaa` hex colour to a lower-case `rrggbb` key
+/// for palette-entry deduplication — opacity doesn't consume a separate CLUT
+/// slot on DVD-Video (it's carried per-pixel-type contrast, not the palette
+/// itself), so two keyframes differing only in alpha must count as one
+/// colour.
+fn normalise_hex_rgb(hex: &str) -> String {
+    let stripped = hex.trim_start_matches('#');
+    let rgb = if stripped.len() >= 6 {
+        &stripped[0..6]
+    } else {
+        stripped
+    };
+    rgb.to_lowercase()
 }
 
 /// The overlay-schedule frame count the DCSQ lowering (`build/planner`)
