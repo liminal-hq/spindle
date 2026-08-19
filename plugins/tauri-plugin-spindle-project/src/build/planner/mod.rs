@@ -280,7 +280,7 @@ pub fn generate_build_plan_with_options(
         let menu_paths = paths.menu_paths(&menu_ref.menu.id);
         let scene_png_path = menu_scene_png_path(&menu_paths.base_video_path);
 
-        let (render_command, intro_command, duration_secs) =
+        let (render_command, intro_command, duration_secs, intro_duration_secs) =
             if matches!(menu_ref.background_mode(), BackgroundMode::Motion) {
                 // Hard error (rather than a silent still-mode fallback) when the
                 // authored background can't actually be composed — mirrors the
@@ -314,7 +314,13 @@ pub fn generate_build_plan_with_options(
                         )
                     })
                     .transpose()?;
-                (loop_command, intro_command, Some(loop_duration_secs))
+                let intro_duration_secs = intro_spec.as_ref().map(|spec| spec.duration_secs);
+                (
+                    loop_command,
+                    intro_command,
+                    Some(loop_duration_secs),
+                    intro_duration_secs,
+                )
             } else {
                 let command = build_ffmpeg_menu_command(
                     &tools.ffmpeg,
@@ -325,7 +331,7 @@ pub fn generate_build_plan_with_options(
                     &menu_paths.base_video_path,
                     &scene_png_path,
                 )?;
-                (command, None, None)
+                (command, None, None, None)
             };
 
         let menu_aspect = menu_ref.display_aspect(project);
@@ -385,6 +391,7 @@ pub fn generate_build_plan_with_options(
             command: render_command,
             intro_command,
             duration_secs,
+            intro_duration_secs,
             label: format!("Render menu \"{}\"", menu_ref.name()),
             standard: project.disc.standard,
             highlight_image_path: menu_paths.highlight_image_path.display().to_string(),

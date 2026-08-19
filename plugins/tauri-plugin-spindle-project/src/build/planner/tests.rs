@@ -412,12 +412,20 @@ fn build_plan_emits_motion_menu_compose_jobs() {
             command,
             intro_command,
             duration_secs,
+            intro_duration_secs,
             ..
         } => {
             assert_eq!(
                 *duration_secs,
                 Some(12.0),
                 "duration_secs should carry the loop segment's duration"
+            );
+            assert_eq!(
+                *intro_duration_secs,
+                Some(2.0),
+                "intro_duration_secs should carry the intro segment's own duration, \
+                 distinct from the loop's duration_secs, so the executor reports \
+                 intro compose progress against the right length"
             );
             assert!(
                 intro_command.is_some(),
@@ -449,6 +457,7 @@ fn build_plan_still_menu_render_job_has_no_motion_fields() {
         BuildJob::RenderMenu {
             intro_command,
             duration_secs,
+            intro_duration_secs,
             ..
         } => {
             assert!(
@@ -458,6 +467,10 @@ fn build_plan_still_menu_render_job_has_no_motion_fields() {
             assert!(
                 duration_secs.is_none(),
                 "still menus must not carry duration_secs"
+            );
+            assert!(
+                intro_duration_secs.is_none(),
+                "still menus must not carry intro_duration_secs"
             );
         }
         other => panic!("expected BuildJob::RenderMenu, got {other:?}"),

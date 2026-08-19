@@ -69,12 +69,19 @@ pub enum BuildJob {
         /// menus without an intro.
         #[serde(default)]
         intro_command: Option<Vec<String>>,
-        /// Segment duration in seconds for progress estimation, and the
+        /// Loop segment duration in seconds for progress estimation, and the
         /// signal the executor uses to run `command`/`intro_command` via the
         /// progress-reporting ffmpeg runner rather than the plain one (mirrors
         /// `TranscodeTitle`'s `pass1_command` pattern). `None` for still menus.
         #[serde(default)]
         duration_secs: Option<f64>,
+        /// Intro segment duration in seconds, used for `intro_command`'s
+        /// progress estimation instead of the loop's `duration_secs` — an
+        /// authored intro can run for a very different length of time than
+        /// the loop, so reusing the loop duration misreports progress.
+        /// `None` for still menus and motion menus without an intro.
+        #[serde(default)]
+        intro_duration_secs: Option<f64>,
         label: String,
         standard: VideoStandard,
         highlight_image_path: String,

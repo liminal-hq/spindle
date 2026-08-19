@@ -115,6 +115,7 @@ where
                 command,
                 intro_command,
                 duration_secs,
+                intro_duration_secs,
                 output_path: _,
                 standard,
                 highlight_image_path,
@@ -240,9 +241,18 @@ where
                             BuildJobStatus::Running,
                             None,
                         ));
+                        // Use the intro's own duration for progress, not the
+                        // loop's `seg_duration` — an authored intro can run
+                        // for a very different length of time than the loop,
+                        // so reusing the loop duration misreports progress
+                        // (e.g. a 2s intro against a 30s loop reports ~7% at
+                        // completion). Fall back to `seg_duration` only if a
+                        // planner somehow omitted it, so progress reporting
+                        // degrades gracefully rather than panicking.
+                        let intro_seg_duration = intro_duration_secs.unwrap_or(*seg_duration);
                         match run_ffmpeg_command(
                             intro_command,
-                            Some(*seg_duration),
+                            Some(intro_seg_duration),
                             i,
                             total,
                             &label,

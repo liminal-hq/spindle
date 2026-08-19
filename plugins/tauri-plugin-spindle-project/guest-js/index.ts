@@ -608,9 +608,13 @@ export type BuildJob =
 			/** Motion menus with an authored intro: the separate compose command for
 			 * the intro segment, run before `command` (the loop segment). */
 			introCommand?: string[] | null;
-			/** Segment duration in seconds, and the signal the executor uses to run
-			 * with progress reporting. `null`/absent for still menus. */
+			/** Loop segment duration in seconds, and the signal the executor uses to
+			 * run with progress reporting. `null`/absent for still menus. */
 			durationSecs?: number | null;
+			/** Intro segment duration in seconds, used for `introCommand`'s progress
+			 * estimation instead of `durationSecs` (the loop's duration). `null`/
+			 * absent for still menus and motion menus without an intro. */
+			introDurationSecs?: number | null;
 			label: string;
 	  }
 	| {
