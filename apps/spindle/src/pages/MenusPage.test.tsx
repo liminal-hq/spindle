@@ -384,6 +384,58 @@ describe('MenusPage', () => {
 		]);
 	});
 
+	it('restricts the role picker to roles compatible with the menu’s placement', () => {
+		// `titleset-menu-1` (rendered as "Setup Menu" in the rail) starts out
+		// with `domain: 'vmgm'` from the shared `buildButtonMenu` fixture —
+		// give it a real titleset placement so the picker's domain filter has
+		// something to filter against.
+		useProjectStore.getState().updateMenuDocument('titleset-menu-1', (doc) => ({
+			...doc,
+			domain: 'titleset',
+			role: 'chapter',
+		}));
+
+		render(<MenusPage />);
+
+		// Global menu (VMGM): only VMGM-compatible roles are offered.
+		const globalSelect = screen.getByLabelText('Menu role') as HTMLSelectElement;
+		const globalOptionLabels = Array.from(globalSelect.options).map((o) => o.textContent);
+		expect(globalOptionLabels).toEqual(expect.arrayContaining(['VMGM Title Menu', 'Title Menu']));
+		expect(globalOptionLabels).not.toEqual(
+			expect.arrayContaining(['Chapter Menu', 'Setup Menu', 'Extras Menu']),
+		);
+
+		// Titleset menu (VTSM): only titleset-compatible roles are offered.
+		fireEvent.click(within(railList()).getByText('Setup Menu'));
+		const titlesetSelect = screen.getByLabelText('Menu role') as HTMLSelectElement;
+		const titlesetOptionLabels = Array.from(titlesetSelect.options).map((o) => o.textContent);
+		expect(titlesetOptionLabels).toEqual(
+			expect.arrayContaining(['Chapter Menu', 'Setup Menu', 'Extras Menu']),
+		);
+		expect(titlesetOptionLabels).not.toEqual(
+			expect.arrayContaining(['VMGM Title Menu', 'Title Menu']),
+		);
+	});
+
+	it('keeps an incompatible persisted role selectable and flags it', () => {
+		// Simulate a persisted `menu.role-domain-mismatch`: a titleset menu
+		// explicitly carrying a VMGM-only role.
+		useProjectStore.getState().updateMenuDocument('titleset-menu-1', (doc) => ({
+			...doc,
+			domain: 'titleset',
+			role: 'root',
+		}));
+
+		render(<MenusPage />);
+		fireEvent.click(within(railList()).getByText('Setup Menu'));
+
+		const select = screen.getByLabelText('Menu role') as HTMLSelectElement;
+		expect(select.value).toBe('root');
+		expect(
+			Array.from(select.options).some((o) => o.textContent?.includes('placement mismatch')),
+		).toBe(true);
+	});
+
 	it('adjusts canvas zoom via the toolbar zoom controls', () => {
 		render(<MenusPage />);
 

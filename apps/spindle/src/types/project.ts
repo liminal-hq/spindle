@@ -89,10 +89,26 @@ import type {
 	MenuCompilePolicy,
 	MenuDomain,
 	MenuHighlightColours,
+	MenuRole,
 	SpindleProjectFile,
 } from 'tauri-plugin-spindle-project-api';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
+
+/** Mirrors Rust's `MenuRole::default_domain` — the DVD-backend `MenuDomain`
+ * (VMGM vs. VTSM) each role is compatible with. Used to restrict the role
+ * picker to roles the menu's actual physical placement supports, and by
+ * validation (`menu.role-domain-mismatch`) to flag persisted combinations
+ * that predate that restriction. Moving a menu between collections is a
+ * bigger feature this doesn't attempt — see `MenuLevelInspector.tsx`. */
+export const ROLE_DEFAULT_DOMAIN: Record<MenuRole, MenuDomain> = {
+	root: 'vmgm',
+	'title-select': 'vmgm',
+	chapter: 'titleset',
+	setup: 'titleset',
+	extras: 'titleset',
+	popup: 'vmgm',
+};
 
 export const DEFAULT_HIGHLIGHT_COLOURS: MenuHighlightColours = {
 	selectColour: '#ffaa40',

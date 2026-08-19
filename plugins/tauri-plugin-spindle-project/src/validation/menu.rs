@@ -148,6 +148,41 @@ pub(super) fn validate_menus(
             });
         }
 
+        // Role/placement consistency: `MenuRole` (what the menu is for) is
+        // independent of `MenuDomain` (the DVD backend's actual VMGM/VTSM
+        // placement — see `MenuRole`'s doc comment). The role picker only
+        // ever offers roles compatible with a menu's current placement (see
+        // `MenuLevelInspector.tsx`), so this combination normally can't
+        // arise from the UI — but a hand-edited project file, or a project
+        // saved before that restriction existed, can still persist an
+        // incompatible pair. Flag it: `build/authoring/mod.rs` places menus
+        // by `MenuDomain` alone, so an incompatible role is silently
+        // ignored for DVD authoring rather than acted on.
+        if let Some(role) = doc.role {
+            let expected_domain = role.default_domain();
+            if expected_domain != doc.domain {
+                issues.push(ValidationIssue {
+                    severity: IssueSeverity::Warning,
+                    code: "menu.role-domain-mismatch".to_string(),
+                    message: format!(
+                        "Menu \"{}\" is set to the {} role, but it's placed in {} — {} menus are normally {}.",
+                        menu.name,
+                        role_label(role),
+                        domain_label(doc.domain),
+                        role_label(role),
+                        domain_label(expected_domain),
+                    ),
+                    context: Some(menu.id.clone()),
+                    entity_type: Some("menu".to_string()),
+                    entity_name: Some(menu.name.clone()),
+                    suggested_fix: Some(format!(
+                        "Choose a role compatible with this menu's {} placement.",
+                        domain_label(doc.domain)
+                    )),
+                });
+            }
+        }
+
         let button_ids: HashSet<&str> = buttons.iter().map(|b| b.id).collect();
 
         // Validate every interaction-graph node's action for dangling
@@ -442,6 +477,24 @@ pub(super) fn validate_menus(
 
         validate_button_video_usage(menu, background_mode, asset_map, issues);
         validate_motion_keyframes(doc, menu, motion_duration_secs, issues);
+    }
+}
+
+fn role_label(role: MenuRole) -> &'static str {
+    match role {
+        MenuRole::Root => "Root",
+        MenuRole::TitleSelect => "Title Select",
+        MenuRole::Chapter => "Chapter",
+        MenuRole::Setup => "Setup",
+        MenuRole::Extras => "Extras",
+        MenuRole::Popup => "Popup",
+    }
+}
+
+fn domain_label(domain: MenuDomain) -> &'static str {
+    match domain {
+        MenuDomain::Vmgm => "VMGM (disc-level)",
+        MenuDomain::Titleset => "VTSM (titleset-level)",
     }
 }
 
@@ -767,6 +820,72 @@ mod tests {
                 .iter()
                 .any(|i| i.code == "menu.dangling-title-ref"),
             "expected the orphaned focus node's dangling playTitle target to be flagged, got {issues:?}"
+        );
+    }
+
+    // ── `menu.role-domain-mismatch` ───────────────────────────────────────
+
+    #[test]
+    fn role_incompatible_with_placement_is_flagged() {
+        // `Chapter` is a titleset-only role (see `MenuRole::default_domain`),
+        // but this menu is persisted as a VMGM (global) menu — the picker
+        // would never produce this combination, but a hand-edited or
+        // pre-restriction project file still can.
+        let menu = Menu::new("menu-1", "Main Menu").with_document(MenuDocument {
+            role: Some(MenuRole::Chapter),
+            ..authored_document_with_timeout(None)
+        });
+        let project = project_with_menu(menu);
+
+        let asset_ids = HashSet::new();
+        let asset_map = HashMap::new();
+        let all_title_ids = HashSet::new();
+        let all_menu_ids: HashSet<&str> = ["menu-1"].into_iter().collect();
+        let mut issues = Vec::new();
+
+        validate_menus(
+            &project,
+            &asset_ids,
+            &asset_map,
+            &all_title_ids,
+            &all_menu_ids,
+            &mut issues,
+        );
+
+        assert!(
+            issues.iter().any(|i| i.code == "menu.role-domain-mismatch"
+                && i.severity == IssueSeverity::Warning
+                && i.context.as_deref() == Some("menu-1")),
+            "expected a role-domain-mismatch warning for a Chapter role on a VMGM menu, got {issues:?}"
+        );
+    }
+
+    #[test]
+    fn role_compatible_with_placement_is_not_flagged() {
+        // `TitleSelect` is VMGM-compatible (the default in
+        // `authored_document_with_timeout`) — no mismatch warning.
+        let menu =
+            Menu::new("menu-1", "Main Menu").with_document(authored_document_with_timeout(None));
+        let project = project_with_menu(menu);
+
+        let asset_ids = HashSet::new();
+        let asset_map = HashMap::new();
+        let all_title_ids = HashSet::new();
+        let all_menu_ids: HashSet<&str> = ["menu-1"].into_iter().collect();
+        let mut issues = Vec::new();
+
+        validate_menus(
+            &project,
+            &asset_ids,
+            &asset_map,
+            &all_title_ids,
+            &all_menu_ids,
+            &mut issues,
+        );
+
+        assert!(
+            !issues.iter().any(|i| i.code == "menu.role-domain-mismatch"),
+            "expected no role-domain-mismatch warning for a VMGM-compatible role, got {issues:?}"
         );
     }
 }

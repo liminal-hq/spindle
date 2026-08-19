@@ -19,7 +19,7 @@ import type {
 	AspectMode,
 	FormatProfile,
 } from '../../types/project';
-import { DEFAULT_MENU_BACKGROUND_COLOUR } from '../../types/project';
+import { DEFAULT_MENU_BACKGROUND_COLOUR, ROLE_DEFAULT_DOMAIN } from '../../types/project';
 import { CollapsibleSection } from './InspectorCollapsibleSection';
 import { ActionOptions, HighlightColourFields } from './InspectorSharedFields';
 import { actionToString, stringToAction } from './inspectorHelpers';
@@ -88,6 +88,26 @@ export function MenuLevelInspector({
 }) {
 	const diagnostics = computeDiagnostics(document, buttons, formatProfile);
 	const terminology = terminologyFor(formatProfile.family);
+	// A role is only offered in the picker if it's compatible with this
+	// menu's actual DVD placement (`menuDomain`) — the picker never moves a
+	// menu between VMGM/titleset collections, so it must not offer a role
+	// that placement can't support. `menuDomain` is undefined only when
+	// there's no menu context at all, in which case every role stays
+	// offered rather than showing an empty picker.
+	const placementCompatible = (role: MenuRole) =>
+		!menuDomain || ROLE_DEFAULT_DOMAIN[role] === menuDomain;
+	const compatibleRoles = ROLE_ORDER.filter(
+		(role) => role !== 'popup' || formatProfile.supportedRoles.includes('popup'),
+	).filter(placementCompatible);
+	// Always keep the document's current role selectable, even if it's
+	// incompatible with placement (a persisted `menu.role-domain-mismatch`
+	// case) — otherwise the browser silently selects the first option
+	// without firing `onChange`, hiding the mismatch instead of surfacing
+	// it for the user to fix.
+	const roleOptions =
+		document && !compatibleRoles.includes(document.role)
+			? [...compatibleRoles, document.role]
+			: compatibleRoles;
 	const backgroundAssets = assets.filter(
 		(asset) =>
 			asset.videoStreams.length > 0 || asset.fileName.match(/\.(png|jpg|jpeg|bmp|tiff?)$/i),
@@ -134,15 +154,26 @@ export function MenuLevelInspector({
 							value={document.role}
 							onChange={(e) => onUpdateRole(e.target.value as MenuRole)}
 						>
-							{ROLE_ORDER.filter(
-								(role) => role !== 'popup' || formatProfile.supportedRoles.includes('popup'),
-							).map((role) => (
+							{roleOptions.map((role) => (
 								<option key={role} value={role}>
 									{terminology.menuRole[role]}
+									{role === document.role && !placementCompatible(role)
+										? ' (placement mismatch)'
+										: ''}
 								</option>
 							))}
 						</select>
 					</label>
+					{!placementCompatible(document.role) && (
+						<p
+							className="inspector-panel__hint"
+							style={{ color: 'var(--colour-warning, #facc15)' }}
+						>
+							This role isn&apos;t normally used for this menu&apos;s placement. Moving a menu
+							between VMGM and titleset collections isn&apos;t supported from this picker — choose a
+							role this placement supports, or see the diagnostics above.
+						</p>
+					)}
 				</CollapsibleSection>
 			)}
 
