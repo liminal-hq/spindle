@@ -784,3 +784,50 @@ fn build_plan_animation_track_targeting_a_missing_node_is_ignored() {
         "a track with no matching button should be ignored by the schedule"
     );
 }
+
+#[test]
+fn overlay_button_radius_defaults_match_the_scene_renderer() {
+    // A button with no authored `button_style` renders its plate with
+    // `ButtonStateStyle::default()` (rounded, `border_radius: 6.0`) in the
+    // scene render — the highlight overlay must fall back to the same
+    // default, or the disc draws a square outline around a rounded button.
+    let mut project = test_project();
+    let menu = test_menu(); // fixture button carries `button_style: None`
+    project.disc.global_menus.push(menu);
+
+    let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+
+    let render_menu = plan
+        .jobs
+        .iter()
+        .find(|j| matches!(j, BuildJob::RenderMenu { .. }))
+        .expect("expected a RenderMenu job");
+
+    match render_menu {
+        BuildJob::RenderMenu {
+            button_bounds,
+            raster_width,
+            raster_height,
+            ..
+        } => {
+            assert!(!button_bounds.is_empty(), "expected overlay button bounds");
+            let design = MenuSize::default();
+            let scale = (*raster_width as f32 / design.width as f32)
+                .min(*raster_height as f32 / design.height as f32);
+            let expected = ButtonStateStyle::default().border_radius as f32 * scale;
+            for button in button_bounds {
+                assert!(
+                    (button.border_radius - expected).abs() < 0.001,
+                    "unstyled button should inherit the default border radius, \
+                     scaled like the scene renderer's (expected {expected}, got {})",
+                    button.border_radius
+                );
+                assert!(
+                    button.border_radius > 0.0,
+                    "unstyled button must not fall back to a square outline"
+                );
+            }
+        }
+        other => panic!("expected BuildJob::RenderMenu, got {other:?}"),
+    }
+}

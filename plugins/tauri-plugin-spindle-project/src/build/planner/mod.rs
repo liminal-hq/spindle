@@ -421,10 +421,14 @@ pub fn generate_build_plan_with_options(
                         ..
                     } = node
                     {
+                        // A missing button_style must fall back to the same
+                        // default the scene renderer uses (`unwrap_or_default`
+                        // in `skia/scene.rs`) — falling back to 0 here drew a
+                        // square highlight outline around a rounded button.
                         let raw_radius = button_style
                             .as_ref()
                             .map(|bs| bs.normal.border_radius as f32)
-                            .unwrap_or(0.0);
+                            .unwrap_or_else(|| ButtonStateStyle::default().border_radius as f32);
                         let radius = (raw_radius * scale_x.min(scale_y) as f32).max(0.0);
                         Some(MenuOverlayButton {
                             x0: (x * scale_x).round() as i32,
