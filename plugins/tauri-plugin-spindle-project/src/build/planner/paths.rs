@@ -22,6 +22,10 @@ pub(super) struct MenuPaths {
     pub(super) authored_video_path: PathBuf,
     pub(super) highlight_image_path: PathBuf,
     pub(super) select_image_path: PathBuf,
+    /// Motion-menu intro segment output — `{base}_intro.mpg`. Only written
+    /// to disk (and referenced by dvdauthor) when the menu authors an intro
+    /// (`timing.intro_duration_secs > 0.0`); unused for still menus.
+    pub(super) intro_video_path: PathBuf,
 }
 
 pub(super) struct TitlePaths {
@@ -107,6 +111,7 @@ impl BuildPaths {
             authored_video_path: self.menus_dir.join(format!("{base_name}.mpg")),
             highlight_image_path: self.menus_dir.join(format!("{base_name}_highlight.png")),
             select_image_path: self.menus_dir.join(format!("{base_name}_select.png")),
+            intro_video_path: self.menus_dir.join(format!("{base_name}_intro.mpg")),
         }
     }
 

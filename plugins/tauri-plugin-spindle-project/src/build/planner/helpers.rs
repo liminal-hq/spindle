@@ -10,36 +10,6 @@ use crate::models::*;
 
 use super::super::util::xml_escape;
 
-pub(super) fn ensure_supported_menu_backend(project: &SpindleProjectFile) -> crate::Result<()> {
-    let motion_menus: Vec<_> = project
-        .disc
-        .global_menus
-        .iter()
-        .chain(
-            project
-                .disc
-                .titlesets
-                .iter()
-                .flat_map(|titleset| titleset.menus.iter()),
-        )
-        .filter(|menu| matches!(menu.resolved_background_mode(), BackgroundMode::Motion))
-        .map(|menu| menu.name.clone())
-        .collect();
-
-    if motion_menus.is_empty() {
-        return Ok(());
-    }
-
-    Err(crate::Error::Build(format!(
-        "Motion menu build authoring is not implemented yet. Switch these menus back to still mode before building: {}",
-        motion_menus
-            .iter()
-            .map(|name| format!("\"{name}\""))
-            .collect::<Vec<_>>()
-            .join(", ")
-    )))
-}
-
 pub(super) fn generate_text_subtitle_spumux_xml(
     subtitle_path: &std::path::Path,
     standard: VideoStandard,

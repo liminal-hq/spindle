@@ -55,12 +55,26 @@ pub enum BuildJob {
         /// Source asset duration in seconds, used for step-progress estimation.
         duration_secs: Option<f64>,
     },
-    /// Render a menu background to MPEG-2 still frame.
+    /// Render a menu background to MPEG-2 still frame (still menus) or the
+    /// looping-video segment compose(s) (motion menus — see `menu_motion.rs`).
     RenderMenu {
         menu_id: String,
         menu_name: String,
         output_path: String,
         command: Vec<String>,
+        /// Motion menus with an authored intro: the separate compose command
+        /// for the intro segment, run before `command` (the loop segment) and
+        /// written directly to its own final `{id}_intro.mpg` (no spumux
+        /// pass — see design decision D1). `None` for still menus and motion
+        /// menus without an intro.
+        #[serde(default)]
+        intro_command: Option<Vec<String>>,
+        /// Segment duration in seconds for progress estimation, and the
+        /// signal the executor uses to run `command`/`intro_command` via the
+        /// progress-reporting ffmpeg runner rather than the plain one (mirrors
+        /// `TranscodeTitle`'s `pass1_command` pattern). `None` for still menus.
+        #[serde(default)]
+        duration_secs: Option<f64>,
         label: String,
         standard: VideoStandard,
         highlight_image_path: String,

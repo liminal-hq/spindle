@@ -15,6 +15,7 @@ use super::ffmpeg::{
 use super::menu::{
     authorable_menus, build_ffmpeg_menu_command, generate_spumux_xml, menu_scene_png_path,
 };
+use super::menu_motion::{build_ffmpeg_motion_segment_command, plan_motion_segments};
 use super::types::{BuildJob, BuildPlan, BuildSummary, MenuOverlayButton};
 
 mod helpers;
@@ -23,10 +24,7 @@ mod paths;
 mod tests;
 mod toolchain;
 
-use helpers::{
-    ensure_supported_menu_backend, generate_text_subtitle_spumux_xml,
-    strip_unknown_codec_subtitle_mappings,
-};
+use helpers::{generate_text_subtitle_spumux_xml, strip_unknown_codec_subtitle_mappings};
 use paths::BuildPaths;
 use toolchain::ResolvedToolchain;
 
@@ -64,7 +62,6 @@ pub fn generate_build_plan_with_options(
     });
 
     let assets: HashMap<&str, &Asset> = project.assets.iter().map(|a| (a.id.as_str(), a)).collect();
-    ensure_supported_menu_backend(project)?;
 
     // Per-title average video bitrate, computed from the disc-wide capacity
     // budget so the transcode actually respects what the Planner/Overview
@@ -282,15 +279,54 @@ pub fn generate_build_plan_with_options(
     for menu_ref in authorable_menus(project) {
         let menu_paths = paths.menu_paths(&menu_ref.menu.id);
         let scene_png_path = menu_scene_png_path(&menu_paths.base_video_path);
-        let render_command = build_ffmpeg_menu_command(
-            &tools.ffmpeg,
-            &menu_ref,
-            &assets,
-            project,
-            project.disc.standard,
-            &menu_paths.base_video_path,
-            &scene_png_path,
-        )?;
+
+        let (render_command, intro_command, duration_secs) =
+            if matches!(menu_ref.background_mode(), BackgroundMode::Motion) {
+                // Hard error (rather than a silent still-mode fallback) when the
+                // authored background can't actually be composed — mirrors the
+                // scene-image-asset check below for `SceneNode::Image`.
+                let (loop_spec, intro_spec) = plan_motion_segments(
+                    &menu_ref,
+                    &assets,
+                    &scene_png_path,
+                    &menu_paths.base_video_path,
+                    &menu_paths.intro_video_path,
+                )?;
+                let loop_duration_secs = loop_spec.duration_secs;
+                let loop_command = build_ffmpeg_motion_segment_command(
+                    &tools.ffmpeg,
+                    &menu_ref,
+                    &assets,
+                    project,
+                    project.disc.standard,
+                    &loop_spec,
+                )?;
+                let intro_command = intro_spec
+                    .as_ref()
+                    .map(|spec| {
+                        build_ffmpeg_motion_segment_command(
+                            &tools.ffmpeg,
+                            &menu_ref,
+                            &assets,
+                            project,
+                            project.disc.standard,
+                            spec,
+                        )
+                    })
+                    .transpose()?;
+                (loop_command, intro_command, Some(loop_duration_secs))
+            } else {
+                let command = build_ffmpeg_menu_command(
+                    &tools.ffmpeg,
+                    &menu_ref,
+                    &assets,
+                    project,
+                    project.disc.standard,
+                    &menu_paths.base_video_path,
+                    &scene_png_path,
+                )?;
+                (command, None, None)
+            };
 
         let menu_aspect = menu_ref.display_aspect(project);
         let target = RenderTarget::from_disc(&project.disc, menu_aspect);
@@ -347,6 +383,8 @@ pub fn generate_build_plan_with_options(
             menu_name: menu_ref.name().to_string(),
             output_path: menu_paths.base_video_path.display().to_string(),
             command: render_command,
+            intro_command,
+            duration_secs,
             label: format!("Render menu \"{}\"", menu_ref.name()),
             standard: project.disc.standard,
             highlight_image_path: menu_paths.highlight_image_path.display().to_string(),

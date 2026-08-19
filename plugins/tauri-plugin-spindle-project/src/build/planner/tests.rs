@@ -389,18 +389,79 @@ fn build_plan_deduplicates_identical_transcodes_with_different_mapping_ids() {
 }
 
 #[test]
-fn build_plan_rejects_motion_menus_until_backend_support_lands() {
+fn build_plan_emits_motion_menu_compose_jobs() {
     let mut project = test_project();
     let mut menu = test_menu();
     menu.doc_mut().background_mode = BackgroundMode::Motion;
+    menu.doc_mut().scene.background.asset_id = Some("asset-1".to_string());
+    menu.doc_mut().timing.loop_start_secs = 1.0;
     menu.doc_mut().timing.loop_duration_secs = 12.0;
+    menu.doc_mut().timing.intro_duration_secs = 2.0;
     project.disc.global_menus.push(menu);
 
-    let err = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap_err();
-    let msg = err.to_string();
+    let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
 
-    assert!(msg.contains("Motion menu build authoring is not implemented yet"));
-    assert!(msg.contains("\"Main Menu\""));
+    let render_menu = plan
+        .jobs
+        .iter()
+        .find(|j| matches!(j, BuildJob::RenderMenu { .. }))
+        .expect("expected a RenderMenu job");
+
+    match render_menu {
+        BuildJob::RenderMenu {
+            command,
+            intro_command,
+            duration_secs,
+            ..
+        } => {
+            assert_eq!(
+                *duration_secs,
+                Some(12.0),
+                "duration_secs should carry the loop segment's duration"
+            );
+            assert!(
+                intro_command.is_some(),
+                "an authored intro (intro_duration_secs > 0) should produce an intro_command"
+            );
+            assert!(
+                !command.is_empty(),
+                "the loop segment compose command should be populated"
+            );
+        }
+        other => panic!("expected BuildJob::RenderMenu, got {other:?}"),
+    }
+}
+
+#[test]
+fn build_plan_still_menu_render_job_has_no_motion_fields() {
+    let mut project = test_project();
+    project.disc.global_menus.push(test_menu());
+
+    let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+
+    let render_menu = plan
+        .jobs
+        .iter()
+        .find(|j| matches!(j, BuildJob::RenderMenu { .. }))
+        .expect("expected a RenderMenu job");
+
+    match render_menu {
+        BuildJob::RenderMenu {
+            intro_command,
+            duration_secs,
+            ..
+        } => {
+            assert!(
+                intro_command.is_none(),
+                "still menus must not carry an intro_command"
+            );
+            assert!(
+                duration_secs.is_none(),
+                "still menus must not carry duration_secs"
+            );
+        }
+        other => panic!("expected BuildJob::RenderMenu, got {other:?}"),
+    }
 }
 
 #[test]

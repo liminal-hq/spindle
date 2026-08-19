@@ -113,6 +113,8 @@ where
             BuildJob::RenderMenu {
                 menu_id,
                 command,
+                intro_command,
+                duration_secs,
                 output_path: _,
                 standard,
                 highlight_image_path,
@@ -224,16 +226,94 @@ where
                     return failure(plan, log_lines, i, msg);
                 }
 
-                log_lines.push(format!("  $ {}", command.join(" ")));
-                match run_command(command) {
-                    Ok(output) => {
-                        if !output.is_empty() {
-                            log_lines.push(output);
+                if let Some(seg_duration) = duration_secs {
+                    // Motion menu: run the intro compose (when authored) then
+                    // the loop compose, both via the progress-reporting
+                    // ffmpeg runner — mirrors `TranscodeTitle`'s
+                    // `pass1_command` pattern.
+                    if let Some(intro_command) = intro_command {
+                        log_lines.push(format!("  $ {}", intro_command.join(" ")));
+                        on_progress(BuildProgress::job(
+                            i,
+                            total,
+                            label.clone(),
+                            BuildJobStatus::Running,
+                            None,
+                        ));
+                        match run_ffmpeg_command(
+                            intro_command,
+                            Some(*seg_duration),
+                            i,
+                            total,
+                            &label,
+                            "Motion menu intro compose",
+                            &mut on_progress,
+                        ) {
+                            Ok(output) => {
+                                if !output.is_empty() {
+                                    log_lines.push(output);
+                                }
+                            }
+                            Err(msg) => {
+                                log_lines.push(msg.clone());
+                                on_progress(BuildProgress::job(
+                                    i,
+                                    total,
+                                    label.clone(),
+                                    BuildJobStatus::Failed,
+                                    Some(msg.clone()),
+                                ));
+                                return failure(plan, log_lines, i, msg);
+                            }
                         }
                     }
-                    Err(msg) => {
-                        log_lines.push(msg.clone());
-                        return failure(plan, log_lines, i, msg);
+
+                    log_lines.push(format!("  $ {}", command.join(" ")));
+                    on_progress(BuildProgress::job(
+                        i,
+                        total,
+                        label.clone(),
+                        BuildJobStatus::Running,
+                        None,
+                    ));
+                    match run_ffmpeg_command(
+                        command,
+                        Some(*seg_duration),
+                        i,
+                        total,
+                        &label,
+                        "Motion menu loop compose",
+                        &mut on_progress,
+                    ) {
+                        Ok(output) => {
+                            if !output.is_empty() {
+                                log_lines.push(output);
+                            }
+                        }
+                        Err(msg) => {
+                            log_lines.push(msg.clone());
+                            on_progress(BuildProgress::job(
+                                i,
+                                total,
+                                label,
+                                BuildJobStatus::Failed,
+                                Some(msg.clone()),
+                            ));
+                            return failure(plan, log_lines, i, msg);
+                        }
+                    }
+                } else {
+                    log_lines.push(format!("  $ {}", command.join(" ")));
+                    match run_command(command) {
+                        Ok(output) => {
+                            if !output.is_empty() {
+                                log_lines.push(output);
+                            }
+                        }
+                        Err(msg) => {
+                            log_lines.push(msg.clone());
+                            return failure(plan, log_lines, i, msg);
+                        }
                     }
                 }
             }
