@@ -1,7 +1,6 @@
 # Spindle tools
 
-Standalone CLI utilities for development and debugging. Each tool lives in its
-own crate under `tools/` and is part of the workspace.
+Standalone CLI utilities for development and debugging. Each tool lives in its own crate under `tools/` and is part of the workspace.
 
 ## Building
 
@@ -23,9 +22,7 @@ Binaries land in `target/debug/`.
 
 **Crate:** [`tools/menu-debug`](menu-debug/)
 
-Loads a `.spindle` project file and runs the full Skia rendering pipeline for
-every menu, writing intermediate images to an output directory and printing font
-and node diagnostics to stdout.
+Loads a `.spindle` project file and runs the full Skia rendering pipeline for every menu, writing intermediate images to an output directory and printing font and node diagnostics to stdout.
 
 ### What it produces
 
@@ -49,8 +46,7 @@ Stdout shows:
 ./target/debug/menu-debug <project.spindle> [output-dir]
 ```
 
-If `output-dir` is omitted, a `<project-stem>_menu_debug/` directory is created
-next to the project file.
+If `output-dir` is omitted, a `<project-stem>_menu_debug/` directory is created next to the project file.
 
 ```sh
 # Example — render Test Project to a debug directory
@@ -67,20 +63,12 @@ MENU_DEBUG_SHOW_SYSTEM_FONTS=1 ./target/debug/menu-debug project.spindle
 
 ### Diagnosing font issues
 
-The tool prints per-node font info. When a button or text node shows
-`font: default (no label_style)` or `font: default 24px`, the corresponding
-scene node has a null style in the project file — the Skia renderer falls back
-to `TextStyle::default()` (Inter 14px).
+The tool prints per-node font info. When a button or text node shows `font: default (no label_style)` or `font: default 24px`, the corresponding scene node has a null style in the project file — the Skia renderer falls back to `TextStyle::default()` (Inter 14px).
 
 To fix:
 
 1. Select the node in the Spindle menu editor.
-2. Change the font family in the inspector — this writes `labelStyle` (for
-   buttons) or `fontFamily` (for text nodes) into the scene node.
-3. Save the project. The style is now persisted and the build pipeline will
-   use it.
+2. Change the font family in the inspector — this writes `labelStyle` (for buttons) or `fontFamily` (for text nodes) into the scene node.
+3. Save the project. The style is now persisted and the build pipeline will use it.
 
-For project-asset fonts (fonts you add to the project's asset list), the tool
-reports them as `[project-asset]` in the font resolution section. System fonts
-available in the build environment are listed when
-`MENU_DEBUG_SHOW_SYSTEM_FONTS=1` is set.
+For project-asset fonts (fonts you add to the project's asset list), the tool reports them as `[project-asset]` in the font resolution section. System fonts available in the build environment are listed when `MENU_DEBUG_SHOW_SYSTEM_FONTS=1` is set.

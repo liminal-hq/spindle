@@ -134,10 +134,8 @@ Notes:
 - `binaries/` is gitignored; it is a build artefact populated before packaging
 - `binaries/` is for executables only; `resources/` is for non-executable files
 - keep names stable at the logical level (`dvdauthor`, `genisoimage`, etc.)
-- target-triple suffixes are stripped by Tauri at bundle time; at runtime the
-  binary is available as `dvdauthor`, `genisoimage`, etc. alongside the executable
-- on macOS, `genisoimage` is not in Homebrew; `mkisofs` (from cdrtools) fills
-  both roles and is copied under both sidecar names
+- target-triple suffixes are stripped by Tauri at bundle time; at runtime the binary is available as `dvdauthor`, `genisoimage`, etc. alongside the executable
+- on macOS, `genisoimage` is not in Homebrew; `mkisofs` (from cdrtools) fills both roles and is copied under both sidecar names
 
 ---
 
@@ -163,11 +161,9 @@ These are **recommended starting pins**, not eternal requirements.
 `genisoimage` and `mkisofs` both support UDF for DVD via:
 
 - `-udf` — plain UDF filesystem
-- `-dvd-video` — UDF Bridge (hybrid ISO 9660 + UDF 1.02), the correct on-disc
-  format for DVD-Video; this is what the Spindle build pipeline uses
+- `-dvd-video` — UDF Bridge (hybrid ISO 9660 + UDF 1.02), the correct on-disc format for DVD-Video; this is what the Spindle build pipeline uses
 
-`dvdauthor` and `spumux` produce the `VIDEO_TS` directory structure only; they
-do not create ISO images.
+`dvdauthor` and `spumux` produce the `VIDEO_TS` directory structure only; they do not create ISO images.
 
 ---
 
@@ -237,28 +233,22 @@ Instead, think of the binaries as **release inputs** prepared before packaging.
 
 `plugins/tauri-plugin-spindle-project/src/toolchain.rs` provides `resolve_tool(name)`:
 
-1. checks for the binary next to the running executable (where Tauri places
-   bundled sidecars in both `tauri dev` and release mode)
+1. checks for the binary next to the running executable (where Tauri places bundled sidecars in both `tauri dev` and release mode)
 2. falls back to the system PATH
 
-This means development still works with system-installed tools. Running
-`./scripts/install-sidecars.sh` sets up the PATH-based tools for local dev.
+This means development still works with system-installed tools. Running `./scripts/install-sidecars.sh` sets up the PATH-based tools for local dev.
 
-To test with real sidecars bundled, run `./scripts/collect-sidecars.sh` first
-to populate `src-tauri/binaries/` before running `tauri dev` or `tauri build`.
+To test with real sidecars bundled, run `./scripts/collect-sidecars.sh` first to populate `src-tauri/binaries/` before running `tauri dev` or `tauri build`.
 
 ### CI (quality pipeline)
 
-The quality CI (fmt, clippy, tests) does not need real binaries. Before each
-Rust job that triggers the Tauri build script, the CI runs:
+The quality CI (fmt, clippy, tests) does not need real binaries. Before each Rust job that triggers the Tauri build script, the CI runs:
 
 ```
 bash scripts/create-sidecar-stubs.sh x86_64-unknown-linux-gnu
 ```
 
-This places minimal stub executables in `src-tauri/binaries/` so that Tauri's
-build-time validation passes. Unit tests do not invoke the external tools, so
-stubs are sufficient.
+This places minimal stub executables in `src-tauri/binaries/` so that Tauri's build-time validation passes. Unit tests do not invoke the external tools, so stubs are sufficient.
 
 ### Release CI (not yet written — details to be worked out)
 
@@ -275,24 +265,18 @@ Each job:
 
 1. checkout
 2. install Rust toolchain
-3. `./scripts/collect-sidecars.sh` — runs natively on the runner, installs
-   tools via apt-get (Linux) or brew (macOS), copies binaries with target-triple
-   suffix; auto-detects the triple via `rustc -Vv`
+3. `./scripts/collect-sidecars.sh` — runs natively on the runner, installs tools via apt-get (Linux) or brew (macOS), copies binaries with target-triple suffix; auto-detects the triple via `rustc -Vv`
 4. `tauri build`
 5. upload/publish artefacts
 
-`collect-sidecars.sh` is designed to work in any environment — natively on a
-developer machine, inside a dev container, on a CI runner, or invoked inside
-Docker when tools are not available natively. It does not assume a specific
-container image.
+`collect-sidecars.sh` is designed to work in any environment — natively on a developer machine, inside a dev container, on a CI runner, or invoked inside Docker when tools are not available natively. It does not assume a specific container image.
 
 **Open decisions for release CI:**
 
 - macOS signing/notarisation (Developer ID, Gatekeeper)
 - Tauri updater configuration and update manifest signing
 - artefact upload destination (GitHub Releases, CDN, etc.)
-- whether to pin exact tool versions via checksums rather than installing
-  whatever apt/brew provides at build time
+- whether to pin exact tool versions via checksums rather than installing whatever apt/brew provides at build time
 
 **Windows:** dvdauthor has no Windows port. Windows builds are not supported
 for the DVD authoring pipeline.
@@ -308,8 +292,7 @@ Bundled now:
 - `dvdauthor` — DVD-Video authoring (VIDEO_TS structure)
 - `spumux` — DVD subtitle/highlight overlay (shipped with dvdauthor)
 - `genisoimage` — ISO 9660 / UDF Bridge image creation
-- `mkisofs` — same role; on Linux often the same binary as genisoimage;
-  on macOS comes from cdrtools
+- `mkisofs` — same role; on Linux often the same binary as genisoimage; on macOS comes from cdrtools
 
 Deferred (still PATH-based):
 
