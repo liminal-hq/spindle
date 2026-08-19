@@ -114,7 +114,12 @@ pub fn estimate_disc_capacity(project: &SpindleProjectFile) -> CapacityEstimate 
             let doc = menu.doc();
             if doc.background_mode == BackgroundMode::Motion {
                 if let Some(secs) = doc.motion_loop_duration() {
-                    return (MOTION_MENU_BITRATE_BPS * secs) / 8.0;
+                    // The build also emits a separate `{id}_intro.mpg` at the
+                    // same bitrate when an intro is authored (see
+                    // `plan_motion_segments`'s `has_intro`), so its bytes must
+                    // be counted too or the estimate understates real output.
+                    let intro_secs = doc.timing.intro_duration_secs.max(0.0);
+                    return (MOTION_MENU_BITRATE_BPS * (secs + intro_secs)) / 8.0;
                 }
             }
             STILL_MENU_BYTES
@@ -462,6 +467,45 @@ mod tests {
         let estimate = estimate_disc_capacity(&project);
 
         assert_eq!(estimate.estimated_menu_bytes, STILL_MENU_BYTES);
+    }
+
+    #[test]
+    fn motion_menu_with_intro_prices_higher_than_without() {
+        // Regression test: the build emits a separate `{id}_intro.mpg` at the
+        // same bitrate when `timing.intro_duration_secs > 0` (see
+        // `plan_motion_segments`'s `has_intro`), so the capacity estimate
+        // must include those bytes too, not just the loop segment.
+        let mut project = test_project();
+        let mut menu = test_menu();
+        menu.doc_mut().background_mode = BackgroundMode::Motion;
+        menu.doc_mut().timing.loop_duration_secs = 10.0;
+        menu.doc_mut().timing.intro_duration_secs = 0.0;
+        project.disc.titlesets[0].menus.push(menu.clone());
+
+        let without_intro = estimate_disc_capacity(&project);
+
+        menu.doc_mut().timing.intro_duration_secs = 5.0;
+        project.disc.titlesets[0].menus[0] = menu;
+
+        let with_intro = estimate_disc_capacity(&project);
+
+        assert!(
+            with_intro.estimated_menu_bytes > without_intro.estimated_menu_bytes,
+            "expected an authored intro segment to add bytes to the estimate, \
+             got with_intro={} without_intro={}",
+            with_intro.estimated_menu_bytes,
+            without_intro.estimated_menu_bytes
+        );
+        let expected_delta = (MOTION_MENU_BITRATE_BPS * 5.0) / 8.0;
+        assert!(
+            (with_intro.estimated_menu_bytes - without_intro.estimated_menu_bytes - expected_delta)
+                .abs()
+                < 1.0,
+            "expected the delta to equal the intro segment's own bytes at the motion bitrate, \
+             got delta={} expected={}",
+            with_intro.estimated_menu_bytes - without_intro.estimated_menu_bytes,
+            expected_delta
+        );
     }
 
     #[test]
