@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-get-format-profile"
+description = "Enables the get_format_profile command without any pre-configured scope."
+commands.allow = ["get_format_profile"]
+
+[[permission]]
+identifier = "deny-get-format-profile"
+description = "Denies the get_format_profile command without any pre-configured scope."
+commands.deny = ["get_format_profile"]

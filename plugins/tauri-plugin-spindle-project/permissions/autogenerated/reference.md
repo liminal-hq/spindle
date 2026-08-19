@@ -9,6 +9,7 @@ Default permissions for the spindle-project plugin
 - `allow-serialise-project`
 - `allow-validate-project`
 - `allow-estimate-disc-capacity`
+- `allow-get-format-profile`
 - `allow-inspect-asset`
 - `allow-extract-video-thumbnail`
 - `allow-extract-image-thumbnail`
@@ -339,6 +340,32 @@ Enables the get_cache_dir command without any pre-configured scope.
 <td>
 
 Denies the get_cache_dir command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`spindle-project:allow-get-format-profile`
+
+</td>
+<td>
+
+Enables the get_format_profile command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`spindle-project:deny-get-format-profile`
+
+</td>
+<td>
+
+Denies the get_format_profile command without any pre-configured scope.
 
 </td>
 </tr>
