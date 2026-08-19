@@ -23,7 +23,17 @@ use uuid::Uuid;
 // ── Schema Version ──────────────────────────────────────────────────────────
 
 /// Current schema version. Bump on breaking changes; migration logic keys off this.
-pub const SCHEMA_VERSION: u32 = 1;
+///
+/// Bumped to 2 when the legacy flat-menu fields (`backgroundAssetId`,
+/// `buttons`, etc. — see [`crate::models::menu`]) stopped being emitted on
+/// save. A v1 file still loads under v2 (the version guard in
+/// `desktop::parse_project` only rejects versions newer than
+/// [`SCHEMA_VERSION`], and `migrate_all_menus` already lifts any legacy
+/// fields into an authored [`MenuDocument`] regardless of the stamped
+/// version), but a v2 file opened by a v1-only binary is now rejected as an
+/// unsupported schema instead of silently deserialising into a menu missing
+/// required legacy fields.
+pub const SCHEMA_VERSION: u32 = 2;
 
 // ── Top-Level Project ───────────────────────────────────────────────────────
 
