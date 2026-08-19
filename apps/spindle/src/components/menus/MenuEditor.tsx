@@ -949,6 +949,7 @@ export function MenuEditor({
 								document={menu.authoredDocument}
 								buttons={currentButtons}
 								assets={project.assets}
+								standard={project.disc.standard}
 								onAddKeyframe={handleAddKeyframe}
 								onMoveKeyframe={handleMoveKeyframe}
 								onUpdateKeyframeValue={handleUpdateKeyframeValue}

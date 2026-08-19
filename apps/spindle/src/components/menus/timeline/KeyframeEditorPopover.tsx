@@ -31,7 +31,20 @@ export function KeyframeEditorPopover({
 	const isScalar = keyframe.value.kind === 'scalar';
 
 	return (
-		<div className="keyframe-popover" role="dialog" aria-label={`Edit ${target} keyframe`}>
+		<div
+			className="keyframe-popover"
+			role="dialog"
+			aria-label={`Edit ${target} keyframe`}
+			onKeyDown={(e) => {
+				// Delete/Backspace inside a popover input/select must edit the
+				// input, not bubble to the lane's onKeyDown and delete the
+				// keyframe this popover is editing (see `TimelineKeyframeLane`'s
+				// `handleKeyDown`).
+				if (e.key === 'Delete' || e.key === 'Backspace') {
+					e.stopPropagation();
+				}
+			}}
+		>
 			<div className="keyframe-popover__header">
 				<span className="keyframe-popover__title">{target}</span>
 				<button
@@ -50,7 +63,15 @@ export function KeyframeEditorPopover({
 					<input
 						type="color"
 						value={keyframe.value.kind === 'colour' ? keyframe.value.hex.slice(0, 7) : '#ffffff'}
-						onChange={(e) => onChangeValue({ kind: 'colour', hex: e.target.value })}
+						onChange={(e) => {
+							// `<input type="color">` only ever edits/reports 6-hex
+							// RGB — reapply the keyframe's original alpha byte (if
+							// it had one) so an alpha-carrying `#rrggbbaa` colour
+							// doesn't silently go opaque on the next edit.
+							const original = keyframe.value.kind === 'colour' ? keyframe.value.hex : '';
+							const alphaSuffix = original.length === 9 ? original.slice(7, 9) : '';
+							onChangeValue({ kind: 'colour', hex: `${e.target.value}${alphaSuffix}` });
+						}}
 					/>
 				</label>
 			)}

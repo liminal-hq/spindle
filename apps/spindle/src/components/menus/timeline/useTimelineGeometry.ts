@@ -1,11 +1,12 @@
-// Pure px<->seconds mapping for the timeline strip, plus region-edge
-// hit-testing and time snapping — kept dependency-free so it's directly
-// unit-testable without mounting React.
+// Pure px<->seconds mapping for the timeline strip, plus frame-rate lookup
+// and time snapping — kept dependency-free so it's directly unit-testable
+// without mounting React.
 //
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: MIT
 
 import { useMemo } from 'react';
+import type { VideoStandard } from '../../../types/project';
 
 export interface TimelineGeometry {
 	pxPerSecond: number;
@@ -46,28 +47,21 @@ export function useTimelineGeometry(durationSecs: number, pxPerSecond: number): 
 	);
 }
 
-/**
- * Hit-test a pointer x position (px, relative to the same origin as
- * `geometry`) against a region's start/end edges. Returns which edge (if
- * any) is within `thresholdPx`, preferring `start` on an exact tie.
- */
-export function hitTestRegionEdge(
-	pxX: number,
-	geometry: TimelineGeometry,
-	regionStartSecs: number,
-	regionEndSecs: number,
-	thresholdPx = 6,
-): 'start' | 'end' | null {
-	const startPx = geometry.secsToPx(regionStartSecs);
-	const endPx = geometry.secsToPx(regionEndSecs);
-	if (Math.abs(pxX - startPx) <= thresholdPx) return 'start';
-	if (Math.abs(pxX - endPx) <= thresholdPx) return 'end';
-	return null;
-}
-
 /** Snap `secs` to the nearest frame boundary at `fps`. `fps <= 0` returns
  * `secs` unchanged. */
 export function snapSecsToFrame(secs: number, fps: number): number {
 	if (fps <= 0) return secs;
 	return Math.round(secs * fps) / fps;
+}
+
+/**
+ * Nominal frame rate for a DVD-Video standard, as an exact rational —
+ * NTSC's 30000/1001 (~29.97 fps drop-frame) and PAL's flat 25 fps — so
+ * repeated frame-stepping/snapping in the UI doesn't accumulate rounding
+ * error the way reusing the `29.97` decimal would. `VideoStandard::frame_rate()`
+ * on the Rust side uses that decimal for schedule-duration math, where the
+ * tiny (~0.0001%) discrepancy against the exact rational doesn't matter.
+ */
+export function fpsForStandard(standard: VideoStandard): number {
+	return standard === 'PAL' ? 25 : 30000 / 1001;
 }

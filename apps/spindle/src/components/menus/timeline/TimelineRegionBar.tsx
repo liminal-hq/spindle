@@ -8,19 +8,29 @@
 import { useCallback, useRef, useState } from 'react';
 import type { MenuTiming } from '../../../types/project';
 import type { TimelineGeometry } from './useTimelineGeometry';
+import { snapSecsToFrame } from './useTimelineGeometry';
 
 export interface TimelineRegionBarProps {
 	geometry: TimelineGeometry;
 	timing: MenuTiming;
+	/** Frame rate used to snap dragged edges to frame boundaries, and to floor
+	 * the minimum intro/loop duration at one frame — the project's disc
+	 * standard (NTSC/PAL), not a hardcoded 30fps. */
+	fps: number;
 	onSetTimingField: (patch: Partial<MenuTiming>) => void;
 }
 
 type EdgeId = 'introStart' | 'introEnd' | 'loopStart' | 'loopEnd';
 
-export function TimelineRegionBar({ geometry, timing, onSetTimingField }: TimelineRegionBarProps) {
+export function TimelineRegionBar({ geometry, timing, fps, onSetTimingField }: TimelineRegionBarProps) {
 	const barRef = useRef<HTMLDivElement>(null);
 	const [dragEdge, setDragEdge] = useState<EdgeId | null>(null);
 	const [dragSecs, setDragSecs] = useState<number | null>(null);
+	// Whether a `pointermove` has actually landed since the current drag's
+	// `pointerdown` — a plain click on an edge handle (down, up, no move)
+	// must NOT commit, or every click writes an identity retime and burns an
+	// undo entry for nothing.
+	const hasMovedRef = useRef(false);
 
 	const hasIntro = timing.introDurationSecs > 0;
 	const introStart = timing.introStartSecs;
@@ -28,25 +38,31 @@ export function TimelineRegionBar({ geometry, timing, onSetTimingField }: Timeli
 	const loopStart = timing.loopStartSecs;
 	const loopEnd = loopStart + timing.loopDurationSecs;
 
+	// A region can never collapse to zero (or negative) duration by dragging
+	// one edge past the other — floor it at one frame's duration.
+	const minDurationSecs = fps > 0 ? 1 / fps : 0;
+
 	const secsFromClientX = useCallback(
 		(clientX: number) => {
 			const rect = barRef.current?.getBoundingClientRect();
 			if (!rect) return 0;
-			return Math.max(0, geometry.pxToSecs(clientX - rect.left));
+			return Math.max(0, snapSecsToFrame(geometry.pxToSecs(clientX - rect.left), fps));
 		},
-		[geometry],
+		[fps, geometry],
 	);
 
 	const beginDrag = useCallback((edge: EdgeId, startSecs: number, e: React.PointerEvent) => {
 		e.stopPropagation();
 		setDragEdge(edge);
 		setDragSecs(startSecs);
+		hasMovedRef.current = false;
 		(e.target as Element).setPointerCapture(e.pointerId);
 	}, []);
 
 	const handlePointerMove = useCallback(
 		(e: React.PointerEvent) => {
 			if (!dragEdge) return;
+			hasMovedRef.current = true;
 			setDragSecs(secsFromClientX(e.clientX));
 		},
 		[dragEdge, secsFromClientX],
@@ -54,29 +70,41 @@ export function TimelineRegionBar({ geometry, timing, onSetTimingField }: Timeli
 
 	const handlePointerUp = useCallback(() => {
 		if (!dragEdge || dragSecs === null) return;
-		switch (dragEdge) {
-			case 'introStart':
-				onSetTimingField({
-					introStartSecs: Math.max(0, dragSecs),
-					introDurationSecs: Math.max(0, introEnd - dragSecs),
-				});
-				break;
-			case 'introEnd':
-				onSetTimingField({ introDurationSecs: Math.max(0, dragSecs - introStart) });
-				break;
-			case 'loopStart':
-				onSetTimingField({
-					loopStartSecs: Math.max(0, dragSecs),
-					loopDurationSecs: Math.max(0, loopEnd - dragSecs),
-				});
-				break;
-			case 'loopEnd':
-				onSetTimingField({ loopDurationSecs: Math.max(0, dragSecs - loopStart) });
-				break;
+		if (hasMovedRef.current) {
+			switch (dragEdge) {
+				case 'introStart': {
+					const maxStart = Math.max(0, introEnd - minDurationSecs);
+					const start = Math.min(Math.max(0, dragSecs), maxStart);
+					onSetTimingField({
+						introStartSecs: start,
+						introDurationSecs: Math.max(minDurationSecs, introEnd - start),
+					});
+					break;
+				}
+				case 'introEnd': {
+					const end = Math.max(introStart + minDurationSecs, dragSecs);
+					onSetTimingField({ introDurationSecs: end - introStart });
+					break;
+				}
+				case 'loopStart': {
+					const maxStart = Math.max(0, loopEnd - minDurationSecs);
+					const start = Math.min(Math.max(0, dragSecs), maxStart);
+					onSetTimingField({
+						loopStartSecs: start,
+						loopDurationSecs: Math.max(minDurationSecs, loopEnd - start),
+					});
+					break;
+				}
+				case 'loopEnd': {
+					const end = Math.max(loopStart + minDurationSecs, dragSecs);
+					onSetTimingField({ loopDurationSecs: end - loopStart });
+					break;
+				}
+			}
 		}
 		setDragEdge(null);
 		setDragSecs(null);
-	}, [dragEdge, dragSecs, introEnd, introStart, loopEnd, loopStart, onSetTimingField]);
+	}, [dragEdge, dragSecs, introEnd, introStart, loopEnd, loopStart, minDurationSecs, onSetTimingField]);
 
 	const liveIntroStart = dragEdge === 'introStart' && dragSecs !== null ? dragSecs : introStart;
 	const liveIntroEnd = dragEdge === 'introEnd' && dragSecs !== null ? dragSecs : introEnd;

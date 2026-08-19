@@ -16,9 +16,10 @@ import type {
 	MenuButton,
 	MenuDocument,
 	MenuTiming,
+	VideoStandard,
 } from '../../../types/project';
 import { useMenuPlaybackStore } from '../../../store/menu-playback-store';
-import { useTimelineGeometry } from './useTimelineGeometry';
+import { fpsForStandard, useTimelineGeometry } from './useTimelineGeometry';
 import { useVideoPlayhead } from './useVideoPlayhead';
 import { TimelineRuler } from './TimelineRuler';
 import { TimelineRegionBar } from './TimelineRegionBar';
@@ -32,6 +33,10 @@ export interface TimelineStripProps {
 	document: MenuDocument;
 	buttons: MenuButton[];
 	assets: Asset[];
+	/** The project's disc video standard — drives the timeline's frame rate
+	 * (NTSC 30000/1001, PAL 25) for frame-stepping and snapping, instead of a
+	 * hardcoded 30fps. */
+	standard: VideoStandard;
 	onAddKeyframe: (
 		nodeId: string,
 		target: AnimatableProperty,
@@ -78,6 +83,7 @@ export function TimelineStrip({
 	document,
 	buttons,
 	assets,
+	standard,
 	onAddKeyframe,
 	onMoveKeyframe,
 	onUpdateKeyframeValue,
@@ -88,6 +94,7 @@ export function TimelineStrip({
 	const tracks = document.animation ?? [];
 	const isMotion = document.backgroundMode === 'motion';
 	const visible = isMotion || tracks.length > 0;
+	const fps = fpsForStandard(standard);
 
 	const playbackDuration = useMenuPlaybackStore((s) => s.duration);
 	const seek = useMenuPlaybackStore((s) => s.seek);
@@ -137,12 +144,13 @@ export function TimelineStrip({
 
 	return (
 		<div className="timeline-strip" data-testid="timeline-strip">
-			<TimelineScrubber geometry={geometry} />
+			<TimelineScrubber geometry={geometry} fps={fps} />
 			<div className="timeline-strip__scroll">
 				<TimelineRuler geometry={geometry} onSeek={seek} />
 				<TimelineRegionBar
 					geometry={geometry}
 					timing={timing}
+					fps={fps}
 					onSetTimingField={onSetTimingField}
 				/>
 				<TimelineAudioLane
@@ -161,6 +169,7 @@ export function TimelineStrip({
 							geometry={geometry}
 							loopStartSecs={loopStartSecs}
 							loopDurationSecs={loopDurationSecs}
+							fps={fps}
 							defaultValueForTarget={defaultValueForTarget}
 							onAddKeyframe={onAddKeyframe}
 							onMoveKeyframe={onMoveKeyframe}

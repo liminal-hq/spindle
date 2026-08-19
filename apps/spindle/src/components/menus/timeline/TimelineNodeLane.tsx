@@ -25,6 +25,9 @@ export interface TimelineNodeLaneProps {
 	geometry: TimelineGeometry;
 	loopStartSecs: number;
 	loopDurationSecs: number;
+	/** Frame rate used to snap dragged/inserted keyframe timestamps — the
+	 * project's disc standard (NTSC/PAL), not a hardcoded 30fps. */
+	fps: number;
 	defaultValueForTarget: (target: AnimatableProperty) => KeyValue;
 	onAddKeyframe: (
 		nodeId: string,
@@ -61,6 +64,7 @@ export function TimelineNodeLane({
 	geometry,
 	loopStartSecs,
 	loopDurationSecs,
+	fps,
 	defaultValueForTarget,
 	onAddKeyframe,
 	onMoveKeyframe,
@@ -94,6 +98,7 @@ export function TimelineNodeLane({
 								target={track.target}
 								loopStartSecs={loopStartSecs}
 								loopDurationSecs={loopDurationSecs}
+								fps={fps}
 								defaultValue={defaultValueForTarget(track.target)}
 								onAddKeyframe={onAddKeyframe}
 								onMoveKeyframe={onMoveKeyframe}

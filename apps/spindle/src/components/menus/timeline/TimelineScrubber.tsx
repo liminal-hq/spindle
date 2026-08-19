@@ -14,14 +14,14 @@ import { useCallback, useEffect, useRef } from 'react';
 import { useMenuPlaybackStore } from '../../../store/menu-playback-store';
 import type { TimelineGeometry } from './useTimelineGeometry';
 
-const DEFAULT_FPS = 30;
-
 export interface TimelineScrubberProps {
 	geometry: TimelineGeometry;
-	fps?: number;
+	/** Frame rate for the ±1-frame step buttons — the project's disc standard
+	 * (NTSC 30000/1001, PAL 25), not a hardcoded 30fps (see `fpsForStandard`). */
+	fps: number;
 }
 
-export function TimelineScrubber({ geometry, fps = DEFAULT_FPS }: TimelineScrubberProps) {
+export function TimelineScrubber({ geometry, fps }: TimelineScrubberProps) {
 	const trackRef = useRef<HTMLDivElement>(null);
 	const playheadRef = useRef<HTMLDivElement>(null);
 	const seek = useMenuPlaybackStore((s) => s.seek);

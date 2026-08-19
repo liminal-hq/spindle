@@ -14,7 +14,7 @@ import { TimelineKeyframeLane } from './TimelineKeyframeLane';
 import type { TimelineKeyframeLaneProps } from './TimelineKeyframeLane';
 import { computeTimelineGeometry } from './useTimelineGeometry';
 
-function renderLane(overrides: { track: AnimationTrack }) {
+function renderLane(overrides: { track: AnimationTrack; fps?: number }) {
 	const geometry = computeTimelineGeometry(20, 40); // 40px/sec
 	const onMoveKeyframe = vi.fn();
 	const onAddKeyframe = vi.fn();
@@ -28,6 +28,7 @@ function renderLane(overrides: { track: AnimationTrack }) {
 			target="highlight-colour"
 			loopStartSecs={0}
 			loopDurationSecs={10}
+			fps={overrides.fps ?? 30}
 			defaultValue={{ kind: 'colour', hex: '#ffffff' }}
 			onAddKeyframe={onAddKeyframe as TimelineKeyframeLaneProps['onAddKeyframe']}
 			onMoveKeyframe={onMoveKeyframe as TimelineKeyframeLaneProps['onMoveKeyframe']}
@@ -92,5 +93,44 @@ describe('TimelineKeyframeLane', () => {
 		fireEvent.keyDown(lane, { key: 'Delete' });
 
 		expect(onDeleteKeyframe).toHaveBeenCalledWith('btn-1', 'highlight-colour', 0);
+	});
+
+	it('a click without a drag (pointerdown, pointerup, no pointermove) does not commit a move', () => {
+		// Regression test: selecting a diamond with a plain click must not
+		// write an identity retime and burn an undo entry.
+		const { getByRole, onMoveKeyframe } = renderLane({ track: oneKeyframeTrack });
+		const diamond = getByRole('button', { name: /keyframe at/i });
+		(diamond as unknown as { setPointerCapture: () => void }).setPointerCapture = () => {};
+
+		fireEvent.pointerDown(diamond, { clientX: 40, pointerId: 1 });
+		fireEvent.pointerUp(diamond.closest('[role="group"]')!);
+
+		expect(onMoveKeyframe).not.toHaveBeenCalled();
+	});
+
+	it('clamps a drag to the loop window and snaps it to a frame boundary', () => {
+		// 40px/sec, 10fps, loopDurationSecs=10: dragging to 1000px (25s) must
+		// clamp to the 10s loop end; dragging to 41px (1.025s) must snap to the
+		// nearest 0.1s frame boundary (1.0s).
+		const { getByRole, onMoveKeyframe } = renderLane({ track: oneKeyframeTrack, fps: 10 });
+		const diamond = getByRole('button', { name: /keyframe at/i });
+		(diamond as unknown as { setPointerCapture: () => void }).setPointerCapture = () => {};
+		const lane = diamond.closest('[role="group"]')!;
+
+		fireEvent.pointerDown(diamond, { clientX: 40, pointerId: 1 });
+		fireEvent.pointerMove(lane, { clientX: 1000 });
+		fireEvent.pointerUp(lane);
+
+		expect(onMoveKeyframe).toHaveBeenCalledWith('btn-1', 'highlight-colour', 0, 10);
+	});
+
+	it('snaps an inserted keyframe to a frame boundary', () => {
+		const { getByRole, onAddKeyframe } = renderLane({ track: oneKeyframeTrack, fps: 10 });
+		const lane = getByRole('group');
+		// 41px / 40px-per-sec = 1.025s, which snaps to 1.0s at 10fps.
+		fireEvent.doubleClick(lane, { clientX: 41 });
+
+		const [, , timestampSecs] = onAddKeyframe.mock.calls[0];
+		expect(timestampSecs).toBeCloseTo(1.0, 9);
 	});
 });

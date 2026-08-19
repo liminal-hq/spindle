@@ -12,8 +12,13 @@
 import { useCallback, useRef, useState } from 'react';
 import type { AnimatableProperty, AnimationTrack, Easing, KeyValue } from '../../../types/project';
 import type { TimelineGeometry } from './useTimelineGeometry';
+import { snapSecsToFrame } from './useTimelineGeometry';
 import { evaluateTrack } from '../../../utils/animation';
 import { KeyframeEditorPopover } from './KeyframeEditorPopover';
+
+function clamp(v: number, lo: number, hi: number): number {
+	return Math.min(Math.max(v, lo), Math.max(lo, hi));
+}
 
 export interface TimelineKeyframeLaneProps {
 	geometry: TimelineGeometry;
@@ -22,6 +27,10 @@ export interface TimelineKeyframeLaneProps {
 	target: AnimatableProperty;
 	loopStartSecs: number;
 	loopDurationSecs: number;
+	/** Frame rate used to snap dragged/inserted keyframe timestamps to frame
+	 * boundaries — the project's disc standard (NTSC/PAL), not a hardcoded
+	 * 30fps. */
+	fps: number;
 	defaultValue: KeyValue;
 	onAddKeyframe: (
 		nodeId: string,
@@ -60,6 +69,7 @@ export function TimelineKeyframeLane({
 	target,
 	loopStartSecs,
 	loopDurationSecs,
+	fps,
 	defaultValue,
 	onAddKeyframe,
 	onMoveKeyframe,
@@ -73,6 +83,11 @@ export function TimelineKeyframeLane({
 	const [dragIndex, setDragIndex] = useState<number | null>(null);
 	const [dragTimestampSecs, setDragTimestampSecs] = useState<number | null>(null);
 	const laneRef = useRef<HTMLDivElement>(null);
+	// Whether a `pointermove` has actually landed since the current drag's
+	// `pointerdown` — a plain click (down, up, no move) must NOT commit, or
+	// every click-to-select on a diamond writes an identity retime and burns
+	// an undo entry for nothing.
+	const hasMovedRef = useRef(false);
 
 	const keyframes = track?.keyframes ?? [];
 
@@ -87,6 +102,7 @@ export function TimelineKeyframeLane({
 			setSelectedIndex(index);
 			setDragIndex(index);
 			setDragTimestampSecs(keyframes[index].timestampSecs);
+			hasMovedRef.current = false;
 			(e.target as Element).setPointerCapture(e.pointerId);
 		},
 		[keyframes],
@@ -95,16 +111,21 @@ export function TimelineKeyframeLane({
 	const handlePointerMove = useCallback(
 		(e: React.PointerEvent) => {
 			if (dragIndex === null) return;
+			hasMovedRef.current = true;
 			const pxX = pxXFromClientX(e.clientX);
-			const newTimestamp = Math.max(0, geometry.pxToSecs(pxX) - loopStartSecs);
+			const rawSecs = Math.max(0, geometry.pxToSecs(pxX) - loopStartSecs);
+			const snapped = snapSecsToFrame(rawSecs, fps);
+			const newTimestamp = clamp(snapped, 0, loopDurationSecs);
 			setDragTimestampSecs(newTimestamp);
 		},
-		[dragIndex, geometry, loopStartSecs, pxXFromClientX],
+		[dragIndex, fps, geometry, loopDurationSecs, loopStartSecs, pxXFromClientX],
 	);
 
 	const handlePointerUp = useCallback(() => {
 		if (dragIndex === null || dragTimestampSecs === null) return;
-		onMoveKeyframe(nodeId, target, dragIndex, dragTimestampSecs);
+		if (hasMovedRef.current) {
+			onMoveKeyframe(nodeId, target, dragIndex, dragTimestampSecs);
+		}
 		setDragIndex(null);
 		setDragTimestampSecs(null);
 	}, [dragIndex, dragTimestampSecs, nodeId, onMoveKeyframe, target]);
@@ -112,11 +133,12 @@ export function TimelineKeyframeLane({
 	const handleLaneDoubleClick = useCallback(
 		(e: React.MouseEvent) => {
 			const pxX = pxXFromClientX(e.clientX);
-			const timestampSecs = Math.max(0, geometry.pxToSecs(pxX) - loopStartSecs);
+			const rawSecs = Math.max(0, geometry.pxToSecs(pxX) - loopStartSecs);
+			const timestampSecs = clamp(snapSecsToFrame(rawSecs, fps), 0, loopDurationSecs);
 			const sampled = track ? evaluateTrack(track, timestampSecs) : null;
 			onAddKeyframe(nodeId, target, timestampSecs, sampled ?? defaultValue);
 		},
-		[defaultValue, geometry, loopStartSecs, nodeId, onAddKeyframe, pxXFromClientX, target],
+		[defaultValue, fps, geometry, loopDurationSecs, loopStartSecs, nodeId, onAddKeyframe, pxXFromClientX, target, track],
 	);
 
 	const handleLaneClick = useCallback(

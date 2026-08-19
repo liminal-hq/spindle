@@ -1,11 +1,11 @@
-// Tests for the timeline's pure px<->seconds geometry, region-edge
-// hit-testing, and frame snapping.
+// Tests for the timeline's pure px<->seconds geometry, frame snapping, and
+// disc-standard frame-rate lookup.
 //
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: MIT
 
 import { describe, expect, it } from 'vitest';
-import { computeTimelineGeometry, hitTestRegionEdge, snapSecsToFrame } from './useTimelineGeometry';
+import { computeTimelineGeometry, fpsForStandard, snapSecsToFrame } from './useTimelineGeometry';
 
 describe('computeTimelineGeometry', () => {
 	it('maps seconds to px and back losslessly at a fixed scale', () => {
@@ -35,32 +35,6 @@ describe('computeTimelineGeometry', () => {
 	});
 });
 
-describe('hitTestRegionEdge', () => {
-	const geometry = computeTimelineGeometry(60, 10); // 10px/sec
-
-	it('detects the start edge within the threshold', () => {
-		expect(hitTestRegionEdge(50, geometry, 5, 20)).toBe('start');
-	});
-
-	it('detects the end edge within the threshold', () => {
-		expect(hitTestRegionEdge(200, geometry, 5, 20)).toBe('end');
-	});
-
-	it('returns null outside both thresholds', () => {
-		expect(hitTestRegionEdge(120, geometry, 5, 20)).toBeNull();
-	});
-
-	it('prefers the start edge on an exact tie between coincident edges', () => {
-		// Degenerate zero-width region: both edges sit at the same px.
-		expect(hitTestRegionEdge(50, geometry, 5, 5)).toBe('start');
-	});
-
-	it('respects a custom threshold', () => {
-		expect(hitTestRegionEdge(58, geometry, 5, 20, 10)).toBe('start');
-		expect(hitTestRegionEdge(58, geometry, 5, 20, 2)).toBeNull();
-	});
-});
-
 describe('snapSecsToFrame', () => {
 	it('snaps to the nearest frame boundary', () => {
 		// 10fps: frame duration 0.1s, so frame boundaries land on clean decimals.
@@ -72,5 +46,16 @@ describe('snapSecsToFrame', () => {
 	it('is a no-op at fps <= 0', () => {
 		expect(snapSecsToFrame(1.2345, 0)).toBe(1.2345);
 		expect(snapSecsToFrame(1.2345, -1)).toBe(1.2345);
+	});
+});
+
+describe('fpsForStandard', () => {
+	it('returns the exact NTSC rational (30000/1001), not the 29.97 decimal', () => {
+		expect(fpsForStandard('NTSC')).toBeCloseTo(29.97002997, 8);
+		expect(fpsForStandard('NTSC')).toBe(30000 / 1001);
+	});
+
+	it('returns a flat 25fps for PAL', () => {
+		expect(fpsForStandard('PAL')).toBe(25);
 	});
 });
