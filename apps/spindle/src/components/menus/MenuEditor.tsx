@@ -61,6 +61,18 @@ function resolveMenuDisplayAspect(project: SpindleProjectFile, menu: Menu): Aspe
 	);
 }
 
+/** Every node id in `node`'s own subtree, including its own id — a `group`
+ * node embeds its children directly (see `SceneNode`'s `group` variant), so
+ * deleting one drops the whole subtree from `scene.nodes` in a single
+ * top-level filter, but each descendant can carry its own animation tracks
+ * that need dropping right along with it (see `removeNodeTracks`). */
+export function collectSubtreeNodeIds(node: SceneNode): string[] {
+	if (node.type === 'group') {
+		return [node.id, ...node.children.flatMap(collectSubtreeNodeIds)];
+	}
+	return [node.id];
+}
+
 export interface MenuEditorProps {
 	menu: Menu;
 	project: SpindleProjectFile;
@@ -375,7 +387,10 @@ export function MenuEditor({
 			},
 			// Otherwise a track left targeting the deleted button surfaces as
 			// `menu.animation-node-missing` on the next validate — reachable
-			// from the ordinary add-keyframe-then-delete-button flow.
+			// from the ordinary add-keyframe-then-delete-button flow. Unlike
+			// `handleRemoveNode`'s `group` case below, a `button` scene node has
+			// no `children` field to recurse into, so its own id is the whole
+			// subtree.
 			animation: removeNodeTracks(document.animation ?? [], buttonId),
 		}));
 		if (selectedNodeId === buttonId) setSelectedNodeId(null);
@@ -419,6 +434,14 @@ export function MenuEditor({
 		}
 		onUpdate((m) => {
 			if (!m.authoredDocument) return m;
+			const node = m.authoredDocument.scene.nodes.find((n) => n.id === nodeId);
+			// A `group` node's children are embedded in it, so removing it from
+			// `scene.nodes` below drops its whole subtree in one filter — but
+			// every descendant's own animation tracks need dropping too, or
+			// they linger referencing a scene node that no longer exists (same
+			// orphaned-track hazard as `handleRemoveButton`, extended across the
+			// deleted subtree).
+			const idsToRemove = node ? collectSubtreeNodeIds(node) : [nodeId];
 			return {
 				...m,
 				authoredDocument: {
@@ -427,9 +450,7 @@ export function MenuEditor({
 						...m.authoredDocument.scene,
 						nodes: m.authoredDocument.scene.nodes.filter((n) => n.id !== nodeId),
 					},
-					// Same orphaned-track hazard as `handleRemoveButton` — an
-					// `opacity`/`position` track can target a non-button node.
-					animation: removeNodeTracks(m.authoredDocument.animation ?? [], nodeId),
+					animation: removeNodeTracks(m.authoredDocument.animation ?? [], idsToRemove),
 				},
 			};
 		});

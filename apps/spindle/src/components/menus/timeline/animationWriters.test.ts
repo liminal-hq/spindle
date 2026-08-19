@@ -162,6 +162,21 @@ describe('removeNodeTracks', () => {
 		const base: AnimationTrack[] = [{ nodeId: 'btn-2', target: 'highlight-colour', keyframes: [] }];
 		expect(removeNodeTracks(base, 'btn-1')).toEqual(base);
 	});
+
+	it('drops tracks for every id in an array, e.g. a deleted group subtree', () => {
+		// Regression test: deleting a `group` node removes its whole child
+		// subtree from `scene.nodes` in one go, so every descendant's tracks
+		// must be droppable in the same call — not just the group's own id.
+		const base: AnimationTrack[] = [
+			{ nodeId: 'group-1', target: 'opacity', keyframes: [] },
+			{ nodeId: 'child-1', target: 'highlight-colour', keyframes: [] },
+			{ nodeId: 'child-2', target: 'position', keyframes: [] },
+			{ nodeId: 'unrelated', target: 'highlight-colour', keyframes: [] },
+		];
+		const tracks = removeNodeTracks(base, ['group-1', 'child-1', 'child-2']);
+		expect(tracks).toHaveLength(1);
+		expect(tracks[0].nodeId).toBe('unrelated');
+	});
 });
 
 describe('findTrack', () => {
