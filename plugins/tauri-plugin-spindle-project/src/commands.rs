@@ -94,8 +94,15 @@ pub(crate) async fn serialise_project<R: Runtime>(
 #[command]
 pub(crate) async fn validate_project<R: Runtime>(
     app: AppHandle<R>,
-    project: SpindleProjectFile,
+    mut project: SpindleProjectFile,
 ) -> Result<Vec<ValidationIssue>> {
+    // Defense in depth: `parse_project` (the normal load path) already runs
+    // this, but the guest-js `Menu`/`SpindleProjectFile` types still allow
+    // `authoredDocument: null`, so a payload built or mutated directly in
+    // the webview can reach this command unmigrated. Without this,
+    // `menu.doc()` inside validation panics instead of returning issues.
+    // Idempotent — a no-op for an already-migrated project.
+    project.migrate_all_menus();
     app.spindle_project().validate_project(&project)
 }
 
@@ -105,8 +112,10 @@ pub(crate) async fn validate_project<R: Runtime>(
 #[command]
 pub(crate) async fn estimate_disc_capacity<R: Runtime>(
     _app: AppHandle<R>,
-    project: SpindleProjectFile,
+    mut project: SpindleProjectFile,
 ) -> Result<build::CapacityEstimate> {
+    // See the comment in `validate_project` — same IPC-payload guard.
+    project.migrate_all_menus();
     Ok(build::estimate_disc_capacity(&project))
 }
 
@@ -148,12 +157,15 @@ pub(crate) async fn extract_image_thumbnail<R: Runtime>(
 #[command]
 pub(crate) async fn generate_build_plan<R: Runtime>(
     _app: AppHandle<R>,
-    project: SpindleProjectFile,
+    mut project: SpindleProjectFile,
     output_directory: String,
     skip_sidecar: bool,
     skip_unsupported_streams: bool,
     quantize_overlay_palette: bool,
 ) -> Result<BuildPlan> {
+    // See the comment in `validate_project` — same IPC-payload guard. The
+    // build pipeline (`authorable_menus`) calls `menu.doc()` unconditionally.
+    project.migrate_all_menus();
     eprintln!(
         "[spindle-project] generate_build_plan output_directory={} skip_sidecar={} skip_unsupported_streams={} quantize_overlay_palette={} {}",
         output_directory,
@@ -175,12 +187,14 @@ pub(crate) async fn generate_build_plan<R: Runtime>(
 #[command]
 pub(crate) async fn execute_build<R: Runtime>(
     app: AppHandle<R>,
-    project: SpindleProjectFile,
+    mut project: SpindleProjectFile,
     output_directory: String,
     skip_sidecar: bool,
     skip_unsupported_streams: bool,
     quantize_overlay_palette: bool,
 ) -> Result<BuildResult> {
+    // See the comment in `validate_project` — same IPC-payload guard.
+    project.migrate_all_menus();
     let plan = build::generate_build_plan_with_options(
         &project,
         &output_directory,
@@ -209,6 +223,22 @@ pub(crate) async fn auto_generate_menu_nav<R: Runtime>(
     _app: AppHandle<R>,
     mut menu: Menu,
 ) -> Result<Menu> {
+    // Defense in depth: this command receives a single `Menu` straight from
+    // the webview, outside `parse_project`'s migration, and the guest-js
+    // `Menu` type still allows `authoredDocument: null`. `auto_generate_navigation`
+    // calls `menu.doc_mut()` unconditionally, so guard it the same way
+    // `validate_project`/etc. guard their `SpindleProjectFile` payloads.
+    // There's no project context here to infer the menu's real domain/
+    // standard/display-aspect from, but that only matters for the fields
+    // `migrate_to_document` synthesizes when NO document exists yet (an
+    // edge case for a payload that should already be migrated) — auto-nav
+    // itself only reads/writes scene geometry and the interaction graph,
+    // which these defaults don't affect.
+    menu.ensure_document(
+        MenuDomain::Titleset,
+        VideoStandard::Ntsc,
+        AspectMode::SixteenByNine,
+    );
     build::auto_generate_navigation(&mut menu);
     Ok(menu)
 }
@@ -275,10 +305,15 @@ fn detect_tool_version(path: &std::path::Path) -> Option<String> {
 #[command]
 pub(crate) async fn export_menu_render_preview<R: Runtime>(
     _app: AppHandle<R>,
-    project: SpindleProjectFile,
+    mut project: SpindleProjectFile,
     menu_id: String,
     output_path: String,
 ) -> Result<()> {
+    // See the comment in `validate_project` — same IPC-payload guard.
+    // `build::export_menu_render_preview` already errors gracefully on a
+    // missing document, so this just means a legacy-shaped payload gets a
+    // real preview instead of an avoidable error.
+    project.migrate_all_menus();
     let path = std::path::Path::new(&output_path);
     build::export_menu_render_preview(&project, &menu_id, path)
 }
@@ -385,4 +420,71 @@ pub struct ToolchainStatus {
     pub purpose: String,
     pub available: bool,
     pub version: Option<String>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A project whose only menu has never been migrated
+    /// (`authored_document: None`) — the shape a Tauri command can receive
+    /// straight from the webview, since the guest-js `Menu` type still
+    /// allows a null `authoredDocument` and only `parse_project` (the load
+    /// path) normally runs `migrate_all_menus`. Every IPC command that
+    /// touches `menu.doc()` must guard against exactly this.
+    fn project_with_unmigrated_menu() -> SpindleProjectFile {
+        let mut project = SpindleProjectFile::default();
+        project.disc.titlesets[0]
+            .menus
+            .push(Menu::new("menu-1", "Main Menu"));
+        project
+    }
+
+    #[test]
+    fn validate_project_guard_does_not_panic_on_unmigrated_payload() {
+        let mut project = project_with_unmigrated_menu();
+        assert!(project.disc.titlesets[0].menus[0]
+            .authored_document
+            .is_none());
+
+        // Mirrors the guard added to the `validate_project` command body.
+        project.migrate_all_menus();
+        let issues = crate::validation::run(&project);
+
+        // Sensible behaviour: validation runs to completion (no panic) and
+        // returns real issues for the now-migrated, buttonless menu.
+        assert!(
+            issues.iter().any(|i| i.code == "menu.no-buttons"),
+            "expected validation to run on the migrated menu, got {issues:?}"
+        );
+    }
+
+    #[test]
+    fn estimate_disc_capacity_guard_does_not_panic_on_unmigrated_payload() {
+        let mut project = project_with_unmigrated_menu();
+
+        // Mirrors the guard added to the `estimate_disc_capacity` command body.
+        project.migrate_all_menus();
+        let estimate = build::estimate_disc_capacity(&project);
+
+        // Sensible behaviour: an estimate comes back instead of a panic.
+        assert!(estimate.capacity_bytes > 0.0);
+    }
+
+    #[test]
+    fn auto_generate_menu_nav_guard_does_not_panic_on_unmigrated_payload() {
+        let mut menu = Menu::new("menu-1", "Main Menu");
+        assert!(menu.authored_document.is_none());
+
+        // Mirrors the guard added to the `auto_generate_menu_nav` command body.
+        menu.ensure_document(
+            MenuDomain::Titleset,
+            VideoStandard::Ntsc,
+            AspectMode::SixteenByNine,
+        );
+        build::auto_generate_navigation(&mut menu);
+
+        // Sensible behaviour: the menu comes back with a document instead of panicking.
+        assert!(menu.authored_document.is_some());
+    }
 }
