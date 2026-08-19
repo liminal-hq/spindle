@@ -4,7 +4,8 @@
 // SPDX-License-Identifier: MIT
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { useMenuPlaybackStore } from './menu-playback-store';
+import { computeLoopWraparound, useMenuPlaybackStore } from './menu-playback-store';
+import type { LoopRegion } from './menu-playback-store';
 
 const initialState = useMenuPlaybackStore.getState();
 
@@ -154,5 +155,66 @@ describe('menu-playback-store', () => {
 		useMenuPlaybackStore.getState().reportPlaying(false);
 
 		expect(useMenuPlaybackStore.getState().playing).toBe(false);
+	});
+
+	it('stepFrame seeks by deltaFrames/fps seconds, clamped at zero', () => {
+		const video = fakeVideoEl({ currentTime: 1 });
+		useMenuPlaybackStore.getState().registerVideo(video);
+
+		useMenuPlaybackStore.getState().stepFrame(3, 30);
+		expect(video.currentTime).toBeCloseTo(1.1, 9);
+
+		useMenuPlaybackStore.getState().stepFrame(-100, 30);
+		expect(video.currentTime).toBe(0);
+	});
+
+	it('stepFrame is a no-op with no video registered or fps <= 0', () => {
+		expect(() => useMenuPlaybackStore.getState().stepFrame(1, 30)).not.toThrow();
+		const video = fakeVideoEl({ currentTime: 1 });
+		useMenuPlaybackStore.getState().registerVideo(video);
+		useMenuPlaybackStore.getState().stepFrame(1, 0);
+		expect(video.currentTime).toBe(1);
+	});
+
+	it('loop-region toggle flips loopRegionEnabled', () => {
+		expect(useMenuPlaybackStore.getState().loopRegionEnabled).toBe(true);
+		useMenuPlaybackStore.getState().toggleLoopRegionEnabled();
+		expect(useMenuPlaybackStore.getState().loopRegionEnabled).toBe(false);
+		useMenuPlaybackStore.getState().setLoopRegionEnabled(true);
+		expect(useMenuPlaybackStore.getState().loopRegionEnabled).toBe(true);
+	});
+
+	it('setLoopRegion stores the region', () => {
+		const region: LoopRegion = { startSecs: 2, durationSecs: 8 };
+		useMenuPlaybackStore.getState().setLoopRegion(region);
+		expect(useMenuPlaybackStore.getState().loopRegion).toEqual(region);
+	});
+});
+
+describe('computeLoopWraparound', () => {
+	const region: LoopRegion = { startSecs: 2, durationSecs: 8 }; // [2, 10)
+
+	it('returns null before the loop window ends', () => {
+		expect(computeLoopWraparound(5, region, true)).toBeNull();
+	});
+
+	it('returns the loop start once playback reaches the window end', () => {
+		expect(computeLoopWraparound(10, region, true)).toBe(2);
+	});
+
+	it('returns the loop start once playback passes the window end', () => {
+		expect(computeLoopWraparound(15, region, true)).toBe(2);
+	});
+
+	it('returns null when looping is disabled', () => {
+		expect(computeLoopWraparound(10, region, false)).toBeNull();
+	});
+
+	it('returns null with no region', () => {
+		expect(computeLoopWraparound(10, null, true)).toBeNull();
+	});
+
+	it('returns null for a zero-or-negative-duration region', () => {
+		expect(computeLoopWraparound(10, { startSecs: 2, durationSecs: 0 }, true)).toBeNull();
 	});
 });
