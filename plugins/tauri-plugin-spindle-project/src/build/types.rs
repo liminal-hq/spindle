@@ -102,6 +102,16 @@ pub enum BuildJob {
         /// before writing. Developer diagnostic option — not for normal builds.
         #[serde(default)]
         quantize_overlay_palette: bool,
+        /// Per-keyframe overlay PNG schedule for the DCSQ lowering of animated
+        /// highlight tracks (design decision D8) — always at least one entry.
+        /// A menu with no relevant `AnimationTrack`s gets a single entry
+        /// reusing `highlight_image_path`/`highlight_colour`/etc above, which
+        /// keeps that (overwhelmingly common) case's rendered output and
+        /// `<spu>` XML byte-identical to a build with no animation support at
+        /// all. `#[serde(default)]` so plans built before this field existed
+        /// deserialise cleanly.
+        #[serde(default)]
+        overlay_keyframes: Vec<OverlayKeyframeSpec>,
     },
     /// Generate spumux XML and overlay subtitles/highlights on a menu.
     ComposeMenuHighlights {
@@ -256,6 +266,25 @@ pub enum BuildJobStatus {
     Running,
     Complete,
     Failed,
+}
+
+/// One overlay-image frame in a motion menu's DCSQ lowering schedule (design
+/// decision D8) — a rendered highlight/select PNG pair, the effective
+/// menu-highlight colours at that instant, and the loop-relative window
+/// `[start_secs, end_secs)` it's shown for. `end_secs` is meaningless (and
+/// ignored) when this is the schedule's only frame — see
+/// `menu::generate_spumux_xml`, which keeps the single-frame case's `<spu>`
+/// output byte-identical to a build with no animation tracks at all.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OverlayKeyframeSpec {
+    pub start_secs: f64,
+    pub end_secs: f64,
+    pub highlight_image_path: String,
+    pub select_image_path: String,
+    /// `#rrggbbaa` — opacity baked into the alpha channel.
+    pub highlight_colour: String,
+    pub select_colour: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

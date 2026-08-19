@@ -6,7 +6,10 @@
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use super::menu::{generate_menu_overlay_images, MenuOverlayImages, MenuOverlayRender};
+use super::menu::{
+    generate_menu_overlay_images, generate_menu_overlay_images_for_keyframes, MenuOverlayImages,
+    MenuOverlayRender,
+};
 use super::skia::render_menu_scene_to_png;
 use super::types::{BuildJob, BuildJobStatus, BuildPlan, BuildProgress, BuildResult};
 use crate::models::{Asset, DiscFamily, MenuDocument, RenderTarget};
@@ -129,6 +132,7 @@ where
                 menu_document_json,
                 scene_assets_json,
                 quantize_overlay_palette,
+                overlay_keyframes,
                 ..
             } => {
                 let overlay_target = RenderTarget {
@@ -210,19 +214,35 @@ where
                     );
                 }
 
-                let render = MenuOverlayRender {
+                // `overlay_keyframes` is always non-empty for plans built by
+                // the current planner (at minimum a trivial single-frame
+                // schedule — see `planner::animation`); the single-pair path
+                // below only exists for plans persisted before this field
+                // existed (`#[serde(default)]` deserialises those as empty).
+                if overlay_keyframes.is_empty() {
+                    let render = MenuOverlayRender {
+                        menu_id,
+                        button_bounds,
+                        target: overlay_target,
+                    };
+                    let images = MenuOverlayImages {
+                        highlight_image_path,
+                        select_image_path,
+                        highlight_colour,
+                        select_colour,
+                        quantize_palette: *quantize_overlay_palette,
+                    };
+                    if let Err(msg) = generate_menu_overlay_images(&render, &images) {
+                        log_lines.push(msg.clone());
+                        return failure(plan, log_lines, i, msg);
+                    }
+                } else if let Err(msg) = generate_menu_overlay_images_for_keyframes(
                     menu_id,
                     button_bounds,
-                    target: overlay_target,
-                };
-                let images = MenuOverlayImages {
-                    highlight_image_path,
-                    select_image_path,
-                    highlight_colour,
-                    select_colour,
-                    quantize_palette: *quantize_overlay_palette,
-                };
-                if let Err(msg) = generate_menu_overlay_images(&render, &images) {
+                    overlay_target,
+                    overlay_keyframes,
+                    *quantize_overlay_palette,
+                ) {
                     log_lines.push(msg.clone());
                     return failure(plan, log_lines, i, msg);
                 }

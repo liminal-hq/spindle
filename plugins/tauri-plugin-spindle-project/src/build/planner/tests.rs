@@ -4,7 +4,10 @@
 // SPDX-License-Identifier: MIT
 
 use crate::build::test_support::{test_menu, test_project};
-use crate::build::{generate_build_plan, generate_build_plan_with_options, BuildJob};
+use crate::build::{
+    generate_build_plan, generate_build_plan_with_options, BuildJob, BuildPlan,
+    OverlayKeyframeSpec,
+};
 use crate::models::*;
 
 #[test]
@@ -531,5 +534,148 @@ fn build_plan_rejects_menu_with_missing_image_asset() {
     assert!(
         msg.contains("Main Menu"),
         "error should name the menu: {msg}"
+    );
+}
+
+// ── Overlay-keyframe schedule (design decision D8) ──────────────────────────
+
+fn render_menu_overlay_keyframes(plan: &BuildPlan) -> &[OverlayKeyframeSpec] {
+    plan.jobs
+        .iter()
+        .find_map(|j| match j {
+            BuildJob::RenderMenu {
+                overlay_keyframes, ..
+            } => Some(overlay_keyframes.as_slice()),
+            _ => None,
+        })
+        .expect("expected a RenderMenu job")
+}
+
+fn compose_menu_spumux_xml(plan: &BuildPlan) -> &str {
+    plan.jobs
+        .iter()
+        .find_map(|j| match j {
+            BuildJob::ComposeMenuHighlights { spumux_xml, .. } => Some(spumux_xml.as_str()),
+            _ => None,
+        })
+        .expect("expected a ComposeMenuHighlights job")
+}
+
+fn highlight_colour_track(node_id: &str, stops: &[(f64, &str)]) -> AnimationTrack {
+    AnimationTrack {
+        node_id: node_id.to_string(),
+        target: AnimatableProperty::HighlightColour,
+        keyframes: stops
+            .iter()
+            .map(|(t, hex)| Keyframe {
+                timestamp_secs: *t,
+                value: KeyValue::Colour {
+                    hex: (*hex).to_string(),
+                },
+                easing: Easing::Hold,
+            })
+            .collect(),
+    }
+}
+
+#[test]
+fn build_plan_with_no_animation_tracks_gets_a_trivial_single_overlay_keyframe() {
+    let mut project = test_project();
+    project.disc.global_menus.push(test_menu());
+
+    let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+
+    let frames = render_menu_overlay_keyframes(&plan);
+    assert_eq!(frames.len(), 1);
+    assert!(frames[0].highlight_image_path.ends_with("_highlight.png"));
+    assert!(frames[0].select_image_path.ends_with("_select.png"));
+
+    assert_eq!(compose_menu_spumux_xml(&plan).matches("<spu ").count(), 1);
+}
+
+#[test]
+fn build_plan_motion_menu_with_highlight_track_builds_multi_frame_schedule() {
+    let mut project = test_project();
+    let mut menu = test_menu();
+    {
+        let doc = menu.doc_mut();
+        doc.background_mode = BackgroundMode::Motion;
+        doc.scene.background.asset_id = Some("asset-1".to_string());
+        doc.timing.loop_start_secs = 0.0;
+        doc.timing.loop_duration_secs = 4.0;
+        doc.animation = vec![highlight_colour_track(
+            "btn-1",
+            &[(0.0, "#ff0000"), (2.0, "#00ff00")],
+        )];
+    }
+    project.disc.global_menus.push(menu);
+
+    let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+
+    let frames = render_menu_overlay_keyframes(&plan);
+    assert_eq!(frames.len(), 2, "expected one frame per keyframe timestamp");
+    assert_eq!(frames[0].start_secs, 0.0);
+    assert_eq!(frames[0].end_secs, 2.0);
+    assert_eq!(frames[0].highlight_colour, "#ff000099");
+    assert_eq!(frames[1].start_secs, 2.0);
+    assert_eq!(frames[1].highlight_colour, "#00ff0099");
+    assert!(frames[0].highlight_image_path.contains("_hl_k0"));
+    assert!(frames[1].highlight_image_path.contains("_hl_k1"));
+
+    assert_eq!(compose_menu_spumux_xml(&plan).matches("<spu ").count(), 2);
+}
+
+#[test]
+fn build_plan_still_menu_with_track_degrades_to_first_keyframe_only() {
+    let mut project = test_project();
+    let mut menu = test_menu();
+    {
+        let doc = menu.doc_mut();
+        // background_mode stays Still (test_menu()'s default).
+        doc.animation = vec![highlight_colour_track(
+            "btn-1",
+            &[(0.0, "#ff0000"), (2.0, "#00ff00")],
+        )];
+    }
+    project.disc.global_menus.push(menu);
+
+    let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+
+    let frames = render_menu_overlay_keyframes(&plan);
+    assert_eq!(
+        frames.len(),
+        1,
+        "a still menu with tracks must degrade to a single frame — see docs/dcsq-player-compat.md"
+    );
+    assert_eq!(
+        frames[0].highlight_colour, "#ff000099",
+        "the degrade must bake in only the first keyframe's value"
+    );
+}
+
+#[test]
+fn build_plan_animation_track_targeting_a_missing_node_is_ignored() {
+    let mut project = test_project();
+    let mut menu = test_menu();
+    {
+        let doc = menu.doc_mut();
+        doc.background_mode = BackgroundMode::Motion;
+        doc.scene.background.asset_id = Some("asset-1".to_string());
+        doc.timing.loop_start_secs = 0.0;
+        doc.timing.loop_duration_secs = 4.0;
+        doc.animation = vec![highlight_colour_track(
+            "btn-does-not-exist",
+            &[(0.0, "#ff0000"), (2.0, "#00ff00")],
+        )];
+    }
+    project.disc.global_menus.push(menu);
+
+    let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+
+    let frames = render_menu_overlay_keyframes(&plan);
+    assert_eq!(
+        frames.len(),
+        1,
+        "a track with no matching button should be ignored by the schedule"
     );
 }

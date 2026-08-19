@@ -18,12 +18,14 @@ use super::menu::{
 use super::menu_motion::{build_ffmpeg_motion_segment_command, plan_motion_segments};
 use super::types::{BuildJob, BuildPlan, BuildSummary, MenuOverlayButton};
 
+mod animation;
 mod helpers;
 mod paths;
 #[cfg(test)]
 mod tests;
 mod toolchain;
 
+use animation::build_overlay_keyframe_schedule;
 use helpers::{generate_text_subtitle_spumux_xml, strip_unknown_codec_subtitle_mappings};
 use paths::BuildPaths;
 use toolchain::ResolvedToolchain;
@@ -384,6 +386,14 @@ pub fn generate_build_plan_with_options(
         }
         let scene_assets_json = serde_json::to_string(&scene_assets_map).unwrap_or_default();
 
+        let overlay_keyframes = build_overlay_keyframe_schedule(
+            &menu_ref,
+            duration_secs,
+            project.disc.standard,
+            &paths.menus_dir,
+            &menu_paths,
+        );
+
         jobs.push(BuildJob::RenderMenu {
             menu_id: menu_ref.menu.id.clone(),
             menu_name: menu_ref.name().to_string(),
@@ -434,6 +444,7 @@ pub fn generate_build_plan_with_options(
             menu_document_json,
             scene_assets_json,
             quantize_overlay_palette,
+            overlay_keyframes: overlay_keyframes.clone(),
         });
 
         let spumux_xml = generate_spumux_xml(
@@ -442,6 +453,7 @@ pub fn generate_build_plan_with_options(
             &paths.menus_dir,
             scale_x,
             scale_y,
+            &overlay_keyframes,
         );
         jobs.push(BuildJob::ComposeMenuHighlights {
             menu_id: menu_ref.menu.id.clone(),
