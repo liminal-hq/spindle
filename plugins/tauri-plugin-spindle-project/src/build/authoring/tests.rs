@@ -9,10 +9,69 @@ use crate::build::test_support::{
     test_project,
 };
 use crate::models::{
-    AspectMode, AudioOutputTarget, AudioTrackMapping, ChapterPoint, CopyMode, PlaybackAction,
-    SubtitleStreamInfo, SubtitleTrackMapping, SubtitleType, Title, VideoOutputProfile, VideoRaster,
-    VideoTrackMapping,
+    AspectMode, AudioOutputTarget, AudioTrackMapping, BackgroundMode, ChapterPoint, CopyMode,
+    FocusNode, HighlightMode, Menu, MenuCompilePolicy, MenuDocument, MenuDomain,
+    MenuHighlightColours, MenuInteractionGraph, MenuRole, MenuScene, MenuSize, MenuTiming,
+    PlaybackAction, SceneBackground, SceneNode, SubtitleStreamInfo, SubtitleTrackMapping,
+    SubtitleType, Title, VideoOutputProfile, VideoRaster, VideoTrackMapping,
 };
+
+use super::generate_dvdauthor_xml;
+
+/// Build a motion menu document with one authored button and the given
+/// timing/timeout — the motion-PGC-authoring analogue of
+/// `test_support::test_menu_with_action`, which always builds a still menu.
+fn motion_test_menu(
+    menu_id: &str,
+    menu_name: &str,
+    timing: MenuTiming,
+    timeout_action: Option<PlaybackAction>,
+) -> Menu {
+    Menu::new(menu_id, menu_name).with_document(MenuDocument {
+        id: menu_id.to_string(),
+        name: menu_name.to_string(),
+        domain: MenuDomain::Vmgm,
+        role: MenuRole::TitleSelect,
+        scene: MenuScene {
+            design_size: MenuSize::default(),
+            background: SceneBackground {
+                asset_id: Some("motion-bg".to_string()),
+                colour: None,
+            },
+            nodes: vec![SceneNode::Button {
+                id: "btn-1".to_string(),
+                label: "Play".to_string(),
+                x: 120.0,
+                y: 320.0,
+                width: 240.0,
+                height: 48.0,
+                highlight_mode: HighlightMode::Static,
+                highlight_keyframes: vec![],
+                video_asset_id: None,
+                button_style: None,
+                label_style: None,
+            }],
+            guides: vec![],
+        },
+        interaction: MenuInteractionGraph {
+            default_focus_id: Some("btn-1".to_string()),
+            nodes: vec![FocusNode {
+                node_id: "btn-1".to_string(),
+                action: Some(PlaybackAction::PlayTitle {
+                    title_id: "title-1".to_string(),
+                }),
+                ..FocusNode::default()
+            }],
+            timeout_action,
+        },
+        timing,
+        highlight_colours: MenuHighlightColours::default(),
+        background_mode: BackgroundMode::Motion,
+        theme_ref: None,
+        generation_meta: None,
+        compile_policy: MenuCompilePolicy::default(),
+    })
+}
 
 fn make_title(id: &str, name: &str, order_index: u32) -> Title {
     Title {
@@ -862,5 +921,196 @@ fn menu_button_order_preserved_with_mixed_action_and_no_action_buttons() {
     assert!(
         buttons[2].contains("exit"),
         "Slot 3 should be the stop/exit button"
+    );
+}
+
+// ── Motion menu <post>/<vob> authoring (design decision D3) ────────────────
+
+#[test]
+fn still_menu_pgc_keeps_pause_inf_and_no_post() {
+    let mut project = test_project();
+    project.disc.global_menus.push(test_menu());
+
+    let xml = generate_dvdauthor_xml(
+        &project,
+        std::path::Path::new("/tmp/titles"),
+        std::path::Path::new("/tmp/menus"),
+        std::path::Path::new("/tmp/dvd_root"),
+    )
+    .unwrap();
+
+    assert!(
+        xml.contains("pause=\"inf\""),
+        "still menu vob should keep pause=\"inf\", got:\n{xml}"
+    );
+    // The titles section has its own unrelated `<post>` (end action), so
+    // scope this assertion to the menus section only.
+    let menus_section = xml
+        .split("<menus>")
+        .nth(1)
+        .and_then(|s| s.split("</menus>").next())
+        .expect("expected a <menus> section");
+    assert!(
+        !menus_section.contains("<post>"),
+        "still menu pgc should not emit a <post>, got:\n{xml}"
+    );
+}
+
+#[test]
+fn motion_menu_pgc_no_intro_uses_single_vob_without_pause_and_jumps_cell_one() {
+    let mut project = test_project();
+    let menu = motion_test_menu(
+        "menu-1",
+        "Motion Menu",
+        MenuTiming {
+            intro_start_secs: 0.0,
+            intro_duration_secs: 0.0,
+            loop_start_secs: 2.0,
+            loop_duration_secs: 5.0,
+            loop_count: 0,
+            audio_asset_id: None,
+        },
+        None,
+    );
+    project.disc.global_menus.push(menu);
+
+    let xml = generate_dvdauthor_xml(
+        &project,
+        std::path::Path::new("/tmp/titles"),
+        std::path::Path::new("/tmp/menus"),
+        std::path::Path::new("/tmp/dvd_root"),
+    )
+    .unwrap();
+
+    assert!(
+        !xml.contains("pause=\"inf\""),
+        "motion menu vob must not carry pause=\"inf\", got:\n{xml}"
+    );
+    assert!(
+        xml.contains("menu-1.mpg\" />"),
+        "expected an un-paused vob for the loop cell, got:\n{xml}"
+    );
+    assert!(
+        !xml.contains("menu-1_intro.mpg"),
+        "no intro was authored, so no intro vob should be emitted, got:\n{xml}"
+    );
+    assert!(
+        xml.contains("<post>\n          jump cell 1;\n        </post>"),
+        "K == 0 should lower to an infinite jump cell 1, got:\n{xml}"
+    );
+}
+
+#[test]
+fn motion_menu_pgc_with_intro_emits_two_vobs_and_targets_loop_cell_two() {
+    let mut project = test_project();
+    let menu = motion_test_menu(
+        "menu-1",
+        "Motion Menu",
+        MenuTiming {
+            intro_start_secs: 0.0,
+            intro_duration_secs: 1.5,
+            loop_start_secs: 2.0,
+            loop_duration_secs: 5.0,
+            loop_count: 0,
+            audio_asset_id: None,
+        },
+        None,
+    );
+    project.disc.global_menus.push(menu);
+
+    let xml = generate_dvdauthor_xml(
+        &project,
+        std::path::Path::new("/tmp/titles"),
+        std::path::Path::new("/tmp/menus"),
+        std::path::Path::new("/tmp/dvd_root"),
+    )
+    .unwrap();
+
+    let intro_pos = xml.find("menu-1_intro.mpg").expect("expected intro vob");
+    let loop_pos = xml.find("menu-1.mpg").expect("expected loop vob");
+    assert!(
+        intro_pos < loop_pos,
+        "intro vob (cell 1) must come before the loop vob (cell 2), got:\n{xml}"
+    );
+    assert!(
+        xml.contains("<post>\n          jump cell 2;\n        </post>"),
+        "with an intro, the loop cell is 2, got:\n{xml}"
+    );
+}
+
+#[test]
+fn motion_menu_pgc_counts_loop_and_falls_through_to_timeout_when_k_positive() {
+    let mut project = test_project();
+    let menu = motion_test_menu(
+        "menu-1",
+        "Motion Menu",
+        MenuTiming {
+            intro_start_secs: 0.0,
+            intro_duration_secs: 0.0,
+            loop_start_secs: 2.0,
+            loop_duration_secs: 5.0,
+            loop_count: 3,
+            audio_asset_id: None,
+        },
+        Some(PlaybackAction::PlayTitle {
+            title_id: "title-1".to_string(),
+        }),
+    );
+    project.disc.global_menus.push(menu);
+
+    let xml = generate_dvdauthor_xml(
+        &project,
+        std::path::Path::new("/tmp/titles"),
+        std::path::Path::new("/tmp/menus"),
+        std::path::Path::new("/tmp/dvd_root"),
+    )
+    .unwrap();
+
+    assert!(
+        xml.contains("<pre>\n          g1 = 0;\n"),
+        "re-entering the pgc must reset the loop counter, got:\n{xml}"
+    );
+    assert!(
+        xml.contains(
+            "<post>\n          g1 = g1 + 1; if (g1 lt 3) { jump cell 1; } g1 = 0; jump title 1;\n        </post>"
+        ),
+        "K > 0 with a timeout action should count and fall through, got:\n{xml}"
+    );
+}
+
+#[test]
+fn motion_menu_pgc_degrades_to_infinite_loop_when_k_positive_but_no_timeout() {
+    let mut project = test_project();
+    let menu = motion_test_menu(
+        "menu-1",
+        "Motion Menu",
+        MenuTiming {
+            intro_start_secs: 0.0,
+            intro_duration_secs: 0.0,
+            loop_start_secs: 2.0,
+            loop_duration_secs: 5.0,
+            loop_count: 3,
+            audio_asset_id: None,
+        },
+        None,
+    );
+    project.disc.global_menus.push(menu);
+
+    let xml = generate_dvdauthor_xml(
+        &project,
+        std::path::Path::new("/tmp/titles"),
+        std::path::Path::new("/tmp/menus"),
+        std::path::Path::new("/tmp/dvd_root"),
+    )
+    .unwrap();
+
+    assert!(
+        xml.contains("<post>\n          jump cell 1;\n        </post>"),
+        "K > 0 with no timeout must degrade to the same infinite jump as K == 0 \
+         (a <post> must never fall off the end), got:\n{xml}"
+    );
+    assert!(
+        !xml.contains("g1"),
+        "the degraded infinite-loop form must not touch the unused counter, got:\n{xml}"
     );
 }

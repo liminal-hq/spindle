@@ -14,7 +14,10 @@ use crate::build::test_support::{test_menu_with_action, test_project};
 use crate::build::{
     execute_build_plan, generate_build_plan, BuildJob, BuildPlan, BuildProgress, BuildSummary,
 };
-use crate::models::{PlaybackAction, SubtitleRenderMode, SubtitleStreamInfo, SubtitleType};
+use crate::models::{
+    BackgroundMode, MenuTiming, PlaybackAction, SubtitleRenderMode, SubtitleStreamInfo,
+    SubtitleType,
+};
 
 use super::{reset_workspace_directory, subtitle_file_has_cues};
 
@@ -610,6 +613,222 @@ fn execute_build_plan_smoke_authors_text_subtitle_stream() {
             .any(|line| line.trim() == "dvd_subtitle"),
         "expected authored title MPEG to include a dvd_subtitle stream, got:\n{subtitle_codecs}"
     );
+
+    fs::remove_dir_all(&output_dir).unwrap();
+}
+
+#[test]
+#[ignore = "requires ffmpeg, ffprobe, spumux, and dvdauthor on PATH"]
+fn execute_build_plan_smoke_authors_motion_menu_intro_and_loop() {
+    // Real-subprocess regression test for the motion-menu backend (design
+    // decisions D1/D3): a single ffmpeg compose per segment (intro + loop),
+    // spumux run only on the loop segment, and a dvdauthor `<post>` that
+    // counts loops and falls through to the timeout action.
+    let Some(ffmpeg_bin) = find_tool_on_path("ffmpeg") else {
+        eprintln!("Skipping smoke test because `ffmpeg` is not available on PATH.");
+        return;
+    };
+    let Some(ffprobe_bin) = find_tool_on_path("ffprobe") else {
+        eprintln!("Skipping smoke test because `ffprobe` is not available on PATH.");
+        return;
+    };
+    if find_tool_on_path("spumux").is_none() || find_tool_on_path("dvdauthor").is_none() {
+        eprintln!(
+            "Skipping smoke test because `spumux` and/or `dvdauthor` are not available on PATH."
+        );
+        return;
+    }
+
+    let output_dir = unique_temp_dir("build-motion-menu-smoke");
+    let source_path = output_dir.join("source.mp4");
+    fs::create_dir_all(&output_dir).unwrap();
+
+    let ffmpeg_status = Command::new(&ffmpeg_bin)
+        .args([
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "testsrc2=duration=6:size=320x240:rate=30",
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=frequency=440:duration=6",
+            "-shortest",
+            "-c:v",
+            "libx264",
+            "-pix_fmt",
+            "yuv420p",
+            "-c:a",
+            "aac",
+            "-b:a",
+            "128k",
+        ])
+        .arg(&source_path)
+        .status()
+        .expect("ffmpeg should launch for motion menu smoke test fixture generation");
+    assert!(
+        ffmpeg_status.success(),
+        "ffmpeg fixture generation failed with status {ffmpeg_status}"
+    );
+
+    let mut project = test_project();
+    project.assets[0].source_path = source_path.display().to_string();
+    project.assets[0].file_name = "source.mp4".to_string();
+    project.assets[0].duration_secs = Some(6.0);
+    project.assets[0].video_streams[0].width = 320;
+    project.assets[0].video_streams[0].height = 240;
+    project.assets[0].video_streams[0].frame_rate = Some(30.0);
+    // Trim the fixture's default chapter list to fit the 6s source — the
+    // default second chapter sits at 300s.
+    project.disc.titlesets[0].titles[0].chapters =
+        vec![project.disc.titlesets[0].titles[0].chapters[0].clone()];
+
+    let mut motion_menu = test_menu_with_action(
+        "menu-motion",
+        "Motion Main Menu",
+        PlaybackAction::PlayTitle {
+            title_id: "title-1".to_string(),
+        },
+    );
+    {
+        let doc = motion_menu.doc_mut();
+        doc.background_mode = BackgroundMode::Motion;
+        doc.scene.background.asset_id = Some("asset-1".to_string());
+        doc.timing = MenuTiming {
+            intro_start_secs: 0.0,
+            intro_duration_secs: 1.0,
+            loop_start_secs: 1.0,
+            loop_duration_secs: 3.0,
+            loop_count: 2,
+            audio_asset_id: None,
+        };
+        doc.interaction.timeout_action = Some(PlaybackAction::PlayTitle {
+            title_id: "title-1".to_string(),
+        });
+    }
+    project.disc.global_menus.push(motion_menu);
+
+    let plan = generate_build_plan(&project, output_dir.to_str().unwrap(), true).unwrap();
+
+    assert!(
+        plan.dvdauthor_xml.contains("<post>"),
+        "expected the motion menu's dvdauthor XML to contain a <post>, got:\n{}",
+        plan.dvdauthor_xml
+    );
+    assert!(
+        plan.dvdauthor_xml.contains("jump cell 2"),
+        "expected the loop <post> to target cell 2 (intro is cell 1), got:\n{}",
+        plan.dvdauthor_xml
+    );
+
+    let result = execute_build_plan(&plan, |_| {});
+    if !result.success {
+        panic!(
+            "expected motion menu smoke build to succeed\n{}",
+            result.log_lines.join("\n")
+        );
+    }
+
+    let menus_dir = PathBuf::from(&plan.working_directory).join("menus");
+    let loop_path = menus_dir.join("menu-motion.mpg");
+    let intro_path = menus_dir.join("menu-motion_intro.mpg");
+
+    assert!(loop_path.exists(), "expected the loop menu MPEG to exist");
+    assert!(intro_path.exists(), "expected the intro menu MPEG to exist");
+
+    // Probe duration plus the video/audio codec names specifically (rather
+    // than dumping every stream, which also picks up the DVD nav-packet
+    // and, on the loop segment only, the spumux subpicture stream — neither
+    // of which is what "both cells must share identical layout" is about).
+    let probe_stream_info = |path: &PathBuf| -> (f64, String, String) {
+        let duration_output = Command::new(&ffprobe_bin)
+            .args([
+                "-v",
+                "error",
+                "-show_entries",
+                "format=duration",
+                "-of",
+                "csv=p=0",
+            ])
+            .arg(path)
+            .output()
+            .expect("ffprobe should launch");
+        assert!(
+            duration_output.status.success(),
+            "ffprobe duration probe failed for {}: {}",
+            path.display(),
+            String::from_utf8_lossy(&duration_output.stderr)
+        );
+        let duration: f64 = String::from_utf8_lossy(&duration_output.stdout)
+            .trim()
+            .parse()
+            .unwrap_or_else(|e| panic!("expected a numeric duration for {}: {e}", path.display()));
+
+        let probe_codec = |select_stream: &str| -> String {
+            let output = Command::new(&ffprobe_bin)
+                .args([
+                    "-v",
+                    "error",
+                    "-select_streams",
+                    select_stream,
+                    "-show_entries",
+                    "stream=codec_name",
+                    "-of",
+                    "csv=p=0",
+                ])
+                .arg(path)
+                .output()
+                .expect("ffprobe should launch");
+            assert!(
+                output.status.success(),
+                "ffprobe codec probe ({select_stream}) failed for {}: {}",
+                path.display(),
+                String::from_utf8_lossy(&output.stderr)
+            );
+            // Some ffprobe builds emit a stray trailing comma from the csv
+            // writer even with a single requested field (`p=0`).
+            String::from_utf8_lossy(&output.stdout)
+                .trim()
+                .trim_end_matches(',')
+                .to_string()
+        };
+
+        (duration, probe_codec("v:0"), probe_codec("a:0"))
+    };
+
+    let (loop_duration, loop_video_codec, loop_audio_codec) = probe_stream_info(&loop_path);
+    assert!(
+        (2.5..=3.6).contains(&loop_duration),
+        "expected loop segment duration in [2.5, 3.6]s, got {loop_duration}"
+    );
+    assert_eq!(loop_video_codec, "mpeg2video");
+    assert_eq!(loop_audio_codec, "ac3");
+
+    let (intro_duration, intro_video_codec, intro_audio_codec) = probe_stream_info(&intro_path);
+    assert!(
+        (0.6..=1.4).contains(&intro_duration),
+        "expected intro segment duration in [0.6, 1.4]s, got {intro_duration}"
+    );
+    assert_eq!(
+        (intro_video_codec.as_str(), intro_audio_codec.as_str()),
+        (loop_video_codec.as_str(), loop_audio_codec.as_str()),
+        "expected the intro and loop segments to share the same video/audio codec \
+         layout (both cells must have identical streams or dvdauthor rejects the disc)"
+    );
+
+    // This project's only menu is a VMGM (global) menu, not a titleset menu,
+    // so the titleset has no menu VOB of its own — title content starts at
+    // VTS_01_1.VOB rather than VTS_01_0.VOB.
+    let title_vob_path = output_dir.join("DVD_DISC/VIDEO_TS/VTS_01_1.VOB");
+    assert!(
+        title_vob_path.exists(),
+        "expected VTS_01_1.VOB in authored output"
+    );
+    let vob_len = fs::metadata(&title_vob_path)
+        .expect("VTS_01_1.VOB should have metadata")
+        .len();
+    assert!(vob_len > 0, "expected VTS_01_1.VOB to be non-empty");
 
     fs::remove_dir_all(&output_dir).unwrap();
 }
