@@ -21,10 +21,10 @@ function renderLane(overrides: { track: AnimationTrack; fps?: number }) {
 	const onDeleteKeyframe = vi.fn();
 	const onSeek = vi.fn();
 
-	const utils = render(
+	const lane = (track: AnimationTrack) => (
 		<TimelineKeyframeLane
 			geometry={geometry}
-			track={overrides.track}
+			track={track}
 			nodeId="btn-1"
 			target="highlight-colour"
 			loopStartSecs={0}
@@ -37,10 +37,13 @@ function renderLane(overrides: { track: AnimationTrack; fps?: number }) {
 			onUpdateKeyframeEasing={vi.fn() as TimelineKeyframeLaneProps['onUpdateKeyframeEasing']}
 			onDeleteKeyframe={onDeleteKeyframe as TimelineKeyframeLaneProps['onDeleteKeyframe']}
 			onSeek={onSeek}
-		/>,
+		/>
 	);
 
-	return { ...utils, onMoveKeyframe, onAddKeyframe, onDeleteKeyframe, onSeek };
+	const utils = render(lane(overrides.track));
+	const rerenderLane = (track: AnimationTrack) => utils.rerender(lane(track));
+
+	return { ...utils, rerenderLane, onMoveKeyframe, onAddKeyframe, onDeleteKeyframe, onSeek };
 }
 
 const oneKeyframeTrack: AnimationTrack = {
@@ -237,15 +240,27 @@ describe('TimelineKeyframeLane', () => {
 		expect(queryByRole('dialog')).toBeNull();
 	});
 
-	it('keeps the popover open when a timestamp edit does not cross a neighbour', () => {
-		const { getAllByRole, getByRole, onMoveKeyframe } = renderLane({ track: twoKeyframeTrack });
+	it('keeps the popover bound to its keyframe through a committed retime', () => {
+		// The popover binding is timestamp-keyed: retiming updates the binding
+		// to the new time, and once the parent commits the move (simulated by
+		// the rerender), the popover is still open on the same keyframe.
+		const { getAllByRole, getByRole, onMoveKeyframe, rerenderLane } = renderLane({
+			track: twoKeyframeTrack,
+		});
 		const [firstDiamond] = getAllByRole('button', { name: /keyframe at/i });
 		fireEvent.doubleClick(firstDiamond);
 
 		const timestampInput = getByRole('spinbutton', { name: /timestamp/i });
 		fireEvent.change(timestampInput, { target: { value: '2' } }); // still before the 5s keyframe
-
 		expect(onMoveKeyframe).toHaveBeenCalledWith('btn-1', 'highlight-colour', 0, 2);
+
+		rerenderLane({
+			...twoKeyframeTrack,
+			keyframes: [
+				{ timestampSecs: 2, value: { kind: 'colour', hex: '#111111' }, easing: 'hold' },
+				twoKeyframeTrack.keyframes[1],
+			],
+		});
 		expect(getByRole('dialog')).toBeTruthy();
 	});
 
@@ -263,12 +278,13 @@ describe('TimelineKeyframeLane', () => {
 		expect(onMoveKeyframe).toHaveBeenCalledWith('btn-1', 'highlight-colour', 0, 10);
 	});
 
-	it('closes an open popover when a DIFFERENT keyframe is dragged past it', () => {
-		// The finding's core scenario: dragging one keyframe across another
-		// re-sorts the array out from under an unrelated open popover.
-		const { getAllByRole, getByRole, queryByRole } = renderLane({ track: twoKeyframeTrack });
+	it('keeps the popover on its own keyframe when a DIFFERENT keyframe is dragged past it', () => {
+		// The binding is timestamp-keyed, so a reordering drag of an
+		// unrelated keyframe leaves the popover bound to the same keyframe it
+		// was opened on — even after the parent commits the re-sorted array.
+		const { getAllByRole, getByRole, rerenderLane } = renderLane({ track: twoKeyframeTrack });
 		const [firstDiamond, secondDiamond] = getAllByRole('button', { name: /keyframe at/i });
-		fireEvent.doubleClick(secondDiamond); // popover open on the 5s keyframe (index 1)
+		fireEvent.doubleClick(secondDiamond); // popover open on the 5s keyframe
 		expect(getByRole('dialog')).toBeTruthy();
 
 		(firstDiamond as unknown as { setPointerCapture: () => void }).setPointerCapture = () => {};
@@ -277,7 +293,16 @@ describe('TimelineKeyframeLane', () => {
 		fireEvent.pointerMove(lane, { clientX: 280 }); // 7s, past the 5s neighbour
 		fireEvent.pointerUp(lane);
 
-		expect(queryByRole('dialog')).toBeNull();
+		rerenderLane({
+			...twoKeyframeTrack,
+			keyframes: [
+				twoKeyframeTrack.keyframes[1], // the 5s keyframe, now first
+				{ timestampSecs: 7, value: { kind: 'colour', hex: '#111111' }, easing: 'hold' },
+			],
+		});
+
+		const timestampInput = getByRole('spinbutton', { name: /timestamp/i });
+		expect((timestampInput as HTMLInputElement).value).toBe('5');
 	});
 
 	it('does not seek or insert a keyframe when clicking/double-clicking inside the open popover', () => {
@@ -302,21 +327,26 @@ describe('TimelineKeyframeLane', () => {
 		expect(getByRole('dialog')).toBeTruthy();
 	});
 
-	it('closes the popover when a keyframe is inserted before it', () => {
-		// Regression test: inserting a keyframe re-sorts the track's array
-		// (see `animationWriters.addKeyframe`) — a new keyframe timestamped
-		// before the open popover's keyframe shifts that keyframe's index up
-		// by one. Without a fix, the popover would silently keep editing
-		// whatever keyframe the sort left behind at the stale index.
-		const { getAllByRole, getByRole, queryByRole } = renderLane({ track: twoKeyframeTrack });
+	it('keeps the popover on its own keyframe when one is inserted before it', () => {
+		// Insertion re-sorts the array (`animationWriters.addKeyframe`) and can
+		// arrive from OUTSIDE the lane too (the inspector's add-at-playhead) —
+		// the timestamp-keyed binding must keep editing the same keyframe
+		// after the parent commits the grown array.
+		const { getAllByRole, getByRole, rerenderLane } = renderLane({ track: twoKeyframeTrack });
 		const [, secondDiamond] = getAllByRole('button', { name: /keyframe at/i });
-		fireEvent.doubleClick(secondDiamond); // popover open on the 5s keyframe (index 1)
+		fireEvent.doubleClick(secondDiamond); // popover open on the 5s keyframe
 		expect(getByRole('dialog')).toBeTruthy();
 
-		const lane = getByRole('group');
-		fireEvent.doubleClick(lane, { clientX: 80 }); // 2s, before the open 5s keyframe
+		rerenderLane({
+			...twoKeyframeTrack,
+			keyframes: [
+				{ timestampSecs: 2, value: { kind: 'colour', hex: '#333333' }, easing: 'hold' },
+				...twoKeyframeTrack.keyframes,
+			],
+		});
 
-		expect(queryByRole('dialog')).toBeNull();
+		const timestampInput = getByRole('spinbutton', { name: /timestamp/i });
+		expect((timestampInput as HTMLInputElement).value).toBe('5');
 	});
 
 	it('keeps the popover open when a keyframe is inserted after it', () => {

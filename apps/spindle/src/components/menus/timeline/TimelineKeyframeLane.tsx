@@ -11,14 +11,8 @@
 // value/easing popover; double-click empty lane space inserts a keyframe at
 // that time; Delete/Backspace removes the selected keyframe.
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import type {
-	AnimatableProperty,
-	AnimationTrack,
-	Easing,
-	Keyframe,
-	KeyValue,
-} from '../../../types/project';
+import { useCallback, useRef, useState } from 'react';
+import type { AnimatableProperty, AnimationTrack, Easing, KeyValue } from '../../../types/project';
 import type { TimelineGeometry } from './useTimelineGeometry';
 import { snapSecsToFrame } from './useTimelineGeometry';
 import { evaluateTrack } from '../../../utils/animation';
@@ -26,20 +20,6 @@ import { KeyframeEditorPopover } from './KeyframeEditorPopover';
 
 function clamp(v: number, lo: number, hi: number): number {
 	return Math.min(Math.max(v, lo), Math.max(lo, hi));
-}
-
-/** Whether retiming the keyframe at `index` to `newTimestampSecs` would move
- * it across an immediate neighbour, which `moveKeyframe` resolves by
- * re-sorting the whole array. Index-keyed UI state (selection, the open
- * popover) that refers to a DIFFERENT keyframe than the one just retimed
- * must not survive a reorder — it would silently point at whatever
- * keyframe the sort left behind at that index. */
-function willReorder(keyframes: Keyframe[], index: number, newTimestampSecs: number): boolean {
-	const prev = keyframes[index - 1];
-	const next = keyframes[index + 1];
-	if (prev && newTimestampSecs < prev.timestampSecs) return true;
-	if (next && newTimestampSecs > next.timestampSecs) return true;
-	return false;
 }
 
 export interface TimelineKeyframeLaneProps {
@@ -100,8 +80,16 @@ export function TimelineKeyframeLane({
 	onDeleteKeyframe,
 	onSeek,
 }: TimelineKeyframeLaneProps) {
-	const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
-	const [popoverIndex, setPopoverIndex] = useState<number | null>(null);
+	// Selection and the open popover are bound by keyframe IDENTITY — the
+	// keyframe's timestamp — not by array index. The array can be re-sorted or
+	// grown by paths this lane never sees (the inspector's add-at-playhead,
+	// the editor's global undo, a drag or retime crossing a neighbour), and
+	// every index-keyed binding eventually pointed at the wrong keyframe in
+	// one of them. A timestamp binding follows its keyframe through all of
+	// that; the indices the parent's writers need are derived fresh each
+	// render, and a binding whose keyframe no longer exists derives to null.
+	const [selectedStamp, setSelectedStamp] = useState<number | null>(null);
+	const [popoverStamp, setPopoverStamp] = useState<number | null>(null);
 	const [dragIndex, setDragIndex] = useState<number | null>(null);
 	const [dragTimestampSecs, setDragTimestampSecs] = useState<number | null>(null);
 	const laneRef = useRef<HTMLDivElement>(null);
@@ -113,18 +101,17 @@ export function TimelineKeyframeLane({
 
 	const keyframes = track?.keyframes ?? [];
 
-	// The keyframe array can shrink from OUTSIDE the lane's own guarded paths
-	// — the editor's global undo is the obvious one — leaving popover/selection
-	// indices pointing past the end. Clear them, or the next handler that
-	// dereferences `keyframes[popoverIndex]` throws instead of editing.
-	useEffect(() => {
-		if (popoverIndex !== null && popoverIndex >= keyframes.length) {
-			setPopoverIndex(null);
-		}
-		if (selectedIndex !== null && selectedIndex >= keyframes.length) {
-			setSelectedIndex(null);
-		}
-	}, [keyframes.length, popoverIndex, selectedIndex]);
+	const indexForStamp = (stamp: number | null): number | null => {
+		if (stamp === null) return null;
+		const i = keyframes.findIndex((kf) => kf.timestampSecs === stamp);
+		return i >= 0 ? i : null;
+	};
+	const selectedIndex = indexForStamp(selectedStamp);
+	const popoverIndex = indexForStamp(popoverStamp);
+	// A binding whose keyframe doesn't (currently) exist derives to null and
+	// renders nothing — deliberately WITHOUT clearing the stored stamp, so a
+	// retime whose parent commit lands a render later re-binds seamlessly.
+	// Deleting through the popover clears its stamps explicitly below.
 
 	const pxXFromClientX = useCallback((clientX: number) => {
 		const rect = laneRef.current?.getBoundingClientRect();
@@ -134,7 +121,7 @@ export function TimelineKeyframeLane({
 	const handleDiamondPointerDown = useCallback(
 		(index: number, e: React.PointerEvent) => {
 			e.stopPropagation();
-			setSelectedIndex(index);
+			setSelectedStamp(keyframes[index].timestampSecs);
 			setDragIndex(index);
 			setDragTimestampSecs(keyframes[index].timestampSecs);
 			hasMovedRef.current = false;
@@ -159,19 +146,29 @@ export function TimelineKeyframeLane({
 	const handlePointerUp = useCallback(() => {
 		if (dragIndex === null || dragTimestampSecs === null) return;
 		if (hasMovedRef.current) {
-			if (willReorder(keyframes, dragIndex, dragTimestampSecs)) {
-				// The commit below re-sorts the array; any open popover or
-				// selection keyed by index would silently start pointing at
-				// whatever keyframe the sort left at that index. Close/clear
-				// rather than risk an edit or delete landing on the wrong one.
-				setSelectedIndex(null);
-				setPopoverIndex(null);
+			// The dragged keyframe's identity IS its timestamp — retarget any
+			// binding that referred to the old one before committing, so the
+			// selection/popover follow the keyframe to its new time (a reorder
+			// re-sorts the array, but identity bindings don't care).
+			const oldStamp = keyframes[dragIndex]?.timestampSecs ?? null;
+			if (oldStamp !== null) {
+				if (selectedStamp === oldStamp) setSelectedStamp(dragTimestampSecs);
+				if (popoverStamp === oldStamp) setPopoverStamp(dragTimestampSecs);
 			}
 			onMoveKeyframe(nodeId, target, dragIndex, dragTimestampSecs);
 		}
 		setDragIndex(null);
 		setDragTimestampSecs(null);
-	}, [dragIndex, dragTimestampSecs, keyframes, nodeId, onMoveKeyframe, target]);
+	}, [
+		dragIndex,
+		dragTimestampSecs,
+		keyframes,
+		nodeId,
+		onMoveKeyframe,
+		popoverStamp,
+		selectedStamp,
+		target,
+	]);
 
 	const handleLaneDoubleClick = useCallback(
 		(e: React.MouseEvent) => {
@@ -179,36 +176,20 @@ export function TimelineKeyframeLane({
 			const rawSecs = Math.max(0, geometry.pxToSecs(pxX) - loopStartSecs);
 			const timestampSecs = clamp(snapSecsToFrame(rawSecs, fps), 0, loopDurationSecs);
 			const sampled = track ? evaluateTrack(track, timestampSecs) : null;
-			// Inserting re-sorts the track's keyframes (see `animationWriters`'
-			// `addKeyframe`): a new keyframe timestamped strictly before the
-			// popover's/selection's keyframe shifts that keyframe's index up by
-			// one. Same stale-index hazard `willReorder` guards against above —
-			// close rather than silently let the popover/selection drift onto
-			// whatever keyframe the sort left behind at that index.
-			// Optional-chained: an out-of-range index (external shrink, e.g.
-			// undo, before the clearing effect has run) must not throw here.
-			const popoverKf = popoverIndex !== null ? keyframes[popoverIndex] : undefined;
-			if (popoverIndex !== null && (!popoverKf || timestampSecs < popoverKf.timestampSecs)) {
-				setPopoverIndex(null);
-			}
-			const selectedKf = selectedIndex !== null ? keyframes[selectedIndex] : undefined;
-			if (selectedIndex !== null && (!selectedKf || timestampSecs < selectedKf.timestampSecs)) {
-				setSelectedIndex(null);
-			}
+			// Insertion re-sorts the array, but the popover/selection bindings
+			// are timestamp-keyed and simply follow their keyframe — no
+			// clearing needed.
 			onAddKeyframe(nodeId, target, timestampSecs, sampled ?? defaultValue);
 		},
 		[
 			defaultValue,
 			fps,
 			geometry,
-			keyframes,
 			loopDurationSecs,
 			loopStartSecs,
 			nodeId,
 			onAddKeyframe,
-			popoverIndex,
 			pxXFromClientX,
-			selectedIndex,
 			target,
 			track,
 		],
@@ -223,27 +204,28 @@ export function TimelineKeyframeLane({
 		[geometry, onSeek, pxXFromClientX],
 	);
 
-	const handleDiamondDoubleClick = useCallback((index: number, e: React.MouseEvent) => {
-		e.stopPropagation();
-		setPopoverIndex(index);
-	}, []);
+	const handleDiamondDoubleClick = useCallback(
+		(index: number, e: React.MouseEvent) => {
+			e.stopPropagation();
+			setPopoverStamp(keyframes[index].timestampSecs);
+		},
+		[keyframes],
+	);
 
 	const handleKeyDown = useCallback(
 		(e: React.KeyboardEvent) => {
 			if ((e.key === 'Delete' || e.key === 'Backspace') && selectedIndex !== null) {
 				e.preventDefault();
-				// Deleting at or before the popover's index shifts what that
-				// index points at — the same stale-index hazard the insert and
-				// retime paths guard against, so close rather than let the
-				// popover silently rebind to the next keyframe.
-				if (popoverIndex !== null && selectedIndex <= popoverIndex) {
-					setPopoverIndex(null);
+				// Deleting the popover's OWN keyframe closes it; deleting a
+				// different one leaves it bound (identity-keyed) to its own.
+				if (popoverStamp !== null && popoverStamp === selectedStamp) {
+					setPopoverStamp(null);
 				}
 				onDeleteKeyframe(nodeId, target, selectedIndex);
-				setSelectedIndex(null);
+				setSelectedStamp(null);
 			}
 		},
-		[nodeId, onDeleteKeyframe, popoverIndex, selectedIndex, target],
+		[nodeId, onDeleteKeyframe, popoverStamp, selectedIndex, selectedStamp, target],
 	);
 
 	const loopEndPx = geometry.secsToPx(loopStartSecs + Math.max(loopDurationSecs, 0));
@@ -281,19 +263,16 @@ export function TimelineKeyframeLane({
 						onClick={(e) => {
 							e.stopPropagation();
 							// The pointerup that ends a real drag is followed by a
-							// trailing native `click` on this same element — if that
-							// drag reordered the array, `handlePointerUp` already
-							// cleared the selection (see `willReorder` above), but
-							// this click would otherwise re-set it to `index`, which
-							// after the re-sort may now refer to a DIFFERENT
-							// keyframe than the one the user actually dragged. Consume
-							// it rather than let a follow-up Delete remove the wrong
-							// keyframe.
+							// trailing native `click` on this same element. After a
+							// reorder, `index` may now be a DIFFERENT keyframe than
+							// the one dragged — consume the click so it can't move
+							// the selection off the keyframe the user actually
+							// dragged (pointer-up already retargeted its binding).
 							if (hasMovedRef.current) {
 								hasMovedRef.current = false;
 								return;
 							}
-							setSelectedIndex(index);
+							setSelectedStamp(kf.timestampSecs);
 						}}
 						title={`${kf.timestampSecs.toFixed(2)}s`}
 						aria-label={`Keyframe at ${kf.timestampSecs.toFixed(2)} seconds`}
@@ -311,26 +290,22 @@ export function TimelineKeyframeLane({
 					onChangeValue={(value) => onUpdateKeyframeValue(nodeId, target, popoverIndex, value)}
 					onChangeEasing={(easing) => onUpdateKeyframeEasing(nodeId, target, popoverIndex, easing)}
 					onChangeTimestamp={(timestampSecs) => {
-						// Same stale-index hazard as the drag path above: retiming
-						// past a neighbour re-sorts the array, so keep editing the
-						// keyframe under the popover only while it's still the one
-						// at `popoverIndex` after the commit — otherwise close it.
-						if (willReorder(keyframes, popoverIndex, timestampSecs)) {
-							setSelectedIndex(null);
-							setPopoverIndex(null);
-						}
+						// The keyframe's identity IS its timestamp — retarget the
+						// bindings to the new time before committing so they keep
+						// following the keyframe through any re-sort.
+						if (selectedStamp === popoverStamp) setSelectedStamp(timestampSecs);
+						setPopoverStamp(timestampSecs);
 						onMoveKeyframe(nodeId, target, popoverIndex, timestampSecs);
 					}}
 					onDelete={() => {
 						onDeleteKeyframe(nodeId, target, popoverIndex);
-						setPopoverIndex(null);
-						// A successor keyframe inherits the deleted one's index
-						// on the rerender — clear the selection too, or a lane
-						// Delete keypress removes it unintentionally (same
-						// guard as the keyboard-deletion path).
-						setSelectedIndex(null);
+						setPopoverStamp(null);
+						// Clear a selection bound to the same (deleted) keyframe so
+						// a follow-up lane Delete keypress can't fire on nothing —
+						// a selection on a DIFFERENT keyframe stays.
+						if (selectedStamp === popoverStamp) setSelectedStamp(null);
 					}}
-					onClose={() => setPopoverIndex(null)}
+					onClose={() => setPopoverStamp(null)}
 				/>
 			)}
 		</div>
