@@ -364,7 +364,7 @@ Intersecting issues: #28, #29, #53, #55, #63, #64.
 
 ### Slice D — Timeline & animated highlights
 
-**Status: implemented (#108)** — `AnimationTrack` model + parity-pinned Rust/TS evaluators, the timeline strip (`apps/spindle/src/components/menus/timeline/`), and the DCSQ lowering shipped; the per-keyframe multi-`<spu>` route (a) below was implemented, so the raw-DCSQ-writer fallback was not needed.
+**Status: partial (#108)** — `AnimationTrack` model + parity-pinned Rust/TS evaluators, the timeline strip (`apps/spindle/src/components/menus/timeline/`), and the DCSQ lowering shipped; the per-keyframe multi-`<spu>` route (a) below was implemented, so the raw-DCSQ-writer fallback was not needed. Still outstanding: the UI can only ever CREATE a `highlight-colour` track — `ButtonInspector`'s "Add keyframe at playhead" is hard-coded to that target, and the timeline strip only renders a lane for a track that already exists (e.g. lifted from legacy data), with no control to start authoring `highlight-opacity`, `activate-colour`, or `activate-opacity` from scratch.
 
 **Goal:** a real timeline in the editor; keyframed animation that compiles.
 
