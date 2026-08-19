@@ -216,6 +216,11 @@ export function TimelineKeyframeLane({
 		(e: React.KeyboardEvent) => {
 			if ((e.key === 'Delete' || e.key === 'Backspace') && selectedIndex !== null) {
 				e.preventDefault();
+				// Stop the keystroke here: MenuEditor registers a document-level
+				// Delete/Backspace shortcut that removes the SELECTED SCENE
+				// NODE — without this, one keypress deletes both the keyframe
+				// and the node (plus its remaining tracks).
+				e.stopPropagation();
 				// Deleting the popover's OWN keyframe closes it; deleting a
 				// different one leaves it bound (identity-keyed) to its own.
 				if (popoverStamp !== null && popoverStamp === selectedStamp) {
