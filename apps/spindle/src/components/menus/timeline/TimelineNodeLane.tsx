@@ -12,6 +12,8 @@ import { TimelineKeyframeLane } from './TimelineKeyframeLane';
 const TARGET_LABELS: Record<AnimatableProperty, string> = {
 	'highlight-colour': 'Highlight colour',
 	'highlight-opacity': 'Highlight opacity',
+	'activate-colour': 'Activate colour',
+	'activate-opacity': 'Activate opacity',
 	opacity: 'Opacity',
 	position: 'Position',
 };
