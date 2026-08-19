@@ -683,8 +683,12 @@
 .menus__canvas-zone {
 	position: relative;
 	display: flex;
-	align-items: center;
-	justify-content: center;
+	/* Column flex: `.menus__canvas-scroll` (the centred canvas viewport) takes
+	   the remaining space, with the timeline strip pinned below it as a
+	   fixed-height sibling — see `.menus__timeline-strip` below. Both live
+	   inside this grid cell only, so the strip never extends under the
+	   356px inspector column next door. */
+	flex-direction: column;
 	background: #08080c;
 	background-image: radial-gradient(
 		circle at 50% 50%,
@@ -753,7 +757,11 @@
 .menus__canvas-scroll {
 	--scene-zoom: 1;
 	width: 100%;
-	height: 100%;
+	/* Grow to fill the space above the timeline strip (a fixed-height
+	   sibling further down `.menus__canvas-zone`'s column flex) rather than
+	   a hardcoded 100% height, which would push the strip out of view. */
+	flex: 1 1 auto;
+	min-height: 0;
 	display: grid;
 	/* `center` only centers when content fits; once the 720x{canvasHeight}
 	   viewport overflows this container (the common case below 'wide'),

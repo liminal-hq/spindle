@@ -12,12 +12,16 @@ import { useProjectStore } from '../../store/project-store';
 import { useMenuPlaybackStore } from '../../store/menu-playback-store';
 import type { DisplayDensity } from '../../hooks/useDisplayDensity';
 import type {
+	AnimatableProperty,
 	AspectMode,
+	Easing,
 	FontEntry,
+	KeyValue,
 	Menu,
 	MenuButton,
 	MenuHighlightColours,
 	MenuRole,
+	MenuTiming,
 	PlaybackAction,
 	SpindleProjectFile,
 	SceneNode,
@@ -34,6 +38,14 @@ import { DEFAULT_BUTTON_STYLE_MAP, DEFAULT_TEXT_STYLE } from './menuDefaults';
 import { getMenuButtons } from './menuProjectHelpers';
 import { useFormatProfile } from '../../format/useFormatProfile';
 import { terminologyFor } from '../../format/terminology';
+import { TimelineStrip } from './timeline/TimelineStrip';
+import {
+	addKeyframe,
+	deleteKeyframe,
+	moveKeyframe,
+	updateKeyframeEasing,
+	updateKeyframeValue,
+} from './timeline/animationWriters';
 import './SceneEditor.css';
 
 function resolveMenuDisplayAspect(project: SpindleProjectFile, menu: Menu): AspectMode {
@@ -295,6 +307,10 @@ export function MenuEditor({
 				...document.scene,
 				nodes: document.scene.nodes.map((node) => {
 					if (node.type === 'button' && node.id === buttonId) {
+						// `highlightMode`/`highlightKeyframes` are the legacy per-button
+						// animation model — animation now lives on `document.animation`
+						// (see the `handleAddKeyframe` family below), so this writer no
+						// longer passes those fields through.
 						return {
 							...node,
 							label: updates.label ?? node.label,
@@ -302,8 +318,6 @@ export function MenuEditor({
 							y: updates.bounds?.y ?? node.y,
 							width: updates.bounds?.width ?? node.width,
 							height: updates.bounds?.height ?? node.height,
-							highlightMode: updates.highlightMode ?? node.highlightMode,
-							highlightKeyframes: updates.highlightKeyframes ?? node.highlightKeyframes,
 							videoAssetId: updates.videoAssetId ?? node.videoAssetId,
 						};
 					}
@@ -518,6 +532,112 @@ export function MenuEditor({
 	const handleSetLoopStartFromPlayhead = () => {
 		const currentTime = useMenuPlaybackStore.getState().currentTime;
 		handleMotionLoopStartChange(currentTime);
+	};
+
+	// ── Timeline: animation-track writers ──────────────────────────────────
+	// Each writer maps to exactly one `updateMenuDocument` call, so a drag
+	// interaction committed once on pointer-up produces exactly one undo
+	// entry (see `TimelineKeyframeLane`/`TimelineRegionBar`).
+
+	const handleAddKeyframe = (
+		nodeId: string,
+		target: AnimatableProperty,
+		timestampSecs: number,
+		value: KeyValue,
+	) => {
+		updateMenuDocument(menu.id, (document) => ({
+			...document,
+			animation: addKeyframe(document.animation ?? [], nodeId, target, timestampSecs, value),
+		}));
+	};
+
+	const handleMoveKeyframe = (
+		nodeId: string,
+		target: AnimatableProperty,
+		keyframeIndex: number,
+		newTimestampSecs: number,
+	) => {
+		updateMenuDocument(menu.id, (document) => ({
+			...document,
+			animation: moveKeyframe(
+				document.animation ?? [],
+				nodeId,
+				target,
+				keyframeIndex,
+				newTimestampSecs,
+			),
+		}));
+	};
+
+	const handleUpdateKeyframeValue = (
+		nodeId: string,
+		target: AnimatableProperty,
+		keyframeIndex: number,
+		value: KeyValue,
+	) => {
+		updateMenuDocument(menu.id, (document) => ({
+			...document,
+			animation: updateKeyframeValue(
+				document.animation ?? [],
+				nodeId,
+				target,
+				keyframeIndex,
+				value,
+			),
+		}));
+	};
+
+	const handleUpdateKeyframeEasing = (
+		nodeId: string,
+		target: AnimatableProperty,
+		keyframeIndex: number,
+		easing: Easing,
+	) => {
+		updateMenuDocument(menu.id, (document) => ({
+			...document,
+			animation: updateKeyframeEasing(
+				document.animation ?? [],
+				nodeId,
+				target,
+				keyframeIndex,
+				easing,
+			),
+		}));
+	};
+
+	const handleDeleteKeyframe = (
+		nodeId: string,
+		target: AnimatableProperty,
+		keyframeIndex: number,
+	) => {
+		updateMenuDocument(menu.id, (document) => ({
+			...document,
+			animation: deleteKeyframe(document.animation ?? [], nodeId, target, keyframeIndex),
+		}));
+	};
+
+	const handleSetTimingField = (patch: Partial<MenuTiming>) => {
+		updateMenuDocument(menu.id, (document) => ({
+			...document,
+			timing: { ...document.timing, ...patch },
+		}));
+	};
+
+	/** "Add keyframe at playhead" — used by `ButtonInspector`'s highlight
+	 * animation row. Samples the current highlight-colour track (or the
+	 * menu's static highlight colours when the button has no track yet) at
+	 * the playhead's loop-relative time. */
+	const handleAddKeyframeAtPlayhead = (buttonId: string) => {
+		const { currentTime } = useMenuPlaybackStore.getState();
+		const timestampSecs = Math.max(
+			0,
+			currentTime - (menu.authoredDocument?.timing.loopStartSecs ?? 0),
+		);
+		const colours = highlightColours;
+		handleAddKeyframe(buttonId, 'highlight-colour', timestampSecs, {
+			kind: 'colour',
+			hex: colours.selectColour,
+		});
 	};
 
 	const handleDisplayAspectChange = (aspect: AspectMode) => {
@@ -811,6 +931,7 @@ export function MenuEditor({
 								backgroundAsset={backgroundAsset}
 								backgroundIsMotion={menu.authoredDocument?.backgroundMode === 'motion'}
 								backgroundInitialTimeSecs={menu.authoredDocument?.timing.loopStartSecs ?? 0}
+								animationTracks={menu.authoredDocument?.animation ?? []}
 								defaultButtonId={defaultFocusId}
 								previewMode={previewMode}
 								highlightColours={highlightColours}
@@ -823,6 +944,19 @@ export function MenuEditor({
 								formatProfile={formatProfile}
 							/>
 						</div>
+						{menu.authoredDocument && (
+							<TimelineStrip
+								document={menu.authoredDocument}
+								buttons={currentButtons}
+								assets={project.assets}
+								onAddKeyframe={handleAddKeyframe}
+								onMoveKeyframe={handleMoveKeyframe}
+								onUpdateKeyframeValue={handleUpdateKeyframeValue}
+								onUpdateKeyframeEasing={handleUpdateKeyframeEasing}
+								onDeleteKeyframe={handleDeleteKeyframe}
+								onSetTimingField={handleSetTimingField}
+							/>
+						)}
 					</div>
 
 					{(!inspectorIsOverlay || inspectorVisible) && (
@@ -872,6 +1006,7 @@ export function MenuEditor({
 								availableFonts={availableFonts}
 								formatProfile={formatProfile}
 								onUpdateRole={handleRoleChange}
+								onAddKeyframeAtPlayhead={handleAddKeyframeAtPlayhead}
 							/>
 						</div>
 					)}

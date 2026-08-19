@@ -111,6 +111,10 @@ export interface InspectorPanelProps {
 	formatProfile?: FormatProfile;
 	/** Reassign the current menu's semantic role. */
 	onUpdateRole?: (role: MenuRole) => void;
+	/** Add a highlight-colour keyframe for a button at the current preview
+	 * playhead position — the "Add keyframe at playhead" affordance in
+	 * `ButtonInspector`'s Highlight Animation row. */
+	onAddKeyframeAtPlayhead?: (buttonId: string) => void;
 }
 
 export function InspectorPanel({
@@ -156,6 +160,7 @@ export function InspectorPanel({
 	availableFonts,
 	formatProfile,
 	onUpdateRole,
+	onAddKeyframeAtPlayhead,
 }: InspectorPanelProps) {
 	const inspectorTitle = getInspectorTitle(selectedNode, selectedButton);
 	const inspectorSubtitle = getInspectorSubtitle(selectedNode, selectedButton, buttons);
@@ -241,6 +246,8 @@ export function InspectorPanel({
 						buttonPreviewState={buttonPreviewState ?? 'normal'}
 						onButtonPreviewStateChange={onButtonPreviewStateChange}
 						availableFonts={availableFonts}
+						document={document ?? null}
+						onAddKeyframeAtPlayhead={onAddKeyframeAtPlayhead}
 					/>
 				) : selectedNode.type === 'text' ? (
 					<TextNodeInspector
