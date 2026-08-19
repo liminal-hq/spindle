@@ -3,12 +3,20 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: MIT
 
-import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import { LayersPanel } from './LayersPanel';
 import { InspectorPanel } from './InspectorPanel';
 import { SceneCanvas } from './SceneCanvas';
-import type { SceneNode, MenuButton, MenuHighlightColours, Asset, Menu } from '../../types/project';
+import type {
+	AnimationTrack,
+	SceneNode,
+	MenuButton,
+	MenuDocument,
+	MenuHighlightColours,
+	Asset,
+	Menu,
+} from '../../types/project';
 import { DEFAULT_HIGHLIGHT_COLOURS, createDefaultMenuCompilePolicy } from '../../types/project';
 import {
 	buildAudioSetupMenu,
@@ -16,6 +24,8 @@ import {
 	buildSubtitleSetupMenu,
 } from './menuGenerators';
 import { getMenuButtons } from './menuProjectHelpers';
+import { TimelineStrip } from './timeline/TimelineStrip';
+import { useMenuPlaybackStore } from '../../store/menu-playback-store';
 
 // ── LayersPanel ────────────────────────────────────────────────────────────
 
@@ -1426,5 +1436,259 @@ describe('SceneCanvas', () => {
 			type: 'sequence',
 			actions: [{ type: 'setSubtitleStream', streamIndex: 1 }],
 		});
+	});
+});
+
+// ── Timeline strip (PR 8) ────────────────────────────────────────────────
+
+const timelineTestButton: MenuButton = {
+	id: 'btn-1',
+	label: 'Play',
+	bounds: { x: 100, y: 300, width: 200, height: 40 },
+	action: null,
+	navUp: null,
+	navDown: null,
+	navLeft: null,
+	navRight: null,
+	highlightMode: 'static',
+	highlightKeyframes: [],
+	videoAssetId: null,
+};
+
+const timelineTestButtonNode: SceneNode = {
+	type: 'button',
+	id: 'btn-1',
+	label: 'Play',
+	x: 100,
+	y: 300,
+	width: 200,
+	height: 40,
+};
+
+function buildMenuDocument(overrides: Partial<MenuDocument> = {}): MenuDocument {
+	return {
+		id: 'menu-1',
+		name: 'Menu',
+		domain: 'vmgm',
+		role: 'title-select',
+		scene: {
+			designSize: { width: 720, height: 480, aspect: 'four-by-three' },
+			background: { assetId: null, colour: '#000000' },
+			nodes: [],
+			guides: [],
+		},
+		interaction: { defaultFocusId: null, nodes: [], timeoutAction: null },
+		timing: {
+			introStartSecs: 0,
+			introDurationSecs: 0,
+			loopStartSecs: 0,
+			loopDurationSecs: 10,
+			loopCount: 0,
+			audioAssetId: null,
+		},
+		highlightColours: DEFAULT_HIGHLIGHT_COLOURS,
+		backgroundMode: 'still',
+		themeRef: null,
+		generationMeta: null,
+		compilePolicy: createDefaultMenuCompilePolicy('four-by-three'),
+		animation: [],
+		...overrides,
+	};
+}
+
+describe('TimelineStrip', () => {
+	afterEach(() => {
+		useMenuPlaybackStore.setState({ loopRegion: null }, false);
+	});
+
+	it('renders when the menu has a motion background', () => {
+		render(
+			<TimelineStrip
+				document={buildMenuDocument({ backgroundMode: 'motion' })}
+				buttons={[]}
+				assets={[]}
+				onAddKeyframe={vi.fn()}
+				onMoveKeyframe={vi.fn()}
+				onUpdateKeyframeValue={vi.fn()}
+				onUpdateKeyframeEasing={vi.fn()}
+				onDeleteKeyframe={vi.fn()}
+				onSetTimingField={vi.fn()}
+			/>,
+		);
+
+		expect(screen.getByTestId('timeline-strip')).toBeTruthy();
+	});
+
+	it('is hidden for a still menu with no animation tracks', () => {
+		const { container } = render(
+			<TimelineStrip
+				document={buildMenuDocument({ backgroundMode: 'still', animation: [] })}
+				buttons={[]}
+				assets={[]}
+				onAddKeyframe={vi.fn()}
+				onMoveKeyframe={vi.fn()}
+				onUpdateKeyframeValue={vi.fn()}
+				onUpdateKeyframeEasing={vi.fn()}
+				onDeleteKeyframe={vi.fn()}
+				onSetTimingField={vi.fn()}
+			/>,
+		);
+
+		expect(container.firstChild).toBeNull();
+	});
+
+	it('renders for a still menu that has an authored animation track', () => {
+		const tracks: AnimationTrack[] = [
+			{
+				nodeId: 'btn-1',
+				target: 'highlight-colour',
+				keyframes: [
+					{ timestampSecs: 0, value: { kind: 'colour', hex: '#ff0000' }, easing: 'hold' },
+				],
+			},
+		];
+		render(
+			<TimelineStrip
+				document={buildMenuDocument({ backgroundMode: 'still', animation: tracks })}
+				buttons={[timelineTestButton]}
+				assets={[]}
+				onAddKeyframe={vi.fn()}
+				onMoveKeyframe={vi.fn()}
+				onUpdateKeyframeValue={vi.fn()}
+				onUpdateKeyframeEasing={vi.fn()}
+				onDeleteKeyframe={vi.fn()}
+				onSetTimingField={vi.fn()}
+			/>,
+		);
+
+		expect(screen.getByTestId('timeline-strip')).toBeTruthy();
+	});
+});
+
+describe('ButtonInspector highlight animation (PR 8)', () => {
+	it('no longer renders the legacy Static/Animated highlight-mode dropdown', () => {
+		render(
+			<InspectorPanel
+				selectedNode={timelineTestButtonNode}
+				selectedButton={timelineTestButton}
+				highlightColours={DEFAULT_HIGHLIGHT_COLOURS}
+				allTitles={[]}
+				allMenus={[]}
+				currentMenuId="menu-1"
+				onUpdateButton={vi.fn()}
+				onUpdateHighlightColours={vi.fn()}
+				onRemoveButton={vi.fn()}
+			/>,
+		);
+
+		expect(screen.queryByText('Highlight Mode')).toBeNull();
+		expect(screen.getByText('Highlight Animation')).toBeTruthy();
+		expect(screen.getByText(/No animated highlight yet/)).toBeTruthy();
+	});
+
+	it('shows a keyframe-count summary once the button has animation tracks', () => {
+		const onAddKeyframeAtPlayhead = vi.fn();
+		render(
+			<InspectorPanel
+				selectedNode={timelineTestButtonNode}
+				selectedButton={timelineTestButton}
+				highlightColours={DEFAULT_HIGHLIGHT_COLOURS}
+				allTitles={[]}
+				allMenus={[]}
+				currentMenuId="menu-1"
+				onUpdateButton={vi.fn()}
+				onUpdateHighlightColours={vi.fn()}
+				onRemoveButton={vi.fn()}
+				document={buildMenuDocument({
+					animation: [
+						{
+							nodeId: timelineTestButton.id,
+							target: 'highlight-colour',
+							keyframes: [
+								{ timestampSecs: 0, value: { kind: 'colour', hex: '#ff0000' }, easing: 'hold' },
+								{ timestampSecs: 1, value: { kind: 'colour', hex: '#00ff00' }, easing: 'hold' },
+							],
+						},
+					],
+				})}
+				onAddKeyframeAtPlayhead={onAddKeyframeAtPlayhead}
+			/>,
+		);
+
+		expect(screen.getByText(/2 keyframes across 1 track/)).toBeTruthy();
+		fireEvent.click(screen.getByText('Add keyframe at playhead'));
+		expect(onAddKeyframeAtPlayhead).toHaveBeenCalledWith(timelineTestButton.id);
+	});
+});
+
+describe('Navigation preview highlight animation (PR 8)', () => {
+	const initialPlaybackState = useMenuPlaybackStore.getState();
+
+	afterEach(() => {
+		useMenuPlaybackStore.setState(initialPlaybackState, true);
+	});
+
+	it("samples the focused button's highlight colour at the playhead and updates as it crosses a keyframe", () => {
+		const previewButtons: MenuButton[] = [
+			{
+				id: 'btn-1',
+				label: 'Play',
+				bounds: { x: 100, y: 300, width: 200, height: 40 },
+				action: null,
+				navUp: null,
+				navDown: null,
+				navLeft: null,
+				navRight: null,
+				highlightMode: 'static',
+				highlightKeyframes: [],
+				videoAssetId: null,
+			},
+		];
+		const tracks: AnimationTrack[] = [
+			{
+				nodeId: 'btn-1',
+				target: 'highlight-colour',
+				keyframes: [
+					{ timestampSecs: 0, value: { kind: 'colour', hex: '#ff0000' }, easing: 'hold' },
+					{ timestampSecs: 2, value: { kind: 'colour', hex: '#00ff00' }, easing: 'hold' },
+				],
+			},
+		];
+
+		act(() => {
+			useMenuPlaybackStore.setState({ currentTime: 0 });
+		});
+
+		const { container } = render(
+			<SceneCanvas
+				buttons={previewButtons}
+				canvasHeight={480}
+				sceneNodes={[]}
+				onUpdateButton={vi.fn()}
+				onUpdateSceneNode={vi.fn()}
+				showSafeArea={false}
+				backgroundLabel={null}
+				backgroundColour={null}
+				backgroundIsMotion={true}
+				backgroundInitialTimeSecs={0}
+				animationTracks={tracks}
+				defaultButtonId="btn-1"
+				previewMode={true}
+				highlightColours={DEFAULT_HIGHLIGHT_COLOURS}
+				honestPreview={false}
+				showNavLines={false}
+				selectedNodeId={null}
+				onSelectNode={vi.fn()}
+			/>,
+		);
+
+		const focused = () => container.querySelector('.scene-canvas__node--focused') as HTMLElement;
+		expect(focused().style.outline).toContain('#ff0000');
+
+		act(() => {
+			useMenuPlaybackStore.setState({ currentTime: 2.5 });
+		});
+
+		expect(focused().style.outline).toContain('#00ff00');
 	});
 });
