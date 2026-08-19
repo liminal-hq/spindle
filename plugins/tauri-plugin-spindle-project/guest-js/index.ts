@@ -190,7 +190,56 @@ export interface MenuDocument {
 	themeRef: string | null;
 	generationMeta: MenuGenerationMeta | null;
 	compilePolicy: MenuCompilePolicy;
+	/**
+	 * Keyframed animation tracks for this document's scene nodes. Supersedes
+	 * the legacy per-button `highlightMode`/`highlightKeyframes` model — see
+	 * {@link AnimationTrack}. Optional/absent on documents that predate this
+	 * field; the Rust side lifts legacy keyframes into tracks on load, so by
+	 * the time a document reaches the frontend this is always present.
+	 */
+	animation?: AnimationTrack[];
 }
+
+// ── Animation tracks ─────────────────────────────────────────────────────────
+
+/**
+ * A keyframed animation track targeting one animatable property of one
+ * scene node. TypeScript twin of
+ * `plugins/tauri-plugin-spindle-project/src/models/animation.rs` — keep in
+ * sync with the evaluator port in `apps/spindle/src/utils/animation.ts`.
+ */
+export interface AnimationTrack {
+	nodeId: string;
+	target: AnimatableProperty;
+	keyframes: Keyframe[];
+}
+
+/** The closed set of properties an {@link AnimationTrack} can drive. */
+export type AnimatableProperty = 'highlight-colour' | 'highlight-opacity' | 'opacity' | 'position';
+
+/**
+ * One keyframe within an {@link AnimationTrack}: a value at a point in time,
+ * with the easing applied to the segment that *follows* it.
+ */
+export interface Keyframe {
+	timestampSecs: number;
+	value: KeyValue;
+	easing: Easing;
+}
+
+/** The value carried by a {@link Keyframe}, internally tagged on `kind`. */
+export type KeyValue =
+	| { kind: 'colour'; hex: string }
+	| { kind: 'scalar'; value: number }
+	| { kind: 'point'; x: number; y: number };
+
+/**
+ * The closed set of easing curves an {@link AnimationTrack} segment can use.
+ * `hold` steps directly to the next keyframe's value with no interpolation
+ * (used by the DCSQ lowering, which always samples exactly at keyframe
+ * timestamps).
+ */
+export type Easing = 'linear' | 'hold' | 'ease-in' | 'ease-out' | 'ease-in-out';
 
 /** Menu domain indicates whether it belongs to the Video Manager (VMGM) or a Titleset. */
 export type MenuDomain = 'vmgm' | 'titleset';
@@ -586,6 +635,22 @@ export interface BuildSummary {
 	estimatedCommands: string[];
 }
 
+/**
+ * One overlay-image frame in a motion menu's DCSQ lowering schedule — a
+ * rendered highlight/select PNG pair, the effective menu-highlight colours
+ * at that instant, and the loop-relative window it's shown for. `endSecs`
+ * is meaningless when this is the schedule's only frame.
+ */
+export interface OverlayKeyframeSpec {
+	startSecs: number;
+	endSecs: number;
+	highlightImagePath: string;
+	selectImagePath: string;
+	/** `#rrggbbaa` — opacity baked into the alpha channel. */
+	highlightColour: string;
+	selectColour: string;
+}
+
 export type BuildJob =
 	| { type: 'prepareWorkspace'; directories: string[] }
 	| {
@@ -616,6 +681,10 @@ export type BuildJob =
 			 * absent for still menus and motion menus without an intro. */
 			introDurationSecs?: number | null;
 			label: string;
+			/** Per-keyframe overlay PNG schedule for the DCSQ lowering of animated
+			 * highlight tracks — always at least one entry once populated. See
+			 * {@link OverlayKeyframeSpec}. */
+			overlayKeyframes?: OverlayKeyframeSpec[];
 	  }
 	| {
 			type: 'composeMenuHighlights';
