@@ -22,7 +22,9 @@ export type { AnimatableProperty, AnimationTrack, Easing, KeyValue, Keyframe };
  *
  * - An empty track has no value: `null`.
  * - Before the first keyframe: the first keyframe's value (clamped, not
- *   extrapolated).
+ *   extrapolated) — or, when more than one leading keyframe shares that
+ *   timestamp, the last of that run (see the duplicate-timestamp note
+ *   below).
  * - After the last keyframe: the last keyframe's value.
  * - Between two keyframes `k0`, `k1`: `k0.easing` is applied to
  *   `u = (t - k0.timestampSecs) / (k1.timestampSecs - k0.timestampSecs)` —
@@ -40,7 +42,17 @@ export function evaluateTrack(track: AnimationTrack, tSecs: number): KeyValue | 
 
 	const first = keyframes[0];
 	if (keyframes.length === 1 || tSecs <= first.timestampSecs) {
-		return first.value;
+		// Mirror the mid-track duplicate-timestamp rule (see this fn's doc
+		// comment): if more than one leading keyframe shares `first`'s
+		// timestamp, the later one in authoring order wins at that instant.
+		let leading = first;
+		for (const kf of keyframes) {
+			if (kf.timestampSecs !== first.timestampSecs) {
+				break;
+			}
+			leading = kf;
+		}
+		return leading.value;
 	}
 
 	const last = keyframes[keyframes.length - 1];
@@ -113,10 +125,19 @@ function lerpValue(v0: KeyValue, v1: KeyValue, u: number): KeyValue {
 	return v0;
 }
 
-/** Parse a `#rrggbb`/`#rrggbbaa` hex colour into [r, g, b, a, hadAlpha]. */
+/**
+ * Parse a `#rrggbb`/`#rrggbbaa` hex colour into [r, g, b, a, hadAlpha].
+ * Matches the Rust port's `parse_hex_colour` byte-for-byte: a channel needs
+ * exactly two hex digits present or it falls back to `00`/`0` — a lone
+ * leftover digit (e.g. a 7-character string) does not get parsed as a
+ * partial byte.
+ */
 function parseHexColour(hex: string): [number, number, number, number, boolean] {
 	const h = hex.startsWith('#') ? hex.slice(1) : hex;
-	const byte = (start: number) => parseInt(h.slice(start, start + 2) || '00', 16) || 0;
+	const byte = (start: number) => {
+		const chunk = h.slice(start, start + 2);
+		return (chunk.length === 2 ? parseInt(chunk, 16) : NaN) || 0;
+	};
 	const r = byte(0);
 	const g = byte(2);
 	const b = byte(4);

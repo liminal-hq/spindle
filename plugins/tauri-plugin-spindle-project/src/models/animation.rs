@@ -80,7 +80,9 @@ pub enum Easing {
 ///
 /// - An empty track has no value: `None`.
 /// - Before the first keyframe: the first keyframe's value (clamped, not
-///   extrapolated).
+///   extrapolated) — or, when more than one leading keyframe shares that
+///   timestamp, the last of that run (see the duplicate-timestamp note
+///   below).
 /// - After the last keyframe: the last keyframe's value.
 /// - Between two keyframes `k0`, `k1`: `k0.easing` is applied to
 ///   `u = (t - k0.timestamp_secs) / (k1.timestamp_secs - k0.timestamp_secs)`
@@ -93,7 +95,15 @@ pub fn evaluate_track(track: &AnimationTrack, t_secs: f64) -> Option<KeyValue> {
     let keyframes = &track.keyframes;
     let first = keyframes.first()?;
     if keyframes.len() == 1 || t_secs <= first.timestamp_secs {
-        return Some(first.value.clone());
+        // Mirror the mid-track duplicate-timestamp rule (see this fn's doc
+        // comment): if more than one leading keyframe shares `first`'s
+        // timestamp, the later one in authoring order wins at that instant.
+        let leading = keyframes
+            .iter()
+            .take_while(|kf| kf.timestamp_secs == first.timestamp_secs)
+            .last()
+            .unwrap_or(first);
+        return Some(leading.value.clone());
     }
 
     let last = keyframes.last().expect("keyframes is non-empty");
@@ -318,6 +328,21 @@ mod tests {
     }
 
     #[test]
+    fn malformed_hex_channels_fall_back_to_zero() {
+        // A channel needs exactly two hex digits present or it falls back
+        // to 0 — a missing/short/invalid channel never parses as a partial
+        // byte. Pins the TS port's `parseHexColour` to the same rule (see
+        // animation.test.ts's `malformed hex channels fall back to zero`).
+        assert_eq!(parse_hex_colour("#f"), (0, 0, 0, 255, false));
+        assert_eq!(parse_hex_colour("#gggggg"), (0, 0, 0, 255, false));
+        assert_eq!(parse_hex_colour("#ff00"), (255, 0, 0, 255, false));
+        // The dangerous case: a channel with exactly one leftover hex digit
+        // (here the blue channel, `"5"`) must fall back to 0 rather than
+        // being parsed as a partial byte.
+        assert_eq!(parse_hex_colour("#12345"), (0x12, 0x34, 0, 255, false));
+    }
+
+    #[test]
     fn colour_lerp_rounds_half_up_at_one_third() {
         let track = colour_track(&[
             (0.0, "#000000", Easing::Linear),
@@ -346,6 +371,27 @@ mod tests {
                 hex: "#00ff00".to_string()
             })
         );
+    }
+
+    #[test]
+    fn duplicate_timestamp_later_keyframe_wins_at_the_leading_edge_too() {
+        let track = colour_track(&[
+            (0.0, "#ff0000", Easing::Linear),
+            (0.0, "#00ff00", Easing::Linear),
+            (1.0, "#0000ff", Easing::Linear),
+        ]);
+        // Both at, and strictly before, the shared leading timestamp: the
+        // later keyframe in the duplicate run wins, mirroring the mid-track
+        // rule above.
+        for t in [-1.0, 0.0] {
+            assert_eq!(
+                evaluate_track(&track, t),
+                Some(KeyValue::Colour {
+                    hex: "#00ff00".to_string()
+                }),
+                "t={t} should resolve to the later of the two leading duplicates"
+            );
+        }
     }
 
     #[test]

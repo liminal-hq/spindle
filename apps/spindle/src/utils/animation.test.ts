@@ -90,6 +90,45 @@ describe('evaluateTrack', () => {
 		]);
 		expect(evaluateTrack(track, 1.0)).toEqual({ kind: 'colour', hex: '#00ff00' });
 	});
+
+	it('lets the later keyframe win at a shared duplicate timestamp at the leading edge', () => {
+		const track = colourTrack([
+			[0.0, '#ff0000', 'linear'],
+			[0.0, '#00ff00', 'linear'],
+			[1.0, '#0000ff', 'linear'],
+		]);
+		for (const t of [-1.0, 0.0]) {
+			expect(evaluateTrack(track, t)).toEqual({ kind: 'colour', hex: '#00ff00' });
+		}
+	});
+
+	it('malformed hex channels fall back to zero, matching the Rust port', () => {
+		// A channel needs exactly two hex digits present or it falls back to
+		// 0 — a missing/short/invalid channel never parses as a partial
+		// byte (pins parity with `parse_hex_colour` in models/animation.rs).
+		// `evaluateTrack` only runs the hex parser during interpolation
+		// (sampling exactly at a keyframe returns its raw value unparsed),
+		// so these sample strictly between two identical malformed
+		// keyframes to force a lerp — interpolating identical colours
+		// leaves the result unchanged regardless of `u`, isolating the
+		// parser from the lerp math.
+		const shortLastChannel = colourTrack([
+			// h = "12345": the blue channel's would-be slice is the single
+			// leftover digit "5" — a naive `slice(...) || '00'` parses it
+			// as a partial byte (5); the fix must fall back to 0 instead,
+			// matching Rust's `h.get(4..6)` returning `None` for a
+			// too-short slice.
+			[0.0, '#12345', 'linear'],
+			[2.0, '#12345', 'linear'],
+		]);
+		expect(evaluateTrack(shortLastChannel, 1.0)).toEqual({ kind: 'colour', hex: '#123400' });
+
+		const invalidDigits = colourTrack([
+			[0.0, '#gggggg', 'linear'],
+			[2.0, '#gggggg', 'linear'],
+		]);
+		expect(evaluateTrack(invalidDigits, 1.0)).toEqual({ kind: 'colour', hex: '#000000' });
+	});
 });
 
 describe('sampleAtKeyframes', () => {

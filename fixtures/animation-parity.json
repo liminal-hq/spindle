@@ -250,6 +250,34 @@
 		"samples": [{ "t": 1.0, "expected": { "kind": "colour", "hex": "#00ff00" } }]
 	},
 	{
+		"name": "duplicate-timestamps-later-keyframe-wins-at-the-leading-edge",
+		"track": {
+			"nodeId": "btn-1",
+			"target": "highlight-colour",
+			"keyframes": [
+				{
+					"timestampSecs": 0.0,
+					"value": { "kind": "colour", "hex": "#ff0000" },
+					"easing": "linear"
+				},
+				{
+					"timestampSecs": 0.0,
+					"value": { "kind": "colour", "hex": "#00ff00" },
+					"easing": "linear"
+				},
+				{
+					"timestampSecs": 1.0,
+					"value": { "kind": "colour", "hex": "#0000ff" },
+					"easing": "linear"
+				}
+			]
+		},
+		"samples": [
+			{ "t": -1.0, "expected": { "kind": "colour", "hex": "#00ff00" } },
+			{ "t": 0.0, "expected": { "kind": "colour", "hex": "#00ff00" } }
+		]
+	},
+	{
 		"name": "point-target-linear-lerp",
 		"track": {
 			"nodeId": "btn-1",
