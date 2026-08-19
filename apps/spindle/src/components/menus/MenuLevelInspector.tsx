@@ -27,7 +27,6 @@ import { actionToString, stringToAction } from './inspectorHelpers';
 import { computeDiagnostics } from './inspectorDiagnostics';
 import { terminologyFor } from '../../format/terminology';
 import { DEFAULT_DVD_FORMAT_PROFILE } from '../../format/useFormatProfile';
-import { useMenuPlaybackStore } from '../../store/menu-playback-store';
 
 /** Every `MenuRole`, in a stable display order for the role picker. */
 const ROLE_ORDER: MenuRole[] = ['root', 'title-select', 'chapter', 'setup', 'extras', 'popup'];
@@ -125,9 +124,6 @@ export function MenuLevelInspector({
 			asset.videoStreams.length > 0 || asset.fileName.match(/\.(png|jpg|jpeg|bmp|tiff?)$/i),
 	);
 	const audioAssets = assets.filter((asset) => asset.audioStreams.length > 0);
-	const playbackDuration = useMenuPlaybackStore((s) => s.duration);
-	const playbackCurrentTime = useMenuPlaybackStore((s) => s.currentTime);
-	const playbackSeek = useMenuPlaybackStore((s) => s.seek);
 	const [backgroundTab, setBackgroundTab] = useState<'solid' | 'image' | 'video' | 'audio'>(
 		document?.backgroundMode === 'motion' ? 'video' : 'solid',
 	);
@@ -437,21 +433,8 @@ export function MenuLevelInspector({
 								))}
 							</select>
 						</label>
-						<label className="inspector-panel__field">
-							<span className="inspector-panel__field-label">
-								Scrub {playbackDuration > 0 ? `(${playbackDuration.toFixed(1)}s)` : ''}
-							</span>
-							<input
-								className="inspector-panel__range"
-								type="range"
-								min={0}
-								max={playbackDuration || 0}
-								step={0.1}
-								value={Math.min(playbackCurrentTime, playbackDuration || 0)}
-								onChange={(e) => playbackSeek(Number(e.target.value))}
-								disabled={document?.backgroundMode !== 'motion' || playbackDuration <= 0}
-							/>
-						</label>
+						{/* The PR 6 scrub slider is superseded by the timeline strip's
+						    scrubber (`TimelineScrubber`), mounted below the canvas. */}
 					</div>
 				</CollapsibleSection>
 			)}
