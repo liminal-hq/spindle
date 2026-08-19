@@ -267,18 +267,27 @@ export function ButtonInspector({
 								animationTracks.length === 1 ? '' : 's'
 							} — edit on the timeline below the canvas.`}
 				</p>
-				{onAddKeyframeAtPlayhead && (
-					<div className="inspector-panel__actions-row">
-						<button
-							type="button"
-							className="btn btn--sm btn--ghost"
-							onClick={() => onAddKeyframeAtPlayhead(button.id)}
-							title="Add a highlight-colour keyframe at the current preview playhead"
-						>
-							Add keyframe at playhead
-						</button>
-					</div>
-				)}
+				{onAddKeyframeAtPlayhead &&
+					(() => {
+						const isMotion = document?.backgroundMode === 'motion';
+						return (
+							<div className="inspector-panel__actions-row">
+								<button
+									type="button"
+									className="btn btn--sm btn--ghost"
+									onClick={() => onAddKeyframeAtPlayhead(button.id)}
+									disabled={!isMotion}
+									title={
+										isMotion
+											? 'Add a highlight-colour keyframe at the current preview playhead'
+											: 'Keyframe animation requires a motion background — set the background mode to Motion first'
+									}
+								>
+									Add keyframe at playhead
+								</button>
+							</div>
+						);
+					})()}
 			</CollapsibleSection>
 
 			{/* Overlay Colours */}

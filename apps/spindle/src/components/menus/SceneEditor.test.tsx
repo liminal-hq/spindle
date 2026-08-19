@@ -1643,6 +1643,7 @@ describe('ButtonInspector highlight animation (PR 8)', () => {
 				onUpdateHighlightColours={vi.fn()}
 				onRemoveButton={vi.fn()}
 				document={buildMenuDocument({
+					backgroundMode: 'motion',
 					animation: [
 						{
 							nodeId: timelineTestButton.id,
@@ -1661,6 +1662,31 @@ describe('ButtonInspector highlight animation (PR 8)', () => {
 		expect(screen.getByText(/2 keyframes across 1 track/)).toBeTruthy();
 		fireEvent.click(screen.getByText('Add keyframe at playhead'));
 		expect(onAddKeyframeAtPlayhead).toHaveBeenCalledWith(timelineTestButton.id);
+	});
+
+	it('disables "Add keyframe at playhead" with an explanatory title on a still menu', () => {
+		const onAddKeyframeAtPlayhead = vi.fn();
+		render(
+			<InspectorPanel
+				selectedNode={timelineTestButtonNode}
+				selectedButton={timelineTestButton}
+				highlightColours={DEFAULT_HIGHLIGHT_COLOURS}
+				allTitles={[]}
+				allMenus={[]}
+				currentMenuId="menu-1"
+				onUpdateButton={vi.fn()}
+				onUpdateHighlightColours={vi.fn()}
+				onRemoveButton={vi.fn()}
+				document={buildMenuDocument({ backgroundMode: 'still' })}
+				onAddKeyframeAtPlayhead={onAddKeyframeAtPlayhead}
+			/>,
+		);
+
+		const button = screen.getByText('Add keyframe at playhead') as HTMLButtonElement;
+		expect(button.disabled).toBe(true);
+		expect(button.title).toMatch(/motion background/i);
+		fireEvent.click(button);
+		expect(onAddKeyframeAtPlayhead).not.toHaveBeenCalled();
 	});
 });
 
