@@ -1,13 +1,15 @@
-// One (node, target) property row: keyframe diamonds on a loop-relative time
-// axis, drawn in the shared source-relative px space. Drag retimes with a
-// local live-preview offset, committed once via `onMoveKeyframe` on
-// pointer-up (one undo entry per drag, since the parent's writer maps
-// straight onto a single `updateMenuDocument` call). Double-click a diamond
-// opens the value/easing popover; double-click empty lane space inserts a
-// keyframe at that time; Delete/Backspace removes the selected keyframe.
+// One (node, target) property row of keyframe diamonds on a loop-relative
+// time axis.
 //
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: MIT
+
+// Drawn in the shared source-relative px space. Drag retimes with a local
+// live-preview offset, committed once via `onMoveKeyframe` on pointer-up
+// (one undo entry per drag, since the parent's writer maps straight onto a
+// single `updateMenuDocument` call). Double-click a diamond opens the
+// value/easing popover; double-click empty lane space inserts a keyframe at
+// that time; Delete/Backspace removes the selected keyframe.
 
 import { useCallback, useRef, useState } from 'react';
 import type {
