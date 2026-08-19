@@ -1606,6 +1606,41 @@ describe('TimelineStrip', () => {
 
 		expect(screen.getByTestId('timeline-strip')).toBeTruthy();
 	});
+
+	it('mirrors the scroll area position onto the scrubber viewport', () => {
+		// The scrubber track sits outside `.timeline-strip__scroll` (so the
+		// transport controls stay pinned) but is rendered at the ruler's own
+		// `geometry.totalWidthPx`, not stretched to fill the available width
+		// (see TimelineScrubber). Its viewport's scrollLeft must therefore
+		// track the scroll area's, or the playhead/ruler visually diverge
+		// once the timeline scrolls.
+		const { container } = render(
+			<TimelineStrip
+				document={buildMenuDocument({ backgroundMode: 'motion' })}
+				buttons={[]}
+				assets={[]}
+				standard="NTSC"
+				onAddKeyframe={vi.fn()}
+				onMoveKeyframe={vi.fn()}
+				onUpdateKeyframeValue={vi.fn()}
+				onUpdateKeyframeEasing={vi.fn()}
+				onDeleteKeyframe={vi.fn()}
+				onSetTimingField={vi.fn()}
+			/>,
+		);
+
+		const scrollArea = container.querySelector('.timeline-strip__scroll') as HTMLDivElement;
+		const scrubberViewport = container.querySelector(
+			'.timeline-scrubber__viewport',
+		) as HTMLDivElement;
+		expect(scrollArea).toBeTruthy();
+		expect(scrubberViewport).toBeTruthy();
+
+		scrollArea.scrollLeft = 240;
+		fireEvent.scroll(scrollArea);
+
+		expect(scrubberViewport.scrollLeft).toBe(240);
+	});
 });
 
 describe('ButtonInspector highlight animation (PR 8)', () => {

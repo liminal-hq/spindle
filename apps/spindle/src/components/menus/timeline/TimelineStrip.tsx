@@ -6,7 +6,7 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: MIT
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import type {
 	AnimatableProperty,
 	AnimationTrack,
@@ -100,6 +100,27 @@ export function TimelineStrip({
 	const seek = useMenuPlaybackStore((s) => s.seek);
 	const setLoopRegion = useMenuPlaybackStore((s) => s.setLoopRegion);
 
+	// The scrubber's track lives outside `.timeline-strip__scroll` (so the
+	// transport controls stay pinned while the ruler/lanes scroll), but it's
+	// rendered at the SAME `geometry.totalWidthPx` as everything inside that
+	// scroll area. Mirror the scroll area's horizontal offset onto the
+	// scrubber's own viewport imperatively — a plain DOM assignment, not
+	// React state — so the two stay visually locked without re-rendering on
+	// every scroll event.
+	const scrollRef = useRef<HTMLDivElement>(null);
+	const scrubberViewportRef = useRef<HTMLDivElement>(null);
+	useEffect(() => {
+		const scrollEl = scrollRef.current;
+		const viewportEl = scrubberViewportRef.current;
+		if (!scrollEl || !viewportEl) return;
+		const syncScrubber = () => {
+			viewportEl.scrollLeft = scrollEl.scrollLeft;
+		};
+		syncScrubber();
+		scrollEl.addEventListener('scroll', syncScrubber);
+		return () => scrollEl.removeEventListener('scroll', syncScrubber);
+	}, []);
+
 	const { timing, highlightColours } = document;
 	const loopStartSecs = timing.loopStartSecs;
 	const loopDurationSecs = timing.loopDurationSecs;
@@ -144,8 +165,8 @@ export function TimelineStrip({
 
 	return (
 		<div className="timeline-strip" data-testid="timeline-strip">
-			<TimelineScrubber geometry={geometry} fps={fps} />
-			<div className="timeline-strip__scroll">
+			<TimelineScrubber geometry={geometry} fps={fps} viewportRef={scrubberViewportRef} />
+			<div className="timeline-strip__scroll" ref={scrollRef}>
 				<TimelineRuler geometry={geometry} onSeek={seek} />
 				<TimelineRegionBar
 					geometry={geometry}

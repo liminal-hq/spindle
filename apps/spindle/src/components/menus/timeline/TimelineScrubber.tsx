@@ -7,6 +7,15 @@
 // on every frame would fight the "60Hz playhead must not re-render the
 // world" rule (see design decision D9 and useVideoPlayhead.ts).
 //
+// The track itself is rendered at the SAME `geometry.totalWidthPx` as the
+// ruler/region/audio/keyframe rows below it — never stretched to fill the
+// available width — so `geometry.secsToPx`/`pxToSecs` stay valid for both
+// the playhead transform and click-to-seek. Because that can make the track
+// wider than the visible strip, it sits inside its own `overflow: hidden`
+// viewport whose `scrollLeft` `TimelineStrip` keeps mirrored to the
+// scrollable ruler area beneath it (also imperatively, for the same
+// no-re-render reason), so the two stay visually locked together.
+//
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: MIT
 
@@ -19,9 +28,12 @@ export interface TimelineScrubberProps {
 	/** Frame rate for the ±1-frame step buttons — the project's disc standard
 	 * (NTSC 30000/1001, PAL 25), not a hardcoded 30fps (see `fpsForStandard`). */
 	fps: number;
+	/** Ref assigned to the track's scroll viewport, so `TimelineStrip` can
+	 * mirror the main timeline area's horizontal scroll position onto it. */
+	viewportRef: React.RefObject<HTMLDivElement | null>;
 }
 
-export function TimelineScrubber({ geometry, fps }: TimelineScrubberProps) {
+export function TimelineScrubber({ geometry, fps, viewportRef }: TimelineScrubberProps) {
 	const trackRef = useRef<HTMLDivElement>(null);
 	const playheadRef = useRef<HTMLDivElement>(null);
 	const seek = useMenuPlaybackStore((s) => s.seek);
@@ -94,13 +106,15 @@ export function TimelineScrubber({ geometry, fps }: TimelineScrubberProps) {
 					⟲ Loop
 				</button>
 			</div>
-			<div
-				className="timeline-scrubber__track"
-				ref={trackRef}
-				style={{ width: geometry.totalWidthPx }}
-				onClick={handleTrackClick}
-			>
-				<div className="timeline-scrubber__playhead" ref={playheadRef} />
+			<div className="timeline-scrubber__viewport" ref={viewportRef}>
+				<div
+					className="timeline-scrubber__track"
+					ref={trackRef}
+					style={{ width: geometry.totalWidthPx }}
+					onClick={handleTrackClick}
+				>
+					<div className="timeline-scrubber__playhead" ref={playheadRef} />
+				</div>
 			</div>
 		</div>
 	);

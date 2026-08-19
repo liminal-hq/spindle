@@ -1552,9 +1552,16 @@
 	flex-shrink: 0;
 }
 
-.timeline-scrubber__track {
+.timeline-scrubber__viewport {
 	position: relative;
 	flex: 1;
+	min-width: 0;
+	height: 18px;
+	overflow: hidden;
+}
+
+.timeline-scrubber__track {
+	position: relative;
 	height: 18px;
 	background: rgba(255, 255, 255, 0.03);
 	border-radius: var(--radius-sm);
