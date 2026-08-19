@@ -969,8 +969,15 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 		// authoredDocument is guaranteed present for any menu loaded via
 		// parseProject (legacy projects are migrated at load time) or created
 		// in-app (see `createMenu`). A menu with no document has nothing to
-		// update here.
-		if (!menu || !menu.authoredDocument) return;
+		// update here — this should not happen in practice, so log it rather
+		// than silently dropping the edit, which would otherwise look like a
+		// dead editor with no diagnostic trail.
+		if (!menu || !menu.authoredDocument) {
+			console.error(
+				`[project-store] updateMenuDocument: menu "${menuId}" not found or has no authoredDocument; edit dropped`,
+			);
+			return;
+		}
 
 		const updatedDoc = updater(menu.authoredDocument);
 

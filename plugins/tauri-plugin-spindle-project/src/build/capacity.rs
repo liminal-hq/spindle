@@ -444,7 +444,25 @@ fn allocate_title_bitrates(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::build::test_support::test_project;
+    use crate::build::test_support::{test_menu, test_project};
+
+    #[test]
+    fn motion_menu_with_unset_loop_duration_falls_back_to_still_menu_bytes() {
+        // Pinning test, not a behaviour change: a motion menu whose loop
+        // duration is unset (`<= 0.0`, see `MenuDocument::motion_loop_duration`)
+        // falls back to `STILL_MENU_BYTES` rather than contributing 0 bytes
+        // to the estimate — an improvement over the old behaviour, since an
+        // unset duration is an authoring gap, not "no menu overhead at all".
+        let mut project = test_project();
+        let mut menu = test_menu();
+        menu.doc_mut().background_mode = BackgroundMode::Motion;
+        menu.doc_mut().timing.loop_duration_secs = 0.0;
+        project.disc.titlesets[0].menus.push(menu);
+
+        let estimate = estimate_disc_capacity(&project);
+
+        assert_eq!(estimate.estimated_menu_bytes, STILL_MENU_BYTES);
+    }
 
     #[test]
     fn duration_weighted_gives_every_title_the_same_rate() {
