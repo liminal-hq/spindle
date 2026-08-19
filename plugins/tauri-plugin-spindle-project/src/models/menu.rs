@@ -379,6 +379,32 @@ impl MenuDocument {
             lift_highlight_keyframes_in_node(node, &defaults, &mut lifted);
         }
         self.animation.append(&mut lifted);
+        self.dedupe_animation_tracks();
+    }
+
+    /// Drop all but the LAST track per `(node_id, target)` pair, preserving
+    /// the survivors' relative order. The editor's writers can only ever
+    /// create one track per pair, but a hand-edited or imported document can
+    /// carry duplicates — and every consumer would then disagree about which
+    /// one counts (the DCSQ lowering's tie-break is last-listed-wins, while
+    /// the editor's writers find the first match). Normalising at load keeps
+    /// the track the disc would have honoured and gives the editor a single
+    /// unambiguous target. Idempotent.
+    pub fn dedupe_animation_tracks(&mut self) {
+        use std::collections::HashSet;
+        let mut seen: HashSet<(String, AnimatableProperty)> = HashSet::new();
+        let mut keep = vec![false; self.animation.len()];
+        for (i, track) in self.animation.iter().enumerate().rev() {
+            if seen.insert((track.node_id.clone(), track.target)) {
+                keep[i] = true;
+            }
+        }
+        let mut idx = 0;
+        self.animation.retain(|_| {
+            let k = keep[idx];
+            idx += 1;
+            k
+        });
     }
 
     /// Collect the top-level buttons in this document's scene, joined with
@@ -1588,6 +1614,48 @@ mod lift_tests {
 
         let round_tripped: MenuDocument = serde_json::from_str(&json).unwrap();
         assert_eq!(round_tripped.animation, doc.animation);
+    }
+
+    #[test]
+    fn dedupe_animation_tracks_keeps_the_last_duplicate() {
+        // A hand-edited document can carry two tracks for the same
+        // `(node_id, target)`; the DCSQ lowering's tie-break is
+        // last-listed-wins, so normalisation must keep the LAST and drop the
+        // rest, preserving other tracks' relative order.
+        let mut doc = document_with_animated_button(vec![]);
+        let track = |node: &str, target: AnimatableProperty, hex: &str| AnimationTrack {
+            node_id: node.to_string(),
+            target,
+            keyframes: vec![Keyframe {
+                timestamp_secs: 0.0,
+                value: KeyValue::Colour {
+                    hex: hex.to_string(),
+                },
+                easing: Easing::Hold,
+            }],
+        };
+        doc.animation = vec![
+            track("btn-1", AnimatableProperty::HighlightColour, "#111111"),
+            track("btn-2", AnimatableProperty::HighlightColour, "#222222"),
+            track("btn-1", AnimatableProperty::HighlightColour, "#333333"),
+            track("btn-1", AnimatableProperty::ActivateColour, "#444444"),
+        ];
+
+        doc.dedupe_animation_tracks();
+
+        assert_eq!(doc.animation.len(), 3);
+        assert_eq!(doc.animation[0].node_id, "btn-2");
+        assert_eq!(doc.animation[1].node_id, "btn-1");
+        assert!(matches!(
+            &doc.animation[1].keyframes[0].value,
+            KeyValue::Colour { hex } if hex == "#333333"
+        ));
+        assert_eq!(doc.animation[2].target, AnimatableProperty::ActivateColour);
+
+        // Idempotent: a second pass changes nothing.
+        let before = doc.animation.clone();
+        doc.dedupe_animation_tracks();
+        assert_eq!(doc.animation, before);
     }
 }
 
