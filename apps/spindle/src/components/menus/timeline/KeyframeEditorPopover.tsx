@@ -4,9 +4,15 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: MIT
 
+import { useLayoutEffect, useRef } from 'react';
 import type { AnimatableProperty, Easing, Keyframe, KeyValue } from '../../../types/project';
 
 const EASING_OPTIONS: Easing[] = ['hold', 'linear', 'ease-in', 'ease-out', 'ease-in-out'];
+
+/** The scroll container the popover must stay visible inside — see
+ * `TimelineStrip`'s `.timeline-strip__scroll`, which the ruler/lanes (and
+ * this popover, rendered as a keyframe lane's child) all live under. */
+const SCROLL_VIEWPORT_SELECTOR = '.timeline-strip__scroll';
 
 export interface KeyframeEditorPopoverProps {
 	keyframe: Keyframe;
@@ -15,6 +21,13 @@ export interface KeyframeEditorPopoverProps {
 	 * a keyframe's timestamp to, so a typed value can't persist past it and
 	 * trip `menu.motion-keyframe-out-of-range`. */
 	loopDurationSecs: number;
+	/** The keyframe diamond's own x position, in the shared source-relative
+	 * px space (same as `TimelineKeyframeLane`'s diamond `left`) — where the
+	 * popover anchors before the visible-viewport clamp below runs. Without
+	 * this the popover always opened at the scrolled content's x=0, which
+	 * after scrolling to a later keyframe could land far outside the
+	 * visible scroll viewport. */
+	anchorPx: number;
 	onChangeValue: (value: KeyValue) => void;
 	onChangeEasing: (easing: Easing) => void;
 	onChangeTimestamp: (timestampSecs: number) => void;
@@ -26,6 +39,7 @@ export function KeyframeEditorPopover({
 	keyframe,
 	target,
 	loopDurationSecs,
+	anchorPx,
 	onChangeValue,
 	onChangeEasing,
 	onChangeTimestamp,
@@ -34,9 +48,33 @@ export function KeyframeEditorPopover({
 }: KeyframeEditorPopoverProps) {
 	const isColour = keyframe.value.kind === 'colour';
 	const isScalar = keyframe.value.kind === 'scalar';
+	const popoverRef = useRef<HTMLDivElement>(null);
+
+	// Anchor near the keyframe, then clamp fully inside the visible scroll
+	// viewport — `anchorPx` alone can still overflow the viewport's right
+	// (a keyframe near the end of a wide timeline, popover's own width) or
+	// left (a keyframe right at the current scroll offset) edge. Measured
+	// imperatively, like the scrubber/ruler scroll sync above it, rather
+	// than kept in React state, since it only needs to run once per open
+	// keyframe, not on every render.
+	useLayoutEffect(() => {
+		const popoverEl = popoverRef.current;
+		if (!popoverEl) return;
+		popoverEl.style.left = `${anchorPx}px`;
+		const scrollEl = popoverEl.closest<HTMLElement>(SCROLL_VIEWPORT_SELECTOR);
+		if (!scrollEl) return;
+		const viewportLeft = scrollEl.scrollLeft;
+		const viewportRight = viewportLeft + scrollEl.clientWidth;
+		const width = popoverEl.offsetWidth;
+		let left = anchorPx;
+		if (left + width > viewportRight) left = viewportRight - width;
+		if (left < viewportLeft) left = viewportLeft;
+		popoverEl.style.left = `${Math.max(left, 0)}px`;
+	}, [anchorPx]);
 
 	return (
 		<div
+			ref={popoverRef}
 			className="keyframe-popover"
 			role="dialog"
 			aria-label={`Edit ${target} keyframe`}

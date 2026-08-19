@@ -1809,6 +1809,11 @@
 
 /* ── Keyframe editor popover ─────────────────────────────────── */
 
+/* `left` is set imperatively by `KeyframeEditorPopover` (anchored near the
+ * keyframe being edited, then clamped inside `.timeline-strip__scroll`'s
+ * visible viewport) — `0` here is only the pre-layout fallback, since a
+ * fixed `left: 0` would open the popover at the scrolled content's origin,
+ * possibly off-screen once scrolled to a later keyframe. */
 .keyframe-popover {
 	position: absolute;
 	z-index: 20;
