@@ -33,7 +33,7 @@
 
 **Requirement:** PR titles must be human-readable summaries of the PR change.
 
-- Start with a capital letter.
+- Start with a capital letter, write in the imperative mood, and keep to roughly one 70-character line.
 - Do not use Conventional Commit prefixes in PR titles (for example, no `feat:`, `fix:`, `chore:`).
 - Describe the outcome or behaviour change, not internal process language.
 - Ignore internal planning document notes in PR titles and descriptions unless they directly map to repository changes.
