@@ -1,6 +1,6 @@
 # Rich Menu Editor Plan — motion, imagery, animated buttons, and BD-ready foundations
 
-**Status:** planning · July 2026 · reviewed against Spindle v0.3.0 · slice statuses updated August 2026 — C and D have shipped; see the per-slice status lines in §4
+**Status:** planning · July 2026 · reviewed against Spindle v0.3.0 · slice statuses updated August 2026 — C shipped and D is partial; see the per-slice status lines in §4
 
 This document plans the next generation of the menu authoring system: motion backgrounds, animated buttons, richer imagery and styling, timeline editing, and — critically — the design decisions that must be made _now_ so the same editor can author BDMV (Blu-ray) menus later without a rewrite.
 
