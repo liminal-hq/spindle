@@ -178,8 +178,12 @@ export function KeyframeEditorPopover({
 							// clamp before persisting so a saved keyframe can't
 							// hold an out-of-range opacity that CSS and the
 							// planner would clamp differently at render time.
-							if (parsed !== null)
-								onChangeValue({ kind: 'scalar', value: Math.min(1, Math.max(0, parsed)) });
+							// Identity writes are skipped — a value that clamps
+							// back to the saved one would burn an undo entry.
+							if (parsed !== null) {
+								const clamped = Math.min(1, Math.max(0, parsed));
+								if (clamped !== scalarValue) onChangeValue({ kind: 'scalar', value: clamped });
+							}
 						}}
 						onBlur={() => {
 							// Re-sync unconditionally: an unparseable draft reverts,

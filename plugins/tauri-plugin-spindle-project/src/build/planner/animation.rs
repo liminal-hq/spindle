@@ -106,7 +106,17 @@ pub(super) fn build_overlay_keyframe_schedule(
             AnimatableProperty::HighlightOpacity,
             &highlight_colours.select_colour,
             highlight_colours.select_opacity,
-            |track| track.keyframes.first().map(|kf| kf.value.clone()),
+            // Through the evaluator, not `keyframes.first()` directly — the
+            // evaluator's duplicate-timestamp rule (later-in-authoring-order
+            // wins at that instant) must govern the still degrade too, so
+            // every consumer agrees which keyframe a shared first timestamp
+            // resolves to.
+            |track| {
+                track
+                    .keyframes
+                    .first()
+                    .and_then(|kf| evaluate_track(track, kf.timestamp_secs))
+            },
         );
         let select_colour = effective_colour_hex(
             &relevant_select_tracks,
@@ -114,7 +124,17 @@ pub(super) fn build_overlay_keyframe_schedule(
             AnimatableProperty::ActivateOpacity,
             &highlight_colours.activate_colour,
             highlight_colours.activate_opacity,
-            |track| track.keyframes.first().map(|kf| kf.value.clone()),
+            // Through the evaluator, not `keyframes.first()` directly — the
+            // evaluator's duplicate-timestamp rule (later-in-authoring-order
+            // wins at that instant) must govern the still degrade too, so
+            // every consumer agrees which keyframe a shared first timestamp
+            // resolves to.
+            |track| {
+                track
+                    .keyframes
+                    .first()
+                    .and_then(|kf| evaluate_track(track, kf.timestamp_secs))
+            },
         );
         return vec![OverlayKeyframeSpec {
             start_secs: 0.0,
