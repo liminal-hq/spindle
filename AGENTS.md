@@ -89,6 +89,7 @@
 ## Documentation
 
 - **Updates:** When user-facing behaviour, CLI options, or features change, update `README.md` and `SPEC.md`.
+- **No hard wrapping:** Never hard-wrap paragraph prose in markdown files — write each paragraph or list item as a single line and let viewers soft-wrap. Deliberate short standalone lines, one-liners, and separate bullets are intentional structure — never collapse them.
 
 ## Licence and Copyright
 

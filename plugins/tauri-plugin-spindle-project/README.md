@@ -184,9 +184,7 @@ That smoke test requires `ffmpeg`, `spumux`, and `dvdauthor` to be available on 
 
 ## JavaScript bindings
 
-The plugin ships typed bindings in `tauri-plugin-spindle-project-api`, following the
-same `guest-js` convention as `tauri-plugin-display-awareness`. App code should
-import from the package rather than calling `invoke` with raw command strings:
+The plugin ships typed bindings in `tauri-plugin-spindle-project-api`, following the same `guest-js` convention as `tauri-plugin-display-awareness`. App code should import from the package rather than calling `invoke` with raw command strings:
 
 ```ts
 import { createProject, parseProject, serialiseProject } from 'tauri-plugin-spindle-project-api';

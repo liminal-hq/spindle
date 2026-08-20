@@ -799,17 +799,17 @@ Demonstrates real-world integration and UX constraints: BD-J menu support depend
 **Tauri v2 documentation: plugin development + security (capabilities/permissions) + calling Rust.**  
 Defines the correct wrapper architecture for a plugin surface (crate + optional NPM bindings), and the security primitives (permissions/capabilities) that should constrain disc/ISO access and command exposure for a filesystem-heavy plugin.
 
-**lw/BluRay Wiki — StreamCodingInfo and CLPI format documentation.**
-Community-maintained binary format documentation for CLPI and MPLS structures, including HEVC stream coding type 0x24 and associated fields (DynamicRangeType, ColorSpace, HDRPlusFlag). Essential reference for implementing UHD BD stream info parsing.
+**lw/BluRay Wiki — StreamCodingInfo and CLPI format documentation.**  
+Community-maintained binary format documentation for CLPI and MPLS structures, including HEVC stream coding type 0x24 and associated fields (`DynamicRangeType`, `ColorSpace`, `HDRPlusFlag`). Essential reference for implementing UHD BD stream info parsing.
 
-**quietvoid/hdr10plus_tool (Rust) — HDR10+ metadata CLI.**
+**quietvoid/hdr10plus_tool (Rust) — HDR10+ metadata CLI.**  
 Rust crate for extracting and injecting HDR10+ dynamic metadata (SMPTE ST 2094-40) in HEVC bitstreams. Potential dependency for Spindle's HDR metadata pipeline.
 
-**quietvoid/dovi_tool (Rust) — Dolby Vision RPU metadata CLI.**
+**quietvoid/dovi_tool (Rust) — Dolby Vision RPU metadata CLI.**  
 Rust crate for manipulating Dolby Vision Reference Processing Unit data. Covers Profile 7 dual-layer extraction, injection, and conversion. Potential dependency for DV-aware authoring.
 
-**Dolby — "Dolby Vision UHD Blu-ray Authoring Workflow Guide" v1.1.**
+**Dolby — "Dolby Vision UHD Blu-ray Authoring Workflow Guide" v1.1.**  
 Professional documentation of DV Profile 7 authoring on UHD BD: base layer + enhancement layer architecture, MEL vs FEL variants, MPLS sub-path referencing, and backward compatibility with HDR10 players.
 
-**jaminmc/tsMuxer (C++) — actively maintained tsMuxeR fork.**
+**jaminmc/tsMuxer (C++) — actively maintained tsMuxeR fork.**  
 Continuation of the tsMuxeR project after the justdan96 repository was archived in April 2025. Supports HEVC muxing, HDR10, HDR10+, and Dolby Vision Profile 7 dual-layer for UHD BD-compatible BDMV structure generation.
