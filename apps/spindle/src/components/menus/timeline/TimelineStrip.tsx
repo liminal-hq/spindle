@@ -158,10 +158,12 @@ export function TimelineStrip({
 		);
 	}, [loopStartSecs, loopDurationSecs, setLoopRegion]);
 
-	// Only drive the playhead while the strip is actually visible — a plain
-	// still menu with no tracks renders nothing, and a hidden strip must not
-	// wake the main thread every animation frame.
-	useVideoPlayhead(visible);
+	// Only drive the playhead while the strip is visible AND the menu is
+	// motion — a hidden strip must not wake the main thread every animation
+	// frame, and neither must a still menu's timeline (visible for its
+	// tracks, but `BackgroundMedia` renders an image and never registers a
+	// video element for the loop to read).
+	useVideoPlayhead(visible && isMotion);
 
 	// The background asset's inspected duration keeps the fallback honest when
 	// video metadata never arrives (decode failure, blob cap) — without it the
