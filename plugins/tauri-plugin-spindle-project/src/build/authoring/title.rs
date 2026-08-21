@@ -176,7 +176,7 @@ fn dvdauthor_audio_format(target: AudioOutputTarget) -> &'static str {
 /// copied mappings instead, falling back to `output_target` only if the
 /// source asset/stream can't be resolved (so declaration never regresses to
 /// no declaration at all).
-fn declared_audio_format(
+pub(crate) fn declared_audio_format(
     am: &AudioTrackMapping,
     title: &Title,
     assets: &HashMap<&str, &Asset>,

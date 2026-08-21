@@ -543,8 +543,10 @@ The native toolchain adapter should detect which encoders and pass-through paths
 This matters especially for:
 
 - MP2 output availability
-- DTS output availability — confirmed unavailable as a re-encode target regardless of environment: ffmpeg's only DTS encoder path produces a stream that decodes fine in isolation but corrupts once muxed through the DVD program-stream muxer, so re-encoding to DTS is refused outright at validation and build time. DTS remains available as a stream copy of an already-DTS source.
+- DTS output availability — confirmed unavailable as a re-encode target regardless of environment: ffmpeg's only DTS encoder path produces a stream that decodes fine in isolation but corrupts once muxed through the DVD program-stream muxer, so re-encoding to DTS is refused outright at validation and build time. DTS remains available as a stream copy of an already-DTS source. The editor enforces this proactively: any control that would flip a DTS copy-mode track to re-encode (changing copy mode, channel layout, or bitrate) falls the output target back to AC-3 automatically, rather than letting the UI produce a re-encode+DTS combination that only fails later at validation or build time.
 - copy and passthrough eligibility for existing compliant streams — a source stream is only copy-eligible when both its codec name _and_ its bitrate are DVD-legal (e.g. AC-3 above 448 kbps is a valid AC-3 bitstream but exceeds the DVD-Video ceiling and still requires a re-encode despite the codec name matching)
+
+DVD-Video's per-titleset audio attribute table is shared across every title in that titleset, not authored per-title — dvdauthor's `<audio>` declaration for a given slot index applies uniformly to all of a titleset's titles. If two titles in the same titleset declare a different codec or language at the same audio slot, only one of them can be correctly authored; validation flags the mismatch as a blocking error rather than silently authoring one title's declaration over another's actual stream. A title with no audio tracks at all still occupies slot 0 with a synthesised silent AC-3 stream (see §21.2), which is itself subject to this same consistency check.
 
 ### 12.2.5 Planner integration
 
@@ -1104,6 +1106,7 @@ The app should not hide the build pipeline, but it also should not dump raw tool
 - "Subtitle track 2 is text-based and must be converted before DVD authoring."
 - "Cannot re-encode audio track \"English\" to DTS — ffmpeg has no reliable DTS encoder (its native encoder produces DVD-incompatible output). DTS is only supported as a stream copy of an already-DTS source; re-encode to AC3 instead."
 - "Menu button 'Scenes' points to a missing chapter menu."
+- "Titles \"Feature\" and \"Alternate Cut\" share a titleset but declare different audio at slot 0, which dvdauthor can only author for one of them."
 
 ---
 

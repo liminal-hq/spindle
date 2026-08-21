@@ -6,6 +6,8 @@
 
 use std::collections::{HashMap, HashSet};
 
+use crate::build::authoring::language::dvdauthor_language_code;
+use crate::build::authoring::title::declared_audio_format;
 use crate::models::*;
 
 use super::chapter::{chapter_target_exists, dangling_play_chapter_issue};
@@ -325,6 +327,100 @@ pub(super) fn validate_titles(
                 }
             }
         }
+
+        validate_titleset_audio_consistency(titleset, asset_map, issues);
+    }
+}
+
+/// dvdauthor's per-titleset `<audio>` declarations (see
+/// `build::authoring::title::append_titles_section`) apply uniformly to
+/// every title in the titleset — DVD-Video's VTSI audio attribute table is
+/// shared across all of a titleset's PGCs, not per-title. When titles
+/// disagree on the declared codec or language at the same audio slot index,
+/// the authored XML can only match one of them; the rest get silently wrong
+/// metadata. Flag the mismatch instead of authoring it.
+///
+/// `build::ffmpeg`'s `synthesise_silent_audio` gives every title with no
+/// audio mappings at all a silent stream at slot 0, always encoded as AC3.
+/// That title still physically occupies the slot and must be considered
+/// here — skipping it (as if it contributed nothing) would let a mismatch
+/// against a real track at slot 0 go undetected.
+const SYNTHESISED_SILENT_AUDIO_FORMAT: &str = "ac3";
+
+fn validate_titleset_audio_consistency(
+    titleset: &Titleset,
+    asset_map: &HashMap<&str, &Asset>,
+    issues: &mut Vec<ValidationIssue>,
+) {
+    let max_audio = titleset
+        .titles
+        .iter()
+        .map(|t| t.audio_mappings.len())
+        .max()
+        .unwrap_or(0);
+
+    for i in 0..max_audio {
+        // Tracked separately from the format reference: a synthesised
+        // silent track never carries a real language declaration, so it
+        // must never become the reference two later *real* tracks get
+        // compared against — that would permanently suppress language
+        // mismatches between them for the rest of the loop.
+        let mut first_format: Option<(&Title, &'static str)> = None;
+        let mut first_lang: Option<(&Title, Option<String>)> = None;
+
+        for title in &titleset.titles {
+            let (format, lang, is_real) = if let Some(am) = title.audio_mappings.get(i) {
+                (
+                    declared_audio_format(am, title, asset_map),
+                    dvdauthor_language_code(&am.language),
+                    true,
+                )
+            } else if i == 0 && title.audio_mappings.is_empty() {
+                (SYNTHESISED_SILENT_AUDIO_FORMAT, None, false)
+            } else {
+                continue;
+            };
+
+            let format_mismatch = match first_format {
+                None => {
+                    first_format = Some((title, format));
+                    None
+                }
+                Some((ref_title, ref_format)) if format != ref_format => Some(ref_title),
+                Some(_) => None,
+            };
+
+            let lang_mismatch = if !is_real {
+                None
+            } else {
+                match &first_lang {
+                    None => {
+                        first_lang = Some((title, lang));
+                        None
+                    }
+                    Some((ref_title, ref_lang)) if lang != *ref_lang => Some(*ref_title),
+                    Some(_) => None,
+                }
+            };
+
+            if let Some(ref_title) = format_mismatch.or(lang_mismatch) {
+                issues.push(ValidationIssue {
+                    severity: IssueSeverity::Error,
+                    code: "audio.titleset-inconsistent-declaration".to_string(),
+                    message: format!(
+                        "Titles \"{}\" and \"{}\" share a titleset but declare different audio at slot {}, which dvdauthor can only author for one of them.",
+                        ref_title.name, title.name, i
+                    ),
+                    context: Some(titleset.id.clone()),
+                    entity_type: Some("titleset".to_string()),
+                    entity_name: Some(ref_title.name.clone()),
+                    suggested_fix: Some(
+                        "Give every title in this titleset the same codec/copy-mode and language for this audio slot, or move one title to its own titleset."
+                            .to_string(),
+                    ),
+                });
+            }
+        }
     }
 }
 
@@ -403,6 +499,232 @@ mod tests {
                 .iter()
                 .any(|i| i.code == "audio.dts-reencode-unsupported"),
             "copy-mode DTS should not be flagged, got: {issues:?}"
+        );
+    }
+
+    fn two_title_titleset(mapping_a: AudioTrackMapping, mapping_b: AudioTrackMapping) -> Titleset {
+        let make_title = |id: &str, name: &str, mapping: AudioTrackMapping| Title {
+            id: id.to_string(),
+            name: name.to_string(),
+            source_asset_id: None,
+            video_mapping: None,
+            video_output_profile: None,
+            audio_mappings: vec![mapping],
+            subtitle_mappings: vec![],
+            chapters: vec![],
+            end_action: None,
+            order_index: 0,
+            bitrate_weight: 1.0,
+            bitrate_floor_bps: None,
+            bitrate_ceiling_bps: None,
+            pinned_bitrate_bps: None,
+        };
+        Titleset {
+            id: "titleset-1".to_string(),
+            name: "Main".to_string(),
+            titles: vec![
+                make_title("title-1", "Feature", mapping_a),
+                make_title("title-2", "Alternate Cut", mapping_b),
+            ],
+            menus: vec![],
+        }
+    }
+
+    fn audio_mapping(output_target: AudioOutputTarget, language: &str) -> AudioTrackMapping {
+        AudioTrackMapping {
+            id: "audio-1".to_string(),
+            source_stream_index: 0,
+            output_target,
+            copy_mode: CopyMode::ReEncode,
+            label: "English".to_string(),
+            language: language.to_string(),
+            order_index: 0,
+            is_default: true,
+            channel_layout: None,
+            bitrate_bps: None,
+        }
+    }
+
+    #[test]
+    fn validate_titles_flags_inconsistent_codec_across_titles_in_a_titleset() {
+        let mut project = SpindleProjectFile::default();
+        project.disc.titlesets.push(two_title_titleset(
+            audio_mapping(AudioOutputTarget::Ac3, "eng"),
+            audio_mapping(AudioOutputTarget::Mp2, "eng"),
+        ));
+        let asset_ids: HashSet<&str> = HashSet::new();
+        let asset_map: HashMap<&str, &Asset> = HashMap::new();
+        let mut issues = Vec::new();
+
+        validate_titles(&project, &asset_ids, &asset_map, &mut issues);
+
+        assert!(
+            issues
+                .iter()
+                .any(|i| i.code == "audio.titleset-inconsistent-declaration"
+                    && i.severity == IssueSeverity::Error),
+            "expected an error-level audio.titleset-inconsistent-declaration issue, got: {issues:?}"
+        );
+    }
+
+    #[test]
+    fn validate_titles_flags_inconsistent_language_across_titles_in_a_titleset() {
+        let mut project = SpindleProjectFile::default();
+        project.disc.titlesets.push(two_title_titleset(
+            audio_mapping(AudioOutputTarget::Ac3, "eng"),
+            audio_mapping(AudioOutputTarget::Ac3, "fra"),
+        ));
+        let asset_ids: HashSet<&str> = HashSet::new();
+        let asset_map: HashMap<&str, &Asset> = HashMap::new();
+        let mut issues = Vec::new();
+
+        validate_titles(&project, &asset_ids, &asset_map, &mut issues);
+
+        assert!(
+            issues
+                .iter()
+                .any(|i| i.code == "audio.titleset-inconsistent-declaration"
+                    && i.severity == IssueSeverity::Error),
+            "expected an error-level audio.titleset-inconsistent-declaration issue, got: {issues:?}"
+        );
+    }
+
+    #[test]
+    fn validate_titles_does_not_flag_consistent_titleset_audio() {
+        let mut project = SpindleProjectFile::default();
+        project.disc.titlesets.push(two_title_titleset(
+            audio_mapping(AudioOutputTarget::Ac3, "eng"),
+            audio_mapping(AudioOutputTarget::Ac3, "eng"),
+        ));
+        let asset_ids: HashSet<&str> = HashSet::new();
+        let asset_map: HashMap<&str, &Asset> = HashMap::new();
+        let mut issues = Vec::new();
+
+        validate_titles(&project, &asset_ids, &asset_map, &mut issues);
+
+        assert!(
+            !issues
+                .iter()
+                .any(|i| i.code == "audio.titleset-inconsistent-declaration"),
+            "matching codec and language should not be flagged, got: {issues:?}"
+        );
+    }
+
+    fn title_with_no_audio(id: &str, name: &str) -> Title {
+        Title {
+            id: id.to_string(),
+            name: name.to_string(),
+            source_asset_id: None,
+            video_mapping: None,
+            video_output_profile: None,
+            audio_mappings: vec![],
+            subtitle_mappings: vec![],
+            chapters: vec![],
+            end_action: None,
+            order_index: 0,
+            bitrate_weight: 1.0,
+            bitrate_floor_bps: None,
+            bitrate_ceiling_bps: None,
+            pinned_bitrate_bps: None,
+        }
+    }
+
+    #[test]
+    fn validate_titles_flags_synthesised_silent_audio_against_a_mismatched_real_codec() {
+        let mut dts_mapping = audio_mapping(AudioOutputTarget::Dts, "eng");
+        dts_mapping.copy_mode = CopyMode::Copy;
+        let mut project = SpindleProjectFile::default();
+        project.disc.titlesets = vec![Titleset {
+            id: "titleset-1".to_string(),
+            name: "Main".to_string(),
+            titles: vec![
+                Title {
+                    audio_mappings: vec![dts_mapping],
+                    ..title_with_no_audio("title-1", "Feature")
+                },
+                title_with_no_audio("title-2", "Silent Cut"),
+            ],
+            menus: vec![],
+        }];
+        let asset_ids: HashSet<&str> = HashSet::new();
+        let asset_map: HashMap<&str, &Asset> = HashMap::new();
+        let mut issues = Vec::new();
+
+        validate_titles(&project, &asset_ids, &asset_map, &mut issues);
+
+        assert!(
+            issues
+                .iter()
+                .any(|i| i.code == "audio.titleset-inconsistent-declaration"
+                    && i.severity == IssueSeverity::Error),
+            "a real DTS track sharing a titleset with a synthesised (AC3) silent track should be flagged, got: {issues:?}"
+        );
+    }
+
+    #[test]
+    fn validate_titles_does_not_flag_synthesised_silent_audio_against_a_matching_ac3_codec() {
+        let mut project = SpindleProjectFile::default();
+        project.disc.titlesets = vec![Titleset {
+            id: "titleset-1".to_string(),
+            name: "Main".to_string(),
+            titles: vec![
+                Title {
+                    audio_mappings: vec![audio_mapping(AudioOutputTarget::Ac3, "eng")],
+                    ..title_with_no_audio("title-1", "Feature")
+                },
+                title_with_no_audio("title-2", "Silent Cut"),
+            ],
+            menus: vec![],
+        }];
+        let asset_ids: HashSet<&str> = HashSet::new();
+        let asset_map: HashMap<&str, &Asset> = HashMap::new();
+        let mut issues = Vec::new();
+
+        validate_titles(&project, &asset_ids, &asset_map, &mut issues);
+
+        assert!(
+            !issues
+                .iter()
+                .any(|i| i.code == "audio.titleset-inconsistent-declaration"),
+            "an AC3 track sharing a slot with a synthesised (also AC3) silent track should not be flagged just because the silent track has no language, got: {issues:?}"
+        );
+    }
+
+    #[test]
+    fn validate_titles_flags_mismatched_language_between_two_real_tracks_after_a_leading_silent_title(
+    ) {
+        // A leading synthesised (silent, no-language) title must not become
+        // the permanent language reference — two later *real* tracks that
+        // disagree on language still need to be caught.
+        let mut project = SpindleProjectFile::default();
+        project.disc.titlesets = vec![Titleset {
+            id: "titleset-1".to_string(),
+            name: "Main".to_string(),
+            titles: vec![
+                title_with_no_audio("title-1", "Silent Cut"),
+                Title {
+                    audio_mappings: vec![audio_mapping(AudioOutputTarget::Ac3, "eng")],
+                    ..title_with_no_audio("title-2", "English Cut")
+                },
+                Title {
+                    audio_mappings: vec![audio_mapping(AudioOutputTarget::Ac3, "fra")],
+                    ..title_with_no_audio("title-3", "French Cut")
+                },
+            ],
+            menus: vec![],
+        }];
+        let asset_ids: HashSet<&str> = HashSet::new();
+        let asset_map: HashMap<&str, &Asset> = HashMap::new();
+        let mut issues = Vec::new();
+
+        validate_titles(&project, &asset_ids, &asset_map, &mut issues);
+
+        assert!(
+            issues
+                .iter()
+                .any(|i| i.code == "audio.titleset-inconsistent-declaration"
+                    && i.severity == IssueSeverity::Error),
+            "English and French real tracks should be flagged even though a silent title came first, got: {issues:?}"
         );
     }
 }
