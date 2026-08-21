@@ -266,6 +266,9 @@ describe('TitlesPage', () => {
 					useProjectStore.getState().project?.disc.titlesets[0].titles[0].audioMappings[0];
 				expect(mapping?.copyMode).toBe('re-encode');
 				expect(mapping?.outputTarget).toBe('AC3');
+				// The picked value (768 kbps) is a DTS-only option, out of range
+				// for AC3 — it must not survive the fallback as an illegal bitrate.
+				expect(mapping?.bitrateBps).toBeNull();
 			});
 
 			it('falls back to AC3 when picking a channel layout flips a DTS copy to re-encode', () => {
