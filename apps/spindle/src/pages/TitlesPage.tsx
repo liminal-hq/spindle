@@ -547,7 +547,10 @@ function TitleEditor({
 		// Auto-map first video stream and create audio mappings
 		const videoMapping =
 			asset.videoStreams.length > 0
-				? { sourceStreamIndex: asset.videoStreams[0].index, copyMode: 'copy' as CopyMode }
+				? {
+						sourceStreamIndex: asset.videoStreams[0].index,
+						copyMode: (isVideoCopyCompatible(asset) ? 'copy' : 're-encode') as CopyMode,
+					}
 				: null;
 
 		// Both dimensions must hold for a legal stream copy: a DVD-legal
@@ -724,15 +727,23 @@ function TitleEditor({
 					<select
 						className="titles__select"
 						value={title.videoMapping?.sourceStreamIndex ?? ''}
-						onChange={(e) =>
+						onChange={(e) => {
+							const streamIndex = Number(e.target.value);
+							// Compatibility data only covers the inspected/primary
+							// stream (videoStreams[0]) — picking any other stream
+							// is data we have no compatibility signal for, so it
+							// must default to re-encode rather than assume copy.
+							const isPrimaryStream = streamIndex === selectedAsset.videoStreams[0]?.index;
 							onUpdate({
 								...title,
 								videoMapping: {
-									sourceStreamIndex: Number(e.target.value),
-									copyMode: 'copy',
+									sourceStreamIndex: streamIndex,
+									copyMode: (isPrimaryStream && isVideoCopyCompatible(selectedAsset)
+										? 'copy'
+										: 're-encode') as CopyMode,
 								},
-							})
-						}
+							});
+						}}
 					>
 						{selectedAsset.videoStreams.map((vs) => (
 							<option key={vs.index} value={vs.index}>
@@ -1262,6 +1273,17 @@ function isCopyCompatible(asset: Asset | null, mapping: AudioTrackMapping): bool
 	// Both dimensions must hold: a DVD-legal codec at an over-ceiling
 	// bitrate (e.g. 640 kbps AC-3) still isn't legally copyable as-is.
 	return compat.codec.compatible && compat.bitrate.compatible;
+}
+
+// Unlike audio (a single per-stream codec check), video compatibility is
+// multi-dimensional and unindexed (`CompatibilityDetail.video` assesses
+// whichever stream inspection treated as primary — in practice always
+// videoStreams[0]) — codec, resolution, AND frame rate must all already be
+// DVD-legal for a stream copy to be valid; any one mismatch means re-encode.
+function isVideoCopyCompatible(asset: Asset | null): boolean {
+	const compat = asset?.compatibilityDetail?.video;
+	if (!compat) return true;
+	return compat.codec.compatible && compat.resolution.compatible && compat.frameRate.compatible;
 }
 
 function sourceChannelLabel(asset: Asset | null, mapping: AudioTrackMapping): string | null {
