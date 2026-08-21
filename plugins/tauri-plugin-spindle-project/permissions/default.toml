@@ -6,6 +6,7 @@ permissions = [
   "allow-serialise-project",
   "allow-validate-project",
   "allow-estimate-disc-capacity",
+  "allow-get-format-profile",
   "allow-inspect-asset",
   "allow-extract-video-thumbnail",
   "allow-extract-image-thumbnail",
@@ -18,4 +19,5 @@ permissions = [
   "allow-export-diagnostics",
   "allow-list-available-fonts",
   "allow-export-menu-render-preview",
+  "allow-allow-asset-scope",
 ]

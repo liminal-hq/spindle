@@ -9,21 +9,46 @@ import type { CSSProperties } from 'react';
 import { save } from '@tauri-apps/plugin-dialog';
 import { exportMenuRenderPreview, listAvailableFonts } from 'tauri-plugin-spindle-project-api';
 import { useProjectStore } from '../../store/project-store';
+import { useMenuPlaybackStore } from '../../store/menu-playback-store';
 import type { DisplayDensity } from '../../hooks/useDisplayDensity';
 import type {
+	AnimatableProperty,
 	AspectMode,
+	Easing,
 	FontEntry,
+	KeyValue,
 	Menu,
 	MenuButton,
 	MenuHighlightColours,
+	MenuRole,
+	MenuTiming,
+	PlaybackAction,
 	SpindleProjectFile,
 	SceneNode,
 } from '../../types/project';
-import { createDefaultMenuCompilePolicy, inferDefaultMenuDisplayAspect } from '../../types/project';
+import {
+	DEFAULT_HIGHLIGHT_COLOURS,
+	createDefaultMenuCompilePolicy,
+	inferDefaultMenuDisplayAspect,
+} from '../../types/project';
 import { SceneCanvas } from './SceneCanvas';
 import { InspectorPanel } from './InspectorPanel';
 import { FullMenuMap } from './MenuMap';
 import { DEFAULT_BUTTON_STYLE_MAP, DEFAULT_TEXT_STYLE } from './menuDefaults';
+import { getMenuButtons } from './menuProjectHelpers';
+import { useFormatProfile } from '../../format/useFormatProfile';
+import { terminologyFor } from '../../format/terminology';
+import { TimelineStrip } from './timeline/TimelineStrip';
+import {
+	addKeyframe,
+	deleteKeyframe,
+	findTrack,
+	moveKeyframe,
+	removeNodeTracks,
+	updateKeyframeEasing,
+	updateKeyframeValue,
+} from './timeline/animationWriters';
+import { evaluateTrack } from '../../utils/animation';
 import './SceneEditor.css';
 
 function resolveMenuDisplayAspect(project: SpindleProjectFile, menu: Menu): AspectMode {
@@ -34,6 +59,18 @@ function resolveMenuDisplayAspect(project: SpindleProjectFile, menu: Menu): Aspe
 			domain: menu.authoredDocument?.domain ?? 'vmgm',
 		})
 	);
+}
+
+/** Every node id in `node`'s own subtree, including its own id — a `group`
+ * node embeds its children directly (see `SceneNode`'s `group` variant), so
+ * deleting one drops the whole subtree from `scene.nodes` in a single
+ * top-level filter, but each descendant can carry its own animation tracks
+ * that need dropping right along with it (see `removeNodeTracks`). */
+export function collectSubtreeNodeIds(node: SceneNode): string[] {
+	if (node.type === 'group') {
+		return [node.id, ...node.children.flatMap(collectSubtreeNodeIds)];
+	}
+	return [node.id];
 }
 
 export interface MenuEditorProps {
@@ -87,7 +124,10 @@ export function MenuEditor({
 	const updateMenuDocument = useProjectStore((s) => s.updateMenuDocument);
 	// Treat any legacy mode value as 'editor'
 	const activeView = menuEditorMode === 'map' ? 'map' : 'editor';
-	const menuDomainLabel = menu.authoredDocument?.domain === 'vmgm' ? 'VMGM' : 'Titleset';
+	const formatProfile = useFormatProfile(project.disc.family);
+	const terminology = terminologyFor(project.disc.family);
+	const menuRole = menu.authoredDocument?.role ?? 'title-select';
+	const menuDomainLabel = terminology.menuRole[menuRole];
 
 	const previewMode = useProjectStore((s) => s.previewMode);
 	const setPreviewMode = useProjectStore((s) => s.setPreviewMode);
@@ -158,37 +198,23 @@ export function MenuEditor({
 		return () => document.removeEventListener('keydown', handler);
 	}, [undo, redo]);
 
-	// Derive the scene nodes and button projections from authoredDocument
+	// Derive the scene nodes and button projections from authoredDocument,
+	// which is guaranteed present for any menu loaded via parseProject or
+	// created in-app (see MenusPage's createMenu).
 	const sceneNodes: SceneNode[] = menu.authoredDocument?.scene.nodes ?? [];
-	const currentButtons: MenuButton[] = menu.authoredDocument
-		? menu.authoredDocument.scene.nodes
-				.filter((n): n is Extract<SceneNode, { type: 'button' }> => n.type === 'button')
-				.map((node) => {
-					const interaction = menu.authoredDocument!.interaction.nodes.find(
-						(i) => i.nodeId === node.id,
-					);
-					return {
-						id: node.id,
-						label: node.label,
-						bounds: { x: node.x, y: node.y, width: node.width, height: node.height },
-						action: interaction?.action ?? null,
-						navUp: interaction?.navUp ?? null,
-						navDown: interaction?.navDown ?? null,
-						navLeft: interaction?.navLeft ?? null,
-						navRight: interaction?.navRight ?? null,
-						highlightMode: node.highlightMode ?? 'static',
-						highlightKeyframes: node.highlightKeyframes ?? [],
-						videoAssetId: node.videoAssetId ?? null,
-					};
-				})
-		: menu.buttons;
+	// `getMenuButtons` is the single "what counts as a button" join (scene
+	// button node + its interaction-graph focus node), shared with
+	// `menuProjectHelpers`'s connection-count computation and the Rust
+	// `MenuDocument::buttons()` it mirrors — this used to be duplicated here.
+	const currentButtons: MenuButton[] = getMenuButtons(menu);
 
-	const backgroundAsset = menu.backgroundAssetId
-		? (project.assets.find((a) => a.id === menu.backgroundAssetId) ?? null)
+	const backgroundAssetId = menu.authoredDocument?.scene.background.assetId ?? null;
+	const backgroundAsset = backgroundAssetId
+		? (project.assets.find((a) => a.id === backgroundAssetId) ?? null)
 		: null;
 	const backgroundAssetLabel = backgroundAsset ? backgroundAsset.fileName : null;
-	const highlightColours = menu.authoredDocument?.highlightColours ?? menu.highlightColours;
-	const defaultFocusId = menu.authoredDocument?.interaction.defaultFocusId ?? menu.defaultButtonId;
+	const highlightColours = menu.authoredDocument?.highlightColours ?? DEFAULT_HIGHLIGHT_COLOURS;
+	const defaultFocusId = menu.authoredDocument?.interaction.defaultFocusId ?? null;
 	const displayAspect = resolveMenuDisplayAspect(project, menu);
 
 	const selectedNode = sceneNodes.find((n) => n.id === selectedNodeId) ?? null;
@@ -204,76 +230,41 @@ export function MenuEditor({
 
 	const handleAddButton = () => {
 		const id = crypto.randomUUID();
-		const btnCount =
-			menu.authoredDocument?.scene.nodes.filter((n) => n.type === 'button').length ??
-			menu.buttons.length;
+		const btnCount = currentButtons.length;
 		const label = `Button ${btnCount + 1}`;
 		const x = 100 + btnCount * 20;
 		const y = Math.min(300 + btnCount * 20, canvasHeight - 60);
 
-		onUpdate((m) => {
-			if (m.authoredDocument) {
-				return {
-					...m,
-					authoredDocument: {
-						...m.authoredDocument,
-						scene: {
-							...m.authoredDocument.scene,
-							nodes: [
-								...m.authoredDocument.scene.nodes,
-								{
-									type: 'button' as const,
-									id,
-									label,
-									x,
-									y,
-									width: 200,
-									height: 40,
-									highlightMode: 'static' as const,
-									highlightKeyframes: [],
-									videoAssetId: null,
-									buttonStyle: { ...DEFAULT_BUTTON_STYLE_MAP },
-									labelStyle: { ...DEFAULT_TEXT_STYLE },
-								},
-							],
-						},
-						interaction: {
-							...m.authoredDocument.interaction,
-							nodes: [
-								...m.authoredDocument.interaction.nodes,
-								{
-									nodeId: id,
-									navUp: null,
-									navDown: null,
-									navLeft: null,
-									navRight: null,
-									action: null,
-								},
-							],
-						},
-					},
-				};
-			}
-			return {
-				...m,
-				buttons: [
-					...m.buttons,
+		updateMenuDocument(menu.id, (document) => ({
+			...document,
+			scene: {
+				...document.scene,
+				nodes: [
+					...document.scene.nodes,
 					{
+						type: 'button' as const,
 						id,
 						label,
-						bounds: { x, y, width: 200, height: 40 },
-						action: null,
-						navUp: null,
-						navDown: null,
-						navLeft: null,
-						navRight: null,
+						x,
+						y,
+						width: 200,
+						height: 40,
 						highlightMode: 'static' as const,
 						highlightKeyframes: [],
 						videoAssetId: null,
+						buttonStyle: { ...DEFAULT_BUTTON_STYLE_MAP },
+						labelStyle: { ...DEFAULT_TEXT_STYLE },
 					},
 				],
-			};
-		});
+			},
+			interaction: {
+				...document.interaction,
+				nodes: [
+					...document.interaction.nodes,
+					{ nodeId: id, navUp: null, navDown: null, navLeft: null, navRight: null, action: null },
+				],
+			},
+		}));
 		setSelectedNodeId(id);
 	};
 
@@ -325,10 +316,16 @@ export function MenuEditor({
 	// ── Update handlers
 
 	const handleUpdateButton = (buttonId: string, updates: Partial<MenuButton>) => {
-		onUpdate((m) => {
-			if (m.authoredDocument) {
-				const nodes = m.authoredDocument.scene.nodes.map((node) => {
+		updateMenuDocument(menu.id, (document) => ({
+			...document,
+			scene: {
+				...document.scene,
+				nodes: document.scene.nodes.map((node) => {
 					if (node.type === 'button' && node.id === buttonId) {
+						// `highlightMode`/`highlightKeyframes` are the legacy per-button
+						// animation model — animation now lives on `document.animation`
+						// (see the `handleAddKeyframe` family below), so this writer no
+						// longer passes those fields through.
 						return {
 							...node,
 							label: updates.label ?? node.label,
@@ -336,15 +333,15 @@ export function MenuEditor({
 							y: updates.bounds?.y ?? node.y,
 							width: updates.bounds?.width ?? node.width,
 							height: updates.bounds?.height ?? node.height,
-							highlightMode: updates.highlightMode ?? node.highlightMode,
-							highlightKeyframes: updates.highlightKeyframes ?? node.highlightKeyframes,
 							videoAssetId: updates.videoAssetId ?? node.videoAssetId,
 						};
 					}
 					return node;
-				});
-
-				const interactionNodes = m.authoredDocument.interaction.nodes.map((node) => {
+				}),
+			},
+			interaction: {
+				...document.interaction,
+				nodes: document.interaction.nodes.map((node) => {
 					if (node.nodeId === buttonId) {
 						return {
 							...node,
@@ -356,74 +353,46 @@ export function MenuEditor({
 						};
 					}
 					return node;
-				});
-
-				// Mirror button changes back to the legacy buttons array so that
-				// validation, planning, and compiler fallbacks see current state.
-				const syncedButtons = nodes
-					.filter((n): n is Extract<SceneNode, { type: 'button' }> => n.type === 'button')
-					.map((node) => {
-						const inode = interactionNodes.find((i) => i.nodeId === node.id);
-						return {
-							id: node.id,
-							label: node.label,
-							bounds: { x: node.x, y: node.y, width: node.width, height: node.height },
-							action: inode?.action ?? null,
-							navUp: inode?.navUp ?? null,
-							navDown: inode?.navDown ?? null,
-							navLeft: inode?.navLeft ?? null,
-							navRight: inode?.navRight ?? null,
-							highlightMode: node.highlightMode ?? ('static' as const),
-							highlightKeyframes: node.highlightKeyframes ?? [],
-							videoAssetId: node.videoAssetId ?? null,
-						};
-					});
-
-				return {
-					...m,
-					buttons: syncedButtons,
-					authoredDocument: {
-						...m.authoredDocument,
-						scene: { ...m.authoredDocument.scene, nodes },
-						interaction: { ...m.authoredDocument.interaction, nodes: interactionNodes },
-					},
-				};
-			}
-			return {
-				...m,
-				buttons: m.buttons.map((b) => (b.id === buttonId ? { ...b, ...updates } : b)),
-			};
-		});
+				}),
+			},
+		}));
 	};
 
 	const handleRemoveButton = (buttonId: string) => {
-		onUpdate((m) => {
-			if (m.authoredDocument) {
-				return {
-					...m,
-					authoredDocument: {
-						...m.authoredDocument,
-						scene: {
-							...m.authoredDocument.scene,
-							nodes: m.authoredDocument.scene.nodes.filter((n) => n.id !== buttonId),
-						},
-						interaction: {
-							...m.authoredDocument.interaction,
-							nodes: m.authoredDocument.interaction.nodes.filter((n) => n.nodeId !== buttonId),
-							defaultFocusId:
-								m.authoredDocument.interaction.defaultFocusId === buttonId
-									? null
-									: m.authoredDocument.interaction.defaultFocusId,
-						},
-					},
-				};
-			}
-			return {
-				...m,
-				buttons: m.buttons.filter((b) => b.id !== buttonId),
-				defaultButtonId: m.defaultButtonId === buttonId ? null : m.defaultButtonId,
-			};
-		});
+		updateMenuDocument(menu.id, (document) => ({
+			...document,
+			scene: {
+				...document.scene,
+				nodes: document.scene.nodes.filter((n) => n.id !== buttonId),
+			},
+			interaction: {
+				...document.interaction,
+				nodes: document.interaction.nodes
+					.filter((n) => n.nodeId !== buttonId)
+					// Clear any surviving nav_* link that pointed at the
+					// deleted button — otherwise it's left dangling and only
+					// surfaces later as a `menu.dangling-nav-ref` validation
+					// error, instead of being cleaned up at delete time.
+					.map((n) => ({
+						...n,
+						navUp: n.navUp === buttonId ? null : n.navUp,
+						navDown: n.navDown === buttonId ? null : n.navDown,
+						navLeft: n.navLeft === buttonId ? null : n.navLeft,
+						navRight: n.navRight === buttonId ? null : n.navRight,
+					})),
+				defaultFocusId:
+					document.interaction.defaultFocusId === buttonId
+						? null
+						: document.interaction.defaultFocusId,
+			},
+			// Otherwise a track left targeting the deleted button surfaces as
+			// `menu.animation-node-missing` on the next validate — reachable
+			// from the ordinary add-keyframe-then-delete-button flow. Unlike
+			// `handleRemoveNode`'s `group` case below, a `button` scene node has
+			// no `children` field to recurse into, so its own id is the whole
+			// subtree.
+			animation: removeNodeTracks(document.animation ?? [], buttonId),
+		}));
 		if (selectedNodeId === buttonId) setSelectedNodeId(null);
 	};
 
@@ -465,6 +434,14 @@ export function MenuEditor({
 		}
 		onUpdate((m) => {
 			if (!m.authoredDocument) return m;
+			const node = m.authoredDocument.scene.nodes.find((n) => n.id === nodeId);
+			// A `group` node's children are embedded in it, so removing it from
+			// `scene.nodes` below drops its whole subtree in one filter — but
+			// every descendant's own animation tracks need dropping too, or
+			// they linger referencing a scene node that no longer exists (same
+			// orphaned-track hazard as `handleRemoveButton`, extended across the
+			// deleted subtree).
+			const idsToRemove = node ? collectSubtreeNodeIds(node) : [nodeId];
 			return {
 				...m,
 				authoredDocument: {
@@ -473,6 +450,7 @@ export function MenuEditor({
 						...m.authoredDocument.scene,
 						nodes: m.authoredDocument.scene.nodes.filter((n) => n.id !== nodeId),
 					},
+					animation: removeNodeTracks(m.authoredDocument.animation ?? [], idsToRemove),
 				},
 			};
 		});
@@ -494,123 +472,223 @@ export function MenuEditor({
 	}); // re-registers each render to close over current handlers
 
 	const handleUpdateHighlightColours = (colours: MenuHighlightColours) => {
-		onUpdate((m) => {
-			if (m.authoredDocument) {
-				return {
-					...m,
-					highlightColours: colours,
-					authoredDocument: { ...m.authoredDocument, highlightColours: colours },
-				};
-			}
-			return { ...m, highlightColours: colours };
-		});
+		updateMenuDocument(menu.id, (document) => ({ ...document, highlightColours: colours }));
 	};
 
 	// Set default focus — updates authoredDocument interaction graph
 	const handleSetDefaultFocus = (buttonId: string) => {
-		onUpdate((m) => {
-			if (m.authoredDocument) {
-				return {
-					...m,
-					authoredDocument: {
-						...m.authoredDocument,
-						interaction: {
-							...m.authoredDocument.interaction,
-							defaultFocusId: buttonId,
-						},
-					},
-				};
-			}
-			return { ...m, defaultButtonId: buttonId };
-		});
+		updateMenuDocument(menu.id, (document) => ({
+			...document,
+			interaction: { ...document.interaction, defaultFocusId: buttonId },
+		}));
 	};
 
 	// ── Background assignment (kept in canvas toolbar for now)
 
 	const handleBackgroundChange = (newAssetId: string | null) => {
-		onUpdate((m) => ({
-			...m,
-			backgroundAssetId: newAssetId,
-			authoredDocument: m.authoredDocument
-				? {
-						...m.authoredDocument,
-						scene: {
-							...m.authoredDocument.scene,
-							background: { ...m.authoredDocument.scene.background, assetId: newAssetId },
-						},
-					}
-				: m.authoredDocument,
+		updateMenuDocument(menu.id, (document) => ({
+			...document,
+			scene: {
+				...document.scene,
+				background: { ...document.scene.background, assetId: newAssetId },
+			},
 		}));
 	};
 
 	const handleBackgroundColourChange = (colour: string) => {
-		onUpdate((m) => {
-			if (m.authoredDocument) {
-				return {
-					...m,
-					authoredDocument: {
-						...m.authoredDocument,
-						scene: {
-							...m.authoredDocument.scene,
-							background: { ...m.authoredDocument.scene.background, colour },
-						},
-					},
-				};
-			}
-			return m;
-		});
-	};
-
-	const handleBackgroundModeChange = (mode: 'still' | 'motion') => {
-		onUpdate((m) => ({
-			...m,
-			backgroundMode: mode,
-			authoredDocument: m.authoredDocument
-				? {
-						...m.authoredDocument,
-						backgroundMode: mode,
-					}
-				: m.authoredDocument,
+		updateMenuDocument(menu.id, (document) => ({
+			...document,
+			scene: { ...document.scene, background: { ...document.scene.background, colour } },
 		}));
 	};
 
+	const handleBackgroundModeChange = (mode: 'still' | 'motion') => {
+		updateMenuDocument(menu.id, (document) => ({ ...document, backgroundMode: mode }));
+	};
+
 	const handleMotionAudioChange = (assetId: string | null) => {
-		onUpdate((m) => ({
-			...m,
-			motionAudioAssetId: assetId,
+		updateMenuDocument(menu.id, (document) => ({
+			...document,
+			timing: { ...document.timing, audioAssetId: assetId },
 		}));
 	};
 
 	const handleMotionDurationChange = (secs: number | null) => {
-		onUpdate((m) => ({
-			...m,
-			motionDurationSecs: secs,
-			authoredDocument: m.authoredDocument
-				? {
-						...m.authoredDocument,
-						timing: {
-							...m.authoredDocument.timing,
-							loopDurationSecs: secs ?? m.authoredDocument.timing.loopDurationSecs,
-						},
-					}
-				: m.authoredDocument,
-		}));
+		// A cleared input writes the unset sentinel (0.0) rather than
+		// snapping back to the previous value — `MenuDocument::motion_loop_duration`
+		// on the Rust side already treats `<= 0.0` as "not authored".
+		updateMenuDocument(menu.id, (document) => {
+			// Same latest-keyframe floor as the timeline's region-bar drags:
+			// keyframes are loop-relative, so a shorter loop would strand them
+			// out of range and fail `menu.motion-keyframe-out-of-range` on the
+			// next validate. Applied at the writer so EVERY duration input
+			// respects it. A cleared input (unset sentinel) stays clearable.
+			const minLoop = Math.max(
+				0,
+				...(document.animation ?? []).flatMap((t) => t.keyframes.map((kf) => kf.timestampSecs)),
+			);
+			const requested = secs ?? 0.0;
+			const clamped = requested > 0 ? Math.max(requested, minLoop) : requested;
+			return {
+				...document,
+				timing: { ...document.timing, loopDurationSecs: clamped },
+			};
+		});
 	};
 
 	const handleMotionLoopCountChange = (count: number) => {
-		onUpdate((m) => ({
-			...m,
-			motionLoopCount: count,
-			authoredDocument: m.authoredDocument
-				? {
-						...m.authoredDocument,
-						timing: {
-							...m.authoredDocument.timing,
-							loopCount: count,
-						},
-					}
-				: m.authoredDocument,
+		updateMenuDocument(menu.id, (document) => ({
+			...document,
+			timing: { ...document.timing, loopCount: count },
 		}));
+	};
+
+	const handleMotionLoopStartChange = (secs: number) => {
+		updateMenuDocument(menu.id, (document) => ({
+			...document,
+			timing: { ...document.timing, loopStartSecs: Math.max(0, secs) },
+		}));
+	};
+
+	const handleMotionIntroStartChange = (secs: number) => {
+		updateMenuDocument(menu.id, (document) => ({
+			...document,
+			timing: { ...document.timing, introStartSecs: Math.max(0, secs) },
+		}));
+	};
+
+	const handleMotionIntroDurationChange = (secs: number | null) => {
+		// A cleared input writes 0.0 (no intro authored), mirroring
+		// `handleMotionDurationChange`'s loop-duration sentinel.
+		updateMenuDocument(menu.id, (document) => ({
+			...document,
+			timing: { ...document.timing, introDurationSecs: Math.max(0, secs ?? 0.0) },
+		}));
+	};
+
+	const handleMotionTimeoutActionChange = (action: PlaybackAction | null) => {
+		updateMenuDocument(menu.id, (document) => ({
+			...document,
+			interaction: { ...document.interaction, timeoutAction: action },
+		}));
+	};
+
+	const handleSetLoopStartFromPlayhead = () => {
+		const currentTime = useMenuPlaybackStore.getState().currentTime;
+		handleMotionLoopStartChange(currentTime);
+	};
+
+	// ── Timeline: animation-track writers ──────────────────────────────────
+	// Each writer maps to exactly one `updateMenuDocument` call, so a drag
+	// interaction committed once on pointer-up produces exactly one undo
+	// entry (see `TimelineKeyframeLane`/`TimelineRegionBar`).
+
+	const handleAddKeyframe = (
+		nodeId: string,
+		target: AnimatableProperty,
+		timestampSecs: number,
+		value: KeyValue,
+	) => {
+		updateMenuDocument(menu.id, (document) => ({
+			...document,
+			animation: addKeyframe(document.animation ?? [], nodeId, target, timestampSecs, value),
+		}));
+	};
+
+	const handleMoveKeyframe = (
+		nodeId: string,
+		target: AnimatableProperty,
+		keyframeIndex: number,
+		newTimestampSecs: number,
+	) => {
+		updateMenuDocument(menu.id, (document) => ({
+			...document,
+			animation: moveKeyframe(
+				document.animation ?? [],
+				nodeId,
+				target,
+				keyframeIndex,
+				newTimestampSecs,
+			),
+		}));
+	};
+
+	const handleUpdateKeyframeValue = (
+		nodeId: string,
+		target: AnimatableProperty,
+		keyframeIndex: number,
+		value: KeyValue,
+	) => {
+		updateMenuDocument(menu.id, (document) => ({
+			...document,
+			animation: updateKeyframeValue(
+				document.animation ?? [],
+				nodeId,
+				target,
+				keyframeIndex,
+				value,
+			),
+		}));
+	};
+
+	const handleUpdateKeyframeEasing = (
+		nodeId: string,
+		target: AnimatableProperty,
+		keyframeIndex: number,
+		easing: Easing,
+	) => {
+		updateMenuDocument(menu.id, (document) => ({
+			...document,
+			animation: updateKeyframeEasing(
+				document.animation ?? [],
+				nodeId,
+				target,
+				keyframeIndex,
+				easing,
+			),
+		}));
+	};
+
+	const handleDeleteKeyframe = (
+		nodeId: string,
+		target: AnimatableProperty,
+		keyframeIndex: number,
+	) => {
+		updateMenuDocument(menu.id, (document) => ({
+			...document,
+			animation: deleteKeyframe(document.animation ?? [], nodeId, target, keyframeIndex),
+		}));
+	};
+
+	const handleSetTimingField = (patch: Partial<MenuTiming>) => {
+		updateMenuDocument(menu.id, (document) => ({
+			...document,
+			timing: { ...document.timing, ...patch },
+		}));
+	};
+
+	/** "Add keyframe at playhead" — used by `ButtonInspector`'s highlight
+	 * animation row. Samples the button's existing highlight-colour track (if
+	 * any) at the playhead's loop-relative time, falling back to the menu's
+	 * static highlight colour only when the button has no track yet — a
+	 * button mid-animation must not silently jump to the static colour.
+	 * The playhead can sit anywhere on the source-duration ruler, including
+	 * past the authored loop, so the loop-relative timestamp is clamped to
+	 * `[0, loopDurationSecs]` before it's ever persisted (an unclamped value
+	 * trips `menu.motion-keyframe-out-of-range` at build time). */
+	const handleAddKeyframeAtPlayhead = (buttonId: string) => {
+		const { currentTime } = useMenuPlaybackStore.getState();
+		const timing = menu.authoredDocument?.timing;
+		const loopStartSecs = timing?.loopStartSecs ?? 0;
+		const loopDurationSecs = timing?.loopDurationSecs ?? 0;
+		const timestampSecs = Math.min(
+			Math.max(0, currentTime - loopStartSecs),
+			Math.max(0, loopDurationSecs),
+		);
+		const track = findTrack(menu.authoredDocument?.animation ?? [], buttonId, 'highlight-colour');
+		const sampled = track ? evaluateTrack(track, timestampSecs) : null;
+		const value: KeyValue = sampled ?? { kind: 'colour', hex: highlightColours.selectColour };
+		handleAddKeyframe(buttonId, 'highlight-colour', timestampSecs, value);
 	};
 
 	const handleDisplayAspectChange = (aspect: AspectMode) => {
@@ -622,6 +700,10 @@ export function MenuEditor({
 				displayAspect: aspect,
 			},
 		}));
+	};
+
+	const handleRoleChange = (role: MenuRole) => {
+		updateMenuDocument(menu.id, (document) => ({ ...document, role }));
 	};
 
 	const zoomOut = () => setCanvasZoom((value) => Math.max(50, value - 10));
@@ -660,13 +742,18 @@ export function MenuEditor({
 					<div className="editor-toolbar__info">
 						{activeView === 'editor' ? (
 							<>
+								<span
+									className="editor-toolbar__format-badge"
+									title={`${formatProfile.displayName} · ${project.disc.standard} · ${displayAspect === 'sixteen-by-nine' ? '16:9 anamorphic' : '4:3'}`}
+								>
+									{formatProfile.displayName}
+								</span>
+								<span className="editor-toolbar__separator">|</span>
 								<span>{currentButtons.length} buttons</span>
 								<span className="editor-toolbar__separator">|</span>
 								<span>{menuDomainLabel}</span>
 								<span className="editor-toolbar__separator">|</span>
-								<span>
-									{displayAspect === 'sixteen-by-nine' ? '16:9 anamorphic DVD' : '4:3 DVD'}
-								</span>
+								<span>{displayAspect === 'sixteen-by-nine' ? '16:9 anamorphic' : '4:3'}</span>
 								<span className="editor-toolbar__separator">|</span>
 								<span>
 									720 x {canvasHeight} {project.disc.standard}
@@ -701,10 +788,10 @@ export function MenuEditor({
 								}`}
 								onClick={() => setHonestPreview((value) => !value)}
 								aria-pressed={honestPreview}
-								title="Toggle DVD preview"
+								title={`Toggle ${terminology.compilePreviewLabel.toLowerCase()}`}
 							>
 								<span className="editor-toolbar__toggle-dot" aria-hidden="true" />
-								DVD Preview
+								{terminology.compilePreviewLabel}
 							</button>
 							<button
 								className={`editor-toolbar__toggle ${previewMode ? 'editor-toolbar__toggle--active' : ''}`}
@@ -893,6 +980,11 @@ export function MenuEditor({
 								backgroundLabel={backgroundAssetLabel}
 								backgroundColour={menu.authoredDocument?.scene.background.colour ?? null}
 								backgroundAsset={backgroundAsset}
+								backgroundIsMotion={menu.authoredDocument?.backgroundMode === 'motion'}
+								backgroundInitialTimeSecs={menu.authoredDocument?.timing.loopStartSecs ?? 0}
+								loopDurationSecs={menu.authoredDocument?.timing.loopDurationSecs ?? 0}
+								animationTracks={menu.authoredDocument?.animation ?? []}
+								standard={project.disc.standard}
 								defaultButtonId={defaultFocusId}
 								previewMode={previewMode}
 								highlightColours={highlightColours}
@@ -902,8 +994,23 @@ export function MenuEditor({
 								onSelectNode={setSelectedNodeId}
 								buttonPreviewState={buttonPreviewState}
 								displayAspect={displayAspect}
+								formatProfile={formatProfile}
 							/>
 						</div>
+						{menu.authoredDocument && (
+							<TimelineStrip
+								document={menu.authoredDocument}
+								buttons={currentButtons}
+								assets={project.assets}
+								standard={project.disc.standard}
+								onAddKeyframe={handleAddKeyframe}
+								onMoveKeyframe={handleMoveKeyframe}
+								onUpdateKeyframeValue={handleUpdateKeyframeValue}
+								onUpdateKeyframeEasing={handleUpdateKeyframeEasing}
+								onDeleteKeyframe={handleDeleteKeyframe}
+								onSetTimingField={handleSetTimingField}
+							/>
+						)}
 					</div>
 
 					{(!inspectorIsOverlay || inspectorVisible) && (
@@ -937,6 +1044,11 @@ export function MenuEditor({
 								onUpdateMotionAudioAsset={handleMotionAudioChange}
 								onUpdateMotionDurationSecs={handleMotionDurationChange}
 								onUpdateMotionLoopCount={handleMotionLoopCountChange}
+								onUpdateMotionLoopStart={handleMotionLoopStartChange}
+								onUpdateMotionIntroStart={handleMotionIntroStartChange}
+								onUpdateMotionIntroDuration={handleMotionIntroDurationChange}
+								onUpdateMotionTimeoutAction={handleMotionTimeoutActionChange}
+								onSetLoopStartFromPlayhead={handleSetLoopStartFromPlayhead}
 								onAutoNav={onAutoNav}
 								onExportRenderPreview={
 									menu.authoredDocument ? handleExportRenderPreview : undefined
@@ -946,6 +1058,9 @@ export function MenuEditor({
 								displayAspect={displayAspect}
 								onDisplayAspectChange={handleDisplayAspectChange}
 								availableFonts={availableFonts}
+								formatProfile={formatProfile}
+								onUpdateRole={handleRoleChange}
+								onAddKeyframeAtPlayhead={handleAddKeyframeAtPlayhead}
 							/>
 						</div>
 					)}

@@ -5,6 +5,8 @@
 
 import { useMemo } from 'react';
 import type { SpindleProjectFile, PlaybackAction } from '../../types/project';
+import { getMenuButtons } from './menuProjectHelpers';
+import { terminologyFor } from '../../format/terminology';
 
 // ── Layout constants ────────────────────────────────────────────────────────
 
@@ -28,6 +30,8 @@ interface LayoutNode {
 	label: string;
 	sublabel?: string;
 	domain?: 'vmgm' | 'titleset';
+	/** Short, format-worded role badge (e.g. "Chapter Menu") — see `terminologyFor`. */
+	roleLabel?: string;
 	x: number;
 	y: number;
 	w: number;
@@ -115,6 +119,7 @@ function computeMapLayout(project: SpindleProjectFile, compact: boolean): MapLay
 	const rawEdges: LayoutEdge[] = [];
 	const returnIds = new Set<string>();
 	const hasFirstPlayAction = project.disc.firstPlayAction !== null;
+	const menuRoleLabel = terminologyFor(project.disc.family).menuRole;
 
 	if (hasFirstPlayAction) {
 		nodes.push({
@@ -136,6 +141,7 @@ function computeMapLayout(project: SpindleProjectFile, compact: boolean): MapLay
 			type: 'menu',
 			label: menu.name,
 			domain: 'vmgm',
+			roleLabel: menuRoleLabel[menu.authoredDocument?.role ?? 'title-select'],
 			x: pad,
 			y: pad + (row + (hasFirstPlayAction ? 1 : 0)) * (nh + rg),
 			w: nw,
@@ -153,6 +159,7 @@ function computeMapLayout(project: SpindleProjectFile, compact: boolean): MapLay
 				label: menu.name,
 				sublabel: ts.name,
 				domain: 'titleset',
+				roleLabel: menuRoleLabel[menu.authoredDocument?.role ?? 'title-select'],
 				x: pad + col * (nw + cg),
 				y: pad + row * (nh + rg),
 				w: nw,
@@ -202,16 +209,8 @@ function computeMapLayout(project: SpindleProjectFile, compact: boolean): MapLay
 				extractEdgesFromAction(inode.action, menu.id, rawEdges, returnIds);
 			}
 		}
-		// Also scan legacy buttons
-		if (!menu.authoredDocument) {
-			for (const btn of menu.buttons) {
-				if (btn.action) {
-					extractEdgesFromAction(btn.action, menu.id, rawEdges, returnIds);
-				}
-			}
-		}
 		// Timeout action
-		const timeoutAction = menu.authoredDocument?.interaction.timeoutAction ?? menu.timeoutAction;
+		const timeoutAction = menu.authoredDocument?.interaction.timeoutAction ?? null;
 		if (timeoutAction) {
 			extractEdgesFromAction(timeoutAction, menu.id, rawEdges, returnIds);
 		}
@@ -434,9 +433,7 @@ function NodeRect({
 						? 'TITLE'
 						: node.type === 'disc'
 							? 'START'
-							: isVmgm
-								? 'VMGM'
-								: 'MENU'}
+							: truncate((node.roleLabel ?? (isVmgm ? 'VMGM' : 'Menu')).toUpperCase(), 14)}
 				</text>
 			)}
 			{/* Return badge — shows a loopback indicator for nodes with return actions */}
@@ -654,10 +651,7 @@ export function FullMenuMap({
 		...project.disc.titlesets.flatMap((ts) => ts.menus),
 	];
 	const selectedMenu = allMenus.find((m) => m.id === selectedMenuId) ?? null;
-	const selectedMenuButtonCount = selectedMenu
-		? (selectedMenu.authoredDocument?.scene.nodes.filter((node) => node.type === 'button').length ??
-			selectedMenu.buttons.length)
-		: 0;
+	const selectedMenuButtonCount = selectedMenu ? getMenuButtons(selectedMenu).length : 0;
 	const selectedMenuHeight = project.disc.standard === 'PAL' ? 576 : 480;
 
 	// Compute outgoing and incoming connections for the selected menu
@@ -696,7 +690,9 @@ export function FullMenuMap({
 								{selectedMenuButtonCount === 1 ? '' : 's'}
 							</div>
 							<div className="menu-map__inspector-stat">
-								<strong>{selectedMenu.backgroundMode === 'motion' ? 'Motion' : 'Still'}</strong>{' '}
+								<strong>
+									{selectedMenu.authoredDocument?.backgroundMode === 'motion' ? 'Motion' : 'Still'}
+								</strong>{' '}
 								menu
 							</div>
 							<div className="menu-map__inspector-stat">

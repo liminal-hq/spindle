@@ -9,7 +9,7 @@ use std::path::Path;
 
 use skia_safe::{Data, Font, FontMgr, FontStyle, Typeface};
 
-use crate::models::{Asset, DiscFamily, FontWeight};
+use crate::models::{profile_for, Asset, DiscFamily, FontWeight};
 
 // ── Font enumeration ──────────────────────────────────────────────────────────
 
@@ -217,13 +217,12 @@ impl FontCache {
 ///
 /// Very low-resolution formats compress text aggressively when scaling from
 /// design space to raster, so a floor is needed to keep text legible.
+///
+/// Delegates to [`crate::models::FormatProfile::min_font_size_pt`] — that
+/// table is the single source of truth for this value now; this function
+/// stays as the call site the Skia renderer already uses.
 pub(super) fn min_font_size_pt(family: DiscFamily) -> f32 {
-    match family {
-        DiscFamily::Vcd => 18.0,
-        DiscFamily::Svcd => 16.0,
-        DiscFamily::DvdVideo => 12.0,
-        DiscFamily::BluRay => 10.0,
-    }
+    profile_for(family).min_font_size_pt
 }
 
 #[cfg(test)]

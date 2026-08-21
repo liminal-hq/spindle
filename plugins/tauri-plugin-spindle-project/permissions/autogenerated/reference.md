@@ -9,6 +9,7 @@ Default permissions for the spindle-project plugin
 - `allow-serialise-project`
 - `allow-validate-project`
 - `allow-estimate-disc-capacity`
+- `allow-get-format-profile`
 - `allow-inspect-asset`
 - `allow-extract-video-thumbnail`
 - `allow-extract-image-thumbnail`
@@ -21,6 +22,7 @@ Default permissions for the spindle-project plugin
 - `allow-export-diagnostics`
 - `allow-list-available-fonts`
 - `allow-export-menu-render-preview`
+- `allow-allow-asset-scope`
 
 ## Permission Table
 
@@ -30,6 +32,32 @@ Default permissions for the spindle-project plugin
 <th>Description</th>
 </tr>
 
+
+<tr>
+<td>
+
+`spindle-project:allow-allow-asset-scope`
+
+</td>
+<td>
+
+Enables the allow_asset_scope command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`spindle-project:deny-allow-asset-scope`
+
+</td>
+<td>
+
+Denies the allow_asset_scope command without any pre-configured scope.
+
+</td>
+</tr>
 
 <tr>
 <td>
@@ -339,6 +367,32 @@ Enables the get_cache_dir command without any pre-configured scope.
 <td>
 
 Denies the get_cache_dir command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`spindle-project:allow-get-format-profile`
+
+</td>
+<td>
+
+Enables the get_format_profile command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`spindle-project:deny-get-format-profile`
+
+</td>
+<td>
+
+Denies the get_format_profile command without any pre-configured scope.
 
 </td>
 </tr>

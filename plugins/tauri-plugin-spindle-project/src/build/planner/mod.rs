@@ -15,18 +15,18 @@ use super::ffmpeg::{
 use super::menu::{
     authorable_menus, build_ffmpeg_menu_command, generate_spumux_xml, menu_scene_png_path,
 };
+use super::menu_motion::{build_ffmpeg_motion_segment_command, plan_motion_segments};
 use super::types::{BuildJob, BuildPlan, BuildSummary, MenuOverlayButton};
 
+mod animation;
 mod helpers;
 mod paths;
 #[cfg(test)]
 mod tests;
 mod toolchain;
 
-use helpers::{
-    ensure_supported_menu_backend, generate_text_subtitle_spumux_xml,
-    strip_unknown_codec_subtitle_mappings,
-};
+use animation::build_overlay_keyframe_schedule;
+use helpers::{generate_text_subtitle_spumux_xml, strip_unknown_codec_subtitle_mappings};
 use paths::BuildPaths;
 use toolchain::ResolvedToolchain;
 
@@ -64,7 +64,6 @@ pub fn generate_build_plan_with_options(
     });
 
     let assets: HashMap<&str, &Asset> = project.assets.iter().map(|a| (a.id.as_str(), a)).collect();
-    ensure_supported_menu_backend(project)?;
 
     // Per-title average video bitrate, computed from the disc-wide capacity
     // budget so the transcode actually respects what the Planner/Overview
@@ -282,15 +281,60 @@ pub fn generate_build_plan_with_options(
     for menu_ref in authorable_menus(project) {
         let menu_paths = paths.menu_paths(&menu_ref.menu.id);
         let scene_png_path = menu_scene_png_path(&menu_paths.base_video_path);
-        let render_command = build_ffmpeg_menu_command(
-            &tools.ffmpeg,
-            &menu_ref,
-            &assets,
-            project,
-            project.disc.standard,
-            &menu_paths.base_video_path,
-            &scene_png_path,
-        )?;
+
+        let (render_command, intro_command, duration_secs, intro_duration_secs) =
+            if matches!(menu_ref.background_mode(), BackgroundMode::Motion) {
+                // Hard error (rather than a silent still-mode fallback) when the
+                // authored background can't actually be composed — mirrors the
+                // scene-image-asset check below for `SceneNode::Image`.
+                let (loop_spec, intro_spec) = plan_motion_segments(
+                    &menu_ref,
+                    &assets,
+                    &scene_png_path,
+                    &menu_paths.base_video_path,
+                    &menu_paths.intro_video_path,
+                )?;
+                let loop_duration_secs = loop_spec.duration_secs;
+                let loop_command = build_ffmpeg_motion_segment_command(
+                    &tools.ffmpeg,
+                    &menu_ref,
+                    &assets,
+                    project,
+                    project.disc.standard,
+                    &loop_spec,
+                )?;
+                let intro_command = intro_spec
+                    .as_ref()
+                    .map(|spec| {
+                        build_ffmpeg_motion_segment_command(
+                            &tools.ffmpeg,
+                            &menu_ref,
+                            &assets,
+                            project,
+                            project.disc.standard,
+                            spec,
+                        )
+                    })
+                    .transpose()?;
+                let intro_duration_secs = intro_spec.as_ref().map(|spec| spec.duration_secs);
+                (
+                    loop_command,
+                    intro_command,
+                    Some(loop_duration_secs),
+                    intro_duration_secs,
+                )
+            } else {
+                let command = build_ffmpeg_menu_command(
+                    &tools.ffmpeg,
+                    &menu_ref,
+                    &assets,
+                    project,
+                    project.disc.standard,
+                    &menu_paths.base_video_path,
+                    &scene_png_path,
+                )?;
+                (command, None, None, None)
+            };
 
         let menu_aspect = menu_ref.display_aspect(project);
         let target = RenderTarget::from_disc(&project.disc, menu_aspect);
@@ -342,11 +386,22 @@ pub fn generate_build_plan_with_options(
         }
         let scene_assets_json = serde_json::to_string(&scene_assets_map).unwrap_or_default();
 
+        let overlay_keyframes = build_overlay_keyframe_schedule(
+            &menu_ref,
+            duration_secs,
+            project.disc.standard,
+            &paths.menus_dir,
+            &menu_paths,
+        );
+
         jobs.push(BuildJob::RenderMenu {
             menu_id: menu_ref.menu.id.clone(),
             menu_name: menu_ref.name().to_string(),
             output_path: menu_paths.base_video_path.display().to_string(),
             command: render_command,
+            intro_command,
+            duration_secs,
+            intro_duration_secs,
             label: format!("Render menu \"{}\"", menu_ref.name()),
             standard: project.disc.standard,
             highlight_image_path: menu_paths.highlight_image_path.display().to_string(),
@@ -366,10 +421,14 @@ pub fn generate_build_plan_with_options(
                         ..
                     } = node
                     {
+                        // A missing button_style must fall back to the same
+                        // default the scene renderer uses (`unwrap_or_default`
+                        // in `skia/scene.rs`) — falling back to 0 here drew a
+                        // square highlight outline around a rounded button.
                         let raw_radius = button_style
                             .as_ref()
                             .map(|bs| bs.normal.border_radius as f32)
-                            .unwrap_or(0.0);
+                            .unwrap_or_else(|| ButtonStateStyle::default().border_radius as f32);
                         let radius = (raw_radius * scale_x.min(scale_y) as f32).max(0.0);
                         Some(MenuOverlayButton {
                             x0: (x * scale_x).round() as i32,
@@ -389,6 +448,7 @@ pub fn generate_build_plan_with_options(
             menu_document_json,
             scene_assets_json,
             quantize_overlay_palette,
+            overlay_keyframes: overlay_keyframes.clone(),
         });
 
         let spumux_xml = generate_spumux_xml(
@@ -397,6 +457,7 @@ pub fn generate_build_plan_with_options(
             &paths.menus_dir,
             scale_x,
             scale_y,
+            &overlay_keyframes,
         );
         jobs.push(BuildJob::ComposeMenuHighlights {
             menu_id: menu_ref.menu.id.clone(),

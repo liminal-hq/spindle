@@ -21,6 +21,7 @@ import {
 	autoGenerateMenuNav as autoGenerateMenuNavCommand,
 	checkToolchain as checkToolchainCommand,
 	getCacheDir,
+	allowAssetScope,
 } from 'tauri-plugin-spindle-project-api';
 import { useAppSettingsStore } from './app-settings-store';
 import type {
@@ -34,10 +35,8 @@ import type {
 	Menu,
 	MenuDocument,
 	MenuEditorMode,
-	SceneNode,
 	ToolchainStatus,
 } from '../types/project';
-import { createDefaultMenuCompilePolicy, inferDefaultMenuDisplayAspect } from '../types/project';
 
 export type BuildStatus = 'idle' | 'planning' | 'building' | 'complete' | 'error';
 
@@ -362,11 +361,11 @@ function motionMenusWithoutLoopStart(project: SpindleProjectFile): string[] {
 		...project.disc.titlesets.flatMap((ts) => ts.menus),
 	];
 	return allMenus
-		.filter((m) => {
-			const doc = m.authoredDocument;
-			if (doc) return doc.backgroundMode === 'motion' && doc.timing.loopStartSecs === 0.0;
-			return m.backgroundMode === 'motion';
-		})
+		.filter(
+			(m) =>
+				m.authoredDocument?.backgroundMode === 'motion' &&
+				m.authoredDocument.timing.loopStartSecs === 0.0,
+		)
 		.map((m) => m.name);
 }
 
@@ -435,6 +434,17 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 				path: selected,
 				...projectTraceSummary(project),
 			});
+			// Grant the asset scope *before* publishing project state — a motion
+			// background's `<video>` starts loading the moment `project` state
+			// renders, and `BackgroundVideo`'s load-failure state is sticky, so
+			// publishing first can permanently strand it on "Preview unavailable"
+			// while the grant is still in flight. A grant failure must not block
+			// opening the project, though — warn and publish anyway.
+			try {
+				await allowAssetScope(project.assets.map((a) => a.sourcePath));
+			} catch (error) {
+				console.warn('[project-store] Failed to grant asset scope on open', { error });
+			}
 			set({
 				project,
 				filePath: selected,
@@ -610,6 +620,14 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 			};
 		});
 
+		// Grant the asset scope before publishing the new assets into project
+		// state — see the matching comment in `openProject`.
+		try {
+			await allowAssetScope(paths);
+		} catch (error) {
+			console.warn('[project-store] Failed to grant asset scope on import', { error });
+		}
+
 		set({
 			project: {
 				...project,
@@ -648,6 +666,15 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 			} catch {
 				// Inspection failed — asset stays as stub with null metadata
 			}
+		}
+
+		// Defensive parity with `openProject`: fills in any thumbnail that the
+		// per-asset extraction above didn't manage to produce (e.g. the
+		// project was mutated again mid-loop) rather than leaving it blank
+		// until the next reload.
+		const { project: afterImport } = get();
+		if (afterImport) {
+			await ensureProjectAssetThumbnails(afterImport);
 		}
 	},
 
@@ -706,7 +733,14 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 		useAppSettingsStore.getState().setLastMediaDir(parentDir(newPath));
 		const newFileName = newPath.split(/[/\\]/).pop() ?? newPath;
 
-		// Update path immediately
+		// Grant the asset scope before publishing the new path into project
+		// state — see the matching comment in `openProject`.
+		try {
+			await allowAssetScope([newPath]);
+		} catch (error) {
+			console.warn('[project-store] Failed to grant asset scope on relink', { error });
+		}
+
 		set({
 			project: {
 				...project,
@@ -968,112 +1002,34 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 			}
 		}
 
-		if (!menu) return;
-
-		// 1. Ensure authoredDocument exists, initializing from legacy if necessary
-		const doc: MenuDocument = menu.authoredDocument ?? {
-			id: menu.id,
-			name: menu.name,
-			domain: scope === 'global' ? 'vmgm' : 'titleset',
-			scene: {
-				designSize: { width: 720, height: project.disc.standard === 'NTSC' ? 480 : 576 },
-				background: { assetId: menu.backgroundAssetId, colour: null },
-				nodes: menu.buttons.map((btn) => ({
-					type: 'button',
-					id: btn.id,
-					label: btn.label,
-					x: btn.bounds.x,
-					y: btn.bounds.y,
-					width: btn.bounds.width,
-					height: btn.bounds.height,
-					highlightMode: btn.highlightMode,
-					highlightKeyframes: btn.highlightKeyframes,
-					videoAssetId: btn.videoAssetId,
-				})),
-				guides: [],
-			},
-			interaction: {
-				defaultFocusId: menu.defaultButtonId,
-				nodes: menu.buttons.map((btn) => ({
-					nodeId: btn.id,
-					navUp: btn.navUp,
-					navDown: btn.navDown,
-					navLeft: btn.navLeft,
-					navRight: btn.navRight,
-					action: btn.action,
-				})),
-				timeoutAction: menu.timeoutAction,
-			},
-			timing: {
-				introStartSecs: 0,
-				introDurationSecs: 0,
-				loopStartSecs: 0,
-				loopDurationSecs: menu.motionDurationSecs ?? 0,
-				loopCount: menu.motionLoopCount,
-			},
-			highlightColours: { ...menu.highlightColours },
-			backgroundMode: menu.backgroundMode,
-			themeRef: null,
-			generationMeta: null,
-			compilePolicy: createDefaultMenuCompilePolicy(
-				inferDefaultMenuDisplayAspect(project, {
-					menuId,
-					titlesetId,
-					domain: scope === 'global' ? 'vmgm' : 'titleset',
-				}),
-			),
-		};
-
-		// 2. Apply the updater
-		const updatedDoc = updater(doc);
-
-		// 3. Sync Layer: Reflect scene/interaction changes back to legacy DVD fields
-		const syncMenu = (m: Menu): Menu => {
-			const buttonNodes = updatedDoc.scene.nodes.filter(
-				(n): n is Extract<SceneNode, { type: 'button' }> => n.type === 'button',
+		// authoredDocument is guaranteed present for any menu loaded via
+		// parseProject (legacy projects are migrated at load time) or created
+		// in-app (see `createMenu`). A menu with no document has nothing to
+		// update here — this should not happen in practice, so log it rather
+		// than silently dropping the edit, which would otherwise look like a
+		// dead editor with no diagnostic trail.
+		if (!menu || !menu.authoredDocument) {
+			console.error(
+				`[project-store] updateMenuDocument: menu "${menuId}" not found or has no authoredDocument; edit dropped`,
 			);
+			return;
+		}
 
-			return {
-				...m,
-				authoredDocument: updatedDoc,
-				name: updatedDoc.name,
-				backgroundAssetId: updatedDoc.scene.background.assetId,
-				backgroundMode: updatedDoc.backgroundMode,
-				highlightColours: { ...updatedDoc.highlightColours },
-				defaultButtonId: updatedDoc.interaction.defaultFocusId,
-				motionDurationSecs: updatedDoc.timing.loopDurationSecs,
-				motionLoopCount: updatedDoc.timing.loopCount,
-				timeoutAction: updatedDoc.interaction.timeoutAction,
-				// Mirror basic properties back to legacy buttons array for immediate UI compatibility
-				// (e.g. Planner, Logs, and backward-compatible compiler fallbacks).
-				buttons: buttonNodes.map((node) => {
-					const interaction = updatedDoc.interaction.nodes.find((i) => i.nodeId === node.id);
-					return {
-						id: node.id,
-						label: node.label,
-						bounds: { x: node.x, y: node.y, width: node.width, height: node.height },
-						action: interaction?.action ?? null,
-						// Navigation and complex highlights are now handled by the scene-aware compiler directly
-						navUp: interaction?.navUp ?? null,
-						navDown: interaction?.navDown ?? null,
-						navLeft: interaction?.navLeft ?? null,
-						navRight: interaction?.navRight ?? null,
-						highlightMode: node.highlightMode ?? 'static',
-						highlightKeyframes: node.highlightKeyframes ?? [],
-						videoAssetId: node.videoAssetId ?? null,
-					};
-				}),
-			};
-		};
+		const updatedDoc = updater(menu.authoredDocument);
 
-		// 4. Update project with the synced menu
+		const applyDoc = (m: Menu): Menu => ({
+			...m,
+			authoredDocument: updatedDoc,
+			name: updatedDoc.name,
+		});
+
 		updateProject((p) => {
 			if (scope === 'global') {
 				return {
 					...p,
 					disc: {
 						...p.disc,
-						globalMenus: p.disc.globalMenus.map((m) => (m.id === menuId ? syncMenu(m) : m)),
+						globalMenus: p.disc.globalMenus.map((m) => (m.id === menuId ? applyDoc(m) : m)),
 					},
 				};
 			} else {
@@ -1083,7 +1039,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 						...p.disc,
 						titlesets: p.disc.titlesets.map((ts) =>
 							ts.id === titlesetId
-								? { ...ts, menus: ts.menus.map((m) => (m.id === menuId ? syncMenu(m) : m)) }
+								? { ...ts, menus: ts.menus.map((m) => (m.id === menuId ? applyDoc(m) : m)) }
 								: ts,
 						),
 					},

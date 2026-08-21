@@ -10,6 +10,7 @@ mod executor;
 mod ffmpeg;
 mod ffmpeg_progress;
 mod menu;
+mod menu_motion;
 mod navigation;
 mod planner;
 mod skia;
@@ -28,7 +29,7 @@ pub use planner::{generate_build_plan, generate_build_plan_with_options};
 pub use preview::export_menu_render_preview;
 pub use types::{
     BuildJob, BuildJobStatus, BuildPlan, BuildProgress, BuildResult, BuildSummary,
-    MenuOverlayButton,
+    MenuOverlayButton, OverlayKeyframeSpec,
 };
 
 mod preview;

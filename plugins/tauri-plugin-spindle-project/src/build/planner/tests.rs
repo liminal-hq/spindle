@@ -4,7 +4,9 @@
 // SPDX-License-Identifier: MIT
 
 use crate::build::test_support::{test_menu, test_project};
-use crate::build::{generate_build_plan, generate_build_plan_with_options, BuildJob};
+use crate::build::{
+    generate_build_plan, generate_build_plan_with_options, BuildJob, BuildPlan, OverlayKeyframeSpec,
+};
 use crate::models::*;
 
 #[test]
@@ -389,18 +391,92 @@ fn build_plan_deduplicates_identical_transcodes_with_different_mapping_ids() {
 }
 
 #[test]
-fn build_plan_rejects_motion_menus_until_backend_support_lands() {
+fn build_plan_emits_motion_menu_compose_jobs() {
     let mut project = test_project();
     let mut menu = test_menu();
-    menu.background_mode = BackgroundMode::Motion;
-    menu.motion_duration_secs = Some(12.0);
+    menu.doc_mut().background_mode = BackgroundMode::Motion;
+    menu.doc_mut().scene.background.asset_id = Some("asset-1".to_string());
+    menu.doc_mut().timing.loop_start_secs = 1.0;
+    menu.doc_mut().timing.loop_duration_secs = 12.0;
+    menu.doc_mut().timing.intro_duration_secs = 2.0;
     project.disc.global_menus.push(menu);
 
-    let err = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap_err();
-    let msg = err.to_string();
+    let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
 
-    assert!(msg.contains("Motion menu build authoring is not implemented yet"));
-    assert!(msg.contains("\"Main Menu\""));
+    let render_menu = plan
+        .jobs
+        .iter()
+        .find(|j| matches!(j, BuildJob::RenderMenu { .. }))
+        .expect("expected a RenderMenu job");
+
+    match render_menu {
+        BuildJob::RenderMenu {
+            command,
+            intro_command,
+            duration_secs,
+            intro_duration_secs,
+            ..
+        } => {
+            assert_eq!(
+                *duration_secs,
+                Some(12.0),
+                "duration_secs should carry the loop segment's duration"
+            );
+            assert_eq!(
+                *intro_duration_secs,
+                Some(2.0),
+                "intro_duration_secs should carry the intro segment's own duration, \
+                 distinct from the loop's duration_secs, so the executor reports \
+                 intro compose progress against the right length"
+            );
+            assert!(
+                intro_command.is_some(),
+                "an authored intro (intro_duration_secs > 0) should produce an intro_command"
+            );
+            assert!(
+                !command.is_empty(),
+                "the loop segment compose command should be populated"
+            );
+        }
+        other => panic!("expected BuildJob::RenderMenu, got {other:?}"),
+    }
+}
+
+#[test]
+fn build_plan_still_menu_render_job_has_no_motion_fields() {
+    let mut project = test_project();
+    project.disc.global_menus.push(test_menu());
+
+    let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+
+    let render_menu = plan
+        .jobs
+        .iter()
+        .find(|j| matches!(j, BuildJob::RenderMenu { .. }))
+        .expect("expected a RenderMenu job");
+
+    match render_menu {
+        BuildJob::RenderMenu {
+            intro_command,
+            duration_secs,
+            intro_duration_secs,
+            ..
+        } => {
+            assert!(
+                intro_command.is_none(),
+                "still menus must not carry an intro_command"
+            );
+            assert!(
+                duration_secs.is_none(),
+                "still menus must not carry duration_secs"
+            );
+            assert!(
+                intro_duration_secs.is_none(),
+                "still menus must not carry intro_duration_secs"
+            );
+        }
+        other => panic!("expected BuildJob::RenderMenu, got {other:?}"),
+    }
 }
 
 #[test]
@@ -408,9 +484,11 @@ fn build_plan_rejects_menu_with_missing_image_asset() {
     let mut project = test_project();
     let mut menu = test_menu();
     menu.authored_document = Some(MenuDocument {
+        animation: vec![],
         id: "menu-1".to_string(),
         name: "Main Menu".to_string(),
         domain: MenuDomain::Vmgm,
+        role: Some(MenuRole::TitleSelect),
         scene: MenuScene {
             design_size: MenuSize {
                 width: 720.0,
@@ -456,4 +534,300 @@ fn build_plan_rejects_menu_with_missing_image_asset() {
         msg.contains("Main Menu"),
         "error should name the menu: {msg}"
     );
+}
+
+// ── Overlay-keyframe schedule (design decision D8) ──────────────────────────
+
+fn render_menu_overlay_keyframes(plan: &BuildPlan) -> &[OverlayKeyframeSpec] {
+    plan.jobs
+        .iter()
+        .find_map(|j| match j {
+            BuildJob::RenderMenu {
+                overlay_keyframes, ..
+            } => Some(overlay_keyframes.as_slice()),
+            _ => None,
+        })
+        .expect("expected a RenderMenu job")
+}
+
+fn compose_menu_spumux_xml(plan: &BuildPlan) -> &str {
+    plan.jobs
+        .iter()
+        .find_map(|j| match j {
+            BuildJob::ComposeMenuHighlights { spumux_xml, .. } => Some(spumux_xml.as_str()),
+            _ => None,
+        })
+        .expect("expected a ComposeMenuHighlights job")
+}
+
+fn highlight_colour_track(node_id: &str, stops: &[(f64, &str)]) -> AnimationTrack {
+    AnimationTrack {
+        node_id: node_id.to_string(),
+        target: AnimatableProperty::HighlightColour,
+        keyframes: stops
+            .iter()
+            .map(|(t, hex)| Keyframe {
+                timestamp_secs: *t,
+                value: KeyValue::Colour {
+                    hex: (*hex).to_string(),
+                },
+                easing: Easing::Hold,
+            })
+            .collect(),
+    }
+}
+
+#[test]
+fn build_plan_with_no_animation_tracks_gets_a_trivial_single_overlay_keyframe() {
+    let mut project = test_project();
+    project.disc.global_menus.push(test_menu());
+
+    let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+
+    let frames = render_menu_overlay_keyframes(&plan);
+    assert_eq!(frames.len(), 1);
+    assert!(frames[0].highlight_image_path.ends_with("_highlight.png"));
+    assert!(frames[0].select_image_path.ends_with("_select.png"));
+
+    assert_eq!(compose_menu_spumux_xml(&plan).matches("<spu ").count(), 1);
+}
+
+#[test]
+fn build_plan_motion_menu_with_highlight_track_builds_multi_frame_schedule() {
+    let mut project = test_project();
+    let mut menu = test_menu();
+    {
+        let doc = menu.doc_mut();
+        doc.background_mode = BackgroundMode::Motion;
+        doc.scene.background.asset_id = Some("asset-1".to_string());
+        doc.timing.loop_start_secs = 0.0;
+        doc.timing.loop_duration_secs = 4.0;
+        doc.animation = vec![highlight_colour_track(
+            "btn-1",
+            &[(0.0, "#ff0000"), (2.0, "#00ff00")],
+        )];
+    }
+    project.disc.global_menus.push(menu);
+
+    let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+
+    let frames = render_menu_overlay_keyframes(&plan);
+    assert_eq!(frames.len(), 2, "expected one frame per keyframe timestamp");
+    assert_eq!(frames[0].start_secs, 0.0);
+    assert_eq!(frames[0].end_secs, 2.0);
+    assert_eq!(frames[0].highlight_colour, "#ff000099");
+    assert_eq!(frames[1].start_secs, 2.0);
+    assert_eq!(frames[1].highlight_colour, "#00ff0099");
+    assert!(frames[0].highlight_image_path.contains("_hl_k0"));
+    assert!(frames[1].highlight_image_path.contains("_hl_k1"));
+
+    assert_eq!(compose_menu_spumux_xml(&plan).matches("<spu ").count(), 2);
+}
+
+#[test]
+fn build_plan_motion_menu_keyframe_at_exact_loop_duration_gets_a_non_zero_final_frame() {
+    // Regression test for codex finding 3813775868: a keyframe authored at
+    // (or past) the loop's own duration — e.g. an NTSC 5-second loop with a
+    // keyframe at 5.0 seconds — previously set the terminal frame's `end`
+    // equal to its own `start` (`last_frame_end.max(start_secs)`), emitting
+    // a zero-length `<spu>` with no display interval at all.
+    let mut project = test_project();
+    let mut menu = test_menu();
+    {
+        let doc = menu.doc_mut();
+        doc.background_mode = BackgroundMode::Motion;
+        doc.scene.background.asset_id = Some("asset-1".to_string());
+        doc.timing.loop_start_secs = 0.0;
+        doc.timing.loop_duration_secs = 4.0;
+        doc.animation = vec![highlight_colour_track(
+            "btn-1",
+            &[(0.0, "#ff0000"), (4.0, "#00ff00")],
+        )];
+    }
+    project.disc.global_menus.push(menu);
+
+    let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+
+    let frames = render_menu_overlay_keyframes(&plan);
+    assert_eq!(
+        frames.len(),
+        2,
+        "the keyframe at exactly loopDurationSecs should clamp onto its own \
+         frame, distinct from the 0.0s frame"
+    );
+    let last = frames.last().unwrap();
+    assert!(
+        last.end_secs > last.start_secs,
+        "the final frame must never be zero-length, got start={} end={}",
+        last.start_secs,
+        last.end_secs
+    );
+    assert!(
+        last.start_secs < 4.0,
+        "the terminal start must clamp below the loop duration to the last \
+         presentable frame, got {}",
+        last.start_secs
+    );
+    assert_eq!(
+        last.end_secs, 4.0,
+        "the terminal frame's end should extend to the loop boundary"
+    );
+
+    assert_eq!(compose_menu_spumux_xml(&plan).matches("<spu ").count(), 2);
+}
+
+fn activate_colour_track(node_id: &str, stops: &[(f64, &str)]) -> AnimationTrack {
+    AnimationTrack {
+        node_id: node_id.to_string(),
+        target: AnimatableProperty::ActivateColour,
+        keyframes: stops
+            .iter()
+            .map(|(t, hex)| Keyframe {
+                timestamp_secs: *t,
+                value: KeyValue::Colour {
+                    hex: (*hex).to_string(),
+                },
+                easing: Easing::Hold,
+            })
+            .collect(),
+    }
+}
+
+#[test]
+fn build_plan_motion_menu_with_activate_track_samples_select_colour_per_keyframe() {
+    let mut project = test_project();
+    let mut menu = test_menu();
+    {
+        let doc = menu.doc_mut();
+        doc.background_mode = BackgroundMode::Motion;
+        doc.scene.background.asset_id = Some("asset-1".to_string());
+        doc.timing.loop_start_secs = 0.0;
+        doc.timing.loop_duration_secs = 4.0;
+        // No HighlightColour track — only the activated-state colour is
+        // animated, exercising the ActivateColour/ActivateOpacity sampling
+        // independently of the selected-state (HighlightColour) sampling.
+        doc.animation = vec![activate_colour_track(
+            "btn-1",
+            &[(0.0, "#111111"), (2.0, "#222222")],
+        )];
+    }
+    project.disc.global_menus.push(menu);
+
+    let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+
+    let frames = render_menu_overlay_keyframes(&plan);
+    assert_eq!(frames.len(), 2, "expected one frame per keyframe timestamp");
+    // No HighlightColour track was authored, so the highlight (selected
+    // state) colour stays pinned to the menu's default the whole schedule.
+    assert_eq!(frames[0].highlight_colour, "#ffaa4099");
+    assert_eq!(frames[1].highlight_colour, "#ffaa4099");
+    // The select colour (spumux's "select" = DVD's activated state) samples
+    // the ActivateColour track per keyframe instead of staying pinned to
+    // the menu's default activate colour.
+    assert_eq!(frames[0].select_colour, "#111111cc");
+    assert_eq!(frames[1].select_colour, "#222222cc");
+
+    assert_eq!(compose_menu_spumux_xml(&plan).matches("<spu ").count(), 2);
+}
+
+#[test]
+fn build_plan_still_menu_with_track_degrades_to_first_keyframe_only() {
+    let mut project = test_project();
+    let mut menu = test_menu();
+    {
+        let doc = menu.doc_mut();
+        // background_mode stays Still (test_menu()'s default).
+        doc.animation = vec![highlight_colour_track(
+            "btn-1",
+            &[(0.0, "#ff0000"), (2.0, "#00ff00")],
+        )];
+    }
+    project.disc.global_menus.push(menu);
+
+    let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+
+    let frames = render_menu_overlay_keyframes(&plan);
+    assert_eq!(
+        frames.len(),
+        1,
+        "a still menu with tracks must degrade to a single frame — see docs/dcsq-player-compat.md"
+    );
+    assert_eq!(
+        frames[0].highlight_colour, "#ff000099",
+        "the degrade must bake in only the first keyframe's value"
+    );
+}
+
+#[test]
+fn build_plan_animation_track_targeting_a_missing_node_is_ignored() {
+    let mut project = test_project();
+    let mut menu = test_menu();
+    {
+        let doc = menu.doc_mut();
+        doc.background_mode = BackgroundMode::Motion;
+        doc.scene.background.asset_id = Some("asset-1".to_string());
+        doc.timing.loop_start_secs = 0.0;
+        doc.timing.loop_duration_secs = 4.0;
+        doc.animation = vec![highlight_colour_track(
+            "btn-does-not-exist",
+            &[(0.0, "#ff0000"), (2.0, "#00ff00")],
+        )];
+    }
+    project.disc.global_menus.push(menu);
+
+    let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+
+    let frames = render_menu_overlay_keyframes(&plan);
+    assert_eq!(
+        frames.len(),
+        1,
+        "a track with no matching button should be ignored by the schedule"
+    );
+}
+
+#[test]
+fn overlay_button_radius_defaults_match_the_scene_renderer() {
+    // A button with no authored `button_style` renders its plate with
+    // `ButtonStateStyle::default()` (rounded, `border_radius: 6.0`) in the
+    // scene render — the highlight overlay must fall back to the same
+    // default, or the disc draws a square outline around a rounded button.
+    let mut project = test_project();
+    let menu = test_menu(); // fixture button carries `button_style: None`
+    project.disc.global_menus.push(menu);
+
+    let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+
+    let render_menu = plan
+        .jobs
+        .iter()
+        .find(|j| matches!(j, BuildJob::RenderMenu { .. }))
+        .expect("expected a RenderMenu job");
+
+    match render_menu {
+        BuildJob::RenderMenu {
+            button_bounds,
+            raster_width,
+            raster_height,
+            ..
+        } => {
+            assert!(!button_bounds.is_empty(), "expected overlay button bounds");
+            let design = MenuSize::default();
+            let scale = (*raster_width as f32 / design.width as f32)
+                .min(*raster_height as f32 / design.height as f32);
+            let expected = ButtonStateStyle::default().border_radius as f32 * scale;
+            for button in button_bounds {
+                assert!(
+                    (button.border_radius - expected).abs() < 0.001,
+                    "unstyled button should inherit the default border radius, \
+                     scaled like the scene renderer's (expected {expected}, got {})",
+                    button.border_radius
+                );
+                assert!(
+                    button.border_radius > 0.0,
+                    "unstyled button must not fall back to a square outline"
+                );
+            }
+        }
+        other => panic!("expected BuildJob::RenderMenu, got {other:?}"),
+    }
 }

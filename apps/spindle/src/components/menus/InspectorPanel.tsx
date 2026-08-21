@@ -14,6 +14,9 @@ import type {
 	FocusNode,
 	AspectMode,
 	FontEntry,
+	FormatProfile,
+	MenuRole,
+	PlaybackAction,
 } from '../../types/project';
 import { LayersPanel } from './LayersPanel';
 import { CollapsibleSection } from './InspectorCollapsibleSection';
@@ -26,6 +29,7 @@ import {
 	GenericNodeInspector,
 } from './SceneNodeInspectors';
 import { getInspectorTitle, getInspectorSubtitle } from './inspectorHelpers';
+import { DEFAULT_DVD_FORMAT_PROFILE } from '../../format/useFormatProfile';
 
 export interface InspectorPanelProps {
 	selectedNode: SceneNode | null;
@@ -79,6 +83,16 @@ export interface InspectorPanelProps {
 	onUpdateMotionDurationSecs?: (secs: number | null) => void;
 	/** Update the motion menu loop count. */
 	onUpdateMotionLoopCount?: (count: number) => void;
+	/** Update the motion menu loop start time. */
+	onUpdateMotionLoopStart?: (secs: number) => void;
+	/** Update the motion menu intro start time. */
+	onUpdateMotionIntroStart?: (secs: number) => void;
+	/** Update the motion menu intro duration. */
+	onUpdateMotionIntroDuration?: (secs: number | null) => void;
+	/** Update the motion menu timeout action. */
+	onUpdateMotionTimeoutAction?: (action: PlaybackAction | null) => void;
+	/** Set the loop start time from the current preview playhead position. */
+	onSetLoopStartFromPlayhead?: () => void;
 	/** Run automatic navigation generation for the current menu. */
 	onAutoNav?: () => void;
 	/** Export a DAR-corrected render preview PNG for the current menu. */
@@ -93,6 +107,14 @@ export interface InspectorPanelProps {
 	onDisplayAspectChange?: (aspect: AspectMode) => void;
 	/** Fonts available to the Skia renderer for this project, from `list_available_fonts`. */
 	availableFonts?: FontEntry[];
+	/** Format-law row for the project's disc family — see `useFormatProfile`. */
+	formatProfile?: FormatProfile;
+	/** Reassign the current menu's semantic role. */
+	onUpdateRole?: (role: MenuRole) => void;
+	/** Add a highlight-colour keyframe for a button at the current preview
+	 * playhead position — the "Add keyframe at playhead" affordance in
+	 * `ButtonInspector`'s Highlight Animation row. */
+	onAddKeyframeAtPlayhead?: (buttonId: string) => void;
 }
 
 export function InspectorPanel({
@@ -124,6 +146,11 @@ export function InspectorPanel({
 	onUpdateMotionAudioAsset,
 	onUpdateMotionDurationSecs,
 	onUpdateMotionLoopCount,
+	onUpdateMotionLoopStart,
+	onUpdateMotionIntroStart,
+	onUpdateMotionIntroDuration,
+	onUpdateMotionTimeoutAction,
+	onSetLoopStartFromPlayhead,
 	onAutoNav,
 	onExportRenderPreview,
 	buttonPreviewState,
@@ -131,6 +158,9 @@ export function InspectorPanel({
 	displayAspect,
 	onDisplayAspectChange,
 	availableFonts,
+	formatProfile,
+	onUpdateRole,
+	onAddKeyframeAtPlayhead,
 }: InspectorPanelProps) {
 	const inspectorTitle = getInspectorTitle(selectedNode, selectedButton);
 	const inspectorSubtitle = getInspectorSubtitle(selectedNode, selectedButton, buttons);
@@ -180,10 +210,17 @@ export function InspectorPanel({
 							onUpdateMotionAudioAsset={onUpdateMotionAudioAsset}
 							onUpdateMotionDurationSecs={onUpdateMotionDurationSecs}
 							onUpdateMotionLoopCount={onUpdateMotionLoopCount}
+							onUpdateMotionLoopStart={onUpdateMotionLoopStart}
+							onUpdateMotionIntroStart={onUpdateMotionIntroStart}
+							onUpdateMotionIntroDuration={onUpdateMotionIntroDuration}
+							onUpdateMotionTimeoutAction={onUpdateMotionTimeoutAction}
+							onSetLoopStartFromPlayhead={onSetLoopStartFromPlayhead}
 							onAutoNav={onAutoNav}
 							onExportRenderPreview={onExportRenderPreview}
 							displayAspect={displayAspect ?? 'four-by-three'}
 							onDisplayAspectChange={onDisplayAspectChange}
+							formatProfile={formatProfile ?? DEFAULT_DVD_FORMAT_PROFILE}
+							onUpdateRole={onUpdateRole}
 						/>
 					) : (
 						<div className="inspector-panel__empty text-muted">
@@ -209,6 +246,8 @@ export function InspectorPanel({
 						buttonPreviewState={buttonPreviewState ?? 'normal'}
 						onButtonPreviewStateChange={onButtonPreviewStateChange}
 						availableFonts={availableFonts}
+						document={document ?? null}
+						onAddKeyframeAtPlayhead={onAddKeyframeAtPlayhead}
 					/>
 				) : selectedNode.type === 'text' ? (
 					<TextNodeInspector

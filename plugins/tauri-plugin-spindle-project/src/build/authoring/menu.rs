@@ -130,18 +130,48 @@ fn append_menu_pgc(xml: &mut String, spec: MenuPgcSpec<'_>) -> crate::Result<()>
         Some(entry) => xml.push_str(&format!("      <pgc entry=\"{entry}\">\n")),
         None => xml.push_str("      <pgc>\n"),
     }
-    if let Some(pre) = spec.pre_commands {
+
+    let is_motion = matches!(spec.menu_ref.background_mode(), BackgroundMode::Motion);
+    let base_name = sanitise_filename(&spec.menu_ref.menu.id);
+    let loop_count = spec.menu_ref.motion_loop_count();
+    let has_intro = spec.menu_ref.menu.doc().timing.intro_duration_secs > 0.0;
+    let loop_cell = if has_intro { 2 } else { 1 };
+    // Only the counting form of the <post> (K > 0 with a resolvable timeout
+    // action) touches the counter — g0 is already taken by menu dispatch
+    // (see `dvd_navigation.rs`), so this uses g1, verified unused elsewhere.
+    let uses_counter = is_motion && loop_count > 0 && spec.menu_ref.timeout_action().is_some();
+
+    if uses_counter || spec.pre_commands.is_some() {
         xml.push_str("        <pre>\n");
-        xml.push_str(pre);
+        if uses_counter {
+            xml.push_str("          g1 = 0;\n");
+        }
+        if let Some(pre) = spec.pre_commands {
+            xml.push_str(pre);
+        }
         xml.push_str("        </pre>\n");
     }
-    let menu_vob_path = spec
-        .menus_dir
-        .join(format!("{}.mpg", sanitise_filename(&spec.menu_ref.menu.id)));
-    xml.push_str(&format!(
-        "        <vob file=\"{}\" pause=\"inf\" />\n",
-        xml_escape(&menu_vob_path.display().to_string())
-    ));
+
+    if is_motion {
+        if has_intro {
+            let intro_vob_path = spec.menus_dir.join(format!("{base_name}_intro.mpg"));
+            xml.push_str(&format!(
+                "        <vob file=\"{}\" />\n",
+                xml_escape(&intro_vob_path.display().to_string())
+            ));
+        }
+        let loop_vob_path = spec.menus_dir.join(format!("{base_name}.mpg"));
+        xml.push_str(&format!(
+            "        <vob file=\"{}\" />\n",
+            xml_escape(&loop_vob_path.display().to_string())
+        ));
+    } else {
+        let menu_vob_path = spec.menus_dir.join(format!("{base_name}.mpg"));
+        xml.push_str(&format!(
+            "        <vob file=\"{}\" pause=\"inf\" />\n",
+            xml_escape(&menu_vob_path.display().to_string())
+        ));
+    }
     for button in spec.menu_ref.buttons() {
         match button.action {
             Some(action) => {
@@ -178,8 +208,64 @@ fn append_menu_pgc(xml: &mut String, spec: MenuPgcSpec<'_>) -> crate::Result<()>
             }
         }
     }
+
+    if is_motion {
+        let post_body = motion_post_body(&spec, loop_count, loop_cell, uses_counter)?;
+        xml.push_str("        <post>\n          ");
+        xml.push_str(&post_body);
+        xml.push_str("\n        </post>\n");
+    }
+
     xml.push_str("      </pgc>\n");
     Ok(())
+}
+
+/// Derive a motion menu's `<post>` body — evaluated when the loop cell's VOB
+/// finishes playing. See design decision D3:
+///
+/// - `K == 0` (infinite loop, no counting): `jump cell N;`.
+/// - `K > 0` with a resolvable timeout action: increment a per-entry counter
+///   (`g1`, reset to 0 in `<pre>` — see `append_menu_pgc`) and keep looping
+///   until it reaches `K`, then run the timeout action.
+/// - `K > 0` with no timeout action: there is nothing to fall through to, so
+///   this degrades to the same infinite `jump cell N;` as `K == 0` — a
+///   `<post>` must never fall off the end. `menu.motion-loop-count-without-timeout`
+///   flags this authored mismatch separately (see `validation/menu.rs`).
+fn motion_post_body(
+    spec: &MenuPgcSpec<'_>,
+    loop_count: u32,
+    loop_cell: usize,
+    uses_counter: bool,
+) -> crate::Result<String> {
+    if !uses_counter {
+        return Ok(format!("jump cell {loop_cell};"));
+    }
+
+    let timeout_action = spec
+        .menu_ref
+        .timeout_action()
+        .expect("uses_counter implies a resolvable timeout action");
+    // Expand PlayAllInTitleset/PlayNextInTitleset the same way menu buttons
+    // do (see `expand_playall_button_action` above) before resolving: a
+    // titleset motion menu with a positive loop count can offer either as a
+    // timeout action, but the DVD command resolver rejects both directly.
+    let expanded_for_timeout = expand_playall_button_action(timeout_action, spec.disc, spec.domain);
+    let resolved_timeout_action = expanded_for_timeout.as_ref().unwrap_or(timeout_action);
+    let timeout_cmd = playback_action_to_dvd_command_in_domain_result(
+        resolved_timeout_action,
+        spec.disc,
+        spec.domain,
+        Some(spec.menu_number),
+    )?;
+    let timeout_cmd = if timeout_cmd.starts_with('{') {
+        timeout_cmd
+    } else {
+        format!("{timeout_cmd};")
+    };
+
+    Ok(format!(
+        "g1 = g1 + 1; if (g1 lt {loop_count}) {{ jump cell {loop_cell}; }} g1 = 0; {timeout_cmd}"
+    ))
 }
 
 /// Expand `PlayAllInTitleset` on a menu button to a concrete `Sequence` of

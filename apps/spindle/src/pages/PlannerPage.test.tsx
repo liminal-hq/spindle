@@ -9,8 +9,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PlannerPage } from './PlannerPage';
 import { useProjectStore } from '../store/project-store';
 import type { ProjectState } from '../store/project-store';
-import { DEFAULT_HIGHLIGHT_COLOURS } from '../types/project';
-import type { Asset, Menu, SpindleProjectFile, Title } from '../types/project';
+import { DEFAULT_HIGHLIGHT_COLOURS, createDefaultMenuCompilePolicy } from '../types/project';
+import type { Asset, BackgroundMode, Menu, SpindleProjectFile, Title } from '../types/project';
 import type { CapacityEstimate } from 'tauri-plugin-spindle-project-api';
 
 const { estimateDiscCapacity } = vi.hoisted(() => ({
@@ -64,20 +64,42 @@ function buildTitle(overrides: Partial<Title> = {}): Title {
 	};
 }
 
-function buildMenu(overrides: Partial<Menu> = {}): Menu {
+function buildMenu(
+	overrides: Partial<Pick<Menu, 'id' | 'name'>> & {
+		backgroundMode?: BackgroundMode;
+		motionDurationSecs?: number | null;
+	} = {},
+): Menu {
+	const { backgroundMode, motionDurationSecs, id = 'menu-1', name = 'Main Menu' } = overrides;
 	return {
-		id: 'menu-1',
-		name: 'Main Menu',
-		backgroundAssetId: null,
-		buttons: [],
-		defaultButtonId: null,
-		highlightColours: DEFAULT_HIGHLIGHT_COLOURS,
-		backgroundMode: 'still',
-		motionDurationSecs: null,
-		motionAudioAssetId: null,
-		motionLoopCount: 0,
-		timeoutAction: null,
-		...overrides,
+		id,
+		name,
+		authoredDocument: {
+			id,
+			name,
+			domain: 'vmgm',
+			role: 'title-select',
+			scene: {
+				designSize: { width: 720, height: 480, aspect: 'four-by-three' },
+				background: { assetId: null, colour: null },
+				nodes: [],
+				guides: [],
+			},
+			interaction: { defaultFocusId: null, nodes: [], timeoutAction: null },
+			timing: {
+				introStartSecs: 0,
+				introDurationSecs: 0,
+				loopStartSecs: 0,
+				loopDurationSecs: motionDurationSecs ?? 0,
+				loopCount: 0,
+				audioAssetId: null,
+			},
+			highlightColours: DEFAULT_HIGHLIGHT_COLOURS,
+			backgroundMode: backgroundMode ?? 'still',
+			themeRef: null,
+			generationMeta: null,
+			compilePolicy: createDefaultMenuCompilePolicy('four-by-three'),
+		},
 	};
 }
 

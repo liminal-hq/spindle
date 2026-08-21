@@ -3,16 +3,20 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: MIT
 
+mod animation;
 mod asset;
 mod build_settings;
 mod disc;
+mod format_profile;
 mod menu;
 mod render_target;
 mod title;
 
+pub use animation::*;
 pub use asset::*;
 pub use build_settings::*;
 pub use disc::*;
+pub use format_profile::*;
 pub use menu::*;
 pub use render_target::*;
 pub use title::*;
@@ -23,7 +27,17 @@ use uuid::Uuid;
 // ── Schema Version ──────────────────────────────────────────────────────────
 
 /// Current schema version. Bump on breaking changes; migration logic keys off this.
-pub const SCHEMA_VERSION: u32 = 1;
+///
+/// Bumped to 2 when the legacy flat-menu fields (`backgroundAssetId`,
+/// `buttons`, etc. — see [`crate::models::menu`]) stopped being emitted on
+/// save. A v1 file still loads under v2 (the version guard in
+/// `desktop::parse_project` only rejects versions newer than
+/// [`SCHEMA_VERSION`], and `migrate_all_menus` already lifts any legacy
+/// fields into an authored [`MenuDocument`] regardless of the stamped
+/// version), but a v2 file opened by a v1-only binary is now rejected as an
+/// unsupported schema instead of silently deserialising into a menu missing
+/// required legacy fields.
+pub const SCHEMA_VERSION: u32 = 2;
 
 // ── Top-Level Project ───────────────────────────────────────────────────────
 
@@ -47,17 +61,20 @@ impl SpindleProjectFile {
         let titleset_display_aspects: Vec<_> = (0..self.disc.titlesets.len())
             .map(|index| self.inferred_titleset_menu_aspect(index))
             .collect();
-        for menu in &mut self.disc.global_menus {
-            menu.migrate_to_document(MenuDomain::Vmgm, standard, global_display_aspect);
-            menu.ensure_authored_compile_defaults(global_display_aspect);
-            menu.backfill_design_size_aspect(global_display_aspect);
+        for (menu_index, menu) in self.disc.global_menus.iter_mut().enumerate() {
+            menu.ensure_document(MenuDomain::Vmgm, standard, global_display_aspect);
+            // The disc's entry menu is conventionally the first global menu
+            // ("VMGM menu 1" — see `build/dvd_navigation.rs`, which numbers
+            // `global_menus` 1-based in this same order).
+            menu.backfill_role(MenuDomain::Vmgm, menu_index == 0);
+            menu.doc_mut().lift_highlight_keyframes();
         }
         for (titleset_index, titleset) in self.disc.titlesets.iter_mut().enumerate() {
             let display_aspect = titleset_display_aspects[titleset_index];
             for menu in &mut titleset.menus {
-                menu.migrate_to_document(MenuDomain::Titleset, standard, display_aspect);
-                menu.ensure_authored_compile_defaults(display_aspect);
-                menu.backfill_design_size_aspect(display_aspect);
+                menu.ensure_document(MenuDomain::Titleset, standard, display_aspect);
+                menu.backfill_role(MenuDomain::Titleset, false);
+                menu.doc_mut().lift_highlight_keyframes();
             }
         }
     }
@@ -396,81 +413,148 @@ mod tests {
         assert!(!settings.two_pass_video_encoding);
     }
 
+    /// Migration round-trip: a legacy-shaped project (all nine retired flat
+    /// fields, including `motionAudioAssetId`) deserialises, migrates every
+    /// field into the authored document (including `timing.audioAssetId`,
+    /// the new home for motion audio), and re-serialises with none of the
+    /// legacy keys present. Menu's legacy fields are private outside
+    /// `models::menu` (deserialise-only), so JSON is the only way to
+    /// construct this fixture — mirroring how a real old project file loads.
     #[test]
-    fn menu_migration_lifts_legacy_fields() {
-        let mut menu = Menu {
-            id: "menu-1".to_string(),
-            name: "Main Menu".to_string(),
-            background_asset_id: Some("asset-1".to_string()),
-            buttons: vec![MenuButton {
-                id: "btn-1".to_string(),
-                label: "Play".to_string(),
-                bounds: ButtonBounds {
-                    x: 100.0,
-                    y: 200.0,
-                    width: 300.0,
-                    height: 50.0,
-                },
-                action: Some(PlaybackAction::PlayTitle {
-                    title_id: "title-1".to_string(),
-                }),
-                nav_up: None,
-                nav_down: None,
-                nav_left: None,
-                nav_right: None,
-                highlight_mode: HighlightMode::Static,
-                highlight_keyframes: Vec::new(),
-                video_asset_id: None,
-            }],
-            default_button_id: Some("btn-1".to_string()),
-            highlight_colours: MenuHighlightColours::default(),
-            background_mode: BackgroundMode::Still,
-            motion_duration_secs: Some(10.0),
-            motion_audio_asset_id: None,
-            motion_loop_count: 0,
-            timeout_action: None,
-            authored_document: None,
-        };
-
-        menu.migrate_to_document(
-            MenuDomain::Vmgm,
-            VideoStandard::Ntsc,
-            AspectMode::FourByThree,
-        );
-
-        let doc = menu.authored_document.expect("should have migrated");
-        assert_eq!(doc.id, "menu-1");
-        assert_eq!(doc.name, "Main Menu");
-        assert_eq!(doc.domain, MenuDomain::Vmgm);
-        assert_eq!(doc.scene.background.asset_id, Some("asset-1".to_string()));
-        assert_eq!(doc.scene.nodes.len(), 1);
-
-        if let SceneNode::Button {
-            id,
-            label,
-            x,
-            y,
-            width,
-            height,
-            ..
-        } = &doc.scene.nodes[0]
+    fn legacy_menu_json_migrates_every_field_and_never_serialises_legacy_keys_again() {
+        let json = r##"
         {
-            assert_eq!(id, "btn-1");
-            assert_eq!(label, "Play");
-            assert_eq!(*x, 100.0);
-            assert_eq!(*y, 200.0);
-            assert_eq!(*width, 300.0);
-            assert_eq!(*height, 50.0);
-        } else {
-            panic!("expected button node");
+          "schemaVersion": 1,
+          "project": {
+            "id": "project-1",
+            "name": "Legacy Round Trip",
+            "createdAt": "2026-01-01T00:00:00Z",
+            "modifiedAt": "2026-01-01T00:00:00Z"
+          },
+          "disc": {
+            "family": "dvd-video",
+            "standard": "NTSC",
+            "capacityTarget": "DVD5",
+            "firstPlayAction": null,
+            "titlesets": [
+              {
+                "id": "titleset-1",
+                "name": "Titleset 1",
+                "titles": [],
+                "menus": [
+                  {
+                    "id": "menu-1",
+                    "name": "Main Menu",
+                    "backgroundAssetId": "asset-bg",
+                    "buttons": [
+                      {
+                        "id": "btn-1",
+                        "label": "Play",
+                        "bounds": { "x": 100.0, "y": 200.0, "width": 300.0, "height": 50.0 },
+                        "action": { "type": "playTitle", "titleId": "title-1" },
+                        "navUp": null,
+                        "navDown": null,
+                        "navLeft": null,
+                        "navRight": null,
+                        "highlightMode": "static",
+                        "highlightKeyframes": [],
+                        "videoAssetId": null
+                      }
+                    ],
+                    "defaultButtonId": "btn-1",
+                    "highlightColours": {
+                      "selectColour": "#ffaa40",
+                      "selectOpacity": 0.6,
+                      "activateColour": "#ffffff",
+                      "activateOpacity": 0.8
+                    },
+                    "backgroundMode": "motion",
+                    "motionDurationSecs": 12.5,
+                    "motionAudioAssetId": "asset-audio",
+                    "motionLoopCount": 3,
+                    "timeoutAction": { "type": "stop" }
+                  }
+                ]
+              }
+            ],
+            "globalMenus": []
+          },
+          "assets": [],
+          "buildSettings": {
+            "outputDirectory": null,
+            "generateIso": false,
+            "safetyMarginBytes": 50000000,
+            "allocationStrategy": "duration-weighted"
+          }
+        }
+        "##;
+
+        let mut project: SpindleProjectFile = serde_json::from_str(json).unwrap();
+        project.migrate_all_menus();
+
+        let doc = project.disc.titlesets[0].menus[0]
+            .authored_document
+            .as_ref()
+            .expect("legacy menu should have migrated to an authored document");
+
+        assert_eq!(doc.scene.background.asset_id, Some("asset-bg".to_string()));
+        assert_eq!(doc.scene.nodes.len(), 1);
+        match &doc.scene.nodes[0] {
+            SceneNode::Button {
+                id,
+                label,
+                x,
+                y,
+                width,
+                height,
+                ..
+            } => {
+                assert_eq!(id, "btn-1");
+                assert_eq!(label, "Play");
+                assert_eq!(*x, 100.0);
+                assert_eq!(*y, 200.0);
+                assert_eq!(*width, 300.0);
+                assert_eq!(*height, 50.0);
+            }
+            other => panic!("expected button node, found {other:?}"),
         }
 
+        assert_eq!(doc.interaction.default_focus_id.as_deref(), Some("btn-1"));
         assert_eq!(doc.interaction.nodes.len(), 1);
         assert_eq!(doc.interaction.nodes[0].node_id, "btn-1");
-        assert_eq!(doc.timing.loop_duration_secs, 10.0);
+        assert!(matches!(
+            doc.interaction.nodes[0].action,
+            Some(PlaybackAction::PlayTitle { ref title_id }) if title_id == "title-1"
+        ));
+        assert!(matches!(
+            doc.interaction.timeout_action,
+            Some(PlaybackAction::Stop)
+        ));
+
+        assert_eq!(doc.highlight_colours.select_colour, "#ffaa40");
+        assert_eq!(doc.background_mode, BackgroundMode::Motion);
+        assert_eq!(doc.timing.loop_duration_secs, 12.5);
+        assert_eq!(doc.timing.loop_count, 3);
+        // The critical fix: motionAudioAssetId previously had no home on
+        // MenuDocument at all — it must land in timing.audio_asset_id, not
+        // be silently dropped.
+        assert_eq!(doc.timing.audio_asset_id.as_deref(), Some("asset-audio"));
+
+        // Re-serialise: none of the nine legacy keys must reappear.
+        let serialised = serde_json::to_string(&project).unwrap();
+        let value: serde_json::Value = serde_json::from_str(&serialised).unwrap();
+        let menu_value = &value["disc"]["titlesets"][0]["menus"][0];
+        let menu_keys: std::collections::BTreeSet<&str> = menu_value
+            .as_object()
+            .expect("menu should serialise as a JSON object")
+            .keys()
+            .map(|k| k.as_str())
+            .collect();
+        let expected_keys: std::collections::BTreeSet<&str> =
+            ["id", "name", "authoredDocument"].into_iter().collect();
         assert_eq!(
-            doc.compile_policy.display_aspect,
-            Some(AspectMode::FourByThree)
+            menu_keys, expected_keys,
+            "serialised menu must only contain id/name/authoredDocument — no legacy keys"
         );
     }
 
@@ -618,18 +702,159 @@ mod tests {
         }
     }
 
+    /// The data-loss shape from real project files: a menu that already has
+    /// an `authoredDocument` (from the old editor's mirror-on-open sync
+    /// layer) AND a legacy `motionAudioAssetId` that the sync layer never
+    /// mirrored anywhere. Migration must backfill the document's
+    /// `timing.audioAssetId` from the legacy field instead of dropping it,
+    /// and the legacy key must never resurface on save.
+    #[test]
+    fn migrate_to_document_backfills_motion_audio_when_document_already_exists() {
+        let json = r##"
+        {
+          "schemaVersion": 1,
+          "project": {
+            "id": "project-1",
+            "name": "Backfill Audio",
+            "createdAt": "2026-04-01T00:00:00Z",
+            "modifiedAt": "2026-04-01T00:00:00Z"
+          },
+          "disc": {
+            "family": "dvd-video",
+            "standard": "NTSC",
+            "capacityTarget": "DVD5",
+            "firstPlayAction": null,
+            "titlesets": [
+              {
+                "id": "titleset-1",
+                "name": "Titleset 1",
+                "titles": [],
+                "menus": [
+                  {
+                    "id": "menu-1",
+                    "name": "Main Menu",
+                    "backgroundAssetId": null,
+                    "buttons": [],
+                    "defaultButtonId": null,
+                    "highlightColours": {
+                      "selectColour": "#ffaa40",
+                      "selectOpacity": 0.6,
+                      "activateColour": "#ffffff",
+                      "activateOpacity": 0.8
+                    },
+                    "backgroundMode": "motion",
+                    "motionDurationSecs": 12.5,
+                    "motionAudioAssetId": "asset-audio",
+                    "motionLoopCount": 3,
+                    "timeoutAction": null,
+                    "authoredDocument": {
+                      "id": "menu-1",
+                      "name": "Main Menu",
+                      "domain": "titleset",
+                      "scene": {
+                        "designSize": { "width": 720.0, "height": 480.0 },
+                        "background": { "assetId": null, "colour": "#101014" },
+                        "nodes": [],
+                        "guides": []
+                      },
+                      "interaction": {
+                        "defaultFocusId": null,
+                        "nodes": [],
+                        "timeoutAction": null
+                      },
+                      "timing": {
+                        "introDurationSecs": 0.0,
+                        "loopDurationSecs": 12.5,
+                        "loopCount": 3
+                      },
+                      "highlightColours": {
+                        "selectColour": "#ffaa40",
+                        "selectOpacity": 0.6,
+                        "activateColour": "#ffffff",
+                        "activateOpacity": 0.8
+                      },
+                      "backgroundMode": "motion",
+                      "themeRef": null,
+                      "generationMeta": null,
+                      "compilePolicy": {
+                        "safeAreaMode": "action-safe",
+                        "paletteStrategy": "auto"
+                      }
+                    }
+                  }
+                ]
+              }
+            ],
+            "globalMenus": []
+          },
+          "assets": [],
+          "buildSettings": {
+            "outputDirectory": null,
+            "generateIso": false,
+            "safetyMarginBytes": 50000000,
+            "allocationStrategy": "duration-weighted"
+          }
+        }
+        "##;
+
+        let mut project: SpindleProjectFile = serde_json::from_str(json).unwrap();
+        // Sanity check: the document does NOT carry audio before migration —
+        // it's exclusively in the legacy field, mirroring a real project file.
+        assert!(project.disc.titlesets[0].menus[0]
+            .authored_document
+            .as_ref()
+            .unwrap()
+            .timing
+            .audio_asset_id
+            .is_none());
+
+        project.migrate_all_menus();
+
+        let doc = project.disc.titlesets[0].menus[0]
+            .authored_document
+            .as_ref()
+            .expect("menu should retain authored document");
+        assert_eq!(
+            doc.timing.audio_asset_id.as_deref(),
+            Some("asset-audio"),
+            "motionAudioAssetId must be backfilled into timing.audioAssetId, not dropped"
+        );
+
+        // Re-serialise: no legacy keys reappear, and the audio asset is
+        // present in the document.
+        let serialised = serde_json::to_string(&project).unwrap();
+        let value: serde_json::Value = serde_json::from_str(&serialised).unwrap();
+        let menu_value = &value["disc"]["titlesets"][0]["menus"][0];
+        let menu_keys: std::collections::BTreeSet<&str> = menu_value
+            .as_object()
+            .expect("menu should serialise as a JSON object")
+            .keys()
+            .map(|k| k.as_str())
+            .collect();
+        let expected_keys: std::collections::BTreeSet<&str> =
+            ["id", "name", "authoredDocument"].into_iter().collect();
+        assert_eq!(
+            menu_keys, expected_keys,
+            "serialised menu must only contain id/name/authoredDocument — no legacy keys"
+        );
+        assert_eq!(
+            menu_value["authoredDocument"]["timing"]["audioAssetId"],
+            serde_json::json!("asset-audio")
+        );
+    }
+
     #[test]
     fn styled_scene_nodes_round_trip_through_json() {
         let project = SpindleProjectFile {
             disc: Disc {
                 titlesets: vec![Titleset {
-                    menus: vec![Menu {
-                        id: "menu-1".to_string(),
-                        name: "Styled Menu".to_string(),
-                        authored_document: Some(MenuDocument {
+                    menus: vec![
+                        Menu::new("menu-1", "Styled Menu").with_document(MenuDocument {
+                            animation: vec![],
                             id: "menu-1".to_string(),
                             name: "Styled Menu".to_string(),
                             domain: MenuDomain::Titleset,
+                            role: Some(MenuRole::TitleSelect),
                             scene: MenuScene {
                                 design_size: MenuSize {
                                     width: 720.0,
@@ -700,8 +925,7 @@ mod tests {
                             generation_meta: None,
                             compile_policy: MenuCompilePolicy::default(),
                         }),
-                        ..Menu::default()
-                    }],
+                    ],
                     ..Titleset::default()
                 }],
                 ..Disc::default()
@@ -808,40 +1032,42 @@ mod tests {
         let mut project = SpindleProjectFile::default();
         project.project.id = "project-1".to_string();
         project.project.name = "Image Menu".to_string();
-        project.disc.global_menus.push(Menu {
-            id: "menu-1".to_string(),
-            name: "Main Menu".to_string(),
-            authored_document: Some(MenuDocument {
-                id: "menu-1".to_string(),
-                name: "Main Menu".to_string(),
-                domain: MenuDomain::Vmgm,
-                scene: MenuScene {
-                    design_size: MenuSize {
-                        width: 720.0,
-                        height: 480.0,
-                        aspect: AspectMode::SixteenByNine,
+        project
+            .disc
+            .global_menus
+            .push(
+                Menu::new("menu-1", "Main Menu").with_document(MenuDocument {
+                    animation: vec![],
+                    id: "menu-1".to_string(),
+                    name: "Main Menu".to_string(),
+                    domain: MenuDomain::Vmgm,
+                    role: Some(MenuRole::TitleSelect),
+                    scene: MenuScene {
+                        design_size: MenuSize {
+                            width: 720.0,
+                            height: 480.0,
+                            aspect: AspectMode::SixteenByNine,
+                        },
+                        background: SceneBackground {
+                            asset_id: None,
+                            colour: Some("#101014".to_string()),
+                        },
+                        nodes: vec![],
+                        guides: vec![],
                     },
-                    background: SceneBackground {
-                        asset_id: None,
-                        colour: Some("#101014".to_string()),
+                    interaction: MenuInteractionGraph {
+                        default_focus_id: None,
+                        nodes: vec![],
+                        timeout_action: None,
                     },
-                    nodes: vec![],
-                    guides: vec![],
-                },
-                interaction: MenuInteractionGraph {
-                    default_focus_id: None,
-                    nodes: vec![],
-                    timeout_action: None,
-                },
-                timing: MenuTiming::default(),
-                highlight_colours: MenuHighlightColours::default(),
-                background_mode: BackgroundMode::Still,
-                theme_ref: None,
-                generation_meta: None,
-                compile_policy: MenuCompilePolicy::default(),
-            }),
-            ..Menu::default()
-        });
+                    timing: MenuTiming::default(),
+                    highlight_colours: MenuHighlightColours::default(),
+                    background_mode: BackgroundMode::Still,
+                    theme_ref: None,
+                    generation_meta: None,
+                    compile_policy: MenuCompilePolicy::default(),
+                }),
+            );
 
         let mut value = serde_json::to_value(&project).unwrap();
         value["disc"]["globalMenus"][0]["authoredDocument"]["scene"]["nodes"] = serde_json::json!([
@@ -1013,40 +1239,41 @@ mod tests {
             bitrate_ceiling_bps: None,
             pinned_bitrate_bps: None,
         });
-        project.disc.titlesets[0].menus.push(Menu {
-            id: "menu-1".to_string(),
-            name: "Main Menu".to_string(),
-            authored_document: Some(MenuDocument {
-                id: "menu-1".to_string(),
-                name: "Main Menu".to_string(),
-                domain: MenuDomain::Titleset,
-                scene: MenuScene {
-                    design_size: MenuSize {
-                        width: 720.0,
-                        height: 480.0,
-                        aspect: AspectMode::SixteenByNine,
+        project.disc.titlesets[0]
+            .menus
+            .push(
+                Menu::new("menu-1", "Main Menu").with_document(MenuDocument {
+                    animation: vec![],
+                    id: "menu-1".to_string(),
+                    name: "Main Menu".to_string(),
+                    domain: MenuDomain::Titleset,
+                    role: Some(MenuRole::TitleSelect),
+                    scene: MenuScene {
+                        design_size: MenuSize {
+                            width: 720.0,
+                            height: 480.0,
+                            aspect: AspectMode::SixteenByNine,
+                        },
+                        background: SceneBackground {
+                            asset_id: None,
+                            colour: Some("#101014".to_string()),
+                        },
+                        nodes: vec![],
+                        guides: vec![],
                     },
-                    background: SceneBackground {
-                        asset_id: None,
-                        colour: Some("#101014".to_string()),
+                    interaction: MenuInteractionGraph {
+                        default_focus_id: None,
+                        nodes: vec![],
+                        timeout_action: None,
                     },
-                    nodes: vec![],
-                    guides: vec![],
-                },
-                interaction: MenuInteractionGraph {
-                    default_focus_id: None,
-                    nodes: vec![],
-                    timeout_action: None,
-                },
-                timing: MenuTiming::default(),
-                highlight_colours: MenuHighlightColours::default(),
-                background_mode: BackgroundMode::Still,
-                theme_ref: None,
-                generation_meta: None,
-                compile_policy: MenuCompilePolicy::default(),
-            }),
-            ..Menu::default()
-        });
+                    timing: MenuTiming::default(),
+                    highlight_colours: MenuHighlightColours::default(),
+                    background_mode: BackgroundMode::Still,
+                    theme_ref: None,
+                    generation_meta: None,
+                    compile_policy: MenuCompilePolicy::default(),
+                }),
+            );
 
         project.migrate_all_menus();
 

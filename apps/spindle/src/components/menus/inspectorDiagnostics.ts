@@ -4,24 +4,31 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: MIT
 
-import type { MenuButton, MenuDocument } from '../../types/project';
-
-/** DVD constraint thresholds (shared with compile diagnostics). */
-const MAX_DVD_BUTTONS = 36;
+import type { FormatProfile, MenuButton, MenuDocument } from '../../types/project';
 
 export interface Diagnostic {
 	severity: 'info' | 'warning' | 'error';
 	message: string;
 }
 
-export function computeDiagnostics(doc: MenuDocument | null, buttons: MenuButton[]): Diagnostic[] {
+/**
+ * `formatProfile` supplies the button-count ceiling that used to be a
+ * hardcoded module constant — see `FormatProfile.maxButtonsPerMenu`
+ * (`docs/rich-menu-editor-plan.md` §3.1/§4A). Pass the profile for the
+ * project's own `disc.family`, e.g. via `useFormatProfile`.
+ */
+export function computeDiagnostics(
+	doc: MenuDocument | null,
+	buttons: MenuButton[],
+	formatProfile: FormatProfile,
+): Diagnostic[] {
 	const results: Diagnostic[] = [];
 
-	// Button count against DVD limit
-	if (buttons.length > MAX_DVD_BUTTONS) {
+	// Button count against the format's limit
+	if (buttons.length > formatProfile.maxButtonsPerMenu) {
 		results.push({
 			severity: 'error',
-			message: `Too many buttons (${buttons.length}). DVD supports a maximum of ${MAX_DVD_BUTTONS}.`,
+			message: `Too many buttons (${buttons.length}). ${formatProfile.displayName} supports a maximum of ${formatProfile.maxButtonsPerMenu}.`,
 		});
 	} else if (buttons.length > 12) {
 		results.push({
@@ -82,17 +89,16 @@ export function computeDiagnostics(doc: MenuDocument | null, buttons: MenuButton
 	}
 
 	// Motion menu timing safety gate — a loop start of 0.0 blocks the build.
-	if (doc?.backgroundMode === 'motion') {
-		if (doc.timing.loopStartSecs === 0.0) {
-			results.push({
-				severity: 'error',
-				message:
-					'Motion menu: loop start time is 0.0 s. Set a loop start point before building — this will block the build.',
-			});
-		}
+	// The generic "background will be rendered as looping MPEG video" info
+	// notice that used to sit alongside this is gone now that motion builds
+	// are supported and the inspector has real controls for this (loop
+	// start/intro fields, scrub row) — see `MenuLevelInspector`'s Motion
+	// Settings section.
+	if (doc?.backgroundMode === 'motion' && doc.timing.loopStartSecs === 0.0) {
 		results.push({
-			severity: 'info',
-			message: 'Motion menu: background will be rendered as looping MPEG video.',
+			severity: 'error',
+			message:
+				'Motion menu: loop start time is 0.0 s. Set a loop start point before building — this will block the build.',
 		});
 	}
 

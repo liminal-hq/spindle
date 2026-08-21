@@ -11,6 +11,7 @@ import type {
 	MenuHighlightColours,
 	Title,
 	Menu,
+	MenuDocument,
 	MenuDomain,
 	TextStyle,
 	FontEntry,
@@ -41,6 +42,8 @@ export function ButtonInspector({
 	buttonPreviewState,
 	onButtonPreviewStateChange,
 	availableFonts,
+	document,
+	onAddKeyframeAtPlayhead,
 }: {
 	button: MenuButton;
 	buttonNode: Extract<SceneNode, { type: 'button' }>;
@@ -59,7 +62,13 @@ export function ButtonInspector({
 	buttonPreviewState: ButtonVisualState;
 	onButtonPreviewStateChange?: (state: ButtonVisualState) => void;
 	availableFonts?: FontEntry[];
+	/** Authored document — used to summarise this button's animation tracks. */
+	document?: MenuDocument | null;
+	/** Add a highlight-colour keyframe at the current preview playhead. */
+	onAddKeyframeAtPlayhead?: (buttonId: string) => void;
 }) {
+	const animationTracks = (document?.animation ?? []).filter((t) => t.nodeId === button.id);
+	const keyframeCount = animationTracks.reduce((sum, t) => sum + t.keyframes.length, 0);
 	const isDefault = defaultFocusId === button.id;
 
 	return (
@@ -248,20 +257,37 @@ export function ButtonInspector({
 				);
 			})()}
 
-			{/* Highlight */}
-			<CollapsibleSection title="Highlight Mode" defaultOpen>
-				<select
-					className="inspector-panel__select"
-					value={button.highlightMode}
-					onChange={(e) =>
-						onUpdateButton(button.id, {
-							highlightMode: e.target.value as 'static' | 'animated',
-						})
-					}
-				>
-					<option value="static">Static</option>
-					<option value="animated">Animated</option>
-				</select>
+			{/* Highlight animation — driven by `document.animation` tracks; edited
+			    on the timeline strip below the canvas, not here. */}
+			<CollapsibleSection title="Highlight Animation" defaultOpen>
+				<p className="inspector-panel__hint text-muted">
+					{keyframeCount === 0
+						? 'No animated highlight yet. Add a keyframe to start one, then drag and edit it on the timeline.'
+						: `${keyframeCount} keyframe${keyframeCount === 1 ? '' : 's'} across ${animationTracks.length} track${
+								animationTracks.length === 1 ? '' : 's'
+							} — edit on the timeline below the canvas.`}
+				</p>
+				{onAddKeyframeAtPlayhead &&
+					(() => {
+						const isMotion = document?.backgroundMode === 'motion';
+						return (
+							<div className="inspector-panel__actions-row">
+								<button
+									type="button"
+									className="btn btn--sm btn--ghost"
+									onClick={() => onAddKeyframeAtPlayhead(button.id)}
+									disabled={!isMotion}
+									title={
+										isMotion
+											? 'Add a highlight-colour keyframe at the current preview playhead'
+											: 'Keyframe animation requires a motion background — set the background mode to Motion first'
+									}
+								>
+									Add keyframe at playhead
+								</button>
+							</div>
+						);
+					})()}
 			</CollapsibleSection>
 
 			{/* Overlay Colours */}

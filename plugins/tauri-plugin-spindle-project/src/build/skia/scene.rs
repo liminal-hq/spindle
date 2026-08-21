@@ -567,82 +567,79 @@ mod tests {
 
     #[test]
     fn render_menu_scene_to_png_produces_valid_png_at_raster_dimensions() {
-        let menu = Menu {
+        let menu = Menu::new("test-menu", "Test").with_document(MenuDocument {
+            animation: vec![],
             id: "test-menu".to_string(),
-            name: "Test".to_string(),
-            authored_document: Some(MenuDocument {
-                id: "test-menu".to_string(),
-                name: "Test Menu".to_string(),
-                domain: crate::models::MenuDomain::Vmgm,
-                scene: MenuScene {
-                    design_size: MenuSize {
-                        width: 720.0,
-                        height: 480.0,
-                        aspect: AspectMode::SixteenByNine,
-                    },
-                    background: SceneBackground {
-                        asset_id: None,
-                        colour: Some("#000000".to_string()),
-                    },
-                    nodes: vec![
-                        SceneNode::Shape {
-                            id: "s1".to_string(),
-                            x: 10.0,
-                            y: 20.0,
-                            width: 100.0,
-                            height: 50.0,
-                            fill: Some("#ff0000".to_string()),
-                        },
-                        SceneNode::Text {
-                            id: "t1".to_string(),
-                            content: "Hello".to_string(),
-                            x: 50.0,
-                            y: 100.0,
-                            width: 200.0,
-                            height: 40.0,
-                            font_size: Some(24.0),
-                            font_family: None,
-                            font_weight: None,
-                            font_italic: None,
-                            text_decoration: None,
-                            text_align: None,
-                            colour: Some("white".to_string()),
-                            line_height: None,
-                            letter_spacing: None,
-                        },
-                        SceneNode::Button {
-                            id: "btn-1".to_string(),
-                            label: "Play".to_string(),
-                            x: 100.0,
-                            y: 200.0,
-                            width: 200.0,
-                            height: 50.0,
-                            highlight_mode: HighlightMode::Static,
-                            highlight_keyframes: vec![],
-                            video_asset_id: None,
-                            button_style: None,
-                            label_style: None,
-                        },
-                    ],
-                    guides: vec![],
+            name: "Test Menu".to_string(),
+            domain: crate::models::MenuDomain::Vmgm,
+            role: Some(MenuRole::TitleSelect),
+            scene: MenuScene {
+                design_size: MenuSize {
+                    width: 720.0,
+                    height: 480.0,
+                    aspect: AspectMode::SixteenByNine,
                 },
-                interaction: MenuInteractionGraph {
-                    default_focus_id: Some("btn-1".to_string()),
-                    nodes: vec![FocusNode {
-                        node_id: "btn-1".to_string(),
-                        ..FocusNode::default()
-                    }],
-                    timeout_action: None,
+                background: SceneBackground {
+                    asset_id: None,
+                    colour: Some("#000000".to_string()),
                 },
-                timing: MenuTiming::default(),
-                highlight_colours: MenuHighlightColours::default(),
-                background_mode: BackgroundMode::Still,
-                theme_ref: None,
-                generation_meta: None,
-                compile_policy: MenuCompilePolicy::default(),
-            }),
-            ..Menu::default()
-        };
+                nodes: vec![
+                    SceneNode::Shape {
+                        id: "s1".to_string(),
+                        x: 10.0,
+                        y: 20.0,
+                        width: 100.0,
+                        height: 50.0,
+                        fill: Some("#ff0000".to_string()),
+                    },
+                    SceneNode::Text {
+                        id: "t1".to_string(),
+                        content: "Hello".to_string(),
+                        x: 50.0,
+                        y: 100.0,
+                        width: 200.0,
+                        height: 40.0,
+                        font_size: Some(24.0),
+                        font_family: None,
+                        font_weight: None,
+                        font_italic: None,
+                        text_decoration: None,
+                        text_align: None,
+                        colour: Some("white".to_string()),
+                        line_height: None,
+                        letter_spacing: None,
+                    },
+                    SceneNode::Button {
+                        id: "btn-1".to_string(),
+                        label: "Play".to_string(),
+                        x: 100.0,
+                        y: 200.0,
+                        width: 200.0,
+                        height: 50.0,
+                        highlight_mode: HighlightMode::Static,
+                        highlight_keyframes: vec![],
+                        video_asset_id: None,
+                        button_style: None,
+                        label_style: None,
+                    },
+                ],
+                guides: vec![],
+            },
+            interaction: MenuInteractionGraph {
+                default_focus_id: Some("btn-1".to_string()),
+                nodes: vec![FocusNode {
+                    node_id: "btn-1".to_string(),
+                    ..FocusNode::default()
+                }],
+                timeout_action: None,
+            },
+            timing: MenuTiming::default(),
+            highlight_colours: MenuHighlightColours::default(),
+            background_mode: BackgroundMode::Still,
+            theme_ref: None,
+            generation_meta: None,
+            compile_policy: MenuCompilePolicy::default(),
+        });
         let menu_ref = AuthorableMenuRef {
             menu: &menu,
             domain: MenuDomain::Vmgm,
@@ -820,39 +817,37 @@ mod tests {
                 vec![]
             };
 
-            Menu {
+            Menu::new("btn-test-menu", "Untitled Menu").with_document(MenuDocument {
+                animation: vec![],
                 id: "btn-test-menu".to_string(),
-                authored_document: Some(MenuDocument {
-                    id: "btn-test-menu".to_string(),
-                    name: "Button Test".to_string(),
-                    domain: crate::models::MenuDomain::Vmgm,
-                    scene: MenuScene {
-                        design_size: MenuSize {
-                            width: 720.0,
-                            height: 480.0,
-                            aspect: AspectMode::SixteenByNine,
-                        },
-                        background: SceneBackground {
-                            asset_id: None,
-                            colour: Some("#000000".to_string()),
-                        },
-                        nodes,
-                        guides: vec![],
+                name: "Button Test".to_string(),
+                domain: crate::models::MenuDomain::Vmgm,
+                role: Some(MenuRole::TitleSelect),
+                scene: MenuScene {
+                    design_size: MenuSize {
+                        width: 720.0,
+                        height: 480.0,
+                        aspect: AspectMode::SixteenByNine,
                     },
-                    interaction: MenuInteractionGraph {
-                        default_focus_id: None,
-                        nodes: vec![],
-                        timeout_action: None,
+                    background: SceneBackground {
+                        asset_id: None,
+                        colour: Some("#000000".to_string()),
                     },
-                    timing: MenuTiming::default(),
-                    highlight_colours: MenuHighlightColours::default(),
-                    background_mode: BackgroundMode::Still,
-                    theme_ref: None,
-                    generation_meta: None,
-                    compile_policy: MenuCompilePolicy::default(),
-                }),
-                ..Menu::default()
-            }
+                    nodes,
+                    guides: vec![],
+                },
+                interaction: MenuInteractionGraph {
+                    default_focus_id: None,
+                    nodes: vec![],
+                    timeout_action: None,
+                },
+                timing: MenuTiming::default(),
+                highlight_colours: MenuHighlightColours::default(),
+                background_mode: BackgroundMode::Still,
+                theme_ref: None,
+                generation_meta: None,
+                compile_policy: MenuCompilePolicy::default(),
+            })
         }
 
         let with_button = make_menu_with_button(true);
@@ -894,60 +889,58 @@ mod tests {
     /// produce a valid PNG.
     #[test]
     fn render_button_with_rgba_fill_produces_valid_png() {
-        let menu = Menu {
+        let menu = Menu::new("rgba-btn-menu", "Untitled Menu").with_document(MenuDocument {
+            animation: vec![],
             id: "rgba-btn-menu".to_string(),
-            authored_document: Some(MenuDocument {
-                id: "rgba-btn-menu".to_string(),
-                name: "RGBA Fill Test".to_string(),
-                domain: crate::models::MenuDomain::Vmgm,
-                scene: MenuScene {
-                    design_size: MenuSize {
-                        width: 720.0,
-                        height: 480.0,
-                        aspect: AspectMode::SixteenByNine,
-                    },
-                    background: SceneBackground {
-                        asset_id: None,
-                        colour: None,
-                    },
-                    nodes: vec![SceneNode::Button {
-                        id: "rgba-btn".to_string(),
-                        label: "OK".to_string(),
-                        x: 100.0,
-                        y: 100.0,
-                        width: 200.0,
-                        height: 50.0,
-                        highlight_mode: HighlightMode::Static,
-                        highlight_keyframes: vec![],
-                        video_asset_id: None,
-                        button_style: Some(ButtonStyleMap {
-                            normal: ButtonStateStyle {
-                                bg_fill: "rgba(255, 255, 255, 0.04)".to_string(),
-                                border_colour: "rgba(255, 255, 255, 0.12)".to_string(),
-                                border_width: 1.5,
-                                border_radius: 4.0,
-                                ..ButtonStateStyle::default()
-                            },
-                            ..ButtonStyleMap::default()
-                        }),
-                        label_style: None,
-                    }],
-                    guides: vec![],
+            name: "RGBA Fill Test".to_string(),
+            domain: crate::models::MenuDomain::Vmgm,
+            role: Some(MenuRole::TitleSelect),
+            scene: MenuScene {
+                design_size: MenuSize {
+                    width: 720.0,
+                    height: 480.0,
+                    aspect: AspectMode::SixteenByNine,
                 },
-                interaction: MenuInteractionGraph {
-                    default_focus_id: None,
-                    nodes: vec![],
-                    timeout_action: None,
+                background: SceneBackground {
+                    asset_id: None,
+                    colour: None,
                 },
-                timing: MenuTiming::default(),
-                highlight_colours: MenuHighlightColours::default(),
-                background_mode: BackgroundMode::Still,
-                theme_ref: None,
-                generation_meta: None,
-                compile_policy: MenuCompilePolicy::default(),
-            }),
-            ..Menu::default()
-        };
+                nodes: vec![SceneNode::Button {
+                    id: "rgba-btn".to_string(),
+                    label: "OK".to_string(),
+                    x: 100.0,
+                    y: 100.0,
+                    width: 200.0,
+                    height: 50.0,
+                    highlight_mode: HighlightMode::Static,
+                    highlight_keyframes: vec![],
+                    video_asset_id: None,
+                    button_style: Some(ButtonStyleMap {
+                        normal: ButtonStateStyle {
+                            bg_fill: "rgba(255, 255, 255, 0.04)".to_string(),
+                            border_colour: "rgba(255, 255, 255, 0.12)".to_string(),
+                            border_width: 1.5,
+                            border_radius: 4.0,
+                            ..ButtonStateStyle::default()
+                        },
+                        ..ButtonStyleMap::default()
+                    }),
+                    label_style: None,
+                }],
+                guides: vec![],
+            },
+            interaction: MenuInteractionGraph {
+                default_focus_id: None,
+                nodes: vec![],
+                timeout_action: None,
+            },
+            timing: MenuTiming::default(),
+            highlight_colours: MenuHighlightColours::default(),
+            background_mode: BackgroundMode::Still,
+            theme_ref: None,
+            generation_meta: None,
+            compile_policy: MenuCompilePolicy::default(),
+        });
 
         let menu_ref = AuthorableMenuRef {
             menu: &menu,

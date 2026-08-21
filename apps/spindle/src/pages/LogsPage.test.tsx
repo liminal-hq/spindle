@@ -6,7 +6,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { useProjectStore } from '../store/project-store';
-import { createDefaultProject } from '../types/project';
+import {
+	createDefaultProject,
+	createDefaultMenuCompilePolicy,
+	DEFAULT_HIGHLIGHT_COLOURS,
+} from '../types/project';
 import { LogsPage } from './LogsPage';
 
 const initialState = useProjectStore.getState();
@@ -29,8 +33,37 @@ describe('LogsPage', () => {
 		project.disc.globalMenus = [
 			{
 				id: 'menu-1',
-				buttons: [{ id: 'btn-1' }, { id: 'btn-2' }],
-			} as any,
+				name: 'Menu',
+				authoredDocument: {
+					id: 'menu-1',
+					name: 'Menu',
+					domain: 'vmgm',
+					role: 'title-select',
+					scene: {
+						designSize: { width: 720, height: 480, aspect: 'four-by-three' },
+						background: { assetId: null, colour: null },
+						nodes: [
+							{ type: 'button', id: 'btn-1', label: 'Btn 1', x: 0, y: 0, width: 100, height: 40 },
+							{ type: 'button', id: 'btn-2', label: 'Btn 2', x: 0, y: 60, width: 100, height: 40 },
+						],
+						guides: [],
+					},
+					interaction: { defaultFocusId: null, nodes: [], timeoutAction: null },
+					timing: {
+						introStartSecs: 0,
+						introDurationSecs: 0,
+						loopStartSecs: 0,
+						loopDurationSecs: 0,
+						loopCount: 0,
+						audioAssetId: null,
+					},
+					highlightColours: DEFAULT_HIGHLIGHT_COLOURS,
+					backgroundMode: 'still',
+					themeRef: null,
+					generationMeta: null,
+					compilePolicy: createDefaultMenuCompilePolicy('four-by-three'),
+				},
+			},
 		];
 
 		useProjectStore.setState({ project, validationIssues: [] });

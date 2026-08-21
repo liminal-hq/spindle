@@ -13,7 +13,7 @@ use super::ffmpeg::{
     source_display_aspect_ratio,
 };
 use super::skia::{render_menu_overlay_image_skia, render_menu_overlay_image_skia_quantized};
-use super::types::MenuOverlayButton;
+use super::types::{MenuOverlayButton, OverlayKeyframeSpec};
 use super::util::{sanitise_filename, xml_escape};
 
 #[derive(Clone, Copy)]
@@ -29,11 +29,7 @@ pub struct AuthorableMenuRef<'a> {
 
 impl<'a> AuthorableMenuRef<'a> {
     pub(crate) fn name(&self) -> &str {
-        self.menu
-            .authored_document
-            .as_ref()
-            .map(|doc| doc.name.as_str())
-            .unwrap_or(self.menu.name.as_str())
+        self.menu.doc().name.as_str()
     }
 
     pub(crate) fn background_asset_id(&self) -> Option<&str> {
@@ -41,39 +37,23 @@ impl<'a> AuthorableMenuRef<'a> {
     }
 
     pub(crate) fn highlight_colours(&self) -> &MenuHighlightColours {
-        self.menu
-            .authored_document
-            .as_ref()
-            .map(|doc| &doc.highlight_colours)
-            .unwrap_or(&self.menu.highlight_colours)
+        &self.menu.doc().highlight_colours
     }
 
-    #[allow(dead_code)]
     pub(crate) fn background_mode(&self) -> BackgroundMode {
         self.menu.resolved_background_mode()
     }
 
-    #[allow(dead_code)]
     pub(crate) fn timeout_action(&self) -> Option<&PlaybackAction> {
-        self.menu
-            .authored_document
-            .as_ref()
-            .and_then(|doc| doc.interaction.timeout_action.as_ref())
-            .or(self.menu.timeout_action.as_ref())
+        self.menu.doc().interaction.timeout_action.as_ref()
     }
 
-    #[allow(dead_code)]
     pub(crate) fn motion_duration_secs(&self) -> Option<f64> {
         self.menu.resolved_motion_duration_secs()
     }
 
-    #[allow(dead_code)]
     pub(crate) fn motion_loop_count(&self) -> u32 {
-        self.menu
-            .authored_document
-            .as_ref()
-            .map(|doc| doc.timing.loop_count)
-            .unwrap_or(self.menu.motion_loop_count)
+        self.menu.doc().timing.loop_count
     }
 
     pub(crate) fn display_aspect(&self, project: &SpindleProjectFile) -> AspectMode {
@@ -82,95 +62,21 @@ impl<'a> AuthorableMenuRef<'a> {
     }
 
     pub(crate) fn buttons(&self) -> Vec<AuthorableButtonRef<'_>> {
-        if let Some(doc) = &self.menu.authored_document {
-            doc.scene
-                .nodes
-                .iter()
-                .filter_map(|node| {
-                    if let SceneNode::Button {
-                        id,
-                        label,
-                        x,
-                        y,
-                        width,
-                        height,
-                        ..
-                    } = node
-                    {
-                        let interaction = doc.interaction.nodes.iter().find(|f| f.node_id == *id);
-
-                        Some(AuthorableButtonRef {
-                            id,
-                            label,
-                            x: *x,
-                            y: *y,
-                            width: *width,
-                            height: *height,
-                            action: interaction.and_then(|f| f.action.as_ref()),
-                            nav_up: interaction.and_then(|f| f.nav_up.as_deref()),
-                            nav_down: interaction.and_then(|f| f.nav_down.as_deref()),
-                            nav_left: interaction.and_then(|f| f.nav_left.as_deref()),
-                            nav_right: interaction.and_then(|f| f.nav_right.as_deref()),
-                        })
-                    } else {
-                        None
-                    }
-                })
-                .collect()
-        } else {
-            self.menu
-                .buttons
-                .iter()
-                .map(|b| AuthorableButtonRef {
-                    id: &b.id,
-                    label: &b.label,
-                    x: b.bounds.x,
-                    y: b.bounds.y,
-                    width: b.bounds.width,
-                    height: b.bounds.height,
-                    action: b.action.as_ref(),
-                    nav_up: b.nav_up.as_deref(),
-                    nav_down: b.nav_down.as_deref(),
-                    nav_left: b.nav_left.as_deref(),
-                    nav_right: b.nav_right.as_deref(),
-                })
-                .collect()
-        }
+        self.menu.doc().buttons()
     }
 
     pub(crate) fn default_button_id(&self) -> Option<&str> {
-        self.menu
-            .authored_document
-            .as_ref()
-            .and_then(|doc| doc.interaction.default_focus_id.as_deref())
-            .or(self.menu.default_button_id.as_deref())
+        self.menu.doc().interaction.default_focus_id.as_deref()
     }
 
     pub(crate) fn scene_nodes(&self) -> Vec<&SceneNode> {
-        self.menu
-            .authored_document
-            .as_ref()
-            .map(|doc| doc.scene.nodes.iter().collect())
-            .unwrap_or_default()
+        self.menu.doc().scene.nodes.iter().collect()
     }
 }
 
-pub(crate) struct AuthorableButtonRef<'a> {
-    pub(crate) id: &'a str,
-    // Populated from scene data for future overlay-label rendering; not yet
-    // consumed in the Rust pipeline but needed structurally.
-    #[allow(dead_code)]
-    pub(crate) label: &'a str,
-    pub(crate) x: f64,
-    pub(crate) y: f64,
-    pub(crate) width: f64,
-    pub(crate) height: f64,
-    pub(crate) action: Option<&'a PlaybackAction>,
-    pub(crate) nav_up: Option<&'a str>,
-    pub(crate) nav_down: Option<&'a str>,
-    pub(crate) nav_left: Option<&'a str>,
-    pub(crate) nav_right: Option<&'a str>,
-}
+/// The build pipeline's button view is exactly the shared
+/// `MenuDocument::buttons()` view — see [`crate::models::MenuButtonView`].
+pub(crate) type AuthorableButtonRef<'a> = crate::models::MenuButtonView<'a>;
 
 pub fn authorable_menus(project: &SpindleProjectFile) -> Vec<AuthorableMenuRef<'_>> {
     let mut menus = Vec::new();
@@ -354,36 +260,36 @@ fn menu_loop_frame_count(standard: VideoStandard) -> u32 {
     }
 }
 
+/// Emit the spumux XML for a menu's subpicture stream: one `<spu>` per
+/// `frames` entry (design decision D8), with the same `<button>` children
+/// repeated identically in every `<spu>` — the button rectangles/nav links
+/// don't change across keyframes, only the highlight artwork does.
+///
+/// `frames` must have at least one entry (the planner always builds at
+/// least a trivial single-frame schedule — see `planner::animation`). A
+/// single-entry schedule uses the original, `end`-less `<spu>` form (start
+/// pinned at `"00:00:00.00"`) so a menu with no animation tracks — the
+/// overwhelmingly common case — produces byte-identical XML to a build with
+/// no animation support at all. Two or more entries use `start`/`end`
+/// timestamps formatted by [`format_spu_timestamp`].
 pub(crate) fn generate_spumux_xml(
     menu_ref: &AuthorableMenuRef<'_>,
     standard: VideoStandard,
     menus_dir: &Path,
     scale_x: f64,
     scale_y: f64,
+    frames: &[OverlayKeyframeSpec],
 ) -> String {
     let format_str = match standard {
         VideoStandard::Ntsc => "NTSC",
         VideoStandard::Pal => "PAL",
     };
-    let base_name = sanitise_filename(menu_ref.menu.id.as_str());
-    let highlight_path = menus_dir.join(format!("{base_name}_highlight.png"));
-    let select_path = menus_dir.join(format!("{base_name}_select.png"));
-
-    let mut xml = String::new();
-    xml.push_str("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
-    xml.push_str(&format!("<subpictures format=\"{format_str}\">\n"));
-    xml.push_str("  <stream>\n");
-    xml.push_str(&format!(
-        "    <spu start=\"00:00:00.00\" image=\"{}\" highlight=\"{}\" select=\"{}\" transparent=\"#000000\" force=\"yes\">\n",
-        xml_escape(&highlight_path.display().to_string()),
-        xml_escape(&highlight_path.display().to_string()),
-        xml_escape(&select_path.display().to_string())
-    ));
 
     let buttons = menu_ref.buttons();
+    let mut button_xml = String::new();
     for (index, button) in buttons.iter().enumerate() {
         let name = (index + 1).to_string();
-        xml.push_str(&format!(
+        button_xml.push_str(&format!(
             "      <button name=\"{}\" x0=\"{}\" y0=\"{}\" x1=\"{}\" y1=\"{}\"{}{}{}{} />\n",
             name,
             (button.x * scale_x).round() as i32,
@@ -397,10 +303,81 @@ pub(crate) fn generate_spumux_xml(
         ));
     }
 
-    xml.push_str("    </spu>\n");
+    let mut xml = String::new();
+    xml.push_str("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
+    xml.push_str(&format!("<subpictures format=\"{format_str}\">\n"));
+    xml.push_str("  <stream>\n");
+
+    if frames.len() <= 1 {
+        let base_name = sanitise_filename(menu_ref.menu.id.as_str());
+        let (image_path, select_path) = match frames.first() {
+            Some(frame) => (
+                frame.highlight_image_path.clone(),
+                frame.select_image_path.clone(),
+            ),
+            None => (
+                menus_dir
+                    .join(format!("{base_name}_highlight.png"))
+                    .display()
+                    .to_string(),
+                menus_dir
+                    .join(format!("{base_name}_select.png"))
+                    .display()
+                    .to_string(),
+            ),
+        };
+        xml.push_str(&format!(
+            "    <spu start=\"00:00:00.00\" image=\"{}\" highlight=\"{}\" select=\"{}\" transparent=\"#000000\" force=\"yes\">\n",
+            xml_escape(&image_path),
+            xml_escape(&image_path),
+            xml_escape(&select_path)
+        ));
+        xml.push_str(&button_xml);
+        xml.push_str("    </spu>\n");
+    } else {
+        for frame in frames {
+            xml.push_str(&format!(
+                "    <spu start=\"{}\" end=\"{}\" image=\"{}\" highlight=\"{}\" select=\"{}\" transparent=\"#000000\" force=\"yes\">\n",
+                format_spu_timestamp(frame.start_secs),
+                format_spu_timestamp(frame.end_secs),
+                xml_escape(&frame.highlight_image_path),
+                xml_escape(&frame.highlight_image_path),
+                xml_escape(&frame.select_image_path)
+            ));
+            xml.push_str(&button_xml);
+            xml.push_str("    </spu>\n");
+        }
+    }
+
     xml.push_str("  </stream>\n");
     xml.push_str("</subpictures>\n");
     xml
+}
+
+/// Format a seconds offset as spumux's `hh:mm:ss.mmm` `<spu>` timestamp
+/// (millisecond precision — the original single-`<spu>` still-menu form used
+/// a hardcoded centisecond-precision `"00:00:00.00"`, kept verbatim by
+/// [`generate_spumux_xml`]'s single-frame branch rather than routed through
+/// here, so the no-animation case stays byte-identical).
+pub(crate) fn format_spu_timestamp(total_secs: f64) -> String {
+    let total_secs = total_secs.max(0.0);
+    let mut millis = (total_secs.fract() * 1000.0).round() as u64;
+    let mut secs = (total_secs % 60.0) as u64;
+    if millis >= 1000 {
+        millis -= 1000;
+        secs += 1;
+    }
+    let mut minutes = ((total_secs % 3600.0) / 60.0) as u64;
+    if secs >= 60 {
+        secs -= 60;
+        minutes += 1;
+    }
+    let mut hours = (total_secs / 3600.0) as u64;
+    if minutes >= 60 {
+        minutes -= 60;
+        hours += 1;
+    }
+    format!("{hours:02}:{minutes:02}:{secs:02}.{millis:03}")
 }
 
 fn button_nav_attr(
@@ -459,6 +436,39 @@ pub(crate) fn generate_menu_overlay_images(
     Ok(())
 }
 
+/// Render one highlight/select overlay PNG pair per `frames` entry — the
+/// multi-frame counterpart to [`generate_menu_overlay_images`], used by the
+/// `RenderMenu` executor arm when a motion menu's `overlay_keyframes`
+/// schedule (design decision D8) has more than the trivial single frame.
+/// Anti-aliasing stays off in the underlying renderer regardless of
+/// `quantize_palette` — spumux's ≤16-colour subpicture palette limit applies
+/// to every frame, not just the first.
+pub(crate) fn generate_menu_overlay_images_for_keyframes(
+    menu_id: &str,
+    button_bounds: &[MenuOverlayButton],
+    target: RenderTarget,
+    frames: &[OverlayKeyframeSpec],
+    quantize_palette: bool,
+) -> std::result::Result<(), String> {
+    for frame in frames {
+        generate_menu_overlay_images(
+            &MenuOverlayRender {
+                menu_id,
+                button_bounds,
+                target,
+            },
+            &MenuOverlayImages {
+                highlight_image_path: &frame.highlight_image_path,
+                select_image_path: &frame.select_image_path,
+                highlight_colour: &frame.highlight_colour,
+                select_colour: &frame.select_colour,
+                quantize_palette,
+            },
+        )?;
+    }
+    Ok(())
+}
+
 pub(crate) struct MenuOverlayRender<'a> {
     pub(crate) menu_id: &'a str,
     pub(crate) button_bounds: &'a [MenuOverlayButton],
@@ -475,77 +485,248 @@ pub(crate) struct MenuOverlayImages<'a> {
 }
 
 #[cfg(test)]
+mod spumux_frame_tests {
+    use crate::models::*;
+
+    use super::super::types::OverlayKeyframeSpec;
+    use super::{format_spu_timestamp, generate_spumux_xml, AuthorableMenuRef};
+
+    fn menu_with_one_button() -> Menu {
+        Menu::new("menu-pin", "Pin Menu").with_document(MenuDocument {
+            animation: vec![],
+            id: "menu-pin".to_string(),
+            name: "Pin Menu".to_string(),
+            domain: crate::models::MenuDomain::Vmgm,
+            role: Some(MenuRole::TitleSelect),
+            scene: MenuScene {
+                design_size: MenuSize {
+                    width: 720.0,
+                    height: 480.0,
+                    aspect: AspectMode::SixteenByNine,
+                },
+                background: SceneBackground {
+                    asset_id: None,
+                    colour: Some("#000000".to_string()),
+                },
+                nodes: vec![SceneNode::Button {
+                    id: "btn-1".to_string(),
+                    label: "Play".to_string(),
+                    x: 100.0,
+                    y: 280.0,
+                    width: 220.0,
+                    height: 48.0,
+                    highlight_mode: HighlightMode::Static,
+                    highlight_keyframes: vec![],
+                    video_asset_id: None,
+                    button_style: None,
+                    label_style: None,
+                }],
+                guides: vec![],
+            },
+            interaction: MenuInteractionGraph {
+                default_focus_id: Some("btn-1".to_string()),
+                nodes: vec![FocusNode {
+                    node_id: "btn-1".to_string(),
+                    ..FocusNode::default()
+                }],
+                timeout_action: None,
+            },
+            timing: MenuTiming::default(),
+            highlight_colours: MenuHighlightColours::default(),
+            background_mode: BackgroundMode::Still,
+            theme_ref: None,
+            generation_meta: None,
+            compile_policy: MenuCompilePolicy::default(),
+        })
+    }
+
+    /// Pinned exactly to the XML `generate_spumux_xml` produced before the
+    /// multi-`<spu>` DCSQ lowering landed (design decision D8) — a menu with
+    /// no animation tracks (the overwhelmingly common case) must keep
+    /// producing byte-identical output.
+    #[test]
+    fn no_tracks_single_frame_output_is_byte_identical_to_pre_animation_output() {
+        let menu = menu_with_one_button();
+        let menu_ref = AuthorableMenuRef {
+            menu: &menu,
+            domain: super::MenuDomain::Vmgm,
+        };
+        let frames = vec![OverlayKeyframeSpec {
+            start_secs: 0.0,
+            end_secs: 0.0,
+            highlight_image_path: "/tmp/menus/menu-pin_highlight.png".to_string(),
+            select_image_path: "/tmp/menus/menu-pin_select.png".to_string(),
+            highlight_colour: "#ffaa40".to_string(),
+            select_colour: "#ffffff".to_string(),
+        }];
+
+        let xml = generate_spumux_xml(
+            &menu_ref,
+            VideoStandard::Ntsc,
+            std::path::Path::new("/tmp/menus"),
+            1.0,
+            1.0,
+            &frames,
+        );
+
+        let expected = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n\
+<subpictures format=\"NTSC\">\n  \
+<stream>\n    \
+<spu start=\"00:00:00.00\" image=\"/tmp/menus/menu-pin_highlight.png\" highlight=\"/tmp/menus/menu-pin_highlight.png\" select=\"/tmp/menus/menu-pin_select.png\" transparent=\"#000000\" force=\"yes\">\n      \
+<button name=\"1\" x0=\"100\" y0=\"280\" x1=\"320\" y1=\"328\" />\n    \
+</spu>\n  \
+</stream>\n\
+</subpictures>\n";
+        assert_eq!(xml, expected);
+    }
+
+    #[test]
+    fn empty_frames_falls_back_to_deriving_paths_from_menus_dir() {
+        let menu = menu_with_one_button();
+        let menu_ref = AuthorableMenuRef {
+            menu: &menu,
+            domain: super::MenuDomain::Vmgm,
+        };
+
+        let xml = generate_spumux_xml(
+            &menu_ref,
+            VideoStandard::Ntsc,
+            std::path::Path::new("/tmp/menus"),
+            1.0,
+            1.0,
+            &[],
+        );
+
+        assert!(xml.contains("image=\"/tmp/menus/menu-pin_highlight.png\""));
+        assert!(xml.contains("select=\"/tmp/menus/menu-pin_select.png\""));
+        assert!(!xml.contains("end="));
+    }
+
+    #[test]
+    fn multi_frame_schedule_emits_one_spu_per_frame_with_identical_buttons() {
+        let menu = menu_with_one_button();
+        let menu_ref = AuthorableMenuRef {
+            menu: &menu,
+            domain: super::MenuDomain::Vmgm,
+        };
+        let frames = vec![
+            OverlayKeyframeSpec {
+                start_secs: 0.0,
+                end_secs: 1.0,
+                highlight_image_path: "/tmp/menus/menu-pin_hl_k0.png".to_string(),
+                select_image_path: "/tmp/menus/menu-pin_sel_k0.png".to_string(),
+                highlight_colour: "#ff0000ff".to_string(),
+                select_colour: "#ffffffff".to_string(),
+            },
+            OverlayKeyframeSpec {
+                start_secs: 1.0,
+                end_secs: 2.5,
+                highlight_image_path: "/tmp/menus/menu-pin_hl_k1.png".to_string(),
+                select_image_path: "/tmp/menus/menu-pin_sel_k1.png".to_string(),
+                highlight_colour: "#00ff00ff".to_string(),
+                select_colour: "#ffffffff".to_string(),
+            },
+        ];
+
+        let xml = generate_spumux_xml(
+            &menu_ref,
+            VideoStandard::Ntsc,
+            std::path::Path::new("/tmp/menus"),
+            1.0,
+            1.0,
+            &frames,
+        );
+
+        assert_eq!(
+            xml.matches("<spu ").count(),
+            2,
+            "expected two <spu> entries, got:\n{xml}"
+        );
+        assert_eq!(
+            xml.matches("<button name=\"1\" x0=\"100\" y0=\"280\" x1=\"320\" y1=\"328\" />")
+                .count(),
+            2,
+            "expected identical <button> children in every <spu>, got:\n{xml}"
+        );
+        assert!(xml.contains("start=\"00:00:00.000\" end=\"00:00:01.000\""));
+        assert!(xml.contains("start=\"00:00:01.000\" end=\"00:00:02.500\""));
+        assert!(xml.contains("image=\"/tmp/menus/menu-pin_hl_k0.png\""));
+        assert!(xml.contains("image=\"/tmp/menus/menu-pin_hl_k1.png\""));
+    }
+
+    #[test]
+    fn format_spu_timestamp_formats_millisecond_precision() {
+        assert_eq!(format_spu_timestamp(0.0), "00:00:00.000");
+        assert_eq!(format_spu_timestamp(1.5), "00:00:01.500");
+        assert_eq!(format_spu_timestamp(65.125), "00:01:05.125");
+        assert_eq!(format_spu_timestamp(3661.001), "01:01:01.001");
+    }
+
+    #[test]
+    fn format_spu_timestamp_carries_millisecond_rounding_into_seconds() {
+        // 1.9996 rounds to 2000ms at millisecond precision, which must carry
+        // into the seconds place rather than emitting an invalid ".1000".. suffix.
+        assert_eq!(format_spu_timestamp(1.9996), "00:00:02.000");
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use crate::models::*;
 
     use super::AuthorableMenuRef;
 
     #[test]
-    fn authorable_menu_ref_prefers_authored_document() {
-        let legacy_menu = Menu {
+    fn authorable_menu_ref_reads_from_the_authored_document() {
+        let menu = Menu::new("menu-1", "Legacy Name").with_document(MenuDocument {
+            animation: vec![],
             id: "menu-1".to_string(),
-            name: "Legacy Name".to_string(),
-            background_asset_id: Some("asset-legacy".to_string()),
-            buttons: vec![MenuButton {
-                id: "btn-legacy".to_string(),
-                label: "Legacy Button".to_string(),
-                bounds: ButtonBounds {
-                    x: 0.0,
-                    y: 0.0,
-                    width: 100.0,
-                    height: 100.0,
+            name: "Authored Name".to_string(),
+            domain: crate::models::MenuDomain::Vmgm,
+            role: Some(MenuRole::TitleSelect),
+            scene: MenuScene {
+                design_size: MenuSize {
+                    width: 720.0,
+                    height: 480.0,
+                    aspect: AspectMode::SixteenByNine,
                 },
-                ..MenuButton::default()
-            }],
-            authored_document: Some(MenuDocument {
-                id: "menu-1".to_string(),
-                name: "Authored Name".to_string(),
-                domain: crate::models::MenuDomain::Vmgm,
-                scene: MenuScene {
-                    design_size: MenuSize {
-                        width: 720.0,
-                        height: 480.0,
-                        aspect: AspectMode::SixteenByNine,
-                    },
-                    background: SceneBackground {
-                        asset_id: Some("asset-authored".to_string()),
-                        colour: None,
-                    },
-                    nodes: vec![SceneNode::Button {
-                        id: "btn-authored".to_string(),
-                        label: "Authored Button".to_string(),
-                        x: 50.0,
-                        y: 50.0,
-                        width: 200.0,
-                        height: 80.0,
-                        highlight_mode: HighlightMode::Static,
-                        highlight_keyframes: vec![],
-                        video_asset_id: None,
-                        button_style: None,
-                        label_style: None,
-                    }],
-                    guides: vec![],
+                background: SceneBackground {
+                    asset_id: Some("asset-authored".to_string()),
+                    colour: None,
                 },
-                interaction: MenuInteractionGraph {
-                    default_focus_id: Some("btn-authored".to_string()),
-                    nodes: vec![FocusNode {
-                        node_id: "btn-authored".to_string(),
-                        ..FocusNode::default()
-                    }],
-                    timeout_action: None,
-                },
-                timing: MenuTiming::default(),
-                highlight_colours: MenuHighlightColours::default(),
-                background_mode: BackgroundMode::Still,
-                theme_ref: None,
-                generation_meta: None,
-                compile_policy: MenuCompilePolicy::default(),
-            }),
-            ..Menu::default()
-        };
+                nodes: vec![SceneNode::Button {
+                    id: "btn-authored".to_string(),
+                    label: "Authored Button".to_string(),
+                    x: 50.0,
+                    y: 50.0,
+                    width: 200.0,
+                    height: 80.0,
+                    highlight_mode: HighlightMode::Static,
+                    highlight_keyframes: vec![],
+                    video_asset_id: None,
+                    button_style: None,
+                    label_style: None,
+                }],
+                guides: vec![],
+            },
+            interaction: MenuInteractionGraph {
+                default_focus_id: Some("btn-authored".to_string()),
+                nodes: vec![FocusNode {
+                    node_id: "btn-authored".to_string(),
+                    ..FocusNode::default()
+                }],
+                timeout_action: None,
+            },
+            timing: MenuTiming::default(),
+            highlight_colours: MenuHighlightColours::default(),
+            background_mode: BackgroundMode::Still,
+            theme_ref: None,
+            generation_meta: None,
+            compile_policy: MenuCompilePolicy::default(),
+        });
 
         let menu_ref = AuthorableMenuRef {
-            menu: &legacy_menu,
+            menu: &menu,
             domain: super::MenuDomain::Vmgm,
         };
 
@@ -568,64 +749,62 @@ mod tests {
     fn build_ffmpeg_menu_command_uses_skia_overlay_not_draw_filters() {
         // The command should not contain drawbox/drawtext; instead it should include
         // a Skia scene PNG input and an overlay=0:0 filter chain.
-        let menu = Menu {
+        let menu = Menu::new("menu-1", "Untitled Menu").with_document(MenuDocument {
+            animation: vec![],
             id: "menu-1".to_string(),
-            authored_document: Some(MenuDocument {
-                id: "menu-1".to_string(),
-                name: "Test Menu".to_string(),
-                domain: crate::models::MenuDomain::Vmgm,
-                scene: MenuScene {
-                    design_size: MenuSize {
-                        width: 720.0,
-                        height: 480.0,
-                        aspect: AspectMode::SixteenByNine,
-                    },
-                    background: SceneBackground {
-                        asset_id: None,
-                        colour: Some("#000000".to_string()),
-                    },
-                    nodes: vec![
-                        SceneNode::Shape {
-                            id: "shape-1".to_string(),
-                            x: 10.0,
-                            y: 20.0,
-                            width: 100.0,
-                            height: 50.0,
-                            fill: Some("#ff0000".to_string()),
-                        },
-                        SceneNode::Button {
-                            id: "btn-1".to_string(),
-                            label: "Play".to_string(),
-                            x: 100.0,
-                            y: 150.0,
-                            width: 200.0,
-                            height: 40.0,
-                            highlight_mode: HighlightMode::Static,
-                            highlight_keyframes: vec![],
-                            video_asset_id: None,
-                            button_style: None,
-                            label_style: None,
-                        },
-                    ],
-                    guides: vec![],
+            name: "Test Menu".to_string(),
+            domain: crate::models::MenuDomain::Vmgm,
+            role: Some(MenuRole::TitleSelect),
+            scene: MenuScene {
+                design_size: MenuSize {
+                    width: 720.0,
+                    height: 480.0,
+                    aspect: AspectMode::SixteenByNine,
                 },
-                interaction: MenuInteractionGraph {
-                    default_focus_id: Some("btn-1".to_string()),
-                    nodes: vec![FocusNode {
-                        node_id: "btn-1".to_string(),
-                        ..FocusNode::default()
-                    }],
-                    timeout_action: None,
+                background: SceneBackground {
+                    asset_id: None,
+                    colour: Some("#000000".to_string()),
                 },
-                timing: MenuTiming::default(),
-                highlight_colours: MenuHighlightColours::default(),
-                background_mode: BackgroundMode::Still,
-                theme_ref: None,
-                generation_meta: None,
-                compile_policy: MenuCompilePolicy::default(),
-            }),
-            ..Menu::default()
-        };
+                nodes: vec![
+                    SceneNode::Shape {
+                        id: "shape-1".to_string(),
+                        x: 10.0,
+                        y: 20.0,
+                        width: 100.0,
+                        height: 50.0,
+                        fill: Some("#ff0000".to_string()),
+                    },
+                    SceneNode::Button {
+                        id: "btn-1".to_string(),
+                        label: "Play".to_string(),
+                        x: 100.0,
+                        y: 150.0,
+                        width: 200.0,
+                        height: 40.0,
+                        highlight_mode: HighlightMode::Static,
+                        highlight_keyframes: vec![],
+                        video_asset_id: None,
+                        button_style: None,
+                        label_style: None,
+                    },
+                ],
+                guides: vec![],
+            },
+            interaction: MenuInteractionGraph {
+                default_focus_id: Some("btn-1".to_string()),
+                nodes: vec![FocusNode {
+                    node_id: "btn-1".to_string(),
+                    ..FocusNode::default()
+                }],
+                timeout_action: None,
+            },
+            timing: MenuTiming::default(),
+            highlight_colours: MenuHighlightColours::default(),
+            background_mode: BackgroundMode::Still,
+            theme_ref: None,
+            generation_meta: None,
+            compile_policy: MenuCompilePolicy::default(),
+        });
 
         let project = SpindleProjectFile::default();
         let menu_ref = AuthorableMenuRef {
@@ -683,42 +862,40 @@ mod tests {
     #[test]
     fn build_ffmpeg_menu_command_includes_setsar_in_overlay_filter() {
         // The setsar filter must appear in the filter chain even with the Skia path.
-        let menu = Menu {
+        let menu = Menu::new("menu-sar", "Untitled Menu").with_document(MenuDocument {
+            animation: vec![],
             id: "menu-sar".to_string(),
-            authored_document: Some(MenuDocument {
-                id: "menu-sar".to_string(),
-                name: "SAR Test Menu".to_string(),
-                domain: crate::models::MenuDomain::Vmgm,
-                scene: MenuScene {
-                    design_size: MenuSize {
-                        width: 1024.0,
-                        height: 576.0,
-                        aspect: AspectMode::SixteenByNine,
-                    },
-                    background: SceneBackground {
-                        asset_id: None,
-                        colour: Some("#000000".to_string()),
-                    },
-                    nodes: vec![],
-                    guides: vec![],
+            name: "SAR Test Menu".to_string(),
+            domain: crate::models::MenuDomain::Vmgm,
+            role: Some(MenuRole::TitleSelect),
+            scene: MenuScene {
+                design_size: MenuSize {
+                    width: 1024.0,
+                    height: 576.0,
+                    aspect: AspectMode::SixteenByNine,
                 },
-                interaction: MenuInteractionGraph {
-                    default_focus_id: None,
-                    nodes: vec![],
-                    timeout_action: None,
+                background: SceneBackground {
+                    asset_id: None,
+                    colour: Some("#000000".to_string()),
                 },
-                timing: MenuTiming::default(),
-                highlight_colours: MenuHighlightColours::default(),
-                background_mode: BackgroundMode::Still,
-                theme_ref: None,
-                generation_meta: None,
-                compile_policy: MenuCompilePolicy {
-                    display_aspect: Some(AspectMode::SixteenByNine),
-                    ..MenuCompilePolicy::default()
-                },
-            }),
-            ..Menu::default()
-        };
+                nodes: vec![],
+                guides: vec![],
+            },
+            interaction: MenuInteractionGraph {
+                default_focus_id: None,
+                nodes: vec![],
+                timeout_action: None,
+            },
+            timing: MenuTiming::default(),
+            highlight_colours: MenuHighlightColours::default(),
+            background_mode: BackgroundMode::Still,
+            theme_ref: None,
+            generation_meta: None,
+            compile_policy: MenuCompilePolicy {
+                display_aspect: Some(AspectMode::SixteenByNine),
+                ..MenuCompilePolicy::default()
+            },
+        });
 
         let project = SpindleProjectFile::default();
         let menu_ref = AuthorableMenuRef {
@@ -747,40 +924,37 @@ mod tests {
 
     #[test]
     fn build_ffmpeg_menu_command_scales_still_image_backgrounds_into_dvd_raster() {
-        let menu = Menu {
+        let menu = Menu::new("menu-1", "Image Menu").with_document(MenuDocument {
+            animation: vec![],
             id: "menu-1".to_string(),
             name: "Image Menu".to_string(),
-            authored_document: Some(MenuDocument {
-                id: "menu-1".to_string(),
-                name: "Image Menu".to_string(),
-                domain: crate::models::MenuDomain::Vmgm,
-                scene: MenuScene {
-                    design_size: MenuSize {
-                        width: 720.0,
-                        height: 480.0,
-                        aspect: AspectMode::SixteenByNine,
-                    },
-                    background: SceneBackground {
-                        asset_id: Some("asset-image".to_string()),
-                        colour: Some("#101014".to_string()),
-                    },
-                    nodes: vec![],
-                    guides: vec![],
+            domain: crate::models::MenuDomain::Vmgm,
+            role: Some(MenuRole::TitleSelect),
+            scene: MenuScene {
+                design_size: MenuSize {
+                    width: 720.0,
+                    height: 480.0,
+                    aspect: AspectMode::SixteenByNine,
                 },
-                interaction: MenuInteractionGraph {
-                    default_focus_id: None,
-                    nodes: vec![],
-                    timeout_action: None,
+                background: SceneBackground {
+                    asset_id: Some("asset-image".to_string()),
+                    colour: Some("#101014".to_string()),
                 },
-                timing: MenuTiming::default(),
-                highlight_colours: MenuHighlightColours::default(),
-                background_mode: BackgroundMode::Still,
-                theme_ref: None,
-                generation_meta: None,
-                compile_policy: MenuCompilePolicy::default(),
-            }),
-            ..Default::default()
-        };
+                nodes: vec![],
+                guides: vec![],
+            },
+            interaction: MenuInteractionGraph {
+                default_focus_id: None,
+                nodes: vec![],
+                timeout_action: None,
+            },
+            timing: MenuTiming::default(),
+            highlight_colours: MenuHighlightColours::default(),
+            background_mode: BackgroundMode::Still,
+            theme_ref: None,
+            generation_meta: None,
+            compile_policy: MenuCompilePolicy::default(),
+        });
 
         let project = SpindleProjectFile::default();
         let menu_ref = AuthorableMenuRef {
@@ -822,40 +996,37 @@ mod tests {
         // the true anamorphic display aspect (16:9, via the 32:27 SAR) used
         // to introduce spurious black bars even when source and target
         // aspect ratios matched.
-        let menu = Menu {
+        let menu = Menu::new("menu-1", "Image Menu").with_document(MenuDocument {
+            animation: vec![],
             id: "menu-1".to_string(),
             name: "Image Menu".to_string(),
-            authored_document: Some(MenuDocument {
-                id: "menu-1".to_string(),
-                name: "Image Menu".to_string(),
-                domain: crate::models::MenuDomain::Vmgm,
-                scene: MenuScene {
-                    design_size: MenuSize {
-                        width: 720.0,
-                        height: 480.0,
-                        aspect: AspectMode::SixteenByNine,
-                    },
-                    background: SceneBackground {
-                        asset_id: Some("asset-image".to_string()),
-                        colour: Some("#101014".to_string()),
-                    },
-                    nodes: vec![],
-                    guides: vec![],
+            domain: crate::models::MenuDomain::Vmgm,
+            role: Some(MenuRole::TitleSelect),
+            scene: MenuScene {
+                design_size: MenuSize {
+                    width: 720.0,
+                    height: 480.0,
+                    aspect: AspectMode::SixteenByNine,
                 },
-                interaction: MenuInteractionGraph {
-                    default_focus_id: None,
-                    nodes: vec![],
-                    timeout_action: None,
+                background: SceneBackground {
+                    asset_id: Some("asset-image".to_string()),
+                    colour: Some("#101014".to_string()),
                 },
-                timing: MenuTiming::default(),
-                highlight_colours: MenuHighlightColours::default(),
-                background_mode: BackgroundMode::Still,
-                theme_ref: None,
-                generation_meta: None,
-                compile_policy: MenuCompilePolicy::default(),
-            }),
-            ..Default::default()
-        };
+                nodes: vec![],
+                guides: vec![],
+            },
+            interaction: MenuInteractionGraph {
+                default_focus_id: None,
+                nodes: vec![],
+                timeout_action: None,
+            },
+            timing: MenuTiming::default(),
+            highlight_colours: MenuHighlightColours::default(),
+            background_mode: BackgroundMode::Still,
+            theme_ref: None,
+            generation_meta: None,
+            compile_policy: MenuCompilePolicy::default(),
+        });
 
         let project = SpindleProjectFile::default();
         let menu_ref = AuthorableMenuRef {
@@ -908,40 +1079,37 @@ mod tests {
         // A genuinely narrower-than-16:9 background should still be
         // letterboxed/pillarboxed appropriately, proving the fix didn't just
         // remove padding outright.
-        let menu = Menu {
+        let menu = Menu::new("menu-1", "Image Menu").with_document(MenuDocument {
+            animation: vec![],
             id: "menu-1".to_string(),
             name: "Image Menu".to_string(),
-            authored_document: Some(MenuDocument {
-                id: "menu-1".to_string(),
-                name: "Image Menu".to_string(),
-                domain: crate::models::MenuDomain::Vmgm,
-                scene: MenuScene {
-                    design_size: MenuSize {
-                        width: 720.0,
-                        height: 480.0,
-                        aspect: AspectMode::SixteenByNine,
-                    },
-                    background: SceneBackground {
-                        asset_id: Some("asset-image".to_string()),
-                        colour: Some("#101014".to_string()),
-                    },
-                    nodes: vec![],
-                    guides: vec![],
+            domain: crate::models::MenuDomain::Vmgm,
+            role: Some(MenuRole::TitleSelect),
+            scene: MenuScene {
+                design_size: MenuSize {
+                    width: 720.0,
+                    height: 480.0,
+                    aspect: AspectMode::SixteenByNine,
                 },
-                interaction: MenuInteractionGraph {
-                    default_focus_id: None,
-                    nodes: vec![],
-                    timeout_action: None,
+                background: SceneBackground {
+                    asset_id: Some("asset-image".to_string()),
+                    colour: Some("#101014".to_string()),
                 },
-                timing: MenuTiming::default(),
-                highlight_colours: MenuHighlightColours::default(),
-                background_mode: BackgroundMode::Still,
-                theme_ref: None,
-                generation_meta: None,
-                compile_policy: MenuCompilePolicy::default(),
-            }),
-            ..Default::default()
-        };
+                nodes: vec![],
+                guides: vec![],
+            },
+            interaction: MenuInteractionGraph {
+                default_focus_id: None,
+                nodes: vec![],
+                timeout_action: None,
+            },
+            timing: MenuTiming::default(),
+            highlight_colours: MenuHighlightColours::default(),
+            background_mode: BackgroundMode::Still,
+            theme_ref: None,
+            generation_meta: None,
+            compile_policy: MenuCompilePolicy::default(),
+        });
 
         let project = SpindleProjectFile::default();
         let menu_ref = AuthorableMenuRef {

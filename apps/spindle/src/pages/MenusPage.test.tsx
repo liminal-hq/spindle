@@ -12,6 +12,7 @@ import { useProjectStore } from '../store/project-store';
 import type { ProjectState } from '../store/project-store';
 import type { Menu, SpindleProjectFile } from '../types/project';
 import { DEFAULT_HIGHLIGHT_COLOURS, createDefaultMenuCompilePolicy } from '../types/project';
+import { getMenuButtons } from '../components/menus/menuProjectHelpers';
 
 vi.mock('../App', () => ({
 	useNavigation: () => ({
@@ -26,6 +27,20 @@ vi.mock('@tauri-apps/plugin-dialog', () => ({
 vi.mock('tauri-plugin-spindle-project-api', () => ({
 	exportMenuRenderPreview: vi.fn(),
 	listAvailableFonts: vi.fn().mockResolvedValue([]),
+	getFormatProfile: vi.fn().mockResolvedValue({
+		family: 'dvd-video',
+		displayName: 'DVD-Video',
+		designSizes: [
+			{ width: 1024, height: 768, aspect: 'four-by-three' },
+			{ width: 1024, height: 576, aspect: 'sixteen-by-nine' },
+		],
+		maxButtonsPerMenu: 36,
+		highlightModel: 'four-colour-subpicture',
+		minFontSizePt: 12,
+		supportedRoles: ['root', 'title-select', 'chapter', 'setup', 'extras'],
+		supportedBackgroundModes: ['still', 'motion'],
+		supportsStateAnimation: false,
+	}),
 }));
 
 const { getActiveDisplay, onDisplayChanged } = vi.hoisted(() => ({
@@ -54,42 +69,22 @@ function setWindowInnerSize(width: number, height: number) {
 }
 
 function buildButtonMenu(id: string, name: string): Menu {
-	const button = {
-		id: `${id}-button-1`,
-		label: 'Play',
-		bounds: { x: 100, y: 100, width: 200, height: 40 },
-		action: null,
-		navUp: null,
-		navDown: null,
-		navLeft: null,
-		navRight: null,
-		highlightMode: 'static' as const,
-		highlightKeyframes: [],
-		videoAssetId: null,
-	};
+	const buttonId = `${id}-button-1`;
 	return {
 		id,
 		name,
-		backgroundAssetId: null,
-		buttons: [button],
-		defaultButtonId: button.id,
-		highlightColours: { ...DEFAULT_HIGHLIGHT_COLOURS },
-		backgroundMode: 'still',
-		motionDurationSecs: null,
-		motionAudioAssetId: null,
-		motionLoopCount: 0,
-		timeoutAction: null,
 		authoredDocument: {
 			id,
 			name,
 			domain: 'vmgm',
+			role: 'title-select',
 			scene: {
-				designSize: { width: 720, height: 480 },
+				designSize: { width: 720, height: 480, aspect: 'four-by-three' },
 				background: { assetId: null, colour: null },
 				nodes: [
 					{
 						type: 'button',
-						id: button.id,
+						id: buttonId,
 						label: 'Play',
 						x: 100,
 						y: 100,
@@ -103,10 +98,10 @@ function buildButtonMenu(id: string, name: string): Menu {
 				guides: [],
 			},
 			interaction: {
-				defaultFocusId: button.id,
+				defaultFocusId: buttonId,
 				nodes: [
 					{
-						nodeId: button.id,
+						nodeId: buttonId,
 						navUp: null,
 						navDown: null,
 						navLeft: null,
@@ -122,6 +117,7 @@ function buildButtonMenu(id: string, name: string): Menu {
 				loopStartSecs: 0,
 				loopDurationSecs: 0,
 				loopCount: 0,
+				audioAssetId: null,
 			},
 			highlightColours: { ...DEFAULT_HIGHLIGHT_COLOURS },
 			backgroundMode: 'still',
@@ -137,14 +133,16 @@ function buildProject(): SpindleProjectFile {
 	const titlesetMenu = buildButtonMenu('titleset-menu-1', 'Setup Menu');
 	// Global menu links into the titleset menu, titleset menu links back —
 	// gives both menus one incoming and one outgoing connection.
-	globalMenu.buttons[0].action = { type: 'showMenu', menuId: titlesetMenu.id };
-	globalMenu.authoredDocument!.interaction.nodes[0].action = globalMenu.buttons[0].action;
-	titlesetMenu.buttons[0].action = { type: 'showMenu', menuId: globalMenu.id };
-	titlesetMenu.authoredDocument!.interaction.nodes[0].action = titlesetMenu.buttons[0].action;
+	globalMenu.authoredDocument!.interaction.nodes[0].action = {
+		type: 'showMenu',
+		menuId: titlesetMenu.id,
+	};
+	titlesetMenu.authoredDocument!.interaction.nodes[0].action = {
+		type: 'showMenu',
+		menuId: globalMenu.id,
+	};
 
 	const orphanMenu = buildButtonMenu('orphan-menu-1', 'Orphan Menu');
-	orphanMenu.buttons[0].action = null;
-	orphanMenu.authoredDocument!.interaction.nodes[0].action = null;
 
 	return {
 		schemaVersion: 1,
@@ -352,7 +350,7 @@ describe('MenusPage', () => {
 		expect(project.disc.titlesets[0].menus).toHaveLength(2);
 		const generated = project.disc.titlesets[0].menus[1];
 		expect(generated.name).toBe('Chapter Select');
-		const labels = generated.buttons.map((b) => b.label);
+		const labels = getMenuButtons(generated).map((b) => b.label);
 		expect(labels).toContain('Chapter 1');
 		expect(labels).toContain('Chapter 2');
 		expect(labels).toContain('Back');
@@ -367,7 +365,7 @@ describe('MenusPage', () => {
 		const project = useProjectStore.getState().project!;
 		const generated = project.disc.titlesets[0].menus[1];
 		expect(generated.name).toBe('Audio Setup');
-		expect(generated.buttons.map((b) => b.label)).toEqual(['English', 'Back']);
+		expect(getMenuButtons(generated).map((b) => b.label)).toEqual(['English', 'Back']);
 	});
 
 	it('generates a subtitle-setup menu from the Generate Menus panel', () => {
@@ -379,11 +377,63 @@ describe('MenusPage', () => {
 		const project = useProjectStore.getState().project!;
 		const generated = project.disc.titlesets[0].menus[1];
 		expect(generated.name).toBe('Subtitle Setup');
-		expect(generated.buttons.map((b) => b.label)).toEqual([
+		expect(getMenuButtons(generated).map((b) => b.label)).toEqual([
 			'English Subs',
 			'Subtitles Off',
 			'Back',
 		]);
+	});
+
+	it('restricts the role picker to roles compatible with the menu’s placement', () => {
+		// `titleset-menu-1` (rendered as "Setup Menu" in the rail) starts out
+		// with `domain: 'vmgm'` from the shared `buildButtonMenu` fixture —
+		// give it a real titleset placement so the picker's domain filter has
+		// something to filter against.
+		useProjectStore.getState().updateMenuDocument('titleset-menu-1', (doc) => ({
+			...doc,
+			domain: 'titleset',
+			role: 'chapter',
+		}));
+
+		render(<MenusPage />);
+
+		// Global menu (VMGM): only VMGM-compatible roles are offered.
+		const globalSelect = screen.getByLabelText('Menu role') as HTMLSelectElement;
+		const globalOptionLabels = Array.from(globalSelect.options).map((o) => o.textContent);
+		expect(globalOptionLabels).toEqual(expect.arrayContaining(['VMGM Title Menu', 'Title Menu']));
+		expect(globalOptionLabels).not.toEqual(
+			expect.arrayContaining(['Chapter Menu', 'Setup Menu', 'Extras Menu']),
+		);
+
+		// Titleset menu (VTSM): only titleset-compatible roles are offered.
+		fireEvent.click(within(railList()).getByText('Setup Menu'));
+		const titlesetSelect = screen.getByLabelText('Menu role') as HTMLSelectElement;
+		const titlesetOptionLabels = Array.from(titlesetSelect.options).map((o) => o.textContent);
+		expect(titlesetOptionLabels).toEqual(
+			expect.arrayContaining(['Chapter Menu', 'Setup Menu', 'Extras Menu']),
+		);
+		expect(titlesetOptionLabels).not.toEqual(
+			expect.arrayContaining(['VMGM Title Menu', 'Title Menu']),
+		);
+	});
+
+	it('keeps an incompatible persisted role selectable and flags it', () => {
+		// Simulate a persisted `menu.role-domain-mismatch`: a titleset menu
+		// explicitly carrying a VMGM-only role.
+		useProjectStore.getState().updateMenuDocument('titleset-menu-1', (doc) => ({
+			...doc,
+			domain: 'titleset',
+			role: 'root',
+		}));
+
+		render(<MenusPage />);
+		fireEvent.click(within(railList()).getByText('Setup Menu'));
+
+		const select = screen.getByLabelText('Menu role') as HTMLSelectElement;
+		expect(select.value).toBe('root');
+		expect(
+			Array.from(select.options).some((o) => o.textContent?.includes('placement mismatch')),
+		).toBe(true);
 	});
 
 	it('adjusts canvas zoom via the toolbar zoom controls', () => {
@@ -430,10 +480,6 @@ describe('MenusPage', () => {
 		const project = useProjectStore.getState().project!;
 		const updated = project.disc.globalMenus.find((m) => m.id === 'global-menu-1')!;
 		expect(updated.authoredDocument!.scene.nodes).toHaveLength(2);
-		// handleAddButton only appends to authoredDocument.scene.nodes; the
-		// legacy `buttons` mirror is only synced by handleUpdateButton, so it
-		// stays at its pre-add length until something edits the new button.
-		expect(updated.buttons).toHaveLength(1);
 	});
 
 	it('switches between editor and map views', () => {
@@ -464,5 +510,77 @@ describe('MenusPage', () => {
 		render(<MenusPage />);
 
 		expect(screen.getByText('No menus yet')).toBeInTheDocument();
+	});
+
+	it('clears a motion menu duration to the unset sentinel (0) instead of snapping back', () => {
+		const project = buildProject();
+		const menu = project.disc.globalMenus[0];
+		menu.authoredDocument!.backgroundMode = 'motion';
+		menu.authoredDocument!.timing.loopDurationSecs = 12.5;
+		useProjectStore.setState({ project, selectedMenuId: menu.id });
+
+		render(<MenusPage />);
+
+		const durationInput = screen.getByDisplayValue('12.5');
+		// Duration commits on blur/Enter, never per keystroke — the writer's
+		// latest-keyframe floor would otherwise clamp parseable intermediate
+		// values mid-edit.
+		fireEvent.change(durationInput, { target: { value: '' } });
+		fireEvent.blur(durationInput);
+
+		const updatedProject = useProjectStore.getState().project!;
+		const updatedMenu = updatedProject.disc.globalMenus.find((m) => m.id === menu.id)!;
+		expect(updatedMenu.authoredDocument!.timing.loopDurationSecs).toBe(0);
+	});
+
+	it('clears a surviving button’s nav ref when its nav target button is deleted', () => {
+		const project = buildProject();
+		const menu = project.disc.globalMenus[0];
+		const doc = menu.authoredDocument!;
+		const buttonAId = (doc.scene.nodes[0] as { id: string }).id;
+		const buttonBId = 'global-menu-1-button-2';
+
+		doc.scene.nodes.push({
+			type: 'button',
+			id: buttonBId,
+			label: 'Extra',
+			x: 400,
+			y: 100,
+			width: 200,
+			height: 40,
+			highlightMode: 'static',
+			highlightKeyframes: [],
+			videoAssetId: null,
+		});
+		doc.interaction.nodes.push({
+			nodeId: buttonBId,
+			navUp: null,
+			navDown: null,
+			navLeft: null,
+			navRight: null,
+			action: null,
+		});
+		// Button A's right-nav points at button B, the one about to be deleted.
+		doc.interaction.nodes[0].navRight = buttonBId;
+
+		useProjectStore.setState({ project, selectedMenuId: menu.id });
+
+		render(<MenusPage />);
+
+		// Expand the Layers section and select button B so its inspector
+		// (with the "Remove Button" action) renders. "Extra" also appears as
+		// the scene-canvas node label, so scope the click to the layers list.
+		fireEvent.click(screen.getByText('Layers'));
+		const layersPanel = document.querySelector('.layers-panel') as HTMLElement;
+		fireEvent.click(within(layersPanel).getByText('Extra'));
+		fireEvent.click(screen.getByRole('button', { name: 'Remove Button' }));
+
+		const updatedProject = useProjectStore.getState().project!;
+		const updatedMenu = updatedProject.disc.globalMenus.find((m) => m.id === menu.id)!;
+		const survivingNode = updatedMenu.authoredDocument!.interaction.nodes.find(
+			(n) => n.nodeId === buttonAId,
+		);
+		expect(survivingNode).toBeDefined();
+		expect(survivingNode?.navRight).toBeNull();
 	});
 });

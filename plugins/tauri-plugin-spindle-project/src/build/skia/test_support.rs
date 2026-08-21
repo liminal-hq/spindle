@@ -32,54 +32,51 @@ pub(super) fn menu_with_text_node(
     letter_spacing: Option<f64>,
     font_size: f64,
 ) -> Menu {
-    Menu {
+    Menu::new("test-menu", "Test").with_document(MenuDocument {
+        animation: vec![],
         id: "test-menu".to_string(),
-        name: "Test".to_string(),
-        authored_document: Some(MenuDocument {
-            id: "test-menu".to_string(),
-            name: "Test Menu".to_string(),
-            domain: crate::models::MenuDomain::Vmgm,
-            scene: MenuScene {
-                design_size: MenuSize {
-                    width: 720.0,
-                    height: 480.0,
-                    aspect: AspectMode::SixteenByNine,
-                },
-                background: SceneBackground {
-                    asset_id: None,
-                    colour: Some("#000000".to_string()),
-                },
-                nodes: vec![SceneNode::Text {
-                    id: "t1".to_string(),
-                    content: "Typography".to_string(),
-                    x: 100.0,
-                    y: 200.0,
-                    width: 400.0,
-                    height: 80.0,
-                    font_size: Some(font_size),
-                    font_family: None,
-                    font_weight: Some(weight),
-                    font_italic: Some(italic),
-                    text_decoration: None,
-                    text_align: None,
-                    colour: Some("white".to_string()),
-                    line_height: None,
-                    letter_spacing,
-                }],
-                guides: vec![],
+        name: "Test Menu".to_string(),
+        domain: crate::models::MenuDomain::Vmgm,
+        role: Some(MenuRole::TitleSelect),
+        scene: MenuScene {
+            design_size: MenuSize {
+                width: 720.0,
+                height: 480.0,
+                aspect: AspectMode::SixteenByNine,
             },
-            interaction: MenuInteractionGraph {
-                default_focus_id: None,
-                nodes: vec![],
-                timeout_action: None,
+            background: SceneBackground {
+                asset_id: None,
+                colour: Some("#000000".to_string()),
             },
-            timing: MenuTiming::default(),
-            highlight_colours: MenuHighlightColours::default(),
-            background_mode: BackgroundMode::Still,
-            theme_ref: None,
-            generation_meta: None,
-            compile_policy: MenuCompilePolicy::default(),
-        }),
-        ..Menu::default()
-    }
+            nodes: vec![SceneNode::Text {
+                id: "t1".to_string(),
+                content: "Typography".to_string(),
+                x: 100.0,
+                y: 200.0,
+                width: 400.0,
+                height: 80.0,
+                font_size: Some(font_size),
+                font_family: None,
+                font_weight: Some(weight),
+                font_italic: Some(italic),
+                text_decoration: None,
+                text_align: None,
+                colour: Some("white".to_string()),
+                line_height: None,
+                letter_spacing,
+            }],
+            guides: vec![],
+        },
+        interaction: MenuInteractionGraph {
+            default_focus_id: None,
+            nodes: vec![],
+            timeout_action: None,
+        },
+        timing: MenuTiming::default(),
+        highlight_colours: MenuHighlightColours::default(),
+        background_mode: BackgroundMode::Still,
+        theme_ref: None,
+        generation_meta: None,
+        compile_policy: MenuCompilePolicy::default(),
+    })
 }

@@ -10,11 +10,19 @@ import { createDefaultProject } from '../types/project';
 import { AssetsPage } from './AssetsPage';
 import type { Asset } from 'tauri-plugin-spindle-project-api';
 
-const { mockReadFile } = vi.hoisted(() => ({ mockReadFile: vi.fn() }));
+const { mockReadFile, mockConvertFileSrc } = vi.hoisted(() => ({
+	mockReadFile: vi.fn(),
+	mockConvertFileSrc: vi.fn((path: string) => `asset://localhost/${path}`),
+}));
 
 vi.mock('@tauri-apps/plugin-fs', () => ({
 	BaseDirectory: { AppCache: 0 },
 	readFile: mockReadFile,
+}));
+
+vi.mock('@tauri-apps/api/core', () => ({
+	convertFileSrc: mockConvertFileSrc,
+	invoke: vi.fn(),
 }));
 
 function buildAsset(overrides: Partial<Asset> = {}): Asset {
@@ -237,8 +245,7 @@ describe('AssetsPage', () => {
 		expect(screen.getByText('Hide details')).toBeInTheDocument();
 	});
 
-	it('loads a still-image preview via readFile and renders an img element', async () => {
-		mockReadFile.mockResolvedValue(new Uint8Array([1, 2, 3]));
+	it('loads a still-image preview via convertFileSrc and renders an img element', async () => {
 		const project = createDefaultProject();
 		project.assets = [buildAsset({ fileName: 'cover.png', sourcePath: '/media/cover.png' })];
 		useProjectStore.setState({ project });
@@ -246,10 +253,13 @@ describe('AssetsPage', () => {
 		const { container } = render(<AssetsPage />);
 
 		await waitFor(() => {
-			expect(mockReadFile).toHaveBeenCalledWith('/media/cover.png');
+			expect(mockConvertFileSrc).toHaveBeenCalledWith('/media/cover.png');
 		});
+		expect(mockReadFile).not.toHaveBeenCalled();
 		await waitFor(() => {
-			expect(container.querySelector('img.assets__row-thumb')).not.toBeNull();
+			const img = container.querySelector('img.assets__row-thumb');
+			expect(img).not.toBeNull();
+			expect(img?.getAttribute('src')).toBe('asset://localhost//media/cover.png');
 		});
 	});
 

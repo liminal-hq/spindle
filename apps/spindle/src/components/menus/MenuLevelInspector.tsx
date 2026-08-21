@@ -14,13 +14,22 @@ import type {
 	Title,
 	Menu,
 	MenuDomain,
+	MenuRole,
+	PlaybackAction,
 	Asset,
 	AspectMode,
+	FormatProfile,
 } from '../../types/project';
+import { DEFAULT_MENU_BACKGROUND_COLOUR, ROLE_DEFAULT_DOMAIN } from '../../types/project';
 import { CollapsibleSection } from './InspectorCollapsibleSection';
 import { ActionOptions, HighlightColourFields } from './InspectorSharedFields';
 import { actionToString, stringToAction } from './inspectorHelpers';
 import { computeDiagnostics } from './inspectorDiagnostics';
+import { terminologyFor } from '../../format/terminology';
+import { DEFAULT_DVD_FORMAT_PROFILE } from '../../format/useFormatProfile';
+
+/** Every `MenuRole`, in a stable display order for the role picker. */
+const ROLE_ORDER: MenuRole[] = ['root', 'title-select', 'chapter', 'setup', 'extras', 'popup'];
 
 export function MenuLevelInspector({
 	buttons,
@@ -43,10 +52,17 @@ export function MenuLevelInspector({
 	onUpdateMotionAudioAsset,
 	onUpdateMotionDurationSecs,
 	onUpdateMotionLoopCount,
+	onUpdateMotionLoopStart,
+	onUpdateMotionIntroStart,
+	onUpdateMotionIntroDuration,
+	onUpdateMotionTimeoutAction,
+	onSetLoopStartFromPlayhead,
 	onAutoNav,
 	onExportRenderPreview,
 	displayAspect,
 	onDisplayAspectChange,
+	formatProfile = DEFAULT_DVD_FORMAT_PROFILE,
+	onUpdateRole,
 }: {
 	buttons: MenuButton[];
 	interactionNodes: FocusNode[];
@@ -69,19 +85,93 @@ export function MenuLevelInspector({
 	onUpdateMotionAudioAsset?: (assetId: string | null) => void;
 	onUpdateMotionDurationSecs?: (secs: number | null) => void;
 	onUpdateMotionLoopCount?: (count: number) => void;
+	onUpdateMotionLoopStart?: (secs: number) => void;
+	onUpdateMotionIntroStart?: (secs: number) => void;
+	onUpdateMotionIntroDuration?: (secs: number | null) => void;
+	onUpdateMotionTimeoutAction?: (action: PlaybackAction | null) => void;
+	onSetLoopStartFromPlayhead?: () => void;
 	onAutoNav?: () => void;
 	onExportRenderPreview?: () => void;
 	displayAspect: AspectMode;
 	onDisplayAspectChange?: (aspect: AspectMode) => void;
+	formatProfile?: FormatProfile;
+	onUpdateRole?: (role: MenuRole) => void;
 }) {
-	const diagnostics = computeDiagnostics(document, buttons);
+	const diagnostics = computeDiagnostics(document, buttons, formatProfile);
+	const terminology = terminologyFor(formatProfile.family);
+	// A role is only offered in the picker if it's compatible with this
+	// menu's actual DVD placement (`menuDomain`) — the picker never moves a
+	// menu between VMGM/titleset collections, so it must not offer a role
+	// that placement can't support. `menuDomain` is undefined only when
+	// there's no menu context at all, in which case every role stays
+	// offered rather than showing an empty picker.
+	const placementCompatible = (role: MenuRole) =>
+		!menuDomain || ROLE_DEFAULT_DOMAIN[role] === menuDomain;
+	const compatibleRoles = ROLE_ORDER.filter(
+		(role) => role !== 'popup' || formatProfile.supportedRoles.includes('popup'),
+	).filter(placementCompatible);
+	// Always keep the document's current role selectable, even if it's
+	// incompatible with placement (a persisted `menu.role-domain-mismatch`
+	// case) — otherwise the browser silently selects the first option
+	// without firing `onChange`, hiding the mismatch instead of surfacing
+	// it for the user to fix.
+	const roleOptions =
+		document && !compatibleRoles.includes(document.role)
+			? [...compatibleRoles, document.role]
+			: compatibleRoles;
 	const backgroundAssets = assets.filter(
 		(asset) =>
 			asset.videoStreams.length > 0 || asset.fileName.match(/\.(png|jpg|jpeg|bmp|tiff?)$/i),
 	);
 	const audioAssets = assets.filter((asset) => asset.audioStreams.length > 0);
+	// Local draft for the motion Duration input, committed on blur/Enter —
+	// never per keystroke: the writer floors the duration at the latest
+	// keyframe timestamp, so committing a parseable intermediate value
+	// (typing "10" passes through "1") would clamp mid-edit and the rerender
+	// would fight the user's typing.
+	const authoredDuration =
+		document && document.timing.loopDurationSecs > 0
+			? String(document.timing.loopDurationSecs)
+			: '';
+	const [durationDraft, setDurationDraft] = useState<string>(authoredDuration);
+	const [durationDraftKey, setDurationDraftKey] = useState(authoredDuration);
+	if (durationDraftKey !== authoredDuration) {
+		// Re-sync the draft when the authored value changes externally
+		// (undo, timeline drags) — the render-time state-adjustment pattern.
+		setDurationDraftKey(authoredDuration);
+		setDurationDraft(authoredDuration);
+	}
+	const commitDurationDraft = () => {
+		// Identity commits are skipped — every write pushes an undo snapshot,
+		// so a focus-then-blur (or Enter followed by its blur) must not create
+		// empty undo steps. The comparison mirrors the writer's latest-keyframe
+		// floor: a value the writer would clamp back to the authored duration
+		// is an identity write too, and its draft resets so the field can't
+		// keep displaying an unsaved value.
+		const authored = document?.timing.loopDurationSecs ?? 0;
+		if (durationDraft === '') {
+			if (authored > 0) onUpdateMotionDurationSecs?.(null);
+			return;
+		}
+		const parsed = Number(durationDraft);
+		if (!Number.isFinite(parsed)) {
+			setDurationDraft(authoredDuration);
+			return;
+		}
+		const keyframeFloor = Math.max(
+			0,
+			...(document?.animation ?? []).flatMap((t) => t.keyframes.map((kf) => kf.timestampSecs)),
+		);
+		const floored = parsed > 0 ? Math.max(parsed, keyframeFloor) : parsed;
+		if (floored !== authored) {
+			onUpdateMotionDurationSecs?.(parsed);
+		} else {
+			setDurationDraft(authoredDuration);
+		}
+	};
+
 	const [backgroundTab, setBackgroundTab] = useState<'solid' | 'image' | 'video' | 'audio'>(
-		menu?.backgroundMode === 'motion' ? 'video' : 'solid',
+		document?.backgroundMode === 'motion' ? 'video' : 'solid',
 	);
 
 	return (
@@ -89,7 +179,7 @@ export function MenuLevelInspector({
 			<CollapsibleSection title="Diagnostics" defaultOpen>
 				{diagnostics.length === 0 ? (
 					<p className="inspector-panel__hint" style={{ color: 'var(--colour-success, #4ade80)' }}>
-						No issues — menu is DVD-safe.
+						{`No issues — menu is ${terminology.formatName}-safe.`}
 					</p>
 				) : (
 					<div className="inspector-panel__diagnostic-list">
@@ -107,6 +197,42 @@ export function MenuLevelInspector({
 					</div>
 				)}
 			</CollapsibleSection>
+
+			{document && onUpdateRole && (
+				<CollapsibleSection title="Role" defaultOpen>
+					<p className="inspector-panel__hint text-muted">
+						What this menu is for — independent of where it lives in the disc structure. Backends
+						map role to physical placement; generated menus and the navigation map group by role.
+					</p>
+					<label className="inspector-panel__field">
+						<span className="inspector-panel__field-label">Menu role</span>
+						<select
+							className="inspector-panel__select"
+							value={document.role}
+							onChange={(e) => onUpdateRole(e.target.value as MenuRole)}
+						>
+							{roleOptions.map((role) => (
+								<option key={role} value={role}>
+									{terminology.menuRole[role]}
+									{role === document.role && !placementCompatible(role)
+										? ' (placement mismatch)'
+										: ''}
+								</option>
+							))}
+						</select>
+					</label>
+					{!placementCompatible(document.role) && (
+						<p
+							className="inspector-panel__hint"
+							style={{ color: 'var(--colour-warning, #facc15)' }}
+						>
+							This role isn&apos;t normally used for this menu&apos;s placement. Moving a menu
+							between VMGM and titleset collections isn&apos;t supported from this picker — choose a
+							role this placement supports, or see the diagnostics above.
+						</p>
+					)}
+				</CollapsibleSection>
+			)}
 
 			{menu && (
 				<CollapsibleSection title="Background" defaultOpen>
@@ -137,7 +263,7 @@ export function MenuLevelInspector({
 								<button
 									key={mode}
 									type="button"
-									className={`inspector-panel__style-pill ${menu.backgroundMode === mode ? 'inspector-panel__style-pill--active' : ''}`}
+									className={`inspector-panel__style-pill ${document?.backgroundMode === mode ? 'inspector-panel__style-pill--active' : ''}`}
 									onClick={() => onUpdateBackgroundMode?.(mode)}
 									title={mode === 'still' ? 'Still background' : 'Motion background'}
 								>
@@ -154,12 +280,12 @@ export function MenuLevelInspector({
 								<input
 									type="color"
 									className="inspector-panel__colour-input"
-									value={document?.scene.background.colour ?? '#0f0e1a'}
+									value={document?.scene.background.colour ?? DEFAULT_MENU_BACKGROUND_COLOUR}
 									onChange={(e) => onUpdateBackgroundColour?.(e.target.value)}
 								/>
 								<input
 									className="inspector-panel__input inspector-panel__input--hex"
-									value={document?.scene.background.colour ?? '#0f0e1a'}
+									value={document?.scene.background.colour ?? DEFAULT_MENU_BACKGROUND_COLOUR}
 									onChange={(e) => onUpdateBackgroundColour?.(e.target.value)}
 									maxLength={7}
 								/>
@@ -174,7 +300,7 @@ export function MenuLevelInspector({
 							</span>
 							<select
 								className="inspector-panel__select"
-								value={menu.backgroundAssetId ?? ''}
+								value={document?.scene.background.assetId ?? ''}
 								onChange={(e) => onUpdateBackgroundAsset?.(e.target.value || null)}
 							>
 								<option value="">
@@ -194,9 +320,9 @@ export function MenuLevelInspector({
 							<span className="inspector-panel__field-label">Audio bed</span>
 							<select
 								className="inspector-panel__select"
-								value={menu.motionAudioAssetId ?? ''}
+								value={document?.timing.audioAssetId ?? ''}
 								onChange={(e) => onUpdateMotionAudioAsset?.(e.target.value || null)}
-								disabled={menu.backgroundMode !== 'motion'}
+								disabled={document?.backgroundMode !== 'motion'}
 							>
 								<option value="">No background audio</option>
 								{audioAssets.map((asset) => (
@@ -209,13 +335,9 @@ export function MenuLevelInspector({
 					)}
 
 					<div
-						className={`inspector-panel__fieldset ${menu.backgroundMode !== 'motion' ? 'inspector-panel__fieldset--disabled' : ''}`}
+						className={`inspector-panel__fieldset ${document?.backgroundMode !== 'motion' ? 'inspector-panel__fieldset--disabled' : ''}`}
 					>
 						<div className="inspector-panel__sub-label">Motion Settings</div>
-						<p className="inspector-panel__hint text-muted">
-							These controls preserve authored intent, but motion-menu build and runtime support are
-							still blocked until the next backend slice lands.
-						</p>
 						<div className="inspector-panel__grid-2">
 							<label className="inspector-panel__field">
 								<span className="inspector-panel__field-label">Duration</span>
@@ -225,13 +347,16 @@ export function MenuLevelInspector({
 										type="number"
 										min="0"
 										step="0.5"
-										value={menu.motionDurationSecs ?? ''}
-										onChange={(e) =>
-											onUpdateMotionDurationSecs?.(
-												e.target.value === '' ? null : Number(e.target.value),
-											)
-										}
-										disabled={menu.backgroundMode !== 'motion'}
+										value={durationDraft}
+										onChange={(e) => setDurationDraft(e.target.value)}
+										onBlur={commitDurationDraft}
+										onKeyDown={(e) => {
+											if (e.key === 'Enter') {
+												e.preventDefault();
+												commitDurationDraft();
+											}
+										}}
+										disabled={document?.backgroundMode !== 'motion'}
 									/>
 									<span className="inspector-panel__unit">s</span>
 								</div>
@@ -243,21 +368,107 @@ export function MenuLevelInspector({
 										className="inspector-panel__input inspector-panel__input--num"
 										type="number"
 										min="0"
-										value={menu.motionLoopCount}
+										value={document?.timing.loopCount ?? 0}
 										onChange={(e) => onUpdateMotionLoopCount?.(Number(e.target.value))}
-										disabled={menu.backgroundMode !== 'motion'}
+										disabled={document?.backgroundMode !== 'motion'}
 									/>
 									<span className="inspector-panel__unit">x</span>
 								</div>
 							</label>
 						</div>
+						<div className="inspector-panel__grid-2">
+							<label className="inspector-panel__field">
+								<span className="inspector-panel__field-label">Loop start</span>
+								<div className="inspector-panel__inline-unit">
+									<input
+										className="inspector-panel__input inspector-panel__input--num"
+										type="number"
+										min="0"
+										step="0.1"
+										value={document?.timing.loopStartSecs ?? 0}
+										onChange={(e) => onUpdateMotionLoopStart?.(Number(e.target.value))}
+										disabled={document?.backgroundMode !== 'motion'}
+									/>
+									<span className="inspector-panel__unit">s</span>
+								</div>
+							</label>
+							<div className="inspector-panel__field">
+								<span className="inspector-panel__field-label">&nbsp;</span>
+								<button
+									type="button"
+									className="btn btn--sm btn--ghost"
+									onClick={onSetLoopStartFromPlayhead}
+									disabled={document?.backgroundMode !== 'motion'}
+									title="Set loop start to the current preview playhead position"
+								>
+									Set loop start from playhead
+								</button>
+							</div>
+						</div>
+						<div className="inspector-panel__grid-2">
+							<label className="inspector-panel__field">
+								<span className="inspector-panel__field-label">Intro start</span>
+								<div className="inspector-panel__inline-unit">
+									<input
+										className="inspector-panel__input inspector-panel__input--num"
+										type="number"
+										min="0"
+										step="0.1"
+										value={document?.timing.introStartSecs ?? 0}
+										onChange={(e) => onUpdateMotionIntroStart?.(Number(e.target.value))}
+										disabled={document?.backgroundMode !== 'motion'}
+									/>
+									<span className="inspector-panel__unit">s</span>
+								</div>
+							</label>
+							<label className="inspector-panel__field">
+								<span className="inspector-panel__field-label">Intro duration</span>
+								<div className="inspector-panel__inline-unit">
+									<input
+										className="inspector-panel__input inspector-panel__input--num"
+										type="number"
+										min="0"
+										step="0.1"
+										value={
+											document && document.timing.introDurationSecs > 0
+												? document.timing.introDurationSecs
+												: ''
+										}
+										onChange={(e) =>
+											onUpdateMotionIntroDuration?.(
+												e.target.value === '' ? null : Number(e.target.value),
+											)
+										}
+										disabled={document?.backgroundMode !== 'motion'}
+									/>
+									<span className="inspector-panel__unit">s</span>
+								</div>
+							</label>
+						</div>
+						<label className="inspector-panel__field">
+							<span className="inspector-panel__field-label">Timeout action</span>
+							<select
+								className="inspector-panel__select"
+								value={actionToString(document?.interaction.timeoutAction ?? null)}
+								onChange={(e) => onUpdateMotionTimeoutAction?.(stringToAction(e.target.value))}
+								disabled={document?.backgroundMode !== 'motion'}
+							>
+								<option value="">No timeout action</option>
+								<ActionOptions
+									allTitles={allTitles}
+									allMenus={allMenus}
+									currentMenuId={currentMenuId}
+									menuDomain={menuDomain}
+								/>
+							</select>
+						</label>
 						<label className="inspector-panel__field">
 							<span className="inspector-panel__field-label">Audio asset</span>
 							<select
 								className="inspector-panel__select"
-								value={menu.motionAudioAssetId ?? ''}
+								value={document?.timing.audioAssetId ?? ''}
 								onChange={(e) => onUpdateMotionAudioAsset?.(e.target.value || null)}
-								disabled={menu.backgroundMode !== 'motion'}
+								disabled={document?.backgroundMode !== 'motion'}
 							>
 								<option value="">No background audio</option>
 								{audioAssets.map((asset) => (
@@ -267,14 +478,15 @@ export function MenuLevelInspector({
 								))}
 							</select>
 						</label>
+						{/* The PR 6 scrub slider is superseded by the timeline strip's
+						    scrubber (`TimelineScrubber`), mounted below the canvas. */}
 					</div>
 				</CollapsibleSection>
 			)}
 
 			<CollapsibleSection title="Display" defaultOpen>
 				<p className="inspector-panel__hint text-muted">
-					Choose how this 720-line DVD menu should display on the player: classic 4:3 or anamorphic
-					16:9.
+					{`Choose how this 720-line ${terminology.formatName} menu should display on the player: classic 4:3 or anamorphic 16:9.`}
 				</p>
 				<label className="inspector-panel__field">
 					<span className="inspector-panel__field-label">Display shape</span>
@@ -385,11 +597,10 @@ export function MenuLevelInspector({
 				</CollapsibleSection>
 			)}
 
-			{/* CLUT Palette — DVD subpicture highlight colours */}
+			{/* CLUT Palette — highlight overlay colours */}
 			<CollapsibleSection title="CLUT Palette" defaultOpen>
 				<p className="inspector-panel__hint text-muted">
-					DVD subpicture overlays use a 4-colour palette. These colours apply to all buttons in this
-					menu.
+					{`${terminology.formatName} ${terminology.highlightTreatment.toLowerCase()} uses a ${terminology.highlightPalette.toLowerCase()}. These colours apply to all buttons in this menu.`}
 				</p>
 				<HighlightColourFields colours={highlightColours} onChange={onUpdateHighlightColours} />
 			</CollapsibleSection>

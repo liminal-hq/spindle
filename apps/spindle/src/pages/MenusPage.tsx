@@ -11,6 +11,7 @@ import { useDisplayDensity } from '../hooks/useDisplayDensity';
 import type { Menu } from '../types/project';
 import {
 	DEFAULT_HIGHLIGHT_COLOURS,
+	DEFAULT_MENU_BACKGROUND_COLOUR,
 	createDefaultMenuCompilePolicy,
 	inferDefaultMenuDisplayAspect,
 } from '../types/project';
@@ -31,6 +32,7 @@ import {
 	computeMenuConnectionCounts,
 	EMPTY_MENU_CONNECTION_COUNTS,
 } from '../components/menus/menuProjectHelpers';
+import { useFormatProfile } from '../format/useFormatProfile';
 
 import './MenusPage.css';
 
@@ -89,6 +91,11 @@ function MenusWorkspace() {
 	const [railOpenOverlay, setRailOpenOverlay] = useState(true);
 	const railIsOverlay = !density.isWide;
 	const railVisible = density.isWide || railOpenOverlay;
+	// Called unconditionally (before the `!project` guard below) per the
+	// rules of hooks — `project` is guaranteed non-null once this component
+	// is mounted (see the guard's comment), so the fallback family here never
+	// actually surfaces.
+	const railFormatProfile = useFormatProfile(project?.disc.family ?? 'dvd-video');
 
 	// Consume navigation target from validation issue click
 	useEffect(() => {
@@ -173,22 +180,23 @@ function MenusWorkspace() {
 		return {
 			id,
 			name,
-			backgroundAssetId: null,
-			buttons: [],
-			defaultButtonId: null,
-			highlightColours: { ...DEFAULT_HIGHLIGHT_COLOURS },
-			backgroundMode: 'still',
-			motionDurationSecs: null,
-			motionAudioAssetId: null,
-			motionLoopCount: 0,
-			timeoutAction: null,
 			authoredDocument: {
 				id,
 				name,
 				domain,
+				// A newly created blank menu has no generation metadata or
+				// interaction content to infer a role from — 'title-select' is
+				// the same closed-set fallback `MenuDocument::infer_role` uses
+				// (Rust) for menus with no stronger signal. The role picker in
+				// the inspector lets the user reassign it afterwards.
+				role: 'title-select',
 				scene: {
-					designSize: { width: 720, height: MENU_HEIGHT[project.disc.standard] },
-					background: { assetId: null, colour: null },
+					designSize: {
+						width: 720,
+						height: MENU_HEIGHT[project.disc.standard],
+						aspect: displayAspect,
+					},
+					background: { assetId: null, colour: DEFAULT_MENU_BACKGROUND_COLOUR },
 					nodes: [],
 					guides: [],
 				},
@@ -203,6 +211,7 @@ function MenusWorkspace() {
 					loopStartSecs: 0,
 					loopDurationSecs: 0,
 					loopCount: 0,
+					audioAssetId: null,
 				},
 				highlightColours: { ...DEFAULT_HIGHLIGHT_COLOURS },
 				backgroundMode: 'still',
@@ -351,6 +360,9 @@ function MenusWorkspace() {
 							</button>
 						)}
 						<span className="menu-nav__title">Menus</span>
+						<span className="editor-toolbar__format-badge" title={railFormatProfile.displayName}>
+							{railFormatProfile.displayName}
+						</span>
 						<div className="menu-nav__view-toggle" role="group" aria-label="Workspace view">
 							<button
 								className={`menu-nav__view-button ${
@@ -399,6 +411,7 @@ function MenusWorkspace() {
 											}
 											isSelected={menu.id === selectedMenuId}
 											onSelect={() => setSelectedMenuId(menu.id)}
+											discFamily={disc.family}
 										/>
 									))
 								)}
@@ -433,6 +446,7 @@ function MenusWorkspace() {
 												}
 												isSelected={menu.id === selectedMenuId}
 												onSelect={() => setSelectedMenuId(menu.id)}
+												discFamily={disc.family}
 											/>
 										))
 									)}

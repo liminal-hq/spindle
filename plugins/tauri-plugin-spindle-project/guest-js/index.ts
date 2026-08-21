@@ -156,30 +156,32 @@ export type HighlightMode = 'static' | 'animated';
 export interface Menu {
 	id: string;
 	name: string;
-	backgroundAssetId: string | null;
-	buttons: MenuButton[];
-	defaultButtonId: string | null;
-	/** DVD subpicture highlight palette colours. */
-	highlightColours: MenuHighlightColours;
-	/** Whether the background is a still frame or looping video (Stage 2). */
-	backgroundMode: BackgroundMode;
-	/** Duration of the motion loop in seconds (motion menus only). */
-	motionDurationSecs: number | null;
-	/** Optional audio asset for motion menu background music. */
-	motionAudioAssetId: string | null;
-	/** Number of times to loop before timeout action (0 = infinite, motion only). */
-	motionLoopCount: number;
-	/** Action when a motion menu times out after looping. */
-	timeoutAction: PlaybackAction | null;
-	/** The new authored scene document that replaces the flat button model. */
-	authoredDocument?: MenuDocument | null;
+	/**
+	 * The authored scene document — the single authored model for a menu.
+	 * Guaranteed present for any menu loaded via `parseProject` (legacy
+	 * flat-field project files are migrated into a document at load time);
+	 * menus created in-app must be constructed with one too.
+	 */
+	authoredDocument: MenuDocument | null;
 }
+
+/**
+ * What the user means this menu to be, independent of `domain`'s physical
+ * VMGM/Titleset placement. Backends map role -> physical placement (DVD:
+ * `MenuDomain`; BD: Top Menu / popup IG); `terminologyFor` maps role -> the
+ * words shown on screen. `Popup` is authorable only once a format profile's
+ * `supportedRoles` includes it (none does yet — DVD has no popup-over-video
+ * support).
+ */
+export type MenuRole = 'root' | 'title-select' | 'chapter' | 'setup' | 'extras' | 'popup';
 
 /** A structured menu document that separates authored intent from target compilation. */
 export interface MenuDocument {
 	id: string;
 	name: string;
 	domain: MenuDomain;
+	/** See {@link MenuRole}. Defaults to `'title-select'` for documents that predate this field. */
+	role: MenuRole;
 	scene: MenuScene;
 	interaction: MenuInteractionGraph;
 	timing: MenuTiming;
@@ -188,7 +190,69 @@ export interface MenuDocument {
 	themeRef: string | null;
 	generationMeta: MenuGenerationMeta | null;
 	compilePolicy: MenuCompilePolicy;
+	/**
+	 * Keyframed animation tracks for this document's scene nodes. Supersedes
+	 * the legacy per-button `highlightMode`/`highlightKeyframes` model — see
+	 * {@link AnimationTrack}. Optional/absent on documents that predate this
+	 * field; the Rust side lifts legacy keyframes into tracks on load, so by
+	 * the time a document reaches the frontend this is always present.
+	 */
+	animation?: AnimationTrack[];
 }
+
+// ── Animation tracks ─────────────────────────────────────────────────────────
+
+/**
+ * A keyframed animation track targeting one animatable property of one
+ * scene node. TypeScript twin of
+ * `plugins/tauri-plugin-spindle-project/src/models/animation.rs` — keep in
+ * sync with the evaluator port in `apps/spindle/src/utils/animation.ts`.
+ */
+export interface AnimationTrack {
+	nodeId: string;
+	target: AnimatableProperty;
+	keyframes: Keyframe[];
+}
+
+/**
+ * The closed set of properties an {@link AnimationTrack} can drive.
+ * `activate-colour`/`activate-opacity` drive the DVD subpicture "select"
+ * state (spumux's "select" colour — shown briefly when a button is
+ * activated/pressed), not to be confused with `highlight-colour`/
+ * `highlight-opacity`, which drive spumux's "highlight" (selected/focused)
+ * state.
+ */
+export type AnimatableProperty =
+	| 'highlight-colour'
+	| 'highlight-opacity'
+	| 'activate-colour'
+	| 'activate-opacity'
+	| 'opacity'
+	| 'position';
+
+/**
+ * One keyframe within an {@link AnimationTrack}: a value at a point in time,
+ * with the easing applied to the segment that *follows* it.
+ */
+export interface Keyframe {
+	timestampSecs: number;
+	value: KeyValue;
+	easing: Easing;
+}
+
+/** The value carried by a {@link Keyframe}, internally tagged on `kind`. */
+export type KeyValue =
+	| { kind: 'colour'; hex: string }
+	| { kind: 'scalar'; value: number }
+	| { kind: 'point'; x: number; y: number };
+
+/**
+ * The closed set of easing curves an {@link AnimationTrack} segment can use.
+ * `hold` steps directly to the next keyframe's value with no interpolation
+ * (used by the DCSQ lowering, which always samples exactly at keyframe
+ * timestamps).
+ */
+export type Easing = 'linear' | 'hold' | 'ease-in' | 'ease-out' | 'ease-in-out';
 
 /** Menu domain indicates whether it belongs to the Video Manager (VMGM) or a Titleset. */
 export type MenuDomain = 'vmgm' | 'titleset';
@@ -204,6 +268,8 @@ export interface MenuScene {
 export interface MenuSize {
 	width: number;
 	height: number;
+	/** Display aspect for this design canvas. */
+	aspect: AspectMode;
 }
 
 export interface SceneBackground {
@@ -336,12 +402,21 @@ export interface MenuTiming {
 	loopStartSecs: number;
 	loopDurationSecs: number;
 	loopCount: number; // 0 = infinite
+	/** Optional audio asset for motion menu background music. */
+	audioAssetId: string | null;
 }
 
 /** Metadata for generated menus. */
 export interface MenuGenerationMeta {
 	generatorId: string;
 	lastGeneratedAt: string;
+	/**
+	 * Which generator produced this menu, e.g. `'chapter-grid'`,
+	 * `'audio-setup'`, `'subtitle-setup'`. Drives role inference on load for
+	 * projects that predate {@link MenuDocument.role}. `undefined` for menus
+	 * generated before this field existed, or authored by hand.
+	 */
+	generatorKind?: string | null;
 }
 
 /** Format-specific compilation rules and safe-area policies. */
@@ -573,6 +648,22 @@ export interface BuildSummary {
 	estimatedCommands: string[];
 }
 
+/**
+ * One overlay-image frame in a motion menu's DCSQ lowering schedule — a
+ * rendered highlight/select PNG pair, the effective menu-highlight colours
+ * at that instant, and the loop-relative window it's shown for. `endSecs`
+ * is meaningless when this is the schedule's only frame.
+ */
+export interface OverlayKeyframeSpec {
+	startSecs: number;
+	endSecs: number;
+	highlightImagePath: string;
+	selectImagePath: string;
+	/** `#rrggbbaa` — opacity baked into the alpha channel. */
+	highlightColour: string;
+	selectColour: string;
+}
+
 export type BuildJob =
 	| { type: 'prepareWorkspace'; directories: string[] }
 	| {
@@ -592,7 +683,21 @@ export type BuildJob =
 			menuName: string;
 			outputPath: string;
 			command: string[];
+			/** Motion menus with an authored intro: the separate compose command for
+			 * the intro segment, run before `command` (the loop segment). */
+			introCommand?: string[] | null;
+			/** Loop segment duration in seconds, and the signal the executor uses to
+			 * run with progress reporting. `null`/absent for still menus. */
+			durationSecs?: number | null;
+			/** Intro segment duration in seconds, used for `introCommand`'s progress
+			 * estimation instead of `durationSecs` (the loop's duration). `null`/
+			 * absent for still menus and motion menus without an intro. */
+			introDurationSecs?: number | null;
 			label: string;
+			/** Per-keyframe overlay PNG schedule for the DCSQ lowering of animated
+			 * highlight tracks — always at least one entry once populated. See
+			 * {@link OverlayKeyframeSpec}. */
+			overlayKeyframes?: OverlayKeyframeSpec[];
 	  }
 	| {
 			type: 'composeMenuHighlights';
@@ -695,6 +800,39 @@ export interface ToolchainStatus {
 	version: string | null;
 }
 
+// ── Format Profile ──────────────────────────────────────────────────────────
+
+/**
+ * How a format renders button focus/activate states. DVD's 4-colour
+ * subpicture highlight is the degenerate case of BD's per-state bitmap
+ * model, not a separate concept — see `docs/rich-menu-editor-plan.md` §2.
+ */
+export type HighlightModel = 'four-colour-subpicture' | 'state-bitmaps256';
+
+/**
+ * Format law as data, one row per {@link DiscFamily}: raster/design-size
+ * defaults, button limits, highlight treatment, and other constraints the
+ * UI reads instead of hardcoding per-format numbers. Fetched via
+ * {@link getFormatProfile} — see `docs/rich-menu-editor-plan.md` §3.1/§4A.
+ */
+export interface FormatProfile {
+	family: DiscFamily;
+	/** Human-readable format name, e.g. "DVD-Video", "BDMV". */
+	displayName: string;
+	/** Default design-space canvas sizes, one per {@link AspectMode}. */
+	designSizes: MenuSize[];
+	/** Maximum navigable buttons/highlight regions per menu page. */
+	maxButtonsPerMenu: number;
+	highlightModel: HighlightModel;
+	/** Minimum legible font size in design-space points. */
+	minFontSizePt: number;
+	/** Menu roles this format's authoring/backend surface currently exposes. */
+	supportedRoles: MenuRole[];
+	supportedBackgroundModes: BackgroundMode[];
+	/** Whether the format can animate button states natively, rather than only via palette/contrast updates. */
+	supportsStateAnimation: boolean;
+}
+
 // ── Font Enumeration ────────────────────────────────────────────────────────
 
 /** Where a font family came from in the Skia renderer's resolution priority chain. */
@@ -754,6 +892,11 @@ export async function validateProject(project: SpindleProjectFile): Promise<Vali
  * pipeline will actually encode at. */
 export async function estimateDiscCapacity(project: SpindleProjectFile): Promise<CapacityEstimate> {
 	return await invoke('plugin:spindle-project|estimate_disc_capacity', { project });
+}
+
+/** Fetch the format-law row for a disc family — see {@link FormatProfile}. */
+export async function getFormatProfile(family: DiscFamily): Promise<FormatProfile> {
+	return await invoke('plugin:spindle-project|get_format_profile', { family });
 }
 
 /** Inspect a media file and return its metadata as an Asset. */
@@ -852,6 +995,16 @@ export async function listAvailableFonts(project: SpindleProjectFile): Promise<F
 /** Return the application cache directory for storing thumbnails and other transient data. */
 export async function getCacheDir(): Promise<string> {
 	return await invoke('plugin:spindle-project|get_cache_dir');
+}
+
+/**
+ * Grant the asset protocol's runtime scope read access to the given absolute
+ * file paths, without widening the app's static scope. Call on
+ * `openProject`/`importAssets`/relink with the paths of the assets involved
+ * — grants are runtime-only and reset on restart.
+ */
+export async function allowAssetScope(paths: string[]): Promise<void> {
+	await invoke('plugin:spindle-project|allow_asset_scope', { paths });
 }
 
 /** Export a diagnostics bundle as a JSON string for troubleshooting. */

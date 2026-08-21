@@ -7,6 +7,7 @@ import { readFile, BaseDirectory } from '@tauri-apps/plugin-fs';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import type {
+	AnimationTrack,
 	MenuButton,
 	MenuHighlightColours,
 	ButtonBounds,
@@ -14,10 +15,31 @@ import type {
 	ButtonStateStyle,
 	AspectMode,
 	Asset,
+	FormatProfile,
+	VideoStandard,
 } from '../../types/project';
+import { DEFAULT_DVD_FORMAT_PROFILE } from '../../format/useFormatProfile';
+import { useShallow } from 'zustand/react/shallow';
+import { useMenuPlaybackStore } from '../../store/menu-playback-store';
+import {
+	keyValueToColour,
+	keyValueToOpacity,
+	sampleHonestFold,
+	sampleHonestFoldStill,
+	sampleTrackForPreview,
+} from './timeline/timelineUtils';
+import { fpsForStandard } from './timeline/useTimelineGeometry';
 
-// DVD menu canvas dimensions
-const MENU_WIDTH = 720;
+// The canvas's fixed interactive coordinate space width. This is *not* yet
+// sourced from `FormatProfile.designSizes` (1024 for DVD-Video) — every menu
+// document in this codebase is still authored at the pre-BD-readiness
+// 720-wide raster-matched design space (`MenusPage.tsx::createMenu`,
+// `menuGenerators.ts`), so switching this to the profile's design width
+// would desynchronise the canvas from every already-authored button
+// position. Retiring this "720-raster remnant" in favour of genuinely
+// per-document design space is Slice B, not this format-profile/role slice
+// — see `docs/rich-menu-editor-plan.md` decision 5.
+const CANVAS_DESIGN_WIDTH = 720;
 
 // Safe-area margins (SMPTE RP 218)
 const ACTION_SAFE_PCT = 0.05;
@@ -50,8 +72,28 @@ export interface SceneCanvasProps {
 	backgroundLabel: string | null;
 	/** Solid background colour (CSS hex) when no asset is assigned. */
 	backgroundColour: string | null;
-	/** Background image asset to render behind scene nodes. */
+	/** Background image or video asset to render behind scene nodes. */
 	backgroundAsset?: Asset | null;
+	/** When true and `backgroundAsset` has a video stream, render it as a
+	 * looping `<video>` instead of a static image. */
+	backgroundIsMotion?: boolean;
+	/** Source-relative seconds to seek the background `<video>` to once its
+	 * metadata loads — the menu's authored `timing.loopStartSecs` in design
+	 * mode. Ignored for still backgrounds. */
+	backgroundInitialTimeSecs?: number;
+	/** The menu's authored `timing.loopDurationSecs` — used by the navigation
+	 * preview's honest-preview quantisation to clamp keyframe timestamps into
+	 * the loop window (mirrors `build_overlay_keyframe_schedule`). */
+	loopDurationSecs?: number;
+	/** Animation tracks from `document.animation` — used by the navigation
+	 * preview to sample the focused/activated button's highlight colour and
+	 * opacity at the playhead's loop-relative time. */
+	animationTracks?: AnimationTrack[];
+	/** The project's disc video standard — drives the honest-preview
+	 * schedule's standard-aware last-presentable-frame clamp (`fpsForStandard`),
+	 * mirroring `build_overlay_keyframe_schedule`'s `frame_duration_secs`.
+	 * Defaults to NTSC when not supplied. */
+	standard?: VideoStandard;
 	defaultButtonId: string | null;
 	/** When true, render in navigation preview mode with highlight colours. */
 	previewMode: boolean;
@@ -68,6 +110,8 @@ export interface SceneCanvasProps {
 	buttonPreviewState?: 'normal' | 'focus' | 'activate';
 	/** Display aspect used to simulate 4:3 vs anamorphic 16:9 rendering. */
 	displayAspect?: AspectMode;
+	/** Format-law row driving the compile-overlay's button-count check. */
+	formatProfile?: FormatProfile;
 }
 
 export function SceneCanvas({
@@ -81,6 +125,11 @@ export function SceneCanvas({
 	backgroundLabel,
 	backgroundColour,
 	backgroundAsset = null,
+	backgroundIsMotion = false,
+	backgroundInitialTimeSecs = 0,
+	loopDurationSecs = 0,
+	animationTracks = [],
+	standard = 'NTSC',
 	defaultButtonId,
 	previewMode,
 	highlightColours,
@@ -90,6 +139,7 @@ export function SceneCanvas({
 	onSelectNode,
 	buttonPreviewState = 'normal',
 	displayAspect = 'four-by-three',
+	formatProfile = DEFAULT_DVD_FORMAT_PROFILE,
 }: SceneCanvasProps) {
 	if (previewMode) {
 		return (
@@ -102,10 +152,16 @@ export function SceneCanvas({
 				backgroundLabel={backgroundLabel}
 				backgroundColour={backgroundColour}
 				backgroundAsset={backgroundAsset}
+				backgroundIsMotion={backgroundIsMotion}
+				backgroundInitialTimeSecs={backgroundInitialTimeSecs}
+				loopDurationSecs={loopDurationSecs}
+				animationTracks={animationTracks}
+				fps={fpsForStandard(standard)}
 				defaultButtonId={defaultButtonId}
 				highlightColours={highlightColours}
 				honestPreview={honestPreview}
 				displayAspect={displayAspect}
+				formatProfile={formatProfile}
 			/>
 		);
 	}
@@ -122,6 +178,8 @@ export function SceneCanvas({
 			backgroundLabel={backgroundLabel}
 			backgroundColour={backgroundColour}
 			backgroundAsset={backgroundAsset}
+			backgroundIsMotion={backgroundIsMotion}
+			backgroundInitialTimeSecs={backgroundInitialTimeSecs}
 			defaultButtonId={defaultButtonId}
 			honestPreview={honestPreview}
 			showNavLines={showNavLines}
@@ -129,6 +187,7 @@ export function SceneCanvas({
 			onSelectNode={onSelectNode}
 			buttonPreviewState={buttonPreviewState}
 			displayAspect={displayAspect}
+			formatProfile={formatProfile}
 		/>
 	);
 }
@@ -146,6 +205,8 @@ function DesignCanvas({
 	backgroundLabel,
 	backgroundColour,
 	backgroundAsset,
+	backgroundIsMotion,
+	backgroundInitialTimeSecs,
 	defaultButtonId,
 	honestPreview,
 	showNavLines,
@@ -153,6 +214,7 @@ function DesignCanvas({
 	onSelectNode,
 	buttonPreviewState,
 	displayAspect,
+	formatProfile,
 }: {
 	buttons: MenuButton[];
 	assets: Asset[];
@@ -164,6 +226,8 @@ function DesignCanvas({
 	backgroundLabel: string | null;
 	backgroundColour: string | null;
 	backgroundAsset: Asset | null;
+	backgroundIsMotion: boolean;
+	backgroundInitialTimeSecs: number;
 	defaultButtonId: string | null;
 	honestPreview: boolean;
 	showNavLines: boolean;
@@ -171,6 +235,7 @@ function DesignCanvas({
 	onSelectNode: (nodeId: string | null) => void;
 	buttonPreviewState: 'normal' | 'focus' | 'activate';
 	displayAspect: AspectMode;
+	formatProfile: FormatProfile;
 }) {
 	const buttonNodeMap = useMemo(
 		() =>
@@ -223,7 +288,7 @@ function DesignCanvas({
 				xs.push(node.x, node.x + node.width, node.x + node.width / 2);
 				ys.push(node.y, node.y + node.height, node.y + node.height / 2);
 			}
-			xs.push(0, MENU_WIDTH / 2, MENU_WIDTH);
+			xs.push(0, CANVAS_DESIGN_WIDTH / 2, CANVAS_DESIGN_WIDTH);
 			ys.push(0, canvasHeight / 2, canvasHeight);
 			return { xs, ys };
 		},
@@ -269,7 +334,7 @@ function DesignCanvas({
 				if (!state || !canvas) return;
 
 				const rect = canvas.getBoundingClientRect();
-				const scaleX = MENU_WIDTH / rect.width;
+				const scaleX = CANVAS_DESIGN_WIDTH / rect.width;
 				const scaleY = canvasHeight / rect.height;
 				const dx = (moveEvent.clientX - state.startX) * scaleX;
 				const dy = (moveEvent.clientY - state.startY) * scaleY;
@@ -279,7 +344,7 @@ function DesignCanvas({
 				if (state.mode === 'move') {
 					let newX = sb.x + dx;
 					let newY = sb.y + dy;
-					newX = Math.max(0, Math.min(MENU_WIDTH - sb.width, newX));
+					newX = Math.max(0, Math.min(CANVAS_DESIGN_WIDTH - sb.width, newX));
 					newY = Math.max(0, Math.min(canvasHeight - sb.height, newY));
 
 					const lines: { axis: 'x' | 'y'; pos: number }[] = [];
@@ -327,9 +392,9 @@ function DesignCanvas({
 						y = sb.y + sb.height - height;
 					}
 
-					x = Math.max(0, Math.min(MENU_WIDTH - MIN_BUTTON_SIZE, x));
+					x = Math.max(0, Math.min(CANVAS_DESIGN_WIDTH - MIN_BUTTON_SIZE, x));
 					y = Math.max(0, Math.min(canvasHeight - MIN_BUTTON_SIZE, y));
-					if (x + width > MENU_WIDTH) width = MENU_WIDTH - x;
+					if (x + width > CANVAS_DESIGN_WIDTH) width = CANVAS_DESIGN_WIDTH - x;
 					if (y + height > canvasHeight) height = canvasHeight - y;
 
 					setSnapLines([]);
@@ -391,7 +456,7 @@ function DesignCanvas({
 				if (!state || !canvas) return;
 
 				const rect = canvas.getBoundingClientRect();
-				const scaleX = MENU_WIDTH / rect.width;
+				const scaleX = CANVAS_DESIGN_WIDTH / rect.width;
 				const scaleY = canvasHeight / rect.height;
 				const dx = (moveEvent.clientX - state.startX) * scaleX;
 				const dy = (moveEvent.clientY - state.startY) * scaleY;
@@ -401,7 +466,7 @@ function DesignCanvas({
 				if (state.mode === 'move') {
 					let newX = sb.x + dx;
 					let newY = sb.y + dy;
-					newX = Math.max(0, Math.min(MENU_WIDTH - sb.width, newX));
+					newX = Math.max(0, Math.min(CANVAS_DESIGN_WIDTH - sb.width, newX));
 					newY = Math.max(0, Math.min(canvasHeight - sb.height, newY));
 
 					const lines: { axis: 'x' | 'y'; pos: number }[] = [];
@@ -449,9 +514,9 @@ function DesignCanvas({
 						y = sb.y + sb.height - height;
 					}
 
-					x = Math.max(0, Math.min(MENU_WIDTH - MIN_BUTTON_SIZE, x));
+					x = Math.max(0, Math.min(CANVAS_DESIGN_WIDTH - MIN_BUTTON_SIZE, x));
 					y = Math.max(0, Math.min(canvasHeight - MIN_BUTTON_SIZE, y));
-					if (x + width > MENU_WIDTH) width = MENU_WIDTH - x;
+					if (x + width > CANVAS_DESIGN_WIDTH) width = CANVAS_DESIGN_WIDTH - x;
 					if (y + height > canvasHeight) height = canvasHeight - y;
 
 					setSnapLines([]);
@@ -489,20 +554,32 @@ function DesignCanvas({
 			}}
 			onClick={() => onSelectNode(null)}
 		>
-			{backgroundAsset && <BackgroundImage asset={backgroundAsset} />}
+			{backgroundAsset && (
+				<BackgroundMedia
+					asset={backgroundAsset}
+					isMotion={backgroundIsMotion}
+					initialTimeSecs={backgroundInitialTimeSecs}
+				/>
+			)}
 			{backgroundLabel && (
 				<div className="scene-canvas__bg-label text-muted">{backgroundLabel}</div>
 			)}
-			{honestPreview && <CompileOverlay buttons={buttons} canvasHeight={canvasHeight} />}
+			{honestPreview && (
+				<CompileOverlay
+					buttons={buttons}
+					canvasHeight={canvasHeight}
+					formatProfile={formatProfile}
+				/>
+			)}
 			{showNavLines && (
-				<NavLines buttons={buttons} canvasWidth={MENU_WIDTH} canvasHeight={canvasHeight} />
+				<NavLines buttons={buttons} canvasWidth={CANVAS_DESIGN_WIDTH} canvasHeight={canvasHeight} />
 			)}
 			{snapLines.map((line, i) =>
 				line.axis === 'x' ? (
 					<div
 						key={`snap-${i}`}
 						className="scene-canvas__snap-line scene-canvas__snap-line--v"
-						style={{ left: `${(line.pos / MENU_WIDTH) * 100}%` }}
+						style={{ left: `${(line.pos / CANVAS_DESIGN_WIDTH) * 100}%` }}
 					/>
 				) : (
 					<div
@@ -567,9 +644,9 @@ function DesignCanvas({
 							defaultButtonId === btn.id ? 'scene-canvas__node--default' : ''
 						} ${selectedNodeId === btn.id ? 'scene-canvas__node--selected' : ''}`}
 						style={{
-							left: `${(btn.bounds.x / MENU_WIDTH) * 100}%`,
+							left: `${(btn.bounds.x / CANVAS_DESIGN_WIDTH) * 100}%`,
 							top: `${(btn.bounds.y / canvasHeight) * 100}%`,
-							width: `${(btn.bounds.width / MENU_WIDTH) * 100}%`,
+							width: `${(btn.bounds.width / CANVAS_DESIGN_WIDTH) * 100}%`,
 							height: `${(btn.bounds.height / canvasHeight) * 100}%`,
 							...(buttonStyle
 								? {
@@ -585,14 +662,17 @@ function DesignCanvas({
 							...(labelStyle
 								? {
 										fontFamily: labelStyle.fontFamily,
-										fontSize: `${labelStyle.fontSize}px`,
+										// Design-space size scaled via the viewport
+										// container, like text nodes — see
+										// `RenderedSceneNode`.
+										fontSize: `calc(${labelStyle.fontSize} / ${canvasHeight} * 100cqh)`,
 										fontWeight: labelStyle.fontWeight === 'bold' ? 700 : 400,
 										fontStyle: labelStyle.fontItalic ? 'italic' : 'normal',
 										textDecoration: labelStyle.textDecoration,
 										textAlign: labelStyle.textAlign,
 										color: labelStyle.colour,
 										lineHeight: labelStyle.lineHeight,
-										letterSpacing: `${labelStyle.letterSpacing}px`,
+										letterSpacing: `calc(${labelStyle.letterSpacing} / ${canvasHeight} * 100cqh)`,
 									}
 								: {}),
 						}}
@@ -630,10 +710,16 @@ function NavigationPreview({
 	backgroundLabel,
 	backgroundColour,
 	backgroundAsset,
+	backgroundIsMotion,
+	backgroundInitialTimeSecs,
+	loopDurationSecs = 0,
+	animationTracks = [],
+	fps,
 	defaultButtonId,
 	highlightColours,
 	honestPreview,
 	displayAspect,
+	formatProfile,
 }: {
 	buttons: MenuButton[];
 	assets: Asset[];
@@ -643,10 +729,19 @@ function NavigationPreview({
 	backgroundLabel: string | null;
 	backgroundColour: string | null;
 	backgroundAsset: Asset | null;
+	backgroundIsMotion: boolean;
+	backgroundInitialTimeSecs: number;
+	loopDurationSecs?: number;
+	animationTracks?: AnimationTrack[];
+	/** Frame rate for the honest-preview schedule's last-presentable-frame
+	 * clamp — the project's disc standard (NTSC/PAL), not a hardcoded 30fps
+	 * (see `fpsForStandard`). */
+	fps: number;
 	defaultButtonId: string | null;
 	highlightColours: MenuHighlightColours;
 	honestPreview: boolean;
 	displayAspect: AspectMode;
+	formatProfile: FormatProfile;
 }) {
 	const [focusedId, setFocusedId] = useState<string | null>(
 		defaultButtonId ?? buttons[0]?.id ?? null,
@@ -679,6 +774,13 @@ function NavigationPreview({
 			),
 		[sceneNodes],
 	);
+	// The compiled disc only ever lowers TOP-LEVEL buttons (`buttons`, which
+	// mirrors `MenuDocument::buttons()`/`menu_ref.buttons()` — see
+	// `PreviewButtonNode`'s doc comment) — a track targeting any other node
+	// (e.g. a group-nested button, named by `menu.animation-node-not-compiled`)
+	// is silently dropped by the planner and must be excluded here too, or
+	// the honest-preview fold would include a track the disc never shows.
+	const compiledButtonIds = useMemo(() => new Set(buttons.map((b) => b.id)), [buttons]);
 
 	useEffect(() => {
 		if (!activatedId) return;
@@ -760,11 +862,23 @@ function NavigationPreview({
 				...(backgroundColour ? { backgroundColor: backgroundColour } : {}),
 			}}
 		>
-			{backgroundAsset && <BackgroundImage asset={backgroundAsset} />}
+			{backgroundAsset && (
+				<BackgroundMedia
+					asset={backgroundAsset}
+					isMotion={backgroundIsMotion}
+					initialTimeSecs={backgroundInitialTimeSecs}
+				/>
+			)}
 			{backgroundLabel && (
 				<div className="scene-canvas__bg-label text-muted">{backgroundLabel}</div>
 			)}
-			{honestPreview && <CompileOverlay buttons={buttons} canvasHeight={canvasHeight} />}
+			{honestPreview && (
+				<CompileOverlay
+					buttons={buttons}
+					canvasHeight={canvasHeight}
+					formatProfile={formatProfile}
+				/>
+			)}
 			{showSafeArea && (
 				<>
 					<div
@@ -794,7 +908,7 @@ function NavigationPreview({
 			<div className="scene-canvas__preview-hint text-muted">
 				Use arrow keys to navigate. Press Enter to activate.
 			</div>
-			<NavLines buttons={buttons} canvasWidth={MENU_WIDTH} canvasHeight={canvasHeight} />
+			<NavLines buttons={buttons} canvasWidth={CANVAS_DESIGN_WIDTH} canvasHeight={canvasHeight} />
 			{positionedNodes.map((node) => (
 				<RenderedSceneNode
 					key={node.id}
@@ -803,73 +917,364 @@ function NavigationPreview({
 					canvasHeight={canvasHeight}
 				/>
 			))}
-			{buttons.map((btn) => {
-				const isFocused = btn.id === focusedId;
-				const isActivated = btn.id === activatedId;
-				const hl = highlightColours;
-				const buttonNode = buttonNodeMap.get(btn.id);
-				const visualState = isActivated ? 'activate' : isFocused ? 'focus' : 'normal';
-				const buttonStyle = buttonNode?.buttonStyle?.[visualState];
-				const labelStyle = buttonNode?.labelStyle;
-				return (
-					<div
-						key={btn.id}
-						className={`scene-canvas__node ${isFocused ? 'scene-canvas__node--focused' : ''} ${
-							defaultButtonId === btn.id ? 'scene-canvas__node--default' : ''
-						}`}
-						style={{
-							left: `${(btn.bounds.x / MENU_WIDTH) * 100}%`,
-							top: `${(btn.bounds.y / canvasHeight) * 100}%`,
-							width: `${(btn.bounds.width / MENU_WIDTH) * 100}%`,
-							height: `${(btn.bounds.height / canvasHeight) * 100}%`,
-							...(buttonStyle
-								? {
-										background: buttonStyle.bgFill,
-										borderColor: buttonStyle.borderColour,
-										borderWidth: `${buttonStyle.borderWidth}px`,
-										borderRadius: `${buttonStyle.borderRadius}px`,
-										paddingInline: `${buttonStyle.paddingH}px`,
-										paddingBlock: `${buttonStyle.paddingV}px`,
-										boxShadow: buttonShadowCss(buttonStyle),
-									}
-								: {}),
-							...(labelStyle
-								? {
-										fontFamily: labelStyle.fontFamily,
-										fontSize: `${labelStyle.fontSize}px`,
-										fontWeight: labelStyle.fontWeight === 'bold' ? 700 : 400,
-										fontStyle: labelStyle.fontItalic ? 'italic' : 'normal',
-										textDecoration: labelStyle.textDecoration,
-										textAlign: labelStyle.textAlign,
-										color: labelStyle.colour,
-										lineHeight: labelStyle.lineHeight,
-										letterSpacing: `${labelStyle.letterSpacing}px`,
-									}
-								: {}),
-							...(isFocused
-								? {
-										outline: `1px solid ${hl.selectColour}`,
-										outlineOffset: '-1px',
-										boxShadow: buttonStyle
-											? `${buttonShadowCss(buttonStyle)}, 0 0 12px ${hexToRgba(hl.selectColour, 0.5)}`
-											: `0 0 12px ${hexToRgba(hl.selectColour, 0.5)}, 0 0 24px ${hexToRgba(hl.selectColour, 0.2)}`,
-									}
-								: {}),
-							...(isActivated
-								? {
-										outline: `2px solid ${hl.activateColour}`,
-										outlineOffset: '-2px',
-									}
-								: {}),
-						}}
-						onClick={() => setFocusedId(btn.id)}
-					>
-						<div className="scene-canvas__node-body">
-							<span className="scene-canvas__node-label">{btn.label}</span>
-						</div>
-					</div>
+			{buttons.map((btn) => (
+				<PreviewButtonNode
+					key={btn.id}
+					btn={btn}
+					isFocused={btn.id === focusedId}
+					isActivated={btn.id === activatedId}
+					isDefault={defaultButtonId === btn.id}
+					buttonNode={buttonNodeMap.get(btn.id)}
+					highlightColours={highlightColours}
+					animationTracks={animationTracks}
+					compiledButtonIds={compiledButtonIds}
+					loopStartSecs={backgroundInitialTimeSecs}
+					loopDurationSecs={loopDurationSecs}
+					fps={fps}
+					isMotion={backgroundIsMotion}
+					honestPreview={honestPreview}
+					canvasHeight={canvasHeight}
+					onFocus={() => setFocusedId(btn.id)}
+				/>
+			))}
+		</div>
+	);
+}
+
+/**
+ * One button in the navigation preview.
+ *
+ * Focused-state highlight colour/opacity are sampled from this node's
+ * `highlight-colour`/`highlight-opacity` tracks; activated-state colour and
+ * opacity are sampled from its `activate-colour`/`activate-opacity` tracks
+ * (DVD naming: spumux's "highlight" state is the focused/selected one, its
+ * "select" state is the activated/pressed one — see `AnimatableProperty`'s
+ * doc comment) — both fall back to the menu's static `highlightColours`
+ * when there's no track. Activate opacity is baked into the outline's
+ * alpha via `hexToRgba` rather than kept as a separate CSS property,
+ * mirroring `bake_opacity_into_alpha`'s `select_colour` handling.
+ *
+ * Sampling dispatches on `isMotion`/`honestPreview`:
+ *
+ * - Still menu, honest preview: menu-wide fold (`sampleHonestFoldStill`) —
+ *   every button's relevant track for the state group is folded into ONE
+ *   value, document-order last-track-wins, each sampled at its own FIRST
+ *   keyframe, mirroring the disc's still-menu degrade path exactly (a
+ *   still menu can't host a schedule at all — see
+ *   `build_overlay_keyframe_schedule`'s `!matches!(.., BackgroundMode::Motion)`
+ *   branch, which folds the same way rather than showing each button's own
+ *   track in isolation).
+ * - Still menu, not honest: this button's own track's first keyframe only,
+ *   regardless of the playhead (`sampleTrackForPreview`) — a friendlier,
+ *   per-button view than the disc's menu-wide fold.
+ * - Motion menu, honest preview: menu-wide fold (`sampleHonestFold`) —
+ *   every button's relevant track for the state group is folded into ONE
+ *   value, document-order last-track-wins, quantised to the compiled
+ *   disc's actual DCSQ schedule boundary (the UNION of every highlight AND
+ *   activate relevant track's keyframe timestamps together, since a
+ *   keyframe in either group can force a new shared schedule instant —
+ *   see `scheduleBoundarySecs`). This is the disc's actual one-CLUT
+ *   behaviour: it cannot show a different colour per button the way this
+ *   node's own track might suggest.
+ * - Motion menu, not honest: this button's own track, continuously eased,
+ *   friendlier than the disc actually produces, matching this file's
+ *   preview posture elsewhere — see design decision D9.
+ *
+ * Each sampled value is read via its own zustand selector rather than a
+ * raw `currentTime` subscription, so this component only re-renders when
+ * the SAMPLED value changes (e.g. never, for Hold easing, except right at
+ * a keyframe boundary) instead of at rAF/timeupdate cadence for every
+ * button on the canvas while playing.
+ */
+function PreviewButtonNode({
+	btn,
+	isFocused,
+	isActivated,
+	isDefault,
+	buttonNode,
+	highlightColours,
+	animationTracks,
+	compiledButtonIds,
+	loopStartSecs,
+	loopDurationSecs,
+	fps,
+	isMotion,
+	honestPreview,
+	canvasHeight,
+	onFocus,
+}: {
+	btn: MenuButton;
+	isFocused: boolean;
+	isActivated: boolean;
+	isDefault: boolean;
+	buttonNode: Extract<SceneNode, { type: 'button' }> | undefined;
+	highlightColours: MenuHighlightColours;
+	animationTracks: AnimationTrack[];
+	/** The menu's top-level (compiled) button IDs — mirrors
+	 * `MenuDocument::buttons()`/`menu_ref.buttons()`, which the planner
+	 * restricts relevant tracks to. */
+	compiledButtonIds: Set<string>;
+	loopStartSecs: number;
+	loopDurationSecs: number;
+	/** Frame rate for the honest-preview schedule's last-presentable-frame
+	 * clamp — the project's disc standard (NTSC/PAL), not a hardcoded 30fps
+	 * (see `fpsForStandard`). */
+	fps: number;
+	isMotion: boolean;
+	honestPreview: boolean;
+	canvasHeight: number;
+	onFocus: () => void;
+}) {
+	const visualState = isActivated ? 'activate' : isFocused ? 'focus' : 'normal';
+	const buttonStyle = buttonNode?.buttonStyle?.[visualState];
+	const labelStyle = buttonNode?.labelStyle;
+
+	// Only look up a track when the corresponding state is actually shown —
+	// an unfocused/inactive button never needs its track sampled.
+	const colourTrack = isFocused
+		? animationTracks.find((t) => t.nodeId === btn.id && t.target === 'highlight-colour')
+		: undefined;
+	const opacityTrack = isFocused
+		? animationTracks.find((t) => t.nodeId === btn.id && t.target === 'highlight-opacity')
+		: undefined;
+	const activateColourTrack = isActivated
+		? animationTracks.find((t) => t.nodeId === btn.id && t.target === 'activate-colour')
+		: undefined;
+	const activateOpacityTrack = isActivated
+		? animationTracks.find((t) => t.nodeId === btn.id && t.target === 'activate-opacity')
+		: undefined;
+
+	// The DCSQ schedule is shared across every relevant track for a given
+	// state (highlight vs. select — see `sampleHonestPreview`'s doc
+	// comment), so the "relevant tracks" group passed to it must include
+	// every highlight/activate-target track across every button, not just
+	// this one — mirroring `build_overlay_keyframe_schedule`'s
+	// `relevant_highlight_tracks`/`relevant_select_tracks`. The
+	// `compiledButtonIds` check mirrors that same function's
+	// `button_ids.contains(track.node_id)` guard: a track targeting a node
+	// that isn't a top-level button (e.g. group-nested) is dropped by the
+	// planner and must be excluded here too.
+	const relevantHighlightTracks = useMemo(
+		() =>
+			animationTracks.filter(
+				(t) =>
+					(t.target === 'highlight-colour' || t.target === 'highlight-opacity') &&
+					t.keyframes.length > 0 &&
+					compiledButtonIds.has(t.nodeId),
+			),
+		[animationTracks, compiledButtonIds],
+	);
+	const relevantActivateTracks = useMemo(
+		() =>
+			animationTracks.filter(
+				(t) =>
+					(t.target === 'activate-colour' || t.target === 'activate-opacity') &&
+					t.keyframes.length > 0 &&
+					compiledButtonIds.has(t.nodeId),
+			),
+		[animationTracks, compiledButtonIds],
+	);
+	// The compiled disc bakes ONE overlay image per schedule instant
+	// covering BOTH states, so a keyframe in either group can force a new
+	// shared boundary — the honest-preview schedule union must be the
+	// complete set, not just the group being sampled (see
+	// `build_overlay_keyframe_schedule`'s `timestamps`, which chains both
+	// groups together before dedup).
+	const relevantSchedulingTracks = useMemo(
+		() => [...relevantHighlightTracks, ...relevantActivateTracks],
+		[relevantHighlightTracks, relevantActivateTracks],
+	);
+
+	// Each selector reads out a SAMPLED value (`{hex, opacity}`), not the
+	// raw `currentTime`. `useShallow` shallow-compares that object across
+	// renders so this node only re-renders when the sampled value itself
+	// changes (e.g. never, for Hold easing, except right at a keyframe
+	// boundary) instead of at rAF/timeupdate cadence for every button while
+	// playing — zustand's default `Object.is` would otherwise treat every
+	// render's freshly-built object as a change.
+	//
+	// Honest preview folds every button's relevant track into the disc's
+	// single menu-wide value (`sampleHonestFold`) rather than showing this
+	// button's own track — the DVD subpicture CLUT can't hold a different
+	// colour per button. Still-menu and non-honest motion preview keep
+	// showing this button's own track (`sampleTrackForPreview`): a still
+	// menu bakes in a track's first keyframe regardless of state group, and
+	// non-honest preview is deliberately a friendlier per-button view (see
+	// this function's doc comment).
+	const sampledHl = useMenuPlaybackStore(
+		useShallow((s) => {
+			const tSecs = s.currentTime - loopStartSecs;
+			if (honestPreview) {
+				if (isMotion) {
+					return sampleHonestFold(
+						relevantHighlightTracks,
+						relevantSchedulingTracks,
+						'highlight-colour',
+						'highlight-opacity',
+						highlightColours.selectColour,
+						highlightColours.selectOpacity,
+						tSecs,
+						loopDurationSecs,
+						fps,
+					);
+				}
+				return sampleHonestFoldStill(
+					relevantHighlightTracks,
+					'highlight-colour',
+					'highlight-opacity',
+					highlightColours.selectColour,
+					highlightColours.selectOpacity,
 				);
-			})}
+			}
+			return {
+				hex:
+					keyValueToColour(
+						sampleTrackForPreview(
+							colourTrack,
+							relevantHighlightTracks,
+							tSecs,
+							loopDurationSecs,
+							fps,
+							isMotion,
+							honestPreview,
+						),
+					) ?? highlightColours.selectColour,
+				opacity:
+					keyValueToOpacity(
+						sampleTrackForPreview(
+							opacityTrack,
+							relevantHighlightTracks,
+							tSecs,
+							loopDurationSecs,
+							fps,
+							isMotion,
+							honestPreview,
+						),
+					) ?? highlightColours.selectOpacity,
+			};
+		}),
+	);
+	const sampledActivate = useMenuPlaybackStore(
+		useShallow((s) => {
+			const tSecs = s.currentTime - loopStartSecs;
+			if (honestPreview) {
+				if (isMotion) {
+					return sampleHonestFold(
+						relevantActivateTracks,
+						relevantSchedulingTracks,
+						'activate-colour',
+						'activate-opacity',
+						highlightColours.activateColour,
+						highlightColours.activateOpacity,
+						tSecs,
+						loopDurationSecs,
+						fps,
+					);
+				}
+				return sampleHonestFoldStill(
+					relevantActivateTracks,
+					'activate-colour',
+					'activate-opacity',
+					highlightColours.activateColour,
+					highlightColours.activateOpacity,
+				);
+			}
+			return {
+				hex:
+					keyValueToColour(
+						sampleTrackForPreview(
+							activateColourTrack,
+							relevantActivateTracks,
+							tSecs,
+							loopDurationSecs,
+							fps,
+							isMotion,
+							honestPreview,
+						),
+					) ?? highlightColours.activateColour,
+				opacity:
+					keyValueToOpacity(
+						sampleTrackForPreview(
+							activateOpacityTrack,
+							relevantActivateTracks,
+							tSecs,
+							loopDurationSecs,
+							fps,
+							isMotion,
+							honestPreview,
+						),
+					) ?? highlightColours.activateOpacity,
+			};
+		}),
+	);
+
+	const hlColour = sampledHl.hex;
+	const hlOpacity = sampledHl.opacity;
+	// Baked into the outline's alpha via `hexToRgba` rather than kept as a
+	// separate CSS property, mirroring `bake_opacity_into_alpha`'s
+	// `highlight_colour`/`select_colour` handling — the compiled disc has no
+	// separate opacity channel for either the focused or activated state,
+	// only the baked alpha.
+	const focusedOutlineColour = hexToRgba(hlColour, hlOpacity);
+	const activateColour = hexToRgba(sampledActivate.hex, sampledActivate.opacity);
+
+	return (
+		<div
+			className={`scene-canvas__node ${isFocused ? 'scene-canvas__node--focused' : ''} ${
+				isDefault ? 'scene-canvas__node--default' : ''
+			}`}
+			style={{
+				left: `${(btn.bounds.x / CANVAS_DESIGN_WIDTH) * 100}%`,
+				top: `${(btn.bounds.y / canvasHeight) * 100}%`,
+				width: `${(btn.bounds.width / CANVAS_DESIGN_WIDTH) * 100}%`,
+				height: `${(btn.bounds.height / canvasHeight) * 100}%`,
+				...(buttonStyle
+					? {
+							background: buttonStyle.bgFill,
+							borderColor: buttonStyle.borderColour,
+							borderWidth: `${buttonStyle.borderWidth}px`,
+							borderRadius: `${buttonStyle.borderRadius}px`,
+							paddingInline: `${buttonStyle.paddingH}px`,
+							paddingBlock: `${buttonStyle.paddingV}px`,
+							boxShadow: buttonShadowCss(buttonStyle),
+						}
+					: {}),
+				...(labelStyle
+					? {
+							fontFamily: labelStyle.fontFamily,
+							// Design-space size scaled via the viewport container,
+							// like text nodes — see `RenderedSceneNode`.
+							fontSize: `calc(${labelStyle.fontSize} / ${canvasHeight} * 100cqh)`,
+							fontWeight: labelStyle.fontWeight === 'bold' ? 700 : 400,
+							fontStyle: labelStyle.fontItalic ? 'italic' : 'normal',
+							textDecoration: labelStyle.textDecoration,
+							textAlign: labelStyle.textAlign,
+							color: labelStyle.colour,
+							lineHeight: labelStyle.lineHeight,
+							letterSpacing: `calc(${labelStyle.letterSpacing} / ${canvasHeight} * 100cqh)`,
+						}
+					: {}),
+				...(isFocused
+					? {
+							outline: `1px solid ${focusedOutlineColour}`,
+							outlineOffset: '-1px',
+							boxShadow: buttonStyle
+								? `${buttonShadowCss(buttonStyle)}, 0 0 12px ${hexToRgba(hlColour, hlOpacity)}`
+								: `0 0 12px ${hexToRgba(hlColour, hlOpacity)}, 0 0 24px ${hexToRgba(hlColour, hlOpacity * 0.4)}`,
+						}
+					: {}),
+				...(isActivated
+					? {
+							outline: `2px solid ${activateColour}`,
+							outlineOffset: '-2px',
+						}
+					: {}),
+			}}
+			onClick={onFocus}
+		>
+			<div className="scene-canvas__node-body">
+				<span className="scene-canvas__node-label">{btn.label}</span>
+			</div>
 		</div>
 	);
 }
@@ -901,16 +1306,21 @@ function RenderedSceneNode({
 				isSelected ? 'scene-canvas__scene-node--selected' : ''
 			}`}
 			style={{
-				left: `${(node.x / MENU_WIDTH) * 100}%`,
+				left: `${(node.x / CANVAS_DESIGN_WIDTH) * 100}%`,
 				top: `${(node.y / canvasHeight) * 100}%`,
-				width: `${(node.width / MENU_WIDTH) * 100}%`,
+				width: `${(node.width / CANVAS_DESIGN_WIDTH) * 100}%`,
 				height: `${(node.height / canvasHeight) * 100}%`,
 				...(node.type === 'shape' && 'fill' in node && node.fill
 					? { backgroundColor: node.fill }
 					: {}),
 				...(node.type === 'text' && 'colour' in node && node.colour ? { color: node.colour } : {}),
+				// Font size is authored in design-space pixels; the box scales
+				// with the viewport via percentages, so the glyphs must scale
+				// the same way — `cqh` against the viewport container keeps
+				// text height at fontSize/designHeight of the canvas at every
+				// zoom, matching the Skia render's proportion on the disc.
 				...(node.type === 'text' && 'fontSize' in node && node.fontSize
-					? { fontSize: `${node.fontSize}px` }
+					? { fontSize: `calc(${node.fontSize} / ${canvasHeight} * 100cqh)` }
 					: {}),
 				...(node.type === 'text' && 'fontFamily' in node && node.fontFamily
 					? { fontFamily: node.fontFamily }
@@ -931,7 +1341,7 @@ function RenderedSceneNode({
 					? { lineHeight: node.lineHeight }
 					: {}),
 				...(node.type === 'text' && 'letterSpacing' in node && node.letterSpacing !== undefined
-					? { letterSpacing: `${node.letterSpacing}px` }
+					? { letterSpacing: `calc(${node.letterSpacing} / ${canvasHeight} * 100cqh)` }
 					: {}),
 			}}
 			onClick={(event) => interactive && event.stopPropagation()}
@@ -949,6 +1359,281 @@ function RenderedSceneNode({
 					))
 				: null}
 		</div>
+	);
+}
+
+/**
+ * Background renderer for a menu's assigned background asset — a looping
+ * `<video>` for motion menus whose asset has a video stream, otherwise a
+ * still `<img>` (see design decision D5).
+ */
+function BackgroundMedia({
+	asset,
+	isMotion = false,
+	initialTimeSecs = 0,
+}: {
+	asset: Asset;
+	isMotion?: boolean;
+	initialTimeSecs?: number;
+}) {
+	if (isMotion && asset.videoStreams.length > 0) {
+		return <BackgroundVideo asset={asset} initialTimeSecs={initialTimeSecs} />;
+	}
+	return <BackgroundImage asset={asset} />;
+}
+
+/** Load a menu background asset's cached thumbnail as a blob URL, or `null`
+ * when there is no cached thumbnail or the read fails. Used as the poster
+ * frame for `BackgroundVideo` so the canvas shows something before the
+ * video's own first frame decodes. */
+function useThumbnailBlobUrl(asset: Asset): string | null {
+	const [url, setUrl] = useState<string | null>(null);
+
+	useEffect(() => {
+		let revokedUrl: string | null = null;
+		let cancelled = false;
+
+		async function load() {
+			if (!asset.thumbnailPath) {
+				setUrl(null);
+				return;
+			}
+			const fileName = asset.thumbnailPath.split(/[/\\]/).pop();
+			if (!fileName) {
+				setUrl(null);
+				return;
+			}
+			try {
+				const bytes = await readFile(`thumbnails/${fileName}`, {
+					baseDir: BaseDirectory.AppCache,
+				});
+				if (cancelled) return;
+				const blob = new Blob([bytes], { type: 'image/jpeg' });
+				const objectUrl = URL.createObjectURL(blob);
+				revokedUrl = objectUrl;
+				setUrl(objectUrl);
+			} catch {
+				if (!cancelled) setUrl(null);
+			}
+		}
+		void load();
+
+		return () => {
+			cancelled = true;
+			if (revokedUrl) URL.revokeObjectURL(revokedUrl);
+		};
+	}, [asset.id, asset.thumbnailPath]);
+
+	return url;
+}
+
+// Upper bound for the blob-URL video fallback (see `BackgroundVideo`'s
+// onError): the whole file is fetched into webview memory, and while menu
+// background loops are normally short, the asset could be a feature-length
+// file — fetching it whole has to stop somewhere.
+const VIDEO_PREVIEW_BLOB_CAP_BYTES = 512 * 1024 * 1024;
+
+function BackgroundVideo({ asset, initialTimeSecs }: { asset: Asset; initialTimeSecs: number }) {
+	const [loadFailed, setLoadFailed] = useState(false);
+	const [blobSrc, setBlobSrc] = useState<string | null>(null);
+	const posterUrl = useThumbnailBlobUrl(asset);
+	const registerVideo = useMenuPlaybackStore((s) => s.registerVideo);
+	const reportTime = useMenuPlaybackStore((s) => s.reportTime);
+	const reportDuration = useMenuPlaybackStore((s) => s.reportDuration);
+	const reportPlaying = useMenuPlaybackStore((s) => s.reportPlaying);
+	const videoElRef = useRef<HTMLVideoElement | null>(null);
+	// Whether this mount has already retried a load failure once — the
+	// asset-scope grant (`allowAssetScope`, project-store's openProject/
+	// importAssets/relinkAsset) can still be landing when this element starts
+	// loading, so one retry avoids a permanent "Preview unavailable" for a
+	// background that's actually fine.
+	const retriedRef = useRef(false);
+	// Whether the blob-URL fallback fetch has been started for this asset, so
+	// a failing blob source doesn't loop back into another fetch.
+	const blobAttemptedRef = useRef(false);
+	// The asset id the component currently renders — read inside the async
+	// fallback fetch so a result landing after the user switched backgrounds
+	// is dropped instead of applied to the wrong asset.
+	const assetIdRef = useRef(asset.id);
+	assetIdRef.current = asset.id;
+	// Live while mounted; the in-flight fallback fetch checks it before
+	// creating an object URL, so an unmount mid-download can't strand an
+	// unrevoked URL on a setter that no longer renders anything.
+	const mountedRef = useRef(true);
+	// The in-flight fallback fetch's controller — aborted on unmount and on
+	// asset switches so a stale download stops consuming the full video.
+	const blobAbortRef = useRef<AbortController | null>(null);
+
+	const setVideoRef = useCallback(
+		(el: HTMLVideoElement | null) => {
+			videoElRef.current = el;
+			registerVideo(el);
+		},
+		[registerVideo],
+	);
+
+	useEffect(() => {
+		setLoadFailed(false);
+		retriedRef.current = false;
+		blobAttemptedRef.current = false;
+		blobAbortRef.current?.abort();
+		blobAbortRef.current = null;
+		setBlobSrc(null);
+	}, [asset.id]);
+
+	useEffect(() => {
+		mountedRef.current = true;
+		return () => {
+			mountedRef.current = false;
+			blobAbortRef.current?.abort();
+			blobAbortRef.current = null;
+		};
+	}, []);
+
+	// Revoke a fallback object URL once it's replaced or the component
+	// unmounts, so the fetched bytes don't outlive the preview needing them.
+	useEffect(() => {
+		return () => {
+			if (blobSrc) {
+				URL.revokeObjectURL(blobSrc);
+			}
+		};
+	}, [blobSrc]);
+
+	// Unregister the video from the playback store on unmount (e.g. switching
+	// away from this menu or out of design mode) so a stale element reference
+	// doesn't linger.
+	useEffect(() => {
+		return () => registerVideo(null);
+	}, [registerVideo]);
+
+	if (loadFailed) {
+		return (
+			<div className="scene-canvas__image-placeholder" aria-hidden="true">
+				<div className="scene-canvas__image-placeholder-sun" />
+				<div className="scene-canvas__image-placeholder-horizon" />
+				<div className="scene-canvas__image-overlay">
+					<span className="scene-canvas__image-kicker">Background</span>
+					<span className="scene-canvas__image-caption">Preview unavailable</span>
+				</div>
+			</div>
+		);
+	}
+
+	return (
+		<video
+			// Keyed on the source so switching to the blob fallback mounts a
+			// fresh element: the failed asset:// load can still deliver a
+			// queued error event after React swaps `src`, which would read as
+			// a bogus blob failure on a reused element.
+			key={blobSrc ?? 'asset-protocol'}
+			ref={setVideoRef}
+			className="scene-canvas__bg-image"
+			src={blobSrc ?? convertFileSrc(asset.sourcePath)}
+			muted
+			autoPlay
+			// No native `loop` attribute: looping is driven by the playback
+			// store's loop-region logic (`computeLoopWraparound`, applied by
+			// `useVideoPlayhead`'s rAF tick), which wraps back to the authored
+			// loop *region* start — not necessarily 0. The native attribute
+			// would always restart at 0 the instant the file reaches its end,
+			// racing the store's own wraparound and ignoring the loop-region
+			// toggle entirely. With `loop` removed, reaching end-of-file while
+			// loop-region playback is disabled (or the loop region ends at the
+			// file's end) just pauses there, which is the sane fallback.
+			playsInline
+			preload="auto"
+			poster={posterUrl ?? undefined}
+			onLoadedMetadata={(e) => {
+				e.currentTarget.currentTime = initialTimeSecs;
+				reportDuration(e.currentTarget.duration);
+			}}
+			onDurationChange={(e) => reportDuration(e.currentTarget.duration)}
+			onTimeUpdate={(e) => reportTime(e.currentTarget.currentTime)}
+			onPlay={() => reportPlaying(true)}
+			onPause={() => reportPlaying(false)}
+			onEnded={() => {
+				// When the authored loop window ends exactly at the source's
+				// end, the browser can emit `ended` before the rAF tick
+				// observes `currentTime >= loopEnd` — wrap here too, or an
+				// enabled loop touching EOF stops instead of looping.
+				const { loopRegion, loopRegionEnabled, seek, play, pause } =
+					useMenuPlaybackStore.getState();
+				if (loopRegionEnabled && loopRegion) {
+					seek(loopRegion.startSecs);
+					play();
+				} else {
+					pause();
+				}
+			}}
+			onError={() => {
+				if (!retriedRef.current) {
+					retriedRef.current = true;
+					setTimeout(() => videoElRef.current?.load(), 300);
+					return;
+				}
+				// WebKitGTK's media player cannot stream over Tauri's custom
+				// asset:// scheme (plain fetches through it work fine), so on
+				// Linux the <video> above always fails with
+				// MEDIA_ERR_SRC_NOT_SUPPORTED regardless of codecs. Fall back
+				// to fetching the file through the asset protocol — which
+				// still enforces the runtime scope grants — and playing it
+				// from an in-memory blob URL.
+				if (!blobAttemptedRef.current) {
+					blobAttemptedRef.current = true;
+					const fallbackAssetId = asset.id;
+					const controller = new AbortController();
+					blobAbortRef.current = controller;
+					void (async () => {
+						try {
+							const response = await fetch(convertFileSrc(asset.sourcePath), {
+								signal: controller.signal,
+							});
+							if (!response.ok) {
+								throw new Error(`asset fetch failed: ${response.status}`);
+							}
+							// Fast-path reject on the header, but don't TRUST it —
+							// a missing or malformed Content-Length must not
+							// bypass the cap, so it's also enforced while the
+							// stream is consumed below.
+							const length = Number(response.headers.get('content-length') ?? '0');
+							if (length > VIDEO_PREVIEW_BLOB_CAP_BYTES) {
+								throw new Error('source too large for blob preview');
+							}
+							let blob: Blob;
+							if (response.body) {
+								const reader = response.body.getReader();
+								const chunks: BlobPart[] = [];
+								let received = 0;
+								for (;;) {
+									const { done, value } = await reader.read();
+									if (done) break;
+									received += value.byteLength;
+									if (received > VIDEO_PREVIEW_BLOB_CAP_BYTES) {
+										controller.abort();
+										throw new Error('source too large for blob preview');
+									}
+									chunks.push(value);
+								}
+								blob = new Blob(chunks);
+							} else {
+								blob = await response.blob();
+							}
+							if (!mountedRef.current || assetIdRef.current !== fallbackAssetId) {
+								return;
+							}
+							setBlobSrc(URL.createObjectURL(blob));
+						} catch {
+							if (mountedRef.current && assetIdRef.current === fallbackAssetId) {
+								setLoadFailed(true);
+							}
+						}
+					})();
+					return;
+				}
+				setLoadFailed(true);
+			}}
+		/>
 	);
 }
 
@@ -1192,8 +1877,6 @@ function NavLines({
 // Replaces the old badge-only treatment with an informative diagnostic layer
 // that communicates real DVD/VCD constraints at a glance.
 
-const MAX_DVD_BUTTONS = 36;
-
 interface CompileOverlayCheck {
 	label: string;
 	value: string;
@@ -1203,12 +1886,15 @@ interface CompileOverlayCheck {
 function CompileOverlay({
 	buttons,
 	canvasHeight,
+	formatProfile,
 }: {
 	buttons: MenuButton[];
 	canvasHeight: number;
+	formatProfile: FormatProfile;
 }) {
+	const maxButtons = formatProfile.maxButtonsPerMenu;
 	const btnCount = buttons.length;
-	const btnOk = btnCount <= MAX_DVD_BUTTONS;
+	const btnOk = btnCount <= maxButtons;
 
 	const actionsResolved = buttons.filter((b) => b.action !== null).length;
 	const actionsTotal = buttons.length;
@@ -1227,9 +1913,9 @@ function CompileOverlay({
 		navLabel = navOk ? 'Complete' : `${filledDirs}/${totalDirs}`;
 	}
 
-	const safeL = MENU_WIDTH * ACTION_SAFE_PCT;
+	const safeL = CANVAS_DESIGN_WIDTH * ACTION_SAFE_PCT;
 	const safeT = canvasHeight * ACTION_SAFE_PCT;
-	const safeR = MENU_WIDTH * (1 - ACTION_SAFE_PCT);
+	const safeR = CANVAS_DESIGN_WIDTH * (1 - ACTION_SAFE_PCT);
 	const safeB = canvasHeight * (1 - ACTION_SAFE_PCT);
 	const outsideCount = buttons.filter(
 		(b) =>
@@ -1243,7 +1929,7 @@ function CompileOverlay({
 	const checks: CompileOverlayCheck[] = [
 		{
 			label: 'Buttons',
-			value: `${btnCount} / ${MAX_DVD_BUTTONS}`,
+			value: `${btnCount} / ${maxButtons}`,
 			ok: btnOk,
 		},
 		{

@@ -155,4 +155,33 @@ mod tests {
         assert_eq!(c.b(), 50);
         assert_eq!(c.a(), 255);
     }
+
+    // `parse_colour_name_or_hex` is what the DCSQ lowering's overlay
+    // rendering actually calls (`skia/overlay.rs`) — the animation
+    // schedule's `OverlayKeyframeSpec.highlight_colour` always carries an
+    // 8-digit `#rrggbbaa` string (opacity baked into alpha). It falls
+    // through to `parse_colour` for anything that isn't one of the named
+    // colours, so 8-digit support only needs pinning at this entry point,
+    // not re-implementing.
+
+    #[test]
+    fn parse_colour_name_or_hex_supports_eight_digit_hex_with_alpha() {
+        let c = parse_colour_name_or_hex("#ff804080");
+        assert_eq!(c.r(), 0xff);
+        assert_eq!(c.g(), 0x80);
+        assert_eq!(c.b(), 0x40);
+        assert_eq!(c.a(), 0x80);
+    }
+
+    #[test]
+    fn parse_colour_name_or_hex_six_digit_hex_stays_opaque() {
+        let c = parse_colour_name_or_hex("#ff8040");
+        assert_eq!(c.a(), 255);
+    }
+
+    #[test]
+    fn parse_colour_name_or_hex_named_colours_still_resolve() {
+        assert_eq!(parse_colour_name_or_hex("white"), Color::WHITE);
+        assert_eq!(parse_colour_name_or_hex("BLACK"), Color::BLACK);
+    }
 }

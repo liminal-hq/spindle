@@ -3,18 +3,29 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: MIT
 
-import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
 import { LayersPanel } from './LayersPanel';
 import { InspectorPanel } from './InspectorPanel';
 import { SceneCanvas } from './SceneCanvas';
-import type { SceneNode, MenuButton, MenuHighlightColours, Asset, Menu } from '../../types/project';
+import type {
+	AnimationTrack,
+	SceneNode,
+	MenuButton,
+	MenuDocument,
+	MenuHighlightColours,
+	Asset,
+	Menu,
+} from '../../types/project';
 import { DEFAULT_HIGHLIGHT_COLOURS, createDefaultMenuCompilePolicy } from '../../types/project';
 import {
 	buildAudioSetupMenu,
+	buildChapterMenusForTitleset,
 	buildSubtitleSetupMenu,
-	createGeneratedMenuFromButtons,
 } from './menuGenerators';
+import { getMenuButtons } from './menuProjectHelpers';
+import { TimelineStrip } from './timeline/TimelineStrip';
+import { useMenuPlaybackStore } from '../../store/menu-playback-store';
 
 // ── LayersPanel ────────────────────────────────────────────────────────────
 
@@ -195,8 +206,9 @@ describe('InspectorPanel', () => {
 					id: 'menu-1',
 					name: 'Menu',
 					domain: 'vmgm',
+					role: 'title-select',
 					scene: {
-						designSize: { width: 720, height: 480 },
+						designSize: { width: 720, height: 480, aspect: 'four-by-three' },
 						background: { assetId: null, colour: '#000000' },
 						nodes: [],
 						guides: [],
@@ -208,6 +220,7 @@ describe('InspectorPanel', () => {
 						loopStartSecs: 0,
 						loopDurationSecs: 0,
 						loopCount: 0,
+						audioAssetId: null,
 					},
 					highlightColours: colours,
 					backgroundMode: 'still',
@@ -216,19 +229,7 @@ describe('InspectorPanel', () => {
 					compilePolicy: createDefaultMenuCompilePolicy('four-by-three'),
 				}}
 				canvasHeight={480}
-				menu={{
-					id: 'menu-1',
-					name: 'Menu',
-					backgroundAssetId: null,
-					buttons: [button],
-					defaultButtonId: null,
-					highlightColours: colours,
-					backgroundMode: 'still',
-					motionDurationSecs: null,
-					motionAudioAssetId: null,
-					motionLoopCount: 0,
-					timeoutAction: null,
-				}}
+				menu={{ id: 'menu-1', name: 'Menu', authoredDocument: null }}
 				displayAspect="four-by-three"
 				onDisplayAspectChange={onDisplayAspectChange}
 			/>,
@@ -403,19 +404,7 @@ describe('InspectorPanel', () => {
 	});
 
 	it('switches the menu-level background tab between solid/image/video/audio sources', () => {
-		const menu: Menu = {
-			id: 'menu-1',
-			name: 'Menu',
-			backgroundAssetId: null,
-			buttons: [button],
-			defaultButtonId: null,
-			highlightColours: colours,
-			backgroundMode: 'still',
-			motionDurationSecs: null,
-			motionAudioAssetId: null,
-			motionLoopCount: 0,
-			timeoutAction: null,
-		};
+		const menu: Menu = { id: 'menu-1', name: 'Menu', authoredDocument: null };
 		const assets: Asset[] = [
 			{
 				id: 'video-asset',
@@ -471,7 +460,7 @@ describe('InspectorPanel', () => {
 		);
 
 		// Defaults to the Solid tab for a still menu.
-		expect(screen.getAllByDisplayValue('#0f0e1a').length).toBeGreaterThan(0);
+		expect(screen.getAllByDisplayValue('#101014').length).toBeGreaterThan(0);
 
 		fireEvent.click(screen.getByText('Video'));
 		expect(screen.getByText('loop.mp4')).toBeTruthy();
@@ -575,7 +564,9 @@ describe('InspectorPanel', () => {
 			/>,
 		);
 
-		expect(screen.getByText('Too many buttons (37). DVD supports a maximum of 36.')).toBeTruthy();
+		expect(
+			screen.getByText('Too many buttons (37). DVD-Video supports a maximum of 36.'),
+		).toBeTruthy();
 		expect(screen.getByText('37 buttons have no action assigned.')).toBeTruthy();
 		expect(screen.getByText('Button "Button 0" has a broken navUp reference.')).toBeTruthy();
 	});
@@ -596,7 +587,7 @@ describe('InspectorPanel', () => {
 			/>,
 		);
 
-		expect(screen.getByText('No issues — menu is DVD-safe.')).toBeTruthy();
+		expect(screen.getByText('No issues — menu is DVD-Video-safe.')).toBeTruthy();
 	});
 });
 
@@ -605,6 +596,10 @@ describe('InspectorPanel', () => {
 vi.mock('@tauri-apps/plugin-fs', () => ({
 	readFile: vi.fn().mockResolvedValue(new Uint8Array([0xff, 0xd8, 0xff])),
 	BaseDirectory: { AppCache: 13 },
+}));
+
+vi.mock('@tauri-apps/api/core', () => ({
+	convertFileSrc: vi.fn((path: string) => `asset://localhost/${path}`),
 }));
 
 describe('SceneCanvas', () => {
@@ -1132,31 +1127,332 @@ describe('SceneCanvas', () => {
 		});
 	});
 
-	it('creates generated menus with the provided authored design height', () => {
-		const menu = createGeneratedMenuFromButtons(
-			'menu-generated',
-			'Generated Menu',
-			[
-				{
-					id: 'btn-generated',
-					label: 'Play',
-					bounds: { x: 96, y: 320, width: 220, height: 44 },
-					action: null,
-					navUp: null,
-					navDown: null,
-					navLeft: null,
-					navRight: null,
-					highlightMode: 'static',
-					highlightKeyframes: [],
-					videoAssetId: null,
-				},
-			],
-			'titleset',
-			576,
-			'four-by-three',
+	// ── BackgroundMedia (design decision D5) ────────────────────────────────
+
+	const stillBackgroundAsset: Asset = {
+		...imageAsset,
+		id: 'asset-bg-still',
+		fileName: 'menu-bg.png',
+		sourcePath: '/tmp/menu-bg.png',
+		thumbnailPath: null,
+	};
+
+	const motionBackgroundAsset: Asset = {
+		...imageAsset,
+		id: 'asset-bg-video',
+		fileName: 'menu-bg.mp4',
+		sourcePath: '/tmp/menu-bg.mp4',
+		thumbnailPath: null,
+		videoStreams: [
+			{
+				index: 0,
+				codec: 'h264',
+				width: 1920,
+				height: 1080,
+				frameRate: 30,
+				aspectRatio: null,
+				scanType: null,
+				bitrateBps: null,
+				title: null,
+				colorTransfer: null,
+				colorPrimaries: null,
+				dolbyVisionProfile: null,
+			},
+		],
+	};
+
+	it('renders a still <img> background when the asset has no video stream', () => {
+		const { container } = render(
+			<SceneCanvas
+				buttons={buttons}
+				canvasHeight={480}
+				sceneNodes={[]}
+				onUpdateButton={vi.fn()}
+				onUpdateSceneNode={vi.fn()}
+				showSafeArea={false}
+				backgroundLabel={null}
+				backgroundColour={null}
+				backgroundAsset={stillBackgroundAsset}
+				defaultButtonId={null}
+				previewMode={false}
+				highlightColours={DEFAULT_HIGHLIGHT_COLOURS}
+				honestPreview={false}
+				showNavLines={false}
+				selectedNodeId={null}
+				onSelectNode={vi.fn()}
+			/>,
 		);
 
-		expect(menu.authoredDocument?.scene.designSize).toEqual({ width: 720, height: 576 });
+		const img = container.querySelector('img.scene-canvas__bg-image');
+		expect(img).not.toBeNull();
+		expect(img?.getAttribute('src')).toBe('asset://localhost//tmp/menu-bg.png');
+		expect(container.querySelector('video')).toBeNull();
+	});
+
+	it('renders a still <img> background for a motion-capable asset when backgroundIsMotion is false', () => {
+		const { container } = render(
+			<SceneCanvas
+				buttons={buttons}
+				canvasHeight={480}
+				sceneNodes={[]}
+				onUpdateButton={vi.fn()}
+				onUpdateSceneNode={vi.fn()}
+				showSafeArea={false}
+				backgroundLabel={null}
+				backgroundColour={null}
+				backgroundAsset={motionBackgroundAsset}
+				backgroundIsMotion={false}
+				defaultButtonId={null}
+				previewMode={false}
+				highlightColours={DEFAULT_HIGHLIGHT_COLOURS}
+				honestPreview={false}
+				showNavLines={false}
+				selectedNodeId={null}
+				onSelectNode={vi.fn()}
+			/>,
+		);
+
+		expect(container.querySelector('video')).toBeNull();
+		expect(container.querySelector('img.scene-canvas__bg-image')).not.toBeNull();
+	});
+
+	it('renders a looping <video> background via convertFileSrc when the menu is a motion menu', () => {
+		const { container } = render(
+			<SceneCanvas
+				buttons={buttons}
+				canvasHeight={480}
+				sceneNodes={[]}
+				onUpdateButton={vi.fn()}
+				onUpdateSceneNode={vi.fn()}
+				showSafeArea={false}
+				backgroundLabel={null}
+				backgroundColour={null}
+				backgroundAsset={motionBackgroundAsset}
+				backgroundIsMotion={true}
+				backgroundInitialTimeSecs={2.5}
+				defaultButtonId={null}
+				previewMode={false}
+				highlightColours={DEFAULT_HIGHLIGHT_COLOURS}
+				honestPreview={false}
+				showNavLines={false}
+				selectedNodeId={null}
+				onSelectNode={vi.fn()}
+			/>,
+		);
+
+		const video = container.querySelector('video.scene-canvas__bg-image');
+		expect(video).not.toBeNull();
+		expect(video?.getAttribute('src')).toBe('asset://localhost//tmp/menu-bg.mp4');
+		expect(video).toHaveAttribute('muted');
+		// No native `loop` attribute: looping is driven by the playback
+		// store's loop-region logic, not the browser's own end-of-file
+		// restart (which would always jump to 0, ignoring the loop-region
+		// toggle and the authored loop window's start — see SceneCanvas's
+		// `BackgroundVideo` comment).
+		expect(video).not.toHaveAttribute('loop');
+		expect(container.querySelector('img.scene-canvas__bg-image')).toBeNull();
+	});
+
+	it("syncs the playback store's playing flag to false when the video reaches its natural end", () => {
+		const initialPlaybackState = useMenuPlaybackStore.getState();
+		useMenuPlaybackStore.setState({ playing: true }, false);
+
+		const { container } = render(
+			<SceneCanvas
+				buttons={buttons}
+				canvasHeight={480}
+				sceneNodes={[]}
+				onUpdateButton={vi.fn()}
+				onUpdateSceneNode={vi.fn()}
+				showSafeArea={false}
+				backgroundLabel={null}
+				backgroundColour={null}
+				backgroundAsset={motionBackgroundAsset}
+				backgroundIsMotion={true}
+				backgroundInitialTimeSecs={0}
+				defaultButtonId={null}
+				previewMode={false}
+				highlightColours={DEFAULT_HIGHLIGHT_COLOURS}
+				honestPreview={false}
+				showNavLines={false}
+				selectedNodeId={null}
+				onSelectNode={vi.fn()}
+			/>,
+		);
+
+		const video = container.querySelector('video.scene-canvas__bg-image');
+		expect(video).not.toBeNull();
+		fireEvent.ended(video!);
+
+		expect(useMenuPlaybackStore.getState().playing).toBe(false);
+		useMenuPlaybackStore.setState(initialPlaybackState, true);
+	});
+
+	it('wraps an enabled loop region back to its start when the video emits ended', async () => {
+		// A loop window ending at the source's end can see the browser emit
+		// `ended` before the rAF tick observes the wrap boundary — the ended
+		// handler must perform the wrap itself, not unconditionally pause.
+		const initialPlaybackState = useMenuPlaybackStore.getState();
+		const playMock = vi
+			.spyOn(window.HTMLMediaElement.prototype, 'play')
+			.mockImplementation(() => Promise.resolve());
+
+		const { container } = render(
+			<SceneCanvas
+				buttons={buttons}
+				canvasHeight={480}
+				sceneNodes={[]}
+				onUpdateButton={vi.fn()}
+				onUpdateSceneNode={vi.fn()}
+				showSafeArea={false}
+				backgroundLabel={null}
+				backgroundColour={null}
+				backgroundAsset={motionBackgroundAsset}
+				backgroundIsMotion={true}
+				backgroundInitialTimeSecs={0}
+				defaultButtonId={null}
+				previewMode={false}
+				highlightColours={DEFAULT_HIGHLIGHT_COLOURS}
+				honestPreview={false}
+				showNavLines={false}
+				selectedNodeId={null}
+				onSelectNode={vi.fn()}
+			/>,
+		);
+		useMenuPlaybackStore.setState(
+			{ loopRegion: { startSecs: 2, durationSecs: 8 }, loopRegionEnabled: true },
+			false,
+		);
+
+		const video = container.querySelector('video.scene-canvas__bg-image') as HTMLVideoElement;
+		fireEvent.ended(video);
+
+		expect(video.currentTime).toBe(2);
+		await waitFor(() => expect(useMenuPlaybackStore.getState().playing).toBe(true));
+
+		playMock.mockRestore();
+		useMenuPlaybackStore.setState(initialPlaybackState, true);
+	});
+
+	// WebKitGTK cannot stream media over the custom asset:// scheme (plain
+	// fetches through it work fine), so BackgroundVideo falls back to fetching
+	// the file through the asset protocol and playing an in-memory blob URL
+	// after the element's own load fails past its one scope-grant retry.
+	describe('blob-URL fallback when asset:// media streaming fails', () => {
+		const renderMotionCanvas = () =>
+			render(
+				<SceneCanvas
+					buttons={buttons}
+					canvasHeight={480}
+					sceneNodes={[]}
+					onUpdateButton={vi.fn()}
+					onUpdateSceneNode={vi.fn()}
+					showSafeArea={false}
+					backgroundLabel={null}
+					backgroundColour={null}
+					backgroundAsset={motionBackgroundAsset}
+					backgroundIsMotion={true}
+					backgroundInitialTimeSecs={0}
+					defaultButtonId={null}
+					previewMode={false}
+					highlightColours={DEFAULT_HIGHLIGHT_COLOURS}
+					honestPreview={false}
+					showNavLines={false}
+					selectedNodeId={null}
+					onSelectNode={vi.fn()}
+				/>,
+			);
+
+		const failPastRetry = async (container: HTMLElement) => {
+			const video = container.querySelector('video.scene-canvas__bg-image');
+			expect(video).not.toBeNull();
+			// First error schedules the scope-grant retry; second exhausts it
+			// and starts the blob fallback fetch.
+			fireEvent.error(video!);
+			fireEvent.error(video!);
+		};
+
+		afterEach(() => {
+			vi.unstubAllGlobals();
+			delete (URL as { createObjectURL?: unknown }).createObjectURL;
+			delete (URL as { revokeObjectURL?: unknown }).revokeObjectURL;
+		});
+
+		it('swaps the video onto a blob URL fetched through the asset protocol', async () => {
+			URL.createObjectURL = vi.fn(() => 'blob:spindle/preview-fallback');
+			URL.revokeObjectURL = vi.fn();
+			const fetchMock = vi.fn(async () => ({
+				ok: true,
+				headers: new Headers({ 'content-length': '3' }),
+				blob: async () => new Blob(['abc']),
+			}));
+			vi.stubGlobal('fetch', fetchMock);
+
+			const { container } = renderMotionCanvas();
+			await failPastRetry(container);
+
+			await waitFor(() => {
+				const video = container.querySelector('video.scene-canvas__bg-image');
+				expect(video).toHaveAttribute('src', 'blob:spindle/preview-fallback');
+			});
+			expect(fetchMock).toHaveBeenCalledWith('asset://localhost//tmp/menu-bg.mp4', {
+				signal: expect.any(AbortSignal),
+			});
+			expect(container.querySelector('.scene-canvas__image-placeholder')).toBeNull();
+		});
+
+		it('shows the preview-unavailable placeholder when the fallback fetch fails too', async () => {
+			vi.stubGlobal(
+				'fetch',
+				vi.fn(async () => {
+					throw new Error('scope denied');
+				}),
+			);
+
+			const { container } = renderMotionCanvas();
+			await failPastRetry(container);
+
+			await waitFor(() => {
+				expect(container.querySelector('video')).toBeNull();
+			});
+			expect(screen.getByText('Preview unavailable')).toBeInTheDocument();
+		});
+	});
+
+	it('creates generated menus with the standard-appropriate authored design height', () => {
+		const [menu] = buildChapterMenusForTitleset(
+			{
+				id: 'titleset-1',
+				name: 'Feature',
+				menus: [],
+				titles: [
+					{
+						id: 'title-1',
+						name: 'Feature',
+						sourceAssetId: null,
+						videoMapping: null,
+						videoOutputProfile: null,
+						audioMappings: [],
+						subtitleMappings: [],
+						chapters: [{ id: 'ch-1', name: 'Chapter 1', timestampSecs: 0, orderIndex: 0 }],
+						endAction: null,
+						orderIndex: 0,
+						bitrateWeight: 1.0,
+						bitrateFloorBps: null,
+						bitrateCeilingBps: null,
+						pinnedBitrateBps: null,
+					},
+				],
+			},
+			'PAL',
+			null,
+		);
+
+		expect(menu.authoredDocument?.scene.designSize).toEqual({
+			width: 720,
+			height: 576,
+			aspect: 'four-by-three',
+		});
 	});
 
 	it('builds audio setup choices from the titleset-wide audio union', () => {
@@ -1231,8 +1527,9 @@ describe('SceneCanvas', () => {
 		);
 
 		expect(menu).not.toBeNull();
-		expect(menu?.buttons.map((button) => button.label)).toEqual(['English 2.0', 'Commentary']);
-		expect(menu?.buttons[1]?.action).toEqual({
+		const buttons = getMenuButtons(menu!);
+		expect(buttons.map((button) => button.label)).toEqual(['English 2.0', 'Commentary']);
+		expect(buttons[1]?.action).toEqual({
 			type: 'sequence',
 			actions: [{ type: 'setAudioStream', streamIndex: 1 }],
 		});
@@ -1304,14 +1601,764 @@ describe('SceneCanvas', () => {
 		);
 
 		expect(menu).not.toBeNull();
-		expect(menu?.buttons.map((button) => button.label)).toEqual([
-			'English',
-			'Spanish',
-			'Subtitles Off',
-		]);
-		expect(menu?.buttons[1]?.action).toEqual({
+		const buttons = getMenuButtons(menu!);
+		expect(buttons.map((button) => button.label)).toEqual(['English', 'Spanish', 'Subtitles Off']);
+		expect(buttons[1]?.action).toEqual({
 			type: 'sequence',
 			actions: [{ type: 'setSubtitleStream', streamIndex: 1 }],
 		});
+	});
+});
+
+// ── Timeline strip (PR 8) ────────────────────────────────────────────────
+
+const timelineTestButton: MenuButton = {
+	id: 'btn-1',
+	label: 'Play',
+	bounds: { x: 100, y: 300, width: 200, height: 40 },
+	action: null,
+	navUp: null,
+	navDown: null,
+	navLeft: null,
+	navRight: null,
+	highlightMode: 'static',
+	highlightKeyframes: [],
+	videoAssetId: null,
+};
+
+const timelineTestButtonNode: SceneNode = {
+	type: 'button',
+	id: 'btn-1',
+	label: 'Play',
+	x: 100,
+	y: 300,
+	width: 200,
+	height: 40,
+};
+
+function buildMenuDocument(overrides: Partial<MenuDocument> = {}): MenuDocument {
+	return {
+		id: 'menu-1',
+		name: 'Menu',
+		domain: 'vmgm',
+		role: 'title-select',
+		scene: {
+			designSize: { width: 720, height: 480, aspect: 'four-by-three' },
+			background: { assetId: null, colour: '#000000' },
+			nodes: [],
+			guides: [],
+		},
+		interaction: { defaultFocusId: null, nodes: [], timeoutAction: null },
+		timing: {
+			introStartSecs: 0,
+			introDurationSecs: 0,
+			loopStartSecs: 0,
+			loopDurationSecs: 10,
+			loopCount: 0,
+			audioAssetId: null,
+		},
+		highlightColours: DEFAULT_HIGHLIGHT_COLOURS,
+		backgroundMode: 'still',
+		themeRef: null,
+		generationMeta: null,
+		compilePolicy: createDefaultMenuCompilePolicy('four-by-three'),
+		animation: [],
+		...overrides,
+	};
+}
+
+describe('TimelineStrip', () => {
+	afterEach(() => {
+		useMenuPlaybackStore.setState({ loopRegion: null }, false);
+	});
+
+	it('renders when the menu has a motion background', () => {
+		render(
+			<TimelineStrip
+				document={buildMenuDocument({ backgroundMode: 'motion' })}
+				buttons={[]}
+				assets={[]}
+				standard="NTSC"
+				onAddKeyframe={vi.fn()}
+				onMoveKeyframe={vi.fn()}
+				onUpdateKeyframeValue={vi.fn()}
+				onUpdateKeyframeEasing={vi.fn()}
+				onDeleteKeyframe={vi.fn()}
+				onSetTimingField={vi.fn()}
+			/>,
+		);
+
+		expect(screen.getByTestId('timeline-strip')).toBeTruthy();
+	});
+
+	it('is hidden for a still menu with no animation tracks', () => {
+		const { container } = render(
+			<TimelineStrip
+				document={buildMenuDocument({ backgroundMode: 'still', animation: [] })}
+				buttons={[]}
+				assets={[]}
+				standard="NTSC"
+				onAddKeyframe={vi.fn()}
+				onMoveKeyframe={vi.fn()}
+				onUpdateKeyframeValue={vi.fn()}
+				onUpdateKeyframeEasing={vi.fn()}
+				onDeleteKeyframe={vi.fn()}
+				onSetTimingField={vi.fn()}
+			/>,
+		);
+
+		expect(container.firstChild).toBeNull();
+	});
+
+	it('renders for a still menu that has an authored animation track', () => {
+		const tracks: AnimationTrack[] = [
+			{
+				nodeId: 'btn-1',
+				target: 'highlight-colour',
+				keyframes: [
+					{ timestampSecs: 0, value: { kind: 'colour', hex: '#ff0000' }, easing: 'hold' },
+				],
+			},
+		];
+		render(
+			<TimelineStrip
+				document={buildMenuDocument({ backgroundMode: 'still', animation: tracks })}
+				buttons={[timelineTestButton]}
+				assets={[]}
+				standard="NTSC"
+				onAddKeyframe={vi.fn()}
+				onMoveKeyframe={vi.fn()}
+				onUpdateKeyframeValue={vi.fn()}
+				onUpdateKeyframeEasing={vi.fn()}
+				onDeleteKeyframe={vi.fn()}
+				onSetTimingField={vi.fn()}
+			/>,
+		);
+
+		expect(screen.getByTestId('timeline-strip')).toBeTruthy();
+	});
+
+	it('mirrors the scroll area position onto the scrubber viewport', () => {
+		// The scrubber track sits outside `.timeline-strip__scroll` (so the
+		// transport controls stay pinned) but is rendered at the ruler's own
+		// `geometry.totalWidthPx`, not stretched to fill the available width
+		// (see TimelineScrubber). Its viewport's scrollLeft must therefore
+		// track the scroll area's, or the playhead/ruler visually diverge
+		// once the timeline scrolls.
+		const { container } = render(
+			<TimelineStrip
+				document={buildMenuDocument({ backgroundMode: 'motion' })}
+				buttons={[]}
+				assets={[]}
+				standard="NTSC"
+				onAddKeyframe={vi.fn()}
+				onMoveKeyframe={vi.fn()}
+				onUpdateKeyframeValue={vi.fn()}
+				onUpdateKeyframeEasing={vi.fn()}
+				onDeleteKeyframe={vi.fn()}
+				onSetTimingField={vi.fn()}
+			/>,
+		);
+
+		const scrollArea = container.querySelector('.timeline-strip__scroll') as HTMLDivElement;
+		const scrubberViewport = container.querySelector(
+			'.timeline-scrubber__viewport',
+		) as HTMLDivElement;
+		expect(scrollArea).toBeTruthy();
+		expect(scrubberViewport).toBeTruthy();
+
+		scrollArea.scrollLeft = 240;
+		fireEvent.scroll(scrollArea);
+
+		expect(scrubberViewport.scrollLeft).toBe(240);
+	});
+});
+
+describe('ButtonInspector highlight animation (PR 8)', () => {
+	it('no longer renders the legacy Static/Animated highlight-mode dropdown', () => {
+		render(
+			<InspectorPanel
+				selectedNode={timelineTestButtonNode}
+				selectedButton={timelineTestButton}
+				highlightColours={DEFAULT_HIGHLIGHT_COLOURS}
+				allTitles={[]}
+				allMenus={[]}
+				currentMenuId="menu-1"
+				onUpdateButton={vi.fn()}
+				onUpdateHighlightColours={vi.fn()}
+				onRemoveButton={vi.fn()}
+			/>,
+		);
+
+		expect(screen.queryByText('Highlight Mode')).toBeNull();
+		expect(screen.getByText('Highlight Animation')).toBeTruthy();
+		expect(screen.getByText(/No animated highlight yet/)).toBeTruthy();
+	});
+
+	it('shows a keyframe-count summary once the button has animation tracks', () => {
+		const onAddKeyframeAtPlayhead = vi.fn();
+		render(
+			<InspectorPanel
+				selectedNode={timelineTestButtonNode}
+				selectedButton={timelineTestButton}
+				highlightColours={DEFAULT_HIGHLIGHT_COLOURS}
+				allTitles={[]}
+				allMenus={[]}
+				currentMenuId="menu-1"
+				onUpdateButton={vi.fn()}
+				onUpdateHighlightColours={vi.fn()}
+				onRemoveButton={vi.fn()}
+				document={buildMenuDocument({
+					backgroundMode: 'motion',
+					animation: [
+						{
+							nodeId: timelineTestButton.id,
+							target: 'highlight-colour',
+							keyframes: [
+								{ timestampSecs: 0, value: { kind: 'colour', hex: '#ff0000' }, easing: 'hold' },
+								{ timestampSecs: 1, value: { kind: 'colour', hex: '#00ff00' }, easing: 'hold' },
+							],
+						},
+					],
+				})}
+				onAddKeyframeAtPlayhead={onAddKeyframeAtPlayhead}
+			/>,
+		);
+
+		expect(screen.getByText(/2 keyframes across 1 track/)).toBeTruthy();
+		fireEvent.click(screen.getByText('Add keyframe at playhead'));
+		expect(onAddKeyframeAtPlayhead).toHaveBeenCalledWith(timelineTestButton.id);
+	});
+
+	it('disables "Add keyframe at playhead" with an explanatory title on a still menu', () => {
+		const onAddKeyframeAtPlayhead = vi.fn();
+		render(
+			<InspectorPanel
+				selectedNode={timelineTestButtonNode}
+				selectedButton={timelineTestButton}
+				highlightColours={DEFAULT_HIGHLIGHT_COLOURS}
+				allTitles={[]}
+				allMenus={[]}
+				currentMenuId="menu-1"
+				onUpdateButton={vi.fn()}
+				onUpdateHighlightColours={vi.fn()}
+				onRemoveButton={vi.fn()}
+				document={buildMenuDocument({ backgroundMode: 'still' })}
+				onAddKeyframeAtPlayhead={onAddKeyframeAtPlayhead}
+			/>,
+		);
+
+		const button = screen.getByText('Add keyframe at playhead') as HTMLButtonElement;
+		expect(button.disabled).toBe(true);
+		expect(button.title).toMatch(/motion background/i);
+		fireEvent.click(button);
+		expect(onAddKeyframeAtPlayhead).not.toHaveBeenCalled();
+	});
+});
+
+describe('Navigation preview highlight animation (PR 8)', () => {
+	const initialPlaybackState = useMenuPlaybackStore.getState();
+
+	afterEach(() => {
+		useMenuPlaybackStore.setState(initialPlaybackState, true);
+	});
+
+	it("samples the focused button's highlight colour at the playhead and updates as it crosses a keyframe", () => {
+		const previewButtons: MenuButton[] = [
+			{
+				id: 'btn-1',
+				label: 'Play',
+				bounds: { x: 100, y: 300, width: 200, height: 40 },
+				action: null,
+				navUp: null,
+				navDown: null,
+				navLeft: null,
+				navRight: null,
+				highlightMode: 'static',
+				highlightKeyframes: [],
+				videoAssetId: null,
+			},
+		];
+		const tracks: AnimationTrack[] = [
+			{
+				nodeId: 'btn-1',
+				target: 'highlight-colour',
+				keyframes: [
+					{ timestampSecs: 0, value: { kind: 'colour', hex: '#ff0000' }, easing: 'hold' },
+					{ timestampSecs: 2, value: { kind: 'colour', hex: '#00ff00' }, easing: 'hold' },
+				],
+			},
+		];
+
+		act(() => {
+			useMenuPlaybackStore.setState({ currentTime: 0 });
+		});
+
+		const { container } = render(
+			<SceneCanvas
+				buttons={previewButtons}
+				canvasHeight={480}
+				sceneNodes={[]}
+				onUpdateButton={vi.fn()}
+				onUpdateSceneNode={vi.fn()}
+				showSafeArea={false}
+				backgroundLabel={null}
+				backgroundColour={null}
+				backgroundIsMotion={true}
+				backgroundInitialTimeSecs={0}
+				animationTracks={tracks}
+				defaultButtonId="btn-1"
+				previewMode={true}
+				highlightColours={DEFAULT_HIGHLIGHT_COLOURS}
+				honestPreview={false}
+				showNavLines={false}
+				selectedNodeId={null}
+				onSelectNode={vi.fn()}
+			/>,
+		);
+
+		// The outline's opacity is baked into its alpha (no `highlight-opacity`
+		// track here, so it falls back to `DEFAULT_HIGHLIGHT_COLOURS.selectOpacity`
+		// = 0.6), mirroring `bake_opacity_into_alpha`'s `highlight_colour`
+		// handling.
+		const focused = () => container.querySelector('.scene-canvas__node--focused') as HTMLElement;
+		expect(focused().style.outline).toContain('rgba(255, 0, 0, 0.6)');
+
+		act(() => {
+			useMenuPlaybackStore.setState({ currentTime: 2.5 });
+		});
+
+		expect(focused().style.outline).toContain('rgba(0, 255, 0, 0.6)');
+	});
+
+	it("bakes in a still menu's first keyframe regardless of the playhead, mirroring the disc's degrade path", () => {
+		const previewButtons: MenuButton[] = [
+			{
+				id: 'btn-1',
+				label: 'Play',
+				bounds: { x: 100, y: 300, width: 200, height: 40 },
+				action: null,
+				navUp: null,
+				navDown: null,
+				navLeft: null,
+				navRight: null,
+				highlightMode: 'static',
+				highlightKeyframes: [],
+				videoAssetId: null,
+			},
+		];
+		const tracks: AnimationTrack[] = [
+			{
+				nodeId: 'btn-1',
+				target: 'highlight-colour',
+				keyframes: [
+					{ timestampSecs: 0, value: { kind: 'colour', hex: '#ff0000' }, easing: 'hold' },
+					{ timestampSecs: 2, value: { kind: 'colour', hex: '#00ff00' }, easing: 'hold' },
+				],
+			},
+		];
+
+		act(() => {
+			useMenuPlaybackStore.setState({ currentTime: 2.5 });
+		});
+
+		const { container } = render(
+			<SceneCanvas
+				buttons={previewButtons}
+				canvasHeight={480}
+				sceneNodes={[]}
+				onUpdateButton={vi.fn()}
+				onUpdateSceneNode={vi.fn()}
+				showSafeArea={false}
+				backgroundLabel={null}
+				backgroundColour={null}
+				backgroundIsMotion={false}
+				backgroundInitialTimeSecs={0}
+				animationTracks={tracks}
+				defaultButtonId="btn-1"
+				previewMode={true}
+				highlightColours={DEFAULT_HIGHLIGHT_COLOURS}
+				honestPreview={false}
+				showNavLines={false}
+				selectedNodeId={null}
+				onSelectNode={vi.fn()}
+			/>,
+		);
+
+		// Playhead is past the second keyframe (2.5s > 2s), but a still menu
+		// can't host a schedule at all — the disc bakes in only the track's
+		// first keyframe (`build_overlay_keyframe_schedule`'s still-menu
+		// degrade path), so the preview must too.
+		const focused = container.querySelector('.scene-canvas__node--focused') as HTMLElement;
+		expect(focused.style.outline).toContain('rgba(255, 0, 0, 0.6)');
+	});
+
+	it("samples the activated button's outline from its activate-colour track", () => {
+		const previewButtons: MenuButton[] = [
+			{
+				id: 'btn-1',
+				label: 'Play',
+				bounds: { x: 100, y: 300, width: 200, height: 40 },
+				action: null,
+				navUp: null,
+				navDown: null,
+				navLeft: null,
+				navRight: null,
+				highlightMode: 'static',
+				highlightKeyframes: [],
+				videoAssetId: null,
+			},
+		];
+		const tracks: AnimationTrack[] = [
+			{
+				nodeId: 'btn-1',
+				target: 'activate-colour',
+				keyframes: [
+					{ timestampSecs: 0, value: { kind: 'colour', hex: '#0000ff' }, easing: 'hold' },
+				],
+			},
+		];
+
+		act(() => {
+			useMenuPlaybackStore.setState({ currentTime: 0 });
+		});
+
+		const { container } = render(
+			<SceneCanvas
+				buttons={previewButtons}
+				canvasHeight={480}
+				sceneNodes={[]}
+				onUpdateButton={vi.fn()}
+				onUpdateSceneNode={vi.fn()}
+				showSafeArea={false}
+				backgroundLabel={null}
+				backgroundColour={null}
+				backgroundIsMotion={true}
+				backgroundInitialTimeSecs={0}
+				animationTracks={tracks}
+				defaultButtonId="btn-1"
+				previewMode={true}
+				highlightColours={DEFAULT_HIGHLIGHT_COLOURS}
+				honestPreview={false}
+				showNavLines={false}
+				selectedNodeId={null}
+				onSelectNode={vi.fn()}
+			/>,
+		);
+
+		// btn-1 starts focused (via defaultButtonId); Enter also activates it
+		// — the activated-state outline (from its own `activate-colour`
+		// track) then wins over the focused-state one in the merged style.
+		fireEvent.keyDown(container.querySelector('.scene-canvas__viewport--preview')!, {
+			key: 'Enter',
+		});
+
+		// No `activate-opacity` track, so the outline's alpha comes from the
+		// menu's static `activateOpacity` default (0.8) baked in via
+		// `hexToRgba` — the compiled disc has no separate opacity channel
+		// for the activated state, only baked alpha (`bake_opacity_into_alpha`).
+		const node = container.querySelector('.scene-canvas__node--focused') as HTMLElement;
+		expect(node.style.outline).toContain('rgba(0, 0, 255, 0.8)');
+	});
+
+	it("bakes the activated button's activate-opacity track into the outline's alpha", () => {
+		const previewButtons: MenuButton[] = [
+			{
+				id: 'btn-1',
+				label: 'Play',
+				bounds: { x: 100, y: 300, width: 200, height: 40 },
+				action: null,
+				navUp: null,
+				navDown: null,
+				navLeft: null,
+				navRight: null,
+				highlightMode: 'static',
+				highlightKeyframes: [],
+				videoAssetId: null,
+			},
+		];
+		const tracks: AnimationTrack[] = [
+			{
+				nodeId: 'btn-1',
+				target: 'activate-colour',
+				keyframes: [
+					{ timestampSecs: 0, value: { kind: 'colour', hex: '#0000ff' }, easing: 'hold' },
+				],
+			},
+			{
+				nodeId: 'btn-1',
+				target: 'activate-opacity',
+				keyframes: [{ timestampSecs: 0, value: { kind: 'scalar', value: 0.25 }, easing: 'hold' }],
+			},
+		];
+
+		act(() => {
+			useMenuPlaybackStore.setState({ currentTime: 0 });
+		});
+
+		const { container } = render(
+			<SceneCanvas
+				buttons={previewButtons}
+				canvasHeight={480}
+				sceneNodes={[]}
+				onUpdateButton={vi.fn()}
+				onUpdateSceneNode={vi.fn()}
+				showSafeArea={false}
+				backgroundLabel={null}
+				backgroundColour={null}
+				backgroundIsMotion={true}
+				backgroundInitialTimeSecs={0}
+				animationTracks={tracks}
+				defaultButtonId="btn-1"
+				previewMode={true}
+				highlightColours={DEFAULT_HIGHLIGHT_COLOURS}
+				honestPreview={false}
+				showNavLines={false}
+				selectedNodeId={null}
+				onSelectNode={vi.fn()}
+			/>,
+		);
+
+		fireEvent.keyDown(container.querySelector('.scene-canvas__viewport--preview')!, {
+			key: 'Enter',
+		});
+
+		const node = container.querySelector('.scene-canvas__node--focused') as HTMLElement;
+		expect(node.style.outline).toContain('rgba(0, 0, 255, 0.25)');
+	});
+
+	it("bakes the focused button's highlight-opacity track into the outline's alpha", () => {
+		// Regression test: the focused-state outline used the raw
+		// `highlight-colour` hex with no alpha, ignoring `hlOpacity` entirely
+		// — only the decorative glow (`boxShadow`) used it. The compiler
+		// bakes highlight opacity into the highlight colour's own alpha
+		// (`bake_opacity_into_alpha`'s `highlight_colour` handling, the same
+		// treatment `select_colour`/the activated state already gets), so
+		// the outline must match.
+		const previewButtons: MenuButton[] = [
+			{
+				id: 'btn-1',
+				label: 'Play',
+				bounds: { x: 100, y: 300, width: 200, height: 40 },
+				action: null,
+				navUp: null,
+				navDown: null,
+				navLeft: null,
+				navRight: null,
+				highlightMode: 'static',
+				highlightKeyframes: [],
+				videoAssetId: null,
+			},
+		];
+		const tracks: AnimationTrack[] = [
+			{
+				nodeId: 'btn-1',
+				target: 'highlight-colour',
+				keyframes: [
+					{ timestampSecs: 0, value: { kind: 'colour', hex: '#0000ff' }, easing: 'hold' },
+				],
+			},
+			{
+				nodeId: 'btn-1',
+				target: 'highlight-opacity',
+				keyframes: [{ timestampSecs: 0, value: { kind: 'scalar', value: 0.25 }, easing: 'hold' }],
+			},
+		];
+
+		act(() => {
+			useMenuPlaybackStore.setState({ currentTime: 0 });
+		});
+
+		const { container } = render(
+			<SceneCanvas
+				buttons={previewButtons}
+				canvasHeight={480}
+				sceneNodes={[]}
+				onUpdateButton={vi.fn()}
+				onUpdateSceneNode={vi.fn()}
+				showSafeArea={false}
+				backgroundLabel={null}
+				backgroundColour={null}
+				backgroundIsMotion={true}
+				backgroundInitialTimeSecs={0}
+				animationTracks={tracks}
+				defaultButtonId="btn-1"
+				previewMode={true}
+				highlightColours={DEFAULT_HIGHLIGHT_COLOURS}
+				honestPreview={false}
+				showNavLines={false}
+				selectedNodeId={null}
+				onSelectNode={vi.fn()}
+			/>,
+		);
+
+		const node = container.querySelector('.scene-canvas__node--focused') as HTMLElement;
+		expect(node.style.outline).toContain('rgba(0, 0, 255, 0.25)');
+	});
+
+	it('honest preview folds every button into the same menu-wide activate colour', () => {
+		// The compiled disc has exactly one CLUT for the whole menu — two
+		// buttons with different `activate-colour` tracks can't both show
+		// their own colour on the real disc. Honest preview must show the
+		// SAME document-order-last-wins value for both, not each button's
+		// own track.
+		const previewButtons: MenuButton[] = [
+			{
+				id: 'btn-1',
+				label: 'Play',
+				bounds: { x: 100, y: 300, width: 200, height: 40 },
+				action: null,
+				navUp: null,
+				navDown: null,
+				navLeft: null,
+				navRight: null,
+				highlightMode: 'static',
+				highlightKeyframes: [],
+				videoAssetId: null,
+			},
+			{
+				id: 'btn-2',
+				label: 'Setup',
+				bounds: { x: 100, y: 360, width: 200, height: 40 },
+				action: null,
+				navUp: null,
+				navDown: null,
+				navLeft: null,
+				navRight: null,
+				highlightMode: 'static',
+				highlightKeyframes: [],
+				videoAssetId: null,
+			},
+		];
+		const tracks: AnimationTrack[] = [
+			{
+				nodeId: 'btn-1',
+				target: 'activate-colour',
+				keyframes: [
+					{ timestampSecs: 0, value: { kind: 'colour', hex: '#0000ff' }, easing: 'hold' },
+				],
+			},
+			{
+				nodeId: 'btn-2',
+				target: 'activate-colour',
+				keyframes: [
+					{ timestampSecs: 0, value: { kind: 'colour', hex: '#ff00ff' }, easing: 'hold' },
+				],
+			},
+		];
+
+		act(() => {
+			useMenuPlaybackStore.setState({ currentTime: 0 });
+		});
+
+		const { container } = render(
+			<SceneCanvas
+				buttons={previewButtons}
+				canvasHeight={480}
+				sceneNodes={[]}
+				onUpdateButton={vi.fn()}
+				onUpdateSceneNode={vi.fn()}
+				showSafeArea={false}
+				backgroundLabel={null}
+				backgroundColour={null}
+				backgroundIsMotion={true}
+				backgroundInitialTimeSecs={0}
+				animationTracks={tracks}
+				defaultButtonId="btn-1"
+				previewMode={true}
+				highlightColours={DEFAULT_HIGHLIGHT_COLOURS}
+				honestPreview={true}
+				showNavLines={false}
+				selectedNodeId={null}
+				onSelectNode={vi.fn()}
+			/>,
+		);
+
+		// Activate btn-1 (the default focus). Its OWN track is `#0000ff`, but
+		// the fold walks every relevant track in `doc.animation` order and
+		// lets the last one win — btn-2's `#ff00ff` — since that's the one
+		// shared CLUT entry the compiled disc would actually produce.
+		fireEvent.keyDown(container.querySelector('.scene-canvas__viewport--preview')!, {
+			key: 'Enter',
+		});
+		const activatedNode = container.querySelector('.scene-canvas__node--focused') as HTMLElement;
+		expect(activatedNode.style.outline).toContain('rgba(255, 0, 255, 0.8)');
+	});
+
+	it('honest preview excludes tracks targeting nodes outside the compiled top-level button set', () => {
+		// Regression test: the planner only ever lowers TOP-LEVEL buttons
+		// (`menu_ref.buttons()`) — a track on a group-nested button (named by
+		// `menu.animation-node-not-compiled`) is silently dropped from the
+		// disc's schedule. The honest-preview fold must drop it too, or it
+		// shows a colour the compiled disc never would. `buttons` here
+		// stands in for the compiled top-level set; `group-nested-btn` is
+		// NOT a member of it, even though it carries a track.
+		const previewButtons: MenuButton[] = [
+			{
+				id: 'btn-1',
+				label: 'Play',
+				bounds: { x: 100, y: 300, width: 200, height: 40 },
+				action: null,
+				navUp: null,
+				navDown: null,
+				navLeft: null,
+				navRight: null,
+				highlightMode: 'static',
+				highlightKeyframes: [],
+				videoAssetId: null,
+			},
+		];
+		const tracks: AnimationTrack[] = [
+			{
+				nodeId: 'btn-1',
+				target: 'activate-colour',
+				keyframes: [
+					{ timestampSecs: 0, value: { kind: 'colour', hex: '#0000ff' }, easing: 'hold' },
+				],
+			},
+			// Last in document order — would win the fold's last-track-wins
+			// tie-break if it weren't filtered out, since it isn't a member
+			// of `buttons`.
+			{
+				nodeId: 'group-nested-btn',
+				target: 'activate-colour',
+				keyframes: [
+					{ timestampSecs: 0, value: { kind: 'colour', hex: '#ff00ff' }, easing: 'hold' },
+				],
+			},
+		];
+
+		act(() => {
+			useMenuPlaybackStore.setState({ currentTime: 0 });
+		});
+
+		const { container } = render(
+			<SceneCanvas
+				buttons={previewButtons}
+				canvasHeight={480}
+				sceneNodes={[]}
+				onUpdateButton={vi.fn()}
+				onUpdateSceneNode={vi.fn()}
+				showSafeArea={false}
+				backgroundLabel={null}
+				backgroundColour={null}
+				backgroundIsMotion={true}
+				backgroundInitialTimeSecs={0}
+				animationTracks={tracks}
+				defaultButtonId="btn-1"
+				previewMode={true}
+				highlightColours={DEFAULT_HIGHLIGHT_COLOURS}
+				honestPreview={true}
+				showNavLines={false}
+				selectedNodeId={null}
+				onSelectNode={vi.fn()}
+			/>,
+		);
+
+		fireEvent.keyDown(container.querySelector('.scene-canvas__viewport--preview')!, {
+			key: 'Enter',
+		});
+		const activatedNode = container.querySelector('.scene-canvas__node--focused') as HTMLElement;
+		expect(activatedNode.style.outline).toContain('rgba(0, 0, 255, 0.8)');
 	});
 });

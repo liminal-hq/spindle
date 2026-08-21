@@ -246,8 +246,8 @@ export function SettingsPage() {
 						<div className="settings__toggle-text">
 							<span className="settings__toggle-label">Quantize overlay palette (dev)</span>
 							<span className="settings__toggle-desc text-muted">
-								Render menu overlays with anti-aliasing enabled and quantize the result to a 4-entry
-								palette. Use this to preview and verify AA+quantized overlay output without building
+								Render menu overlays with anti-aliasing enabled and quantise the result to a 4-entry
+								palette. Use this to preview and verify AA+quantised overlay output without building
 								a full disc.
 							</span>
 						</div>

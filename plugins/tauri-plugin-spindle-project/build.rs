@@ -4,9 +4,11 @@ const COMMANDS: &[&str] = &[
     "serialise_project",
     "validate_project",
     "estimate_disc_capacity",
+    "get_format_profile",
     "inspect_asset",
     "extract_video_thumbnail",
     "extract_image_thumbnail",
+    "allow_asset_scope",
 ];
 
 fn main() {

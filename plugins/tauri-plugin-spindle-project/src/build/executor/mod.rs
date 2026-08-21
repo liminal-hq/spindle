@@ -6,7 +6,10 @@
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use super::menu::{generate_menu_overlay_images, MenuOverlayImages, MenuOverlayRender};
+use super::menu::{
+    generate_menu_overlay_images, generate_menu_overlay_images_for_keyframes, MenuOverlayImages,
+    MenuOverlayRender,
+};
 use super::skia::render_menu_scene_to_png;
 use super::types::{BuildJob, BuildJobStatus, BuildPlan, BuildProgress, BuildResult};
 use crate::models::{Asset, DiscFamily, MenuDocument, RenderTarget};
@@ -113,6 +116,9 @@ where
             BuildJob::RenderMenu {
                 menu_id,
                 command,
+                intro_command,
+                duration_secs,
+                intro_duration_secs,
                 output_path: _,
                 standard,
                 highlight_image_path,
@@ -126,6 +132,7 @@ where
                 menu_document_json,
                 scene_assets_json,
                 quantize_overlay_palette,
+                overlay_keyframes,
                 ..
             } => {
                 let overlay_target = RenderTarget {
@@ -181,11 +188,7 @@ where
 
                 use super::menu::{AuthorableMenuRef, MenuDomain};
                 use crate::models::Menu;
-                let menu = Menu {
-                    id: menu_id.clone(),
-                    authored_document: Some(menu_doc),
-                    ..Menu::default()
-                };
+                let menu = Menu::new(menu_id.clone(), "Untitled Menu").with_document(menu_doc);
                 let menu_ref = AuthorableMenuRef {
                     menu: &menu,
                     domain: MenuDomain::Vmgm,
@@ -211,33 +214,136 @@ where
                     );
                 }
 
-                let render = MenuOverlayRender {
+                // `overlay_keyframes` is always non-empty for plans built by
+                // the current planner (at minimum a trivial single-frame
+                // schedule — see `planner::animation`); the single-pair path
+                // below only exists for plans persisted before this field
+                // existed (`#[serde(default)]` deserialises those as empty).
+                if overlay_keyframes.is_empty() {
+                    let render = MenuOverlayRender {
+                        menu_id,
+                        button_bounds,
+                        target: overlay_target,
+                    };
+                    let images = MenuOverlayImages {
+                        highlight_image_path,
+                        select_image_path,
+                        highlight_colour,
+                        select_colour,
+                        quantize_palette: *quantize_overlay_palette,
+                    };
+                    if let Err(msg) = generate_menu_overlay_images(&render, &images) {
+                        log_lines.push(msg.clone());
+                        return failure(plan, log_lines, i, msg);
+                    }
+                } else if let Err(msg) = generate_menu_overlay_images_for_keyframes(
                     menu_id,
                     button_bounds,
-                    target: overlay_target,
-                };
-                let images = MenuOverlayImages {
-                    highlight_image_path,
-                    select_image_path,
-                    highlight_colour,
-                    select_colour,
-                    quantize_palette: *quantize_overlay_palette,
-                };
-                if let Err(msg) = generate_menu_overlay_images(&render, &images) {
+                    overlay_target,
+                    overlay_keyframes,
+                    *quantize_overlay_palette,
+                ) {
                     log_lines.push(msg.clone());
                     return failure(plan, log_lines, i, msg);
                 }
 
-                log_lines.push(format!("  $ {}", command.join(" ")));
-                match run_command(command) {
-                    Ok(output) => {
-                        if !output.is_empty() {
-                            log_lines.push(output);
+                if let Some(seg_duration) = duration_secs {
+                    // Motion menu: run the intro compose (when authored) then
+                    // the loop compose, both via the progress-reporting
+                    // ffmpeg runner — mirrors `TranscodeTitle`'s
+                    // `pass1_command` pattern.
+                    if let Some(intro_command) = intro_command {
+                        log_lines.push(format!("  $ {}", intro_command.join(" ")));
+                        on_progress(BuildProgress::job(
+                            i,
+                            total,
+                            label.clone(),
+                            BuildJobStatus::Running,
+                            None,
+                        ));
+                        // Use the intro's own duration for progress, not the
+                        // loop's `seg_duration` — an authored intro can run
+                        // for a very different length of time than the loop,
+                        // so reusing the loop duration misreports progress
+                        // (e.g. a 2s intro against a 30s loop reports ~7% at
+                        // completion). Fall back to `seg_duration` only if a
+                        // planner somehow omitted it, so progress reporting
+                        // degrades gracefully rather than panicking.
+                        let intro_seg_duration = intro_duration_secs.unwrap_or(*seg_duration);
+                        match run_ffmpeg_command(
+                            intro_command,
+                            Some(intro_seg_duration),
+                            i,
+                            total,
+                            &label,
+                            "Motion menu intro compose",
+                            &mut on_progress,
+                        ) {
+                            Ok(output) => {
+                                if !output.is_empty() {
+                                    log_lines.push(output);
+                                }
+                            }
+                            Err(msg) => {
+                                log_lines.push(msg.clone());
+                                on_progress(BuildProgress::job(
+                                    i,
+                                    total,
+                                    label.clone(),
+                                    BuildJobStatus::Failed,
+                                    Some(msg.clone()),
+                                ));
+                                return failure(plan, log_lines, i, msg);
+                            }
                         }
                     }
-                    Err(msg) => {
-                        log_lines.push(msg.clone());
-                        return failure(plan, log_lines, i, msg);
+
+                    log_lines.push(format!("  $ {}", command.join(" ")));
+                    on_progress(BuildProgress::job(
+                        i,
+                        total,
+                        label.clone(),
+                        BuildJobStatus::Running,
+                        None,
+                    ));
+                    match run_ffmpeg_command(
+                        command,
+                        Some(*seg_duration),
+                        i,
+                        total,
+                        &label,
+                        "Motion menu loop compose",
+                        &mut on_progress,
+                    ) {
+                        Ok(output) => {
+                            if !output.is_empty() {
+                                log_lines.push(output);
+                            }
+                        }
+                        Err(msg) => {
+                            log_lines.push(msg.clone());
+                            on_progress(BuildProgress::job(
+                                i,
+                                total,
+                                label,
+                                BuildJobStatus::Failed,
+                                Some(msg.clone()),
+                            ));
+                            return failure(plan, log_lines, i, msg);
+                        }
+                    }
+                } else {
+                    log_lines.push(format!("  $ {}", command.join(" ")));
+                    match run_command(command) {
+                        Ok(output) => {
+                            if !output.is_empty() {
+                                log_lines.push(output);
+                            }
+                        }
+                        Err(msg) => {
+                            log_lines.push(msg.clone());
+                            return failure(plan, log_lines, i, msg);
+                        }
                     }
                 }
             }

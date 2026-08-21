@@ -4,8 +4,9 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: MIT
 
-import type { Menu, SceneNode } from '../../types/project';
+import type { DiscFamily, Menu, SceneNode } from '../../types/project';
 import type { MenuConnectionCounts } from './menuProjectHelpers';
+import { terminologyFor } from '../../format/terminology';
 
 function clampPercent(value: number, minimum: number, maximum: number): number {
 	return Math.min(maximum, Math.max(minimum, Number.isFinite(value) ? value : minimum));
@@ -14,22 +15,16 @@ function clampPercent(value: number, minimum: number, maximum: number): number {
 function getMenuPreviewBlocks(menu: Menu): Array<{ x: number; y: number; width: number }> {
 	const designWidth = menu.authoredDocument?.scene.designSize.width ?? 720;
 	const designHeight = menu.authoredDocument?.scene.designSize.height ?? 480;
-	const authoredButtons = menu.authoredDocument?.scene.nodes
-		.filter((node): node is Extract<SceneNode, { type: 'button' }> => node.type === 'button')
-		.map((button) => ({
-			x: button.x,
-			y: button.y,
-			width: button.width,
-		}));
-	const legacyButtons =
-		authoredButtons ??
-		menu.buttons.map((button) => ({
-			x: button.bounds.x,
-			y: button.bounds.y,
-			width: button.bounds.width,
-		}));
+	const buttons =
+		menu.authoredDocument?.scene.nodes
+			.filter((node): node is Extract<SceneNode, { type: 'button' }> => node.type === 'button')
+			.map((button) => ({
+				x: button.x,
+				y: button.y,
+				width: button.width,
+			})) ?? [];
 
-	return legacyButtons
+	return buttons
 		.slice()
 		.sort((left, right) => left.y - right.y || left.x - right.x)
 		.map((button) => ({
@@ -52,18 +47,23 @@ export function MenuListItem({
 	connectionCounts,
 	isSelected,
 	onSelect,
+	discFamily = 'dvd-video',
 }: {
 	menu: Menu;
 	connectionCounts: MenuConnectionCounts;
 	isSelected: boolean;
 	onSelect: () => void;
+	/** Drives the role badge's wording — see `terminologyFor`. */
+	discFamily?: DiscFamily;
 }) {
 	const previewBlocks = getMenuPreviewBlocks(menu);
 	const buttonCount = previewBlocks.length;
 	const previewBackground = getMenuPreviewBackground(menu);
 	const hasWarning =
 		buttonCount === 0 || (connectionCounts.incoming === 0 && connectionCounts.outgoing === 0);
-	const modeLabel = menu.backgroundMode === 'motion' ? 'Motion' : 'Still';
+	const modeLabel = menu.authoredDocument?.backgroundMode === 'motion' ? 'Motion' : 'Still';
+	const roleLabel =
+		terminologyFor(discFamily).menuRole[menu.authoredDocument?.role ?? 'title-select'];
 
 	return (
 		<div
@@ -96,6 +96,8 @@ export function MenuListItem({
 			<div className="menus__item-info">
 				<div className="menus__item-name">{menu.name}</div>
 				<div className="menus__item-meta">
+					<span className="menus__item-role-badge">{roleLabel}</span>
+					<span className="menus__item-bullet">•</span>
 					<span>
 						{buttonCount} button{buttonCount === 1 ? '' : 's'}
 					</span>

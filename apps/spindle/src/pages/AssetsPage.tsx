@@ -5,6 +5,7 @@
 
 import { useEffect, useState } from 'react';
 import { BaseDirectory, readFile } from '@tauri-apps/plugin-fs';
+import { convertFileSrc } from '@tauri-apps/api/core';
 import { useProjectStore } from '../store/project-store';
 import { NoProjectState } from '../components/NoProjectState';
 import type {
@@ -295,27 +296,12 @@ function AssetThumbnail({ asset, variant }: { asset: Asset; variant: 'row' | 'de
 
 		async function loadThumbnail() {
 			if (isStillImageAsset) {
-				try {
-					const bytes = await readFile(asset.sourcePath);
-					if (cancelled) {
-						return;
-					}
-					const blob = new Blob([bytes], { type: mimeTypeForImageAsset(asset.fileName) });
-					const objectUrl = URL.createObjectURL(blob);
-					revokedUrl = objectUrl;
-					setThumbnailUrl(objectUrl);
-					setLoadFailed(false);
-				} catch (error) {
-					if (!cancelled) {
-						console.warn('[assets] Still-image preview load failed', {
-							assetId: asset.id,
-							sourcePath: asset.sourcePath,
-							error,
-						});
-						setThumbnailUrl(null);
-						setLoadFailed(true);
-					}
-				}
+				// The asset protocol scope is granted per-import/relink at load
+				// time (see `allowAssetScope` in project-store.ts) — reading raw
+				// bytes via the fs plugin here was out of its scope and only
+				// worked by accident for files under the static scope.
+				setThumbnailUrl(convertFileSrc(asset.sourcePath));
+				setLoadFailed(false);
 				return;
 			}
 
@@ -400,14 +386,6 @@ function AssetThumbnail({ asset, variant }: { asset: Asset; variant: 'row' | 'de
 			</div>
 		</div>
 	);
-}
-
-function mimeTypeForImageAsset(fileName: string): string {
-	if (/\.png$/i.test(fileName)) return 'image/png';
-	if (/\.jpe?g$/i.test(fileName)) return 'image/jpeg';
-	if (/\.bmp$/i.test(fileName)) return 'image/bmp';
-	if (/\.tiff?$/i.test(fileName)) return 'image/tiff';
-	return 'application/octet-stream';
 }
 
 function CompatibilityBadge({ compat }: { compat: CompatibilityAssessment | null }) {
