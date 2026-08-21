@@ -825,7 +825,13 @@ function TitleEditor({
 									<option value="AC3">AC3 (Dolby Digital)</option>
 									<option value="LPCM">LPCM</option>
 									<option value="MP2">MP2</option>
-									<option value="DTS">DTS</option>
+									<option
+										value="DTS"
+										disabled={am.copyMode !== 'copy'}
+										title="ffmpeg has no reliable DTS encoder — DTS is only supported as a passthrough of an already-DTS source, not as a re-encode target."
+									>
+										DTS{am.copyMode !== 'copy' ? ' (passthrough only)' : ''}
+									</option>
 								</select>
 								<select
 									className="titles__select"
@@ -844,6 +850,14 @@ function TitleEditor({
 													? {
 															...a,
 															copyMode,
+															// DTS re-encode isn't offered (no reliable ffmpeg
+															// encoder) — switching to Re-encode with DTS still
+															// selected must fall back rather than silently keep
+															// an option the UI no longer lets you pick.
+															outputTarget:
+																copyMode === 're-encode' && a.outputTarget === 'DTS'
+																	? 'AC3'
+																	: a.outputTarget,
 															// Channel layout and bitrate only apply to re-encoded
 															// tracks — clear them so a stale selection doesn't
 															// silently reappear if the user switches back later.

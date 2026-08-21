@@ -135,6 +135,29 @@ pub(super) fn validate_titles(
                         ),
                     });
                 }
+                if mapping.output_target == AudioOutputTarget::Dts {
+                    // Confirmed broken, not merely unsupported in theory:
+                    // ffmpeg's only DTS encoder path corrupts once actually
+                    // muxed through `-f dvd` (see the matching refusal in
+                    // `build::ffmpeg::build_ffmpeg_transcode_command`, which
+                    // this mirrors so the problem surfaces at validation
+                    // time too, not just at build time).
+                    issues.push(ValidationIssue {
+                        severity: IssueSeverity::Error,
+                        code: "audio.dts-reencode-unsupported".to_string(),
+                        message: format!(
+                            "Title \"{}\" re-encodes an audio track to DTS, which this toolchain cannot do reliably.",
+                            title.name
+                        ),
+                        context: Some(title.id.clone()),
+                        entity_type: Some("title".to_string()),
+                        entity_name: Some(title.name.clone()),
+                        suggested_fix: Some(
+                            "ffmpeg has no reliable DTS encoder — its native encoder produces DVD-incompatible output. Switch this track to AC3, or to copy mode if the source is already DTS."
+                                .to_string(),
+                        ),
+                    });
+                }
                 if mapping.output_target != AudioOutputTarget::Lpcm {
                     continue;
                 }
@@ -302,5 +325,84 @@ pub(super) fn validate_titles(
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn project_with_one_dts_title(copy_mode: CopyMode) -> SpindleProjectFile {
+        let mut project = SpindleProjectFile::default();
+        project.disc.titlesets.push(Titleset {
+            id: "titleset-1".to_string(),
+            name: "Main".to_string(),
+            titles: vec![Title {
+                id: "title-1".to_string(),
+                name: "Feature".to_string(),
+                source_asset_id: None,
+                video_mapping: None,
+                video_output_profile: None,
+                audio_mappings: vec![AudioTrackMapping {
+                    id: "audio-1".to_string(),
+                    source_stream_index: 0,
+                    output_target: AudioOutputTarget::Dts,
+                    copy_mode,
+                    label: "English".to_string(),
+                    language: "eng".to_string(),
+                    order_index: 0,
+                    is_default: true,
+                    channel_layout: None,
+                    bitrate_bps: None,
+                }],
+                subtitle_mappings: vec![],
+                chapters: vec![],
+                end_action: None,
+                order_index: 0,
+                bitrate_weight: 1.0,
+                bitrate_floor_bps: None,
+                bitrate_ceiling_bps: None,
+                pinned_bitrate_bps: None,
+            }],
+            menus: vec![],
+        });
+        project
+    }
+
+    #[test]
+    fn validate_titles_flags_dts_reencode_as_an_error() {
+        let project = project_with_one_dts_title(CopyMode::ReEncode);
+        let asset_ids: HashSet<&str> = HashSet::new();
+        let asset_map: HashMap<&str, &Asset> = HashMap::new();
+        let mut issues = Vec::new();
+
+        validate_titles(&project, &asset_ids, &asset_map, &mut issues);
+
+        assert!(
+            issues
+                .iter()
+                .any(|i| i.code == "audio.dts-reencode-unsupported"
+                    && i.severity == IssueSeverity::Error),
+            "expected an error-level audio.dts-reencode-unsupported issue, got: {issues:?}"
+        );
+    }
+
+    #[test]
+    fn validate_titles_does_not_flag_dts_copy_mode() {
+        // A track already delivered as DTS and stream-copied through never
+        // touches ffmpeg's broken encoder — nothing to flag.
+        let project = project_with_one_dts_title(CopyMode::Copy);
+        let asset_ids: HashSet<&str> = HashSet::new();
+        let asset_map: HashMap<&str, &Asset> = HashMap::new();
+        let mut issues = Vec::new();
+
+        validate_titles(&project, &asset_ids, &asset_map, &mut issues);
+
+        assert!(
+            !issues
+                .iter()
+                .any(|i| i.code == "audio.dts-reencode-unsupported"),
+            "copy-mode DTS should not be flagged, got: {issues:?}"
+        );
     }
 }
