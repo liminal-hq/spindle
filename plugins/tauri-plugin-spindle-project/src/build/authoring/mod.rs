@@ -11,11 +11,11 @@ use crate::models::*;
 use super::menu::MenuDomain;
 use super::util::xml_escape;
 
-mod language;
+pub(crate) mod language;
 mod menu;
 #[cfg(test)]
 mod tests;
-mod title;
+pub(crate) mod title;
 
 use menu::{append_menu_section, menu_section_aspect};
 use title::append_titles_section;

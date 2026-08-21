@@ -3,7 +3,7 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: MIT
 
-mod authoring;
+pub(crate) mod authoring;
 mod capacity;
 mod dvd_navigation;
 mod executor;

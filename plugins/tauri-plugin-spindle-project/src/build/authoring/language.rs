@@ -6,7 +6,7 @@
 
 use isolang::Language;
 
-pub(super) fn dvdauthor_language_code(language: &str) -> Option<String> {
+pub(crate) fn dvdauthor_language_code(language: &str) -> Option<String> {
     let normalised = language
         .trim()
         .split(['-', '_'])
