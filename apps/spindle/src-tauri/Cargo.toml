@@ -1,6 +1,6 @@
 [package]
 name = "spindle"
-version = "0.3.0"
+version = "0.4.0"
 description = "Spindle desktop authoring shell"
 authors = ["Liminal HQ, Scott Morris"]
 edition = "2021"
