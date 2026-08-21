@@ -422,13 +422,17 @@ fn assess_dvd_compatibility(
         (fr - 29.97).abs() < 0.1 || (fr - 25.0).abs() < 0.1 || (fr - 23.976).abs() < 0.1
     });
 
-    // Check audio compatibility
+    // Check audio compatibility. Codec name alone isn't sufficient — a
+    // stream can be a legal DVD codec by name and still be over that
+    // codec's DVD-Video bitrate ceiling (e.g. 640 kbps AC-3), which is
+    // equally disqualifying for a remux/stream-copy. See
+    // `audio_bitrate_is_dvd_legal` for the ceiling table.
     let has_dvd_audio = audio_streams.is_empty()
         || audio_streams.iter().any(|a| {
             matches!(
                 a.codec.as_str(),
                 "ac3" | "dts" | "pcm_s16le" | "pcm_s16be" | "mp2" | "lpcm"
-            )
+            ) && audio_bitrate_is_dvd_legal(&a.codec, a.bitrate_bps)
         });
 
     if is_mpeg2 && is_dvd_resolution && is_dvd_framerate && is_mpeg_container && has_dvd_audio {
@@ -437,6 +441,37 @@ fn assess_dvd_compatibility(
         CompatibilityAssessment::TransformCompatible
     } else {
         CompatibilityAssessment::ReEncodeRequired
+    }
+}
+
+/// DVD-Video's per-codec audio bitrate ceiling. `None` for codecs whose
+/// legality isn't a simple ceiling (LPCM depends on channel count/sample
+/// rate/depth, not bitrate directly) or for an already-non-DVD codec, where
+/// this check isn't the gate.
+fn audio_bitrate_ceiling_bps(codec: &str) -> Option<u64> {
+    match codec {
+        "ac3" => Some(448_000),
+        "mp2" => Some(384_000),
+        // DVD-Video's two canonical DTS rates top out at 1509.75 kbps; round
+        // up slightly for encoder/muxer bitrate-field rounding rather than
+        // reject a spec-legal stream on that.
+        "dts" => Some(1_536_000),
+        _ => None,
+    }
+}
+
+/// Whether a stream's bitrate is legal for its codec under DVD-Video, on top
+/// of (not instead of) the codec-name check. A source can be a legal DVD
+/// codec by name and still be too hot to stream-copy — e.g. AC-3 above 448
+/// kbps is a valid AC-3 bitstream, produced by plenty of non-DVD encoders,
+/// but not DVD-legal. An unknown bitrate on a ceiling-bearing codec defaults
+/// to incompatible rather than optimistically assuming it's fine — silently
+/// copying an out-of-spec stream onto the disc is worse than an unnecessary
+/// re-encode.
+fn audio_bitrate_is_dvd_legal(codec: &str, bitrate_bps: Option<u64>) -> bool {
+    match audio_bitrate_ceiling_bps(codec) {
+        Some(ceiling) => bitrate_bps.is_some_and(|bps| bps <= ceiling),
+        None => true,
     }
 }
 
@@ -506,6 +541,34 @@ fn build_compatibility_detail(
                 a.codec.as_str(),
                 "ac3" | "dts" | "pcm_s16le" | "pcm_s16be" | "mp2" | "lpcm"
             );
+            // DVD-Video's per-codec bitrate ceiling — distinct from, and in
+            // addition to, the codec-name check above; see
+            // `audio_bitrate_is_dvd_legal`/`audio_bitrate_ceiling_bps`.
+            let bitrate_check = match audio_bitrate_ceiling_bps(&a.codec) {
+                Some(ceiling) => {
+                    let compatible = audio_bitrate_is_dvd_legal(&a.codec, a.bitrate_bps);
+                    PropertyCheck {
+                        value: a
+                            .bitrate_bps
+                            .map_or("unknown".to_string(), |bps| format!("{}kbps", bps / 1000)),
+                        dvd_requires: format!("at most {}kbps for {}", ceiling / 1000, a.codec),
+                        action: if compatible {
+                            "none".to_string()
+                        } else {
+                            "re-encode".to_string()
+                        },
+                        compatible,
+                    }
+                }
+                None => PropertyCheck {
+                    value: a
+                        .bitrate_bps
+                        .map_or("unknown".to_string(), |bps| format!("{}kbps", bps / 1000)),
+                    dvd_requires: "n/a".to_string(),
+                    action: "none".to_string(),
+                    compatible: true,
+                },
+            };
             AudioStreamCompatibility {
                 stream_index: a.index,
                 codec: PropertyCheck {
@@ -518,6 +581,7 @@ fn build_compatibility_detail(
                     },
                     compatible: is_dvd_audio,
                 },
+                bitrate: bitrate_check,
             }
         })
         .collect();
@@ -714,6 +778,101 @@ mod tests {
     }
 
     #[test]
+    fn audio_bitrate_over_dvd_ceiling_is_incompatible_despite_legal_codec() {
+        // Regression test: 640 kbps is a legal AC-3 bitstream rate (used
+        // outside DVD, e.g. ATSC) but exceeds DVD-Video's 448 kbps AC-3
+        // ceiling — codec-name compatibility alone must not be enough to
+        // greenlight a stream copy.
+        let audio = vec![AudioStreamInfo {
+            index: 0,
+            codec: "ac3".to_string(),
+            channels: 6,
+            sample_rate: 48000,
+            language: Some("eng".to_string()),
+            bitrate_bps: Some(640_000),
+            title: None,
+        }];
+        let detail = build_compatibility_detail(
+            &[],
+            &audio,
+            &None,
+            CompatibilityAssessment::RemuxCompatible,
+        );
+        let ac3 = &detail.audio_streams[0];
+        assert!(ac3.codec.compatible, "ac3 is a legal DVD codec name");
+        assert!(
+            !ac3.bitrate.compatible,
+            "640 kbps exceeds the 448 kbps DVD-Video AC-3 ceiling"
+        );
+    }
+
+    #[test]
+    fn audio_bitrate_within_dvd_ceiling_is_compatible() {
+        let audio = vec![AudioStreamInfo {
+            index: 0,
+            codec: "ac3".to_string(),
+            channels: 2,
+            sample_rate: 48000,
+            language: Some("eng".to_string()),
+            bitrate_bps: Some(192_000),
+            title: None,
+        }];
+        let detail = build_compatibility_detail(
+            &[],
+            &audio,
+            &None,
+            CompatibilityAssessment::RemuxCompatible,
+        );
+        assert!(detail.audio_streams[0].bitrate.compatible);
+    }
+
+    #[test]
+    fn audio_bitrate_unknown_on_ceiling_bearing_codec_defaults_incompatible() {
+        let audio = vec![AudioStreamInfo {
+            index: 0,
+            codec: "dts".to_string(),
+            channels: 6,
+            sample_rate: 48000,
+            language: Some("eng".to_string()),
+            bitrate_bps: None,
+            title: None,
+        }];
+        let detail = build_compatibility_detail(
+            &[],
+            &audio,
+            &None,
+            CompatibilityAssessment::RemuxCompatible,
+        );
+        assert!(
+            !detail.audio_streams[0].bitrate.compatible,
+            "an unknown bitrate on a codec with a real ceiling must not be optimistically assumed compatible"
+        );
+    }
+
+    #[test]
+    fn audio_bitrate_check_is_not_the_gate_for_non_ceiling_codecs() {
+        // LPCM's legality is channel-count/sample-rate/depth driven, not a
+        // simple bitrate ceiling — its bitrate check shouldn't independently
+        // block a copy just because bitrate_bps is unknown or high.
+        let audio = vec![AudioStreamInfo {
+            index: 0,
+            codec: "pcm_s16le".to_string(),
+            channels: 2,
+            sample_rate: 48000,
+            language: Some("eng".to_string()),
+            bitrate_bps: None,
+            title: None,
+        }];
+        let detail = build_compatibility_detail(
+            &[],
+            &audio,
+            &None,
+            CompatibilityAssessment::RemuxCompatible,
+        );
+        assert!(detail.audio_streams[0].bitrate.compatible);
+    }
+
+    #[test]
     fn dvd_compatibility_remux_compatible() {
         let video = vec![VideoStreamInfo {
             index: 0,
@@ -743,6 +902,47 @@ mod tests {
             assess_dvd_compatibility(&video, &audio, &container),
             CompatibilityAssessment::RemuxCompatible
         ));
+    }
+
+    #[test]
+    fn dvd_compatibility_over_ceiling_audio_bitrate_is_not_remux_compatible() {
+        // An otherwise DVD-compatible MPEG-2 asset with a 640 kbps AC-3
+        // track (a legal AC-3 bitstream rate, but over DVD-Video's 448 kbps
+        // AC-3 ceiling) must not be reported RemuxCompatible overall — the
+        // per-stream bitrate check in `build_compatibility_detail` already
+        // flags this stream as needing a re-encode, and the overall
+        // assessment must agree rather than only checking codec name.
+        let video = vec![VideoStreamInfo {
+            index: 0,
+            codec: "mpeg2video".to_string(),
+            width: 720,
+            height: 480,
+            frame_rate: Some(29.97),
+            aspect_ratio: Some("16:9".to_string()),
+            scan_type: Some("interlaced".to_string()),
+            bitrate_bps: Some(6_000_000),
+            title: None,
+            color_transfer: None,
+            color_primaries: None,
+            dolby_vision_profile: None,
+        }];
+        let audio = vec![AudioStreamInfo {
+            index: 1,
+            codec: "ac3".to_string(),
+            channels: 6,
+            sample_rate: 48000,
+            language: Some("eng".to_string()),
+            bitrate_bps: Some(640_000),
+            title: None,
+        }];
+        let container = Some("mpeg".to_string());
+        assert!(
+            !matches!(
+                assess_dvd_compatibility(&video, &audio, &container),
+                CompatibilityAssessment::RemuxCompatible
+            ),
+            "640 kbps AC-3 exceeds the DVD-Video ceiling and must not report RemuxCompatible"
+        );
     }
 
     #[test]

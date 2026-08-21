@@ -181,7 +181,7 @@ pub fn generate_build_plan_with_options(
                 video_info,
                 video_bitrate_bps,
                 two_pass,
-            );
+            )?;
             command[0] = tools.ffmpeg.clone();
 
             let pass1_command = if two_pass {

@@ -3,6 +3,7 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: MIT
 
+use std::collections::HashMap;
 use std::path::Path;
 
 use crate::models::*;
@@ -29,6 +30,7 @@ pub(crate) fn generate_dvdauthor_xml(
         VideoStandard::Ntsc => "ntsc",
         VideoStandard::Pal => "pal",
     };
+    let assets: HashMap<&str, &Asset> = project.assets.iter().map(|a| (a.id.as_str(), a)).collect();
 
     let mut xml = String::new();
 
@@ -113,6 +115,7 @@ pub(crate) fn generate_dvdauthor_xml(
             titleset_index,
             &project.disc,
             titles_dir,
+            &assets,
         )?;
 
         xml.push_str("  </titleset>\n");

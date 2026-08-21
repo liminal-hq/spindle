@@ -1,4 +1,4 @@
-// ISO 639 language code normalisation for dvdauthor subpicture stream
+// ISO 639 language code normalisation for dvdauthor audio/subpicture stream
 // declarations.
 //
 // (c) Copyright 2026 Liminal HQ, Scott Morris
@@ -6,7 +6,7 @@
 
 use isolang::Language;
 
-pub(super) fn dvdauthor_subpicture_language(language: &str) -> Option<String> {
+pub(super) fn dvdauthor_language_code(language: &str) -> Option<String> {
     let normalised = language
         .trim()
         .split(['-', '_'])

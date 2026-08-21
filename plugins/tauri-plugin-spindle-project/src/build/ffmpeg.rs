@@ -32,7 +32,7 @@ pub(crate) fn build_ffmpeg_transcode_command(
     video_info: Option<&VideoStreamInfo>,
     video_bitrate_bps: f64,
     two_pass: bool,
-) -> Vec<String> {
+) -> crate::Result<Vec<String>> {
     let video_bitrate_bps = if video_bitrate_bps > 0.0 {
         video_bitrate_bps.min(MAX_VIDEO_RATE_BPS)
     } else {
@@ -183,14 +183,26 @@ pub(crate) fn build_ffmpeg_transcode_command(
                         ]);
                     }
                     AudioOutputTarget::Dts => {
-                        cmd.extend([
-                            format!("-c:a:{i}"),
-                            "dts".to_string(),
-                            format!("-b:a:{i}"),
-                            bitrate_str(768_000),
-                            format!("-ar:a:{i}"),
-                            "48000".to_string(),
-                        ]);
+                        // Confirmed broken, not merely "quality not
+                        // guaranteed": ffmpeg's native `dca` encoder (only
+                        // reachable with `-strict -2`, since it's marked
+                        // experimental) produces a stream that decodes fine
+                        // in isolation but corrupts once actually muxed
+                        // through the `-f dvd` program-stream muxer — real
+                        // dvdauthor output showed hundreds of "audio sector
+                        // out of range" warnings for a DTS-mapped title, and
+                        // playback silently fell back to a different audio
+                        // stream. DTS is DVD-legal and works fine as a
+                        // stream copy of an already-DTS source (see
+                        // `CopyMode::Copy` above); re-encoding *to* DTS is
+                        // not something this toolchain can do reliably, so
+                        // it's refused here rather than shipped broken.
+                        return Err(crate::Error::Build(format!(
+                            "Cannot re-encode audio track \"{}\" to DTS — ffmpeg has no reliable DTS \
+                             encoder (its native encoder produces DVD-incompatible output). DTS is only \
+                             supported as a stream copy of an already-DTS source; re-encode to AC3 instead.",
+                            am.label
+                        )));
                     }
                 }
                 // Only re-encoded tracks can have their channel layout
@@ -244,7 +256,7 @@ pub(crate) fn build_ffmpeg_transcode_command(
         output_path.display().to_string(),
     ]);
 
-    cmd
+    Ok(cmd)
 }
 
 /// Shared HDR-tonemap / scale-pad-setsar / fps-conform video filter chain
@@ -555,7 +567,7 @@ pub(crate) fn dvd_colour_flags(standard: VideoStandard) -> Vec<String> {
 mod tests {
     use crate::build::generate_build_plan;
     use crate::build::test_support::test_project;
-    use crate::models::{AudioOutputTarget, VideoStandard};
+    use crate::models::{AudioOutputTarget, CopyMode, VideoStandard};
 
     #[test]
     fn ffmpeg_vf_has_scale_and_pad() {
@@ -671,7 +683,8 @@ mod tests {
             None,
             0.0,
             false,
-        );
+        )
+        .unwrap();
 
         let bv_arg = cmd
             .iter()
@@ -706,7 +719,8 @@ mod tests {
             Some(&asset.video_streams[0]),
             5_759_000.0,
             false,
-        );
+        )
+        .unwrap();
 
         let bv_arg = cmd
             .iter()
@@ -756,7 +770,8 @@ mod tests {
             Some(&asset.video_streams[0]),
             5_759_000.0,
             true,
-        );
+        )
+        .unwrap();
 
         assert!(
             !cmd.contains(&"-minrate".to_string()),
@@ -1003,6 +1018,29 @@ mod tests {
         assert!(
             !cmd.iter().any(|a| a.starts_with("-b:a:")),
             "expected no -b:a flag for LPCM regardless of any bitrate override, got: {cmd:?}"
+        );
+    }
+
+    #[test]
+    fn ffmpeg_refuses_to_reencode_audio_to_dts() {
+        // Confirmed broken in practice, not merely undesirable: ffmpeg's
+        // only DTS encoder path (`-c:a dts` behind `-strict -2`, since it's
+        // marked experimental) produces a stream that decodes fine alone
+        // but corrupts once muxed through `-f dvd` — real dvdauthor output
+        // showed hundreds of "audio sector out of range" warnings for a
+        // DTS-mapped title, and playback silently fell back to a different
+        // audio stream. Re-encoding to DTS must be refused outright rather
+        // than shipped broken; DTS stays legal only as a stream copy.
+        let mut project = test_project();
+        project.disc.titlesets[0].titles[0].audio_mappings[0].copy_mode = CopyMode::ReEncode;
+        project.disc.titlesets[0].titles[0].audio_mappings[0].output_target =
+            AudioOutputTarget::Dts;
+
+        let result = generate_build_plan(&project, "/tmp/dvd_output", false);
+
+        assert!(
+            result.is_err(),
+            "expected generate_build_plan to refuse a DTS re-encode mapping, got: {result:?}"
         );
     }
 }

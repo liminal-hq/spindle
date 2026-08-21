@@ -238,7 +238,8 @@ fn execute_build_plan_smoke_runs_two_pass_transcode_sequentially() {
         video_info,
         1_500_000.0,
         true,
-    );
+    )
+    .unwrap();
     command[0] = ffmpeg_bin.to_string_lossy().into_owned();
 
     let plan = BuildPlan {

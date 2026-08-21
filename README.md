@@ -15,7 +15,7 @@ Current DVD authoring capabilities include:
 - menu editing with authored scene documents, layers, still-image composition nodes, and motion menus with intro/loop timing, audio beds, and timeout actions
 - animated button highlights authored as keyframe tracks on a timeline strip and compiled into the disc's subpicture stream
 - semantic interaction graphs and remote-navigation preview simulation
-- asset inspection with embedded metadata title surfacing, compatibility explanations, fix-oriented validation, and still-image imports for menu authoring
+- asset inspection with embedded metadata title surfacing, compatibility explanations (including per-codec DVD-Video audio bitrate ceilings, not just codec-name matching), fix-oriented validation, and still-image imports for menu authoring
 - DVD build planning and execution with diagnostics export and toolchain checks
 - bitmap subtitle muxing plus first-pass text subtitle rendering for DVD authoring
 
