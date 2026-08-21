@@ -9,7 +9,7 @@ use crate::models::*;
 
 use super::super::dvd_navigation::{playback_action_to_dvd_command_in_context, DvdCommandContext};
 use super::super::util::{format_dvd_timestamp, sanitise_filename, xml_escape};
-use super::language::dvdauthor_subpicture_language;
+use super::language::dvdauthor_language_code;
 
 pub(super) fn append_titles_section(
     xml: &mut String,
@@ -24,6 +24,36 @@ pub(super) fn append_titles_section(
     xml.push_str(&format!(
         "      <video format=\"{format_str}\" aspect=\"{aspect_str}\" />\n"
     ));
+
+    // Declare audio streams in our own authored order if any title in this
+    // titleset has audio mappings. Without this, dvdauthor auto-detects
+    // streams from the vob itself, and its inferred physical-track order
+    // does not reliably match the order the streams actually appear in —
+    // confirmed by a mixed AC3+MP2 title where dvdauthor placed the second
+    // (MP2) stream at physical audio 0, silently ignoring which track was
+    // marked default. Explicit declarations pin the order dvdauthor uses.
+    let max_audio = titleset
+        .titles
+        .iter()
+        .map(|t| t.audio_mappings.len())
+        .max()
+        .unwrap_or(0);
+    if max_audio > 0 {
+        for i in 0..max_audio {
+            let mapping = titleset.titles.iter().find_map(|t| t.audio_mappings.get(i));
+            if let Some(am) = mapping {
+                let format = dvdauthor_audio_format(am.output_target);
+                let lang = dvdauthor_language_code(&am.language);
+                let mut attrs = format!(" format=\"{format}\"");
+                if let Some(lang) = lang {
+                    attrs.push_str(&format!(" lang=\"{}\"", xml_escape(&lang)));
+                }
+                xml.push_str(&format!("      <audio{attrs} />\n"));
+            } else {
+                xml.push_str("      <audio />\n");
+            }
+        }
+    }
 
     // Declare subtitle streams if any title in this titleset has subtitle mappings.
     let max_subs = titleset
@@ -40,7 +70,7 @@ pub(super) fn append_titles_section(
                 .titles
                 .iter()
                 .find_map(|t| t.subtitle_mappings.get(i).map(|sm| sm.language.as_str()))
-                .and_then(dvdauthor_subpicture_language);
+                .and_then(dvdauthor_language_code);
             match lang {
                 Some(lang) => xml.push_str(&format!(
                     "      <subpicture lang=\"{}\" />\n",
@@ -118,6 +148,15 @@ fn append_title_pgc(
 
     xml.push_str("      </pgc>\n");
     Ok(())
+}
+
+fn dvdauthor_audio_format(target: AudioOutputTarget) -> &'static str {
+    match target {
+        AudioOutputTarget::Ac3 => "ac3",
+        AudioOutputTarget::Mp2 => "mp2",
+        AudioOutputTarget::Lpcm => "pcm",
+        AudioOutputTarget::Dts => "dts",
+    }
 }
 
 fn expand_title_end_action(

@@ -331,6 +331,49 @@ fn dvdauthor_xml_rejects_mixed_menu_aspects_within_one_section() {
 }
 
 #[test]
+fn dvdauthor_xml_declares_audio_streams_in_authored_order() {
+    // Without explicit <audio> declarations, dvdauthor auto-detects audio
+    // streams from the vob itself, and its inferred physical-track order
+    // does not reliably match the order the streams actually appear in —
+    // observed in practice with a mixed AC3+MP2 title, where dvdauthor
+    // placed the second (MP2) stream at physical audio 0 regardless of
+    // which track was marked default. Declaring the order explicitly is
+    // the fix; this pins that the declared order matches audio_mappings.
+    let mut project = test_project();
+    project.disc.titlesets[0].titles[0]
+        .audio_mappings
+        .push(AudioTrackMapping {
+            id: "am-2".to_string(),
+            source_stream_index: 2,
+            output_target: AudioOutputTarget::Mp2,
+            copy_mode: CopyMode::ReEncode,
+            label: "Commentary".to_string(),
+            language: "eng".to_string(),
+            order_index: 1,
+            is_default: false,
+            channel_layout: None,
+            bitrate_bps: None,
+        });
+
+    let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+
+    let ac3_pos = plan
+        .dvdauthor_xml
+        .find("<audio format=\"ac3\" lang=\"en\" />")
+        .expect("expected an ac3 audio declaration");
+    let mp2_pos = plan
+        .dvdauthor_xml
+        .find("<audio format=\"mp2\" lang=\"en\" />")
+        .expect("expected an mp2 audio declaration");
+    assert!(
+        ac3_pos < mp2_pos,
+        "expected the default (ac3) audio track declared before the \
+         non-default (mp2) track\n{}",
+        plan.dvdauthor_xml
+    );
+}
+
+#[test]
 fn dvdauthor_xml_normalises_subpicture_languages_for_dvdauthor() {
     let mut project = test_project();
     project.assets[0].subtitle_streams.push(SubtitleStreamInfo {
