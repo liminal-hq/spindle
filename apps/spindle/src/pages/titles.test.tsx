@@ -237,5 +237,49 @@ describe('TitlesPage', () => {
 			expect(mapping?.outputTarget).toBe('LPCM');
 			expect(mapping?.bitrateBps).toBeNull();
 		});
+
+		describe('DTS copy falling into re-encode', () => {
+			function buildProjectWithDtsCopyMapping() {
+				const project = buildProjectWithAudioMapping();
+				project.disc.titlesets[0].titles[0].audioMappings[0].outputTarget = 'DTS';
+				project.disc.titlesets[0].titles[0].audioMappings[0].copyMode = 'copy';
+				return project;
+			}
+
+			function selectFeatureTitleAndGetChannelLayoutSelect() {
+				fireEvent.click(screen.getByText('Feature'));
+				const label = screen.getByDisplayValue('English');
+				const row = label.closest('.titles__track-row') as HTMLElement;
+				return within(row).getByTitle(
+					/Selecting a channel layout switches this track to Re-encode/,
+				) as HTMLSelectElement;
+			}
+
+			it('falls back to AC3 when picking a bitrate flips a DTS copy to re-encode', () => {
+				useProjectStore.setState({ project: buildProjectWithDtsCopyMapping() });
+				render(<TitlesPage />);
+
+				const select = selectFeatureTitleAndGetBitrateSelect();
+				fireEvent.change(select, { target: { value: '768000' } });
+
+				const mapping =
+					useProjectStore.getState().project?.disc.titlesets[0].titles[0].audioMappings[0];
+				expect(mapping?.copyMode).toBe('re-encode');
+				expect(mapping?.outputTarget).toBe('AC3');
+			});
+
+			it('falls back to AC3 when picking a channel layout flips a DTS copy to re-encode', () => {
+				useProjectStore.setState({ project: buildProjectWithDtsCopyMapping() });
+				render(<TitlesPage />);
+
+				const select = selectFeatureTitleAndGetChannelLayoutSelect();
+				fireEvent.change(select, { target: { value: '2' } });
+
+				const mapping =
+					useProjectStore.getState().project?.disc.titlesets[0].titles[0].audioMappings[0];
+				expect(mapping?.copyMode).toBe('re-encode');
+				expect(mapping?.outputTarget).toBe('AC3');
+			});
+		});
 	});
 });

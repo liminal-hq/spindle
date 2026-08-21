@@ -893,6 +893,7 @@ function TitleEditor({
 									title="Selecting a channel layout switches this track to Re-encode, since a stream copy can't change channels."
 									onChange={(e) => {
 										const channelLayout = e.target.value === '' ? null : Number(e.target.value);
+										const copyMode = channelLayout !== null ? 're-encode' : am.copyMode;
 										onUpdate({
 											...title,
 											audioMappings: title.audioMappings.map((a) =>
@@ -902,7 +903,14 @@ function TitleEditor({
 															channelLayout,
 															// A stream copy can't change channels — picking a
 															// real layout implies re-encoding.
-															copyMode: channelLayout !== null ? 're-encode' : a.copyMode,
+															copyMode,
+															// DTS re-encode isn't offered — falling into
+															// re-encode from a DTS copy must not silently
+															// keep an option the UI no longer lets you pick.
+															outputTarget:
+																copyMode === 're-encode' && a.outputTarget === 'DTS'
+																	? 'AC3'
+																	: a.outputTarget,
 														}
 													: a,
 											),
@@ -926,6 +934,7 @@ function TitleEditor({
 									}
 									onChange={(e) => {
 										const bitrateBps = e.target.value === '' ? null : Number(e.target.value);
+										const copyMode = bitrateBps !== null ? 're-encode' : am.copyMode;
 										onUpdate({
 											...title,
 											audioMappings: title.audioMappings.map((a) =>
@@ -935,7 +944,14 @@ function TitleEditor({
 															bitrateBps,
 															// A stream copy can't change bitrate — picking a
 															// real value implies re-encoding.
-															copyMode: bitrateBps !== null ? 're-encode' : a.copyMode,
+															copyMode,
+															// DTS re-encode isn't offered — falling into
+															// re-encode from a DTS copy must not silently
+															// keep an option the UI no longer lets you pick.
+															outputTarget:
+																copyMode === 're-encode' && a.outputTarget === 'DTS'
+																	? 'AC3'
+																	: a.outputTarget,
 														}
 													: a,
 											),
