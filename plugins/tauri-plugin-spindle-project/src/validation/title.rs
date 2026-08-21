@@ -339,6 +339,13 @@ pub(super) fn validate_titles(
 /// disagree on the declared codec or language at the same audio slot index,
 /// the authored XML can only match one of them; the rest get silently wrong
 /// metadata. Flag the mismatch instead of authoring it.
+/// `build::ffmpeg`'s `synthesise_silent_audio` gives every title with no
+/// audio mappings at all a silent stream at slot 0, always encoded as AC3.
+/// That title still physically occupies the slot and must be considered
+/// here — skipping it (as if it contributed nothing) would let a mismatch
+/// against a real track at slot 0 go undetected.
+const SYNTHESISED_SILENT_AUDIO_FORMAT: &str = "ac3";
+
 fn validate_titleset_audio_consistency(
     titleset: &Titleset,
     asset_map: &HashMap<&str, &Asset>,
@@ -352,19 +359,31 @@ fn validate_titleset_audio_consistency(
         .unwrap_or(0);
 
     for i in 0..max_audio {
-        let mut first: Option<(&Title, &'static str, Option<String>)> = None;
+        let mut first: Option<(&Title, &'static str, Option<String>, bool)> = None;
 
         for title in &titleset.titles {
-            let Some(am) = title.audio_mappings.get(i) else {
+            let (format, lang, is_real) = if let Some(am) = title.audio_mappings.get(i) {
+                (
+                    declared_audio_format(am, title, asset_map),
+                    dvdauthor_language_code(&am.language),
+                    true,
+                )
+            } else if i == 0 && title.audio_mappings.is_empty() {
+                (SYNTHESISED_SILENT_AUDIO_FORMAT, None, false)
+            } else {
                 continue;
             };
-            let format = declared_audio_format(am, title, asset_map);
-            let lang = dvdauthor_language_code(&am.language);
 
             match &first {
-                None => first = Some((title, format, lang)),
-                Some((first_title, first_format, first_lang)) => {
-                    if format != *first_format || lang != *first_lang {
+                None => first = Some((title, format, lang, is_real)),
+                Some((first_title, first_format, first_lang, first_is_real)) => {
+                    // A synthesised silent track never carries a real
+                    // language declaration, so only compare language when
+                    // both sides actually have one — otherwise every
+                    // silent/real pairing would falsely flag as a language
+                    // mismatch regardless of the real track's language.
+                    let lang_mismatch = is_real && *first_is_real && lang != *first_lang;
+                    if format != *first_format || lang_mismatch {
                         issues.push(ValidationIssue {
                             severity: IssueSeverity::Error,
                             code: "audio.titleset-inconsistent-declaration".to_string(),
@@ -570,6 +589,86 @@ mod tests {
                 .iter()
                 .any(|i| i.code == "audio.titleset-inconsistent-declaration"),
             "matching codec and language should not be flagged, got: {issues:?}"
+        );
+    }
+
+    fn title_with_no_audio(id: &str, name: &str) -> Title {
+        Title {
+            id: id.to_string(),
+            name: name.to_string(),
+            source_asset_id: None,
+            video_mapping: None,
+            video_output_profile: None,
+            audio_mappings: vec![],
+            subtitle_mappings: vec![],
+            chapters: vec![],
+            end_action: None,
+            order_index: 0,
+            bitrate_weight: 1.0,
+            bitrate_floor_bps: None,
+            bitrate_ceiling_bps: None,
+            pinned_bitrate_bps: None,
+        }
+    }
+
+    #[test]
+    fn validate_titles_flags_synthesised_silent_audio_against_a_mismatched_real_codec() {
+        let mut dts_mapping = audio_mapping(AudioOutputTarget::Dts, "eng");
+        dts_mapping.copy_mode = CopyMode::Copy;
+        let mut project = SpindleProjectFile::default();
+        project.disc.titlesets = vec![Titleset {
+            id: "titleset-1".to_string(),
+            name: "Main".to_string(),
+            titles: vec![
+                Title {
+                    audio_mappings: vec![dts_mapping],
+                    ..title_with_no_audio("title-1", "Feature")
+                },
+                title_with_no_audio("title-2", "Silent Cut"),
+            ],
+            menus: vec![],
+        }];
+        let asset_ids: HashSet<&str> = HashSet::new();
+        let asset_map: HashMap<&str, &Asset> = HashMap::new();
+        let mut issues = Vec::new();
+
+        validate_titles(&project, &asset_ids, &asset_map, &mut issues);
+
+        assert!(
+            issues
+                .iter()
+                .any(|i| i.code == "audio.titleset-inconsistent-declaration"
+                    && i.severity == IssueSeverity::Error),
+            "a real DTS track sharing a titleset with a synthesised (AC3) silent track should be flagged, got: {issues:?}"
+        );
+    }
+
+    #[test]
+    fn validate_titles_does_not_flag_synthesised_silent_audio_against_a_matching_ac3_codec() {
+        let mut project = SpindleProjectFile::default();
+        project.disc.titlesets = vec![Titleset {
+            id: "titleset-1".to_string(),
+            name: "Main".to_string(),
+            titles: vec![
+                Title {
+                    audio_mappings: vec![audio_mapping(AudioOutputTarget::Ac3, "eng")],
+                    ..title_with_no_audio("title-1", "Feature")
+                },
+                title_with_no_audio("title-2", "Silent Cut"),
+            ],
+            menus: vec![],
+        }];
+        let asset_ids: HashSet<&str> = HashSet::new();
+        let asset_map: HashMap<&str, &Asset> = HashMap::new();
+        let mut issues = Vec::new();
+
+        validate_titles(&project, &asset_ids, &asset_map, &mut issues);
+
+        assert!(
+            !issues
+                .iter()
+                .any(|i| i.code == "audio.titleset-inconsistent-declaration"),
+            "an AC3 track sharing a slot with a synthesised (also AC3) silent track should not be flagged just because the silent track has no language, got: {issues:?}"
         );
     }
 }
