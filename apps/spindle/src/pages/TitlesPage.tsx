@@ -550,8 +550,14 @@ function TitleEditor({
 				? { sourceStreamIndex: asset.videoStreams[0].index, copyMode: 'copy' as CopyMode }
 				: null;
 
+		// Both dimensions must hold for a legal stream copy: a DVD-legal
+		// codec name at an over-ceiling bitrate (e.g. 640 kbps AC-3) still
+		// needs a re-encode down to a DVD-legal rate.
 		const audioCompatByStream = new Map(
-			asset.compatibilityDetail?.audioStreams.map((c) => [c.streamIndex, c.codec.compatible]) ?? [],
+			asset.compatibilityDetail?.audioStreams.map((c) => [
+				c.streamIndex,
+				c.codec.compatible && c.bitrate.compatible,
+			]) ?? [],
 		);
 		const audioMappings = asset.audioStreams.map((as_, i) => {
 			const compatible = audioCompatByStream.get(as_.index) ?? false;
@@ -1238,7 +1244,10 @@ function isCopyCompatible(asset: Asset | null, mapping: AudioTrackMapping): bool
 	const compat = asset?.compatibilityDetail?.audioStreams.find(
 		(c) => c.streamIndex === mapping.sourceStreamIndex,
 	);
-	return compat?.codec.compatible ?? true;
+	if (!compat) return true;
+	// Both dimensions must hold: a DVD-legal codec at an over-ceiling
+	// bitrate (e.g. 640 kbps AC-3) still isn't legally copyable as-is.
+	return compat.codec.compatible && compat.bitrate.compatible;
 }
 
 function sourceChannelLabel(asset: Asset | null, mapping: AudioTrackMapping): string | null {

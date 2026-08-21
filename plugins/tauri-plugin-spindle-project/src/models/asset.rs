@@ -184,6 +184,26 @@ pub struct VideoCompatibility {
 pub struct AudioStreamCompatibility {
     pub stream_index: u32,
     pub codec: PropertyCheck,
+    /// Separate from `codec`: a stream can be a DVD-legal codec by name and
+    /// still be illegal to stream-copy because its bitrate exceeds what
+    /// DVD-Video allows for that codec (e.g. AC-3 above 448 kbps, a rate the
+    /// AC-3 bitstream format itself permits but the DVD-Video spec does not).
+    /// `#[serde(default)]` so project files saved before this field existed
+    /// deserialise cleanly — this is purely advisory (the UI's copy-vs-
+    /// re-encode default), not consulted by the build pipeline itself, so
+    /// treating pre-existing data as charitably "unknown, assume fine"
+    /// until the asset is next re-inspected is the low-risk default.
+    #[serde(default = "default_unknown_compatible_check")]
+    pub bitrate: PropertyCheck,
+}
+
+fn default_unknown_compatible_check() -> PropertyCheck {
+    PropertyCheck {
+        value: "unknown".to_string(),
+        dvd_requires: "n/a".to_string(),
+        action: "none".to_string(),
+        compatible: true,
+    }
 }
 
 /// Compatibility detail for the container format.

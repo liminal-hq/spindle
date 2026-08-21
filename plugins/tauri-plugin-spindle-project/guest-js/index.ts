@@ -555,6 +555,7 @@ export interface VideoCompatibility {
 export interface AudioStreamCompatibility {
 	streamIndex: number;
 	codec: PropertyCheck;
+	bitrate: PropertyCheck;
 }
 
 export interface ContainerCompatibility {
