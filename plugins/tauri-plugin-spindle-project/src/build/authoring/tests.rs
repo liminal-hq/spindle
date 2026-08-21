@@ -374,6 +374,37 @@ fn dvdauthor_xml_declares_audio_streams_in_authored_order() {
 }
 
 #[test]
+fn dvdauthor_xml_declares_copied_audio_using_the_actual_source_codec() {
+    // A CopyMode::Copy mapping passes the source stream's own bytes through
+    // unchanged (build_ffmpeg_transcode_command emits `-c:a copy`, ignoring
+    // output_target entirely) — but the UI lets output_target and copyMode
+    // be set independently, so a track can end up in copy mode with a
+    // stale output_target left over from before the user switched modes
+    // (e.g. was re-encoding AC3 -> MP2, then switched to copy). Declaring
+    // that stale output_target's format to dvdauthor would tell it a
+    // physical AC3 stream is MP2, which can make dvdauthor reject or
+    // mis-author the stream. The declared format must come from the
+    // source's real codec for copied mappings.
+    let mut project = test_project();
+    project.assets[0].audio_streams[0].codec = "ac3".to_string();
+    project.disc.titlesets[0].titles[0].audio_mappings[0].copy_mode = CopyMode::Copy;
+    project.disc.titlesets[0].titles[0].audio_mappings[0].output_target = AudioOutputTarget::Mp2;
+
+    let plan = generate_build_plan(&project, "/tmp/dvd_output", false).unwrap();
+
+    assert!(
+        plan.dvdauthor_xml.contains("<audio format=\"ac3\" lang=\"en\" />"),
+        "expected the copied stream declared using its real ac3 source codec, not the stale mp2 output_target\n{}",
+        plan.dvdauthor_xml
+    );
+    assert!(
+        !plan.dvdauthor_xml.contains("<audio format=\"mp2\""),
+        "must not declare the stale mp2 output_target for a copy-mode mapping\n{}",
+        plan.dvdauthor_xml
+    );
+}
+
+#[test]
 fn dvdauthor_xml_normalises_subpicture_languages_for_dvdauthor() {
     let mut project = test_project();
     project.assets[0].subtitle_streams.push(SubtitleStreamInfo {
